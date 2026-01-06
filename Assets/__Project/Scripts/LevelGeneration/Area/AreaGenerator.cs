@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using Combat.Controller;
 using Platform;
-using Battlefield;
 using UnityEngine;
+using Zenject;
 
 namespace LevelGeneration
 {
@@ -11,6 +12,7 @@ namespace LevelGeneration
         private readonly PlatformGraphData graph;
         private readonly PerlinNoiseMap noiseMap;
         private readonly AreaGeneratorConfig config;
+        private readonly IFactory<ICombatController> _controllerFactory;
         private readonly Dictionary<int, IPlatform> platforms = new();
         private readonly Dictionary<int, PlatformView> platformViews = new();
         private IPlatform entryPlatform;
@@ -20,10 +22,15 @@ namespace LevelGeneration
         
         public IPlatform EntryPlatform => entryPlatform;
         
-        public AreaGenerator(PlatformGraphData graph, PerlinNoiseMap noiseMap, AreaGeneratorConfig config = null)
+        public AreaGenerator(
+            PlatformGraphData graph, 
+            PerlinNoiseMap noiseMap, 
+            IFactory<ICombatController> controllerFactory,
+            AreaGeneratorConfig config = null)
         {
             this.graph = graph;
             this.noiseMap = noiseMap;
+            _controllerFactory = controllerFactory;
             this.config = config ?? new AreaGeneratorConfig();
         }
         
@@ -112,26 +119,10 @@ namespace LevelGeneration
         {
             // Create platform based on type
             IPlatform platform = node.Type == PlatformType.Combat 
-                ? new CombatPlatform(node.Id)
+                ? new CombatPlatform(node.Id, _controllerFactory)
                 : new SimplePlatform(node.Id);
             
-            // Create visual with position from noise map
-            var visual = new PlatformVisual();
-            Vector2 position2D = CalculatePlatformPosition(node);
-            visual.Position = noiseMap.GetPositionWithHeight(position2D);
-            visual.Size = CalculatePlatformSize(node);
-            visual.TopBoundary = GeneratePlatformBoundary(visual.Size);
-            
-            platform.Initialize(visual);
-            
-            // Initialize battlefield for combat platforms
-            if (platform is CombatPlatform combatPlatform)
-            {
-                var battlefield = new Battlefield.Battlefield();
-                combatPlatform.InitializeBattlefield(battlefield, config.hexCellSize);
-            }
-            
-            // Add content
+            // Add content BEFORE Initialize
             foreach (var contentType in node.ContentTypes)
             {
                 var content = CreateContent(contentType);
@@ -140,6 +131,16 @@ namespace LevelGeneration
                     platform.AddContent(content);
                 }
             }
+            
+            // Create visual with position from noise map
+            var visual = new PlatformVisual();
+            Vector2 position2D = CalculatePlatformPosition(node);
+            visual.Position = noiseMap.GetPositionWithHeight(position2D);
+            visual.Size = CalculatePlatformSize(node);
+            visual.TopBoundary = GeneratePlatformBoundary(visual.Size);
+            
+            // Initialize with visual (will also initialize content)
+            platform.Initialize(visual);
             
             return platform;
         }

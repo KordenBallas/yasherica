@@ -1,8 +1,10 @@
 using UnityEngine;
 using LevelGeneration;
 using Platform;
+using Combat.Controller;
+using Zenject;
 
-public class AreaSceneEntrypoint : MonoBehaviour
+public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
 {
     [Header("Graph Parameters")]
     [Tooltip("Number of platforms (nodes) in the route graph")]
@@ -34,10 +36,6 @@ public class AreaSceneEntrypoint : MonoBehaviour
     public float noiseScale = 0.1f;
     public int noiseOctaves = 4;
     
-    [Header("Battlefield Settings")]
-    [Tooltip("Size of hex cells for combat platforms")]
-    public float hexCellSize = 2f;
-    
     [Header("Character Settings")]
     public Transform characterTransform;
     
@@ -45,8 +43,14 @@ public class AreaSceneEntrypoint : MonoBehaviour
     private AreaView areaView;
     private IPlatform currentPlatform;
     
-    [ContextMenu("Generate Area")]
-    void Start()
+    [Inject]
+    private IFactory<ICombatController> _controllerFactory;
+    
+    /// <summary>
+    /// Called by Zenject after all dependencies have been injected.
+    /// Automatically generates the area on scene start.
+    /// </summary>
+    public void Initialize()
     {
         GenerateArea();
     }
@@ -99,12 +103,11 @@ public class AreaSceneEntrypoint : MonoBehaviour
             gapBetweenPlatforms = gapBetweenPlatforms,
             heightDeviation = heightDeviation,
             platformMaterial = platformMaterial,
-            colorVariation = colorVariation,
-            hexCellSize = hexCellSize
+            colorVariation = colorVariation
         };
         
         // 6. Create area generator
-        areaGenerator = new AreaGenerator(graph, noiseMap, config);
+        areaGenerator = new AreaGenerator(graph, noiseMap, _controllerFactory, config);
         areaGenerator.Generate();
         
         // 7. Set up AreaView

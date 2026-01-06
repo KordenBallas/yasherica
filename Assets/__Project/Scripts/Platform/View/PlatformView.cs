@@ -1,5 +1,4 @@
 using UnityEngine;
-using Battlefield;
 
 namespace Platform
 {
@@ -9,8 +8,6 @@ namespace Platform
         private GameObject platformMeshObject;
         private MeshRenderer meshRenderer;
         private MeshCollider meshCollider;
-        private BattlefieldView battlefieldView;
-        //private Battlefield.BattlefieldView battlefieldView;
         
         private Material platformMaterial;
         private float platformThickness = 1.0f;
@@ -94,81 +91,15 @@ namespace Platform
             // Update visual boundary with the actual generated outline
             platform.Visual.TopBoundary = outline;
             
-            // Re-initialize battlefield for combat platforms (after actual boundary is set)
-            // This is critical because the battlefield was initialized with a simple rectangular boundary,
-            // but now we have the actual jittered outline from the mesh builder
-            if (platform is CombatPlatform combatPlatform)
-            {
-                // Re-initialize battlefield with the actual boundary
-                if (combatPlatform.Battlefield != null)
-                {
-                    Vector3 center = platform.Visual.Position;
-                    float hexSize = combatPlatform.Battlefield.HexSize;
-                    HexOrientation orientation = HexOrientation.Flat; // Default
-                    combatPlatform.Battlefield.Initialize(outline, center, hexSize, orientation);
-                }
-                else
-                {
-                    InitializeCombatPlatformBattlefield(combatPlatform);
-                }
-                
-                // Now create/update the visual representation
-                if (battlefieldView != null)
-                {
-                    // Regenerate if view already exists
-                    battlefieldView.Regenerate();
-                }
-                else
-                {
-                    InitializeBattlefieldView(combatPlatform);
-                }
-            }
-        }
-        
-        private void InitializeCombatPlatformBattlefield(CombatPlatform combatPlatform)
-        {
-            // Battlefield should be initialized by the platform factory or AreaGenerator
-            // If it's not initialized yet, we'll create it here with default hex size
-            if (combatPlatform.Battlefield == null)
-            {
-                // Create battlefield using factory (if available) or directly
-                var battlefield = new Battlefield.Battlefield();
-                combatPlatform.InitializeBattlefield(battlefield, hexSize: 2f); // Default hex size
-            }
-            
-            // Now create the visual representation
-            if (combatPlatform.Battlefield != null)
-            {
-                InitializeBattlefieldView(combatPlatform);
-            }
-        }
-        
-        private void InitializeBattlefieldView(CombatPlatform combatPlatform)
-        {
-            // Create battlefield view GameObject
-            var battlefieldGO = new GameObject("BattlefieldView");
-            battlefieldGO.transform.SetParent(transform);
-            battlefieldGO.transform.localPosition = Vector3.zero;
-            
-            battlefieldView = battlefieldGO.AddComponent<BattlefieldView>();
-            battlefieldView.Initialize(combatPlatform.Battlefield);
-            
-            // Battlefield is enabled by default
-            battlefieldView.SetActive(true);
+            // Note: Battlefield initialization for CombatPlatform is now handled by
+            // CombatPlatformActiveState when the platform is entered.
+            // The Combat system will use the TopBoundary set here.
         }
         
         public void SetActive(bool active)
         {
             // Activate/deactivate the entire platform GameObject
             gameObject.SetActive(active);
-            
-            // Update battlefield visibility based on platform state
-            if (battlefieldView != null && platform is CombatPlatform combatPlatform)
-            {
-                // Show battlefield when platform is active
-                bool isActiveState = combatPlatform.StateMachine.CurrentState is PlatformActiveState;
-                battlefieldView.SetActive(active && isActiveState);
-            }
         }
         
         void OnDestroy()

@@ -1,7 +1,6 @@
 using Zenject;
 using LevelGeneration;
 using Platform;
-using Battlefield;
 
 namespace Core.DI
 {
@@ -16,11 +15,14 @@ namespace Core.DI
             // Factory Registry
             Container.Bind<IPlatformFactoryRegistry>().To<PlatformFactory>().AsSingle();
             
-            // Platform Factories (will be registered in PlatformInstaller)
+            // Platform Factories
             Container.BindFactory<SimplePlatform, SimplePlatform.Factory>();
             Container.BindFactory<CombatPlatform, CombatPlatform.Factory>();
             
-            // Battlefield and Grid Factories (handled in BattlefieldInstaller)
+            // Scene entrypoints - bind to IInitializable so Zenject calls Initialize() after injection
+            Container.BindInterfacesTo<AreaSceneEntrypoint>().FromComponentInHierarchy().AsSingle();
+            
+            // Note: Battlefield bindings are now in CombatInstaller (Combat module internal)
         }
     }
 }

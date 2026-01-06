@@ -657,8 +657,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _scriptableObjectInstallers: []
   _monoInstallers:
-  - {fileID: 1330105413}
   - {fileID: 584990438}
+  - {fileID: 1330105413}
   - {fileID: 1473219565}
   _installerPrefabs: []
   _autoRun: 1
@@ -949,7 +949,7 @@ GameObject:
   - component: {fileID: 1330105414}
   - component: {fileID: 1330105413}
   m_Layer: 0
-  m_Name: BattlefieldInstaller
+  m_Name: CombatInstaller
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -964,7 +964,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1330105412}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: efef54fade0ed3d41aa721ae0fdc9aa1, type: 3}
+  m_Script: {fileID: 11500000, guid: b3cd8476aab806f48b51c7c42247f3a8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!4 &1330105414

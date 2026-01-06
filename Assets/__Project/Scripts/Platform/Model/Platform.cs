@@ -21,9 +21,22 @@ namespace Platform
             StateMachine = new PlatformStateMachine();
         }
         
-        public void Initialize(IPlatformVisual visual)
+        public virtual void Initialize(IPlatformVisual visual)
         {
             Visual = visual;
+            
+            // Initialize all content
+            foreach (var content in contents)
+            {
+                content.Initialize(this);
+            }
+            
+            // Set up state machine (can be overridden)
+            InitializeStateMachine();
+        }
+        
+        protected virtual void InitializeStateMachine()
+        {
             StateMachine.Initialize(this, new PlatformIdleState());
         }
         

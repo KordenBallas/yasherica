@@ -18,10 +18,6 @@ namespace LevelGeneration
         [Header("Appearance")]
         public Material platformMaterial;
         public bool colorVariation = true;
-        
-        [Header("Battlefield")]
-        [Tooltip("Size of hex cells for combat platforms")]
-        public float hexCellSize = 2f;
     }
 }
 

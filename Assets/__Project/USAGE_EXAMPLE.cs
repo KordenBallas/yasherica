@@ -42,7 +42,8 @@ public class AreaGenerationExample : MonoBehaviour
         var noiseMap = new PerlinNoiseMap(seed, noiseScale, noiseOctaves);
         
         // 5. Create area generator
-        areaGenerator = new AreaGenerator(graph, noiseMap);
+        // Note: In production, inject IFactory<ICombatController> via Zenject
+        areaGenerator = new AreaGenerator(graph, noiseMap, null);
         areaGenerator.Generate();
         
         // 6. Set up AreaView
@@ -86,7 +87,8 @@ public class AreaGenerationExample : MonoBehaviour
             .Build();
         
         var noiseMap = new PerlinNoiseMap(seed, noiseScale, noiseOctaves);
-        var areaGen = new AreaGenerator(graph, noiseMap);
+        // Note: In production, inject IFactory<ICombatController> via Zenject
+        var areaGen = new AreaGenerator(graph, noiseMap, null);
         areaGen.Generate();
     }
 }

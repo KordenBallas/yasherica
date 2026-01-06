@@ -1,21 +1,22 @@
 using Zenject;
-using Platform;
-using LevelGeneration;
 
 namespace Core.DI
 {
+    /// <summary>
+    /// Platform installer - currently empty as platform factory bindings
+    /// are handled in GameInstaller to avoid circular dependencies.
+    /// This installer is kept for future platform-specific bindings.
+    /// </summary>
     public class PlatformInstaller : MonoInstaller
     {
         public override void InstallBindings()
         {
-            // Platform factories
-            Container.BindFactory<SimplePlatform, SimplePlatform.Factory>();
-            Container.BindFactory<CombatPlatform, CombatPlatform.Factory>();
-            
-            // Register factories in registry
-            var registry = Container.Resolve<IPlatformFactoryRegistry>();
-            registry.RegisterFactory(PlatformType.Simple, Container.Resolve<SimplePlatform.Factory>());
-            registry.RegisterFactory(PlatformType.Combat, Container.Resolve<CombatPlatform.Factory>());
+            // Platform factory bindings are in GameInstaller
+            // to avoid dependency resolution issues during installation.
+            // 
+            // Note: IPlatformFactoryRegistry is bound but not currently used
+            // by AreaGenerator, which creates platforms directly.
+            // This is intentional to avoid factory abstraction overhead.
         }
     }
 }

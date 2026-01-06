@@ -1,29 +1,49 @@
-using Battlefield;
-using UnityEngine;
+using Combat.Controller;
 using Zenject;
 
 namespace Platform
 {
+    /// <summary>
+    /// Combat platform that creates its own CombatController during initialization.
+    /// All combat logic is encapsulated in CombatPlatformActiveState.
+    /// </summary>
     public class CombatPlatform : Platform
     {
-        public IBattlefield Battlefield { get; private set; }
+        private readonly IFactory<ICombatController> _controllerFactory;
+        private ICombatController _controller;
+        private IPlatformState _combatActiveState;
         
-        public CombatPlatform(int id) : base(id)
+        /// <summary>
+        /// The battlefield instance for this combat platform.
+        /// </summary>
+        public Combat.Battlefield.IBattlefield Battlefield => _controller?.Battlefield;
+        
+        public CombatPlatform(int id, IFactory<ICombatController> controllerFactory) : base(id)
         {
+            _controllerFactory = controllerFactory;
         }
         
-        public void InitializeBattlefield(IBattlefield battlefield, float hexSize = 2f)
+        public override void Initialize(IPlatformVisual visual)
         {
-            Battlefield = battlefield;
+            base.Initialize(visual); // Initialize content first
             
-            // Initialize battlefield based on platform visual boundary
-            if (Visual != null && Visual.TopBoundary != null && Visual.TopBoundary.Count > 0)
-            {
-                Vector3 center = Visual.Position;
-                HexOrientation orientation = HexOrientation.Flat;  // Default, can be configured
-                
-                Battlefield.Initialize(Visual.TopBoundary, center, hexSize, orientation);
-            }
+            // Create combat controller
+            _controller = _controllerFactory.Create();
+            
+            // Create combat-specific active state with controller
+            _combatActiveState = new CombatPlatformActiveState(_controller);
+        }
+        
+        protected override void InitializeStateMachine()
+        {
+            StateMachine.Initialize(this, new PlatformIdleState());
+        }
+        
+        public new void Enter()
+        {
+            // Transition to Combat-specific active state
+            // This state will handle Combat initialization
+            StateMachine.ChangeState(_combatActiveState);
         }
         
         public class Factory : PlaceholderFactory<CombatPlatform>
