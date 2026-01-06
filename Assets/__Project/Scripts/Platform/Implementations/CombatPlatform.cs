@@ -39,12 +39,12 @@ namespace Platform
             StateMachine.Initialize(this, new PlatformIdleState());
         }
         
-        public new void Enter()
-        {
-            // Transition to Combat-specific active state
-            // This state will handle Combat initialization
-            StateMachine.ChangeState(_combatActiveState);
-        }
+    public override void Enter()
+    {
+        // Transition to Combat-specific active state
+        // This state will handle Combat initialization
+        StateMachine.ChangeState(_combatActiveState);
+    }
         
         public class Factory : PlaceholderFactory<CombatPlatform>
         {

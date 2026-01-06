@@ -175,7 +175,7 @@ namespace Character
             {
                 Vector3 landing = ComputeLandingOnNeighbor(next/*, dashDir*/);
                 Teleport(landing);
-                currentPlatform = next;
+                SetCurrentPlatform(next);
                 Debug.Log($"[Dash] Jumped to neighbor platform: {next.Id}, landing={landing}");
                 Debug.DrawRay(transform.position + Vector3.up * 0.5f, dashDir * distToWall, Color.green, 2f);
                 Debug.DrawLine(transform.position, landing, Color.yellow, 2f);

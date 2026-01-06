@@ -40,19 +40,19 @@ namespace Platform
             StateMachine.Initialize(this, new PlatformIdleState());
         }
         
-        public void Enter()
+    public virtual void Enter()
+    {
+        StateMachine.ChangeState(new PlatformActiveState());
+    }
+    
+    public virtual void Exit()
+    {
+        // Return to idle if not completed
+        if (StateMachine.CurrentState is not PlatformCompletedState)
         {
-            StateMachine.ChangeState(new PlatformActiveState());
+            StateMachine.ChangeState(new PlatformIdleState());
         }
-        
-        public void Exit()
-        {
-            // Return to idle if not completed
-            if (StateMachine.CurrentState is not PlatformCompletedState)
-            {
-                StateMachine.ChangeState(new PlatformIdleState());
-            }
-        }
+    }
         
         public void AddNeighbor(IPlatform platform)
         {
