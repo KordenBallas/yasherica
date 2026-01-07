@@ -51,9 +51,10 @@ Platform.Initialize(visual)
 - `Scripts/Platform/Implementations/CombatPlatform.cs`
 
 **Changes:**
-- **Constructor:** Changed from `(int id, IPlatformState combatActiveState)` to `(int id, IFactory<ICombatController> controllerFactory)`
-- **Initialize Override:** Creates CombatController via factory and instantiates CombatPlatformActiveState
+- **Constructor:** Changed from `(int id, IPlatformState combatActiveState)` to `(int id, IFactory<ICombatController> controllerFactory, ICameraService cameraService)`
+- **Initialize Override:** Creates CombatController via factory and instantiates single CombatActiveState with both controller and camera service
 - **Lifecycle Management:** CombatPlatform now owns its controller and state, creating them during initialization
+- **State Merge:** CombatPlatformActiveState and CombatActiveState merged into single CombatActiveState to fix battlefield lifecycle bug
 
 **Old Constructor:**
 ```csharp
@@ -62,7 +63,7 @@ public CombatPlatform(int id, IPlatformState combatActiveState) : base(id)
 
 **New Constructor:**
 ```csharp
-public CombatPlatform(int id, IFactory<ICombatController> controllerFactory) : base(id)
+public CombatPlatform(int id, IFactory<ICombatController> controllerFactory, ICameraService cameraService) : base(id)
 ```
 
 **New Initialize:**
@@ -71,7 +72,7 @@ public override void Initialize(IPlatformVisual visual)
 {
     base.Initialize(visual); // Initialize content first
     _controller = _controllerFactory.Create();
-    _combatActiveState = new CombatPlatformActiveState(_controller);
+    _combatActiveState = new CombatActiveState(_controller, _cameraService);
 }
 ```
 
@@ -119,20 +120,26 @@ CreatePlatformFromNode()
 - EnemyContent validates it's on a CombatPlatform
 - Other content types have placeholder initialization for future expansion
 
-### 8. Cleanup
+### 8. Cleanup & State Merge
 **Files Deleted:**
 - `Scripts/Combat/States/CombatPlatformActiveState.cs` (duplicate)
 - `Scripts/Combat/States/CombatPlatformActiveState.cs.meta`
+- `Scripts/Platform/States/CombatPlatformActiveState.cs` (merged into CombatActiveState)
+- `Scripts/Platform/States/CombatPlatformActiveState.cs.meta`
 
-**Files Fixed:**
-- `Scripts/Platform/States/CombatPlatformActiveState.cs` - Fixed method signatures to match base class
+**Files Modified:**
+- `Scripts/Platform/States/CombatActiveState.cs` - Merged battlefield initialization and camera management
 
 **Changes:**
 - Removed duplicate CombatPlatformActiveState from Combat namespace
-- Fixed method signatures in Platform namespace version:
-  - `OnExit()` → `OnExit(IPlatform platform)`
-  - `OnUpdate()` → `OnUpdate(IPlatform platform)`
-- Single source of truth in `Scripts/Platform/States/CombatPlatformActiveState.cs`
+- Merged CombatPlatformActiveState into CombatActiveState to fix battlefield lifecycle bug
+- CombatActiveState now handles:
+  - Battlefield initialization with platform geometry
+  - BattlefieldView component creation and management
+  - Camera switching to combat view on enter
+  - Cleanup of battlefield and view on exit
+  - Camera switching back to isometric view on exit
+- Eliminates premature state transition that was destroying battlefield immediately after creation
 
 ## Architecture Benefits
 
@@ -161,10 +168,11 @@ CreatePlatformFromNode()
 1. **Platform Creation:** Verify platforms are created with correct IDs
 2. **Content Initialization:** Ensure content.Initialize() is called before platform-specific logic
 3. **CombatPlatform:** Verify controller is created during Initialize
-4. **State Transitions:** Test Enter() transitions to CombatPlatformActiveState
-5. **Battlefield Initialization:** Confirm battlefield is initialized when entering combat platform
-6. **Content Validation:** Test EnemyContent validates CombatPlatform requirement
-7. **Dependency Injection:** Verify all dependencies resolve correctly through Zenject
+4. **State Transitions:** Test Enter() transitions to CombatActiveState (single merged state)
+5. **Battlefield Initialization:** Confirm battlefield is initialized and remains active when entering combat platform
+6. **Battlefield View:** Verify hex grid is displayed correctly without premature cleanup
+7. **Content Validation:** Test EnemyContent validates CombatPlatform requirement
+8. **Dependency Injection:** Verify all dependencies resolve correctly through Zenject
 
 ## Migration Notes
 

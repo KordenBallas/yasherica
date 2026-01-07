@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 0}
-  m_Name: New Landscape Params SO
+  m_Name: Old Landscape Params SO
   m_EditorClassIdentifier: Assembly-CSharp:ProceduralTerrain:LandscapeParamsSO
   seed: 12345
   mapSize: 512

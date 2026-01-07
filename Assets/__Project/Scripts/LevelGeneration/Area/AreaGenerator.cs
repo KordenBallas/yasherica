@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Combat.Controller;
+using Core.Camera;
 using Platform;
 using UnityEngine;
 using Zenject;
@@ -13,6 +14,7 @@ namespace LevelGeneration
         private readonly PerlinNoiseMap noiseMap;
         private readonly AreaGeneratorConfig config;
         private readonly IFactory<ICombatController> _controllerFactory;
+        private readonly ICameraService _cameraService;
         private readonly Dictionary<int, IPlatform> platforms = new();
         private readonly Dictionary<int, PlatformView> platformViews = new();
         private IPlatform entryPlatform;
@@ -26,11 +28,13 @@ namespace LevelGeneration
             PlatformGraphData graph, 
             PerlinNoiseMap noiseMap, 
             IFactory<ICombatController> controllerFactory,
+            ICameraService cameraService,
             AreaGeneratorConfig config = null)
         {
             this.graph = graph;
             this.noiseMap = noiseMap;
             _controllerFactory = controllerFactory;
+            _cameraService = cameraService;
             this.config = config ?? new AreaGeneratorConfig();
         }
         
@@ -119,7 +123,7 @@ namespace LevelGeneration
         {
             // Create platform based on type
             IPlatform platform = node.Type == PlatformType.Combat 
-                ? new CombatPlatform(node.Id, _controllerFactory)
+                ? new CombatPlatform(node.Id, _controllerFactory, _cameraService)
                 : new SimplePlatform(node.Id);
             
             // Add content BEFORE Initialize

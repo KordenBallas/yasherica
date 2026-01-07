@@ -2,6 +2,7 @@ using UnityEngine;
 using LevelGeneration;
 using Platform;
 using Combat.Controller;
+using Core.Camera;
 using Zenject;
 
 public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
@@ -45,6 +46,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     
     [Inject]
     private IFactory<ICombatController> _controllerFactory;
+    [Inject]
+    private ICameraService _cameraService;
     
     /// <summary>
     /// Called by Zenject after all dependencies have been injected.
@@ -107,7 +110,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
         };
         
         // 6. Create area generator
-        areaGenerator = new AreaGenerator(graph, noiseMap, _controllerFactory, config);
+        areaGenerator = new AreaGenerator(graph, noiseMap, _controllerFactory, _cameraService, config);
         areaGenerator.Generate();
         
         // 7. Set up AreaView

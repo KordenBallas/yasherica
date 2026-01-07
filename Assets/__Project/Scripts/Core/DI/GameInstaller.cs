@@ -1,6 +1,7 @@
 using Zenject;
 using LevelGeneration;
 using Platform;
+using Core.Camera;
 
 namespace Core.DI
 {
@@ -18,6 +19,12 @@ namespace Core.DI
             // Platform Factories
             Container.BindFactory<SimplePlatform, SimplePlatform.Factory>();
             Container.BindFactory<CombatPlatform, CombatPlatform.Factory>();
+            
+            // Camera Service
+            Container.Bind<ICameraService>().To<CameraService>().FromComponentInHierarchy().AsSingle();
+            
+            // Camera Configuration from Resources
+            Container.Bind<CameraConfig>().FromResource("CameraConfig").AsSingle();
             
             // Scene entrypoints - bind to IInitializable so Zenject calls Initialize() after injection
             Container.BindInterfacesTo<AreaSceneEntrypoint>().FromComponentInHierarchy().AsSingle();
