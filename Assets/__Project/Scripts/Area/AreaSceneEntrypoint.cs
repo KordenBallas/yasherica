@@ -2,6 +2,10 @@ using UnityEngine;
 using LevelGeneration;
 using Platform;
 using Combat.Controller;
+using Combat.Core;
+using Combat.Player;
+using Combat.Integration;
+using Character;
 using Core.Camera;
 using Zenject;
 
@@ -48,6 +52,18 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     private IFactory<ICombatController> _controllerFactory;
     [Inject]
     private ICameraService _cameraService;
+    [Inject]
+    private IPlayerRegistry _playerRegistry;
+    [Inject]
+    private ICharacterRegistry _characterRegistry;
+    [Inject]
+    private CharacterCombatInitializer _characterInitializer;
+    [Inject]
+    private Combat.Input.IInputController _inputController;
+    [Inject]
+    private DiContainer _container;
+    
+    private IPlayer _localPlayer;
     
     /// <summary>
     /// Called by Zenject after all dependencies have been injected.
@@ -55,6 +71,11 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     /// </summary>
     public void Initialize()
     {
+        // Create and register local player for combat system
+        _localPlayer = new HumanPlayer(id: 1, name: "Player");
+        _playerRegistry.RegisterLocalPlayer(_localPlayer);
+        Debug.Log("[AreaSceneEntrypoint] Created and registered local player");
+        
         GenerateArea();
     }
     
@@ -110,7 +131,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
         };
         
         // 6. Create area generator
-        areaGenerator = new AreaGenerator(graph, noiseMap, _controllerFactory, _cameraService, config);
+        areaGenerator = new AreaGenerator(graph, noiseMap, _controllerFactory, _cameraService, _characterInitializer, _inputController, _playerRegistry, _characterRegistry, config);
         areaGenerator.Generate();
         
         // 7. Set up AreaView
@@ -132,6 +153,15 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             {
                 Debug.LogWarning("[AreaSceneEntrypoint] CharacterTransform does not have CharacterMovementController component.");
             }
+            else
+            {
+                // Manually inject dependencies into scene character object
+                // This is necessary because Zenject doesn't automatically inject into referenced scene objects
+                _container.Inject(characterController);
+                Debug.Log("[AreaSceneEntrypoint] Injected dependencies into CharacterMovementController");
+            }
+            
+            // Character will self-register in CharacterMovementController.Start() after injection
         }
         
         // 9. Set up content spawner

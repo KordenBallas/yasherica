@@ -1,4 +1,8 @@
+using Character;
 using Combat.Controller;
+using Combat.Core;
+using Combat.Integration;
+using Combat.Input;
 using Core.Camera;
 using Zenject;
 
@@ -12,6 +16,10 @@ namespace Platform
     {
         private readonly IFactory<ICombatController> _controllerFactory;
         private readonly ICameraService _cameraService;
+        private readonly CharacterCombatInitializer _characterInitializer;
+        private readonly IInputController _inputController;
+        private readonly IPlayerRegistry _playerRegistry;
+        private readonly ICharacterRegistry _characterRegistry;
         private ICombatController _controller;
         private IPlatformState _combatActiveState;
         
@@ -20,10 +28,21 @@ namespace Platform
         /// </summary>
         public Combat.Battlefield.IBattlefield Battlefield => _controller?.Battlefield;
         
-        public CombatPlatform(int id, IFactory<ICombatController> controllerFactory, ICameraService cameraService) : base(id)
+        public CombatPlatform(
+            int id, 
+            IFactory<ICombatController> controllerFactory, 
+            ICameraService cameraService,
+            CharacterCombatInitializer characterInitializer,
+            IInputController inputController,
+            IPlayerRegistry playerRegistry,
+            ICharacterRegistry characterRegistry) : base(id)
         {
             _controllerFactory = controllerFactory;
             _cameraService = cameraService;
+            _characterInitializer = characterInitializer;
+            _inputController = inputController;
+            _playerRegistry = playerRegistry;
+            _characterRegistry = characterRegistry;
         }
         
         public override void Initialize(IPlatformVisual visual)
@@ -34,7 +53,13 @@ namespace Platform
             _controller = _controllerFactory.Create();
             
             // Create combat active state that handles battlefield initialization and camera management
-            _combatActiveState = new CombatActiveState(_controller, _cameraService);
+            _combatActiveState = new CombatActiveState(
+                _controller, 
+                _cameraService,
+                _characterInitializer,
+                _inputController,
+                _playerRegistry,
+                _characterRegistry);
         }
         
         protected override void InitializeStateMachine()

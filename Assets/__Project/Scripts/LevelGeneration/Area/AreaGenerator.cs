@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
+using Character;
 using Combat.Controller;
+using Combat.Input;
+using Combat.Integration;
+using Combat.Core;
 using Core.Camera;
 using Platform;
 using UnityEngine;
@@ -15,6 +19,10 @@ namespace LevelGeneration
         private readonly AreaGeneratorConfig config;
         private readonly IFactory<ICombatController> _controllerFactory;
         private readonly ICameraService _cameraService;
+        private readonly CharacterCombatInitializer _characterInitializer;
+        private readonly IInputController _inputController;
+        private readonly IPlayerRegistry _playerRegistry;
+        private readonly ICharacterRegistry _characterRegistry;
         private readonly Dictionary<int, IPlatform> platforms = new();
         private readonly Dictionary<int, PlatformView> platformViews = new();
         private IPlatform entryPlatform;
@@ -29,12 +37,20 @@ namespace LevelGeneration
             PerlinNoiseMap noiseMap, 
             IFactory<ICombatController> controllerFactory,
             ICameraService cameraService,
+            CharacterCombatInitializer characterInitializer,
+            IInputController inputController,
+            IPlayerRegistry playerRegistry,
+            ICharacterRegistry characterRegistry,
             AreaGeneratorConfig config = null)
         {
             this.graph = graph;
             this.noiseMap = noiseMap;
             _controllerFactory = controllerFactory;
             _cameraService = cameraService;
+            _characterInitializer = characterInitializer;
+            _inputController = inputController;
+            _playerRegistry = playerRegistry;
+            _characterRegistry = characterRegistry;
             this.config = config ?? new AreaGeneratorConfig();
         }
         
@@ -123,7 +139,7 @@ namespace LevelGeneration
         {
             // Create platform based on type
             IPlatform platform = node.Type == PlatformType.Combat 
-                ? new CombatPlatform(node.Id, _controllerFactory, _cameraService)
+                ? new CombatPlatform(node.Id, _controllerFactory, _cameraService, _characterInitializer, _inputController, _playerRegistry, _characterRegistry)
                 : new SimplePlatform(node.Id);
             
             // Add content BEFORE Initialize

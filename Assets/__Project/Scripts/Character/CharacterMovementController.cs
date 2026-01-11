@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Platform;
 using Core.Events;
+using Zenject;
 
 namespace Character
 {
@@ -31,6 +32,8 @@ namespace Character
     private Vector3 velocity;
 
     private IPlatform currentPlatform;
+    
+    [Inject] private ICharacterRegistry _characterRegistry;
 
     void Awake()
     {
@@ -51,6 +54,17 @@ namespace Character
 
     void Start()
     {
+        // Register with registry first (before any movement logic)
+        if (_characterRegistry != null)
+        {
+            _characterRegistry.RegisterCharacter(transform);
+            Debug.Log("[CharacterMovementController] Self-registered with CharacterRegistry");
+        }
+        else
+        {
+            Debug.LogWarning("[CharacterMovementController] CharacterRegistry not injected - character will not be available for combat");
+        }
+        
         /*currentNode = PlatformGraphRegistry.Instance.GetNearestNode(transform.position);
         if (currentNode != null)
         {
@@ -71,6 +85,16 @@ namespace Character
         else
         {
             Debug.LogWarning("[CharacterMovementController] No platform found near character start position.");
+        }
+    }
+
+    void OnDestroy()
+    {
+        // Unregister when destroyed
+        if (_characterRegistry != null)
+        {
+            _characterRegistry.UnregisterCharacter(transform);
+            Debug.Log("[CharacterMovementController] Unregistered from CharacterRegistry");
         }
     }
 
