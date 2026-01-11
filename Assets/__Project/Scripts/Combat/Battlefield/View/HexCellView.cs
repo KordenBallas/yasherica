@@ -8,6 +8,7 @@ namespace Combat.Battlefield
         private IHexCell cell;
         private LineRenderer lineRenderer;
         private float size = 1f;
+        private Color lastColor;
         
         private static readonly Vector3[] basePoints = new Vector3[]
         {
@@ -31,7 +32,9 @@ namespace Combat.Battlefield
         {
             this.cell = cell;
             this.size = hexSize;
+            this.lastColor = cell.Color; // Initialize cache with current color
             UpdateHex();
+            SetColor(cell.Color); // Apply initial color
         }
         
         public void UpdateHex()
@@ -61,9 +64,20 @@ namespace Combat.Battlefield
         {
             if (cell != null)
             {
-                SetColor(cell.Color);
+                // Only update LineRenderer if color actually changed
+                if (cell.Color != lastColor)
+                {
+                    Debug.Log("[HexCellView] Changing color from " + lastColor + " to " + cell.Color);
+                    SetColor(cell.Color);
+                    lastColor = cell.Color;
+                }
+                //Debug.Log("[HexCellView] Last color is " + lastColor + ", current one is " + cell.Color);
                 gameObject.SetActive(cell.IsActive);
             }
+            /*else
+            {
+                Debug.Log("[HexCellView] No hex cell model is linked to this view");
+            }*/
         }
     }
 }

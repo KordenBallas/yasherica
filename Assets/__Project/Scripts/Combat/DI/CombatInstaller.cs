@@ -86,12 +86,8 @@ namespace Combat.DI
                 .AsSingle();
             
             Container.Bind<CombatEntryAnimator>().AsSingle();
-            
+
             // Services
-            Container.Bind<ICellHighlightService>()
-                .To<CellHighlightService>()
-                .AsSingle();
-            
             Container.Bind<CharacterCombatInitializer>().AsSingle();
             
             // Battlefield bindings (internal to Combat)

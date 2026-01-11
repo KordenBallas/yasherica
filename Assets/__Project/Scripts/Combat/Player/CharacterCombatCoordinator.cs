@@ -19,17 +19,18 @@ namespace Combat.Player
         private CombatMovementInputHandler _inputHandler;
         private CombatMovementPresenter _presenter;
         private CharacterCombatAnimator _animator;
-        
+        private ICellHighlightService _highlightService;
+
         // Global dependencies injected by Zenject
         [Inject] private IInputController _inputController;
-        [Inject] private ICellHighlightService _highlightService;
         [Inject] private ICharacterMovementAnimator _animationStrategy;
         [Inject] private HexDirectionConfig _hexConfig;
-        
+        [Inject] private CombatMovementConfig _movementConfig;
+
         // Platform-scoped dependencies passed manually
         private ICombatController _combatController;
         private IBattlefield _battlefield;
-        
+
         private CharacterCombatComponent _characterUnit;
         
         public void Initialize(
@@ -40,25 +41,28 @@ namespace Combat.Player
             _characterUnit = characterUnit;
             _combatController = combatController;
             _battlefield = battlefield;
-            
+
             Debug.Log($"[CharacterCombatCoordinator] Initializing for unit {_characterUnit.Id}");
-            
+
+            // Create highlight service with battlefield
+            _highlightService = new CellHighlightService(_movementConfig, _battlefield);
+
             // Create handler and presenter
             _inputHandler = new CombatMovementInputHandler(_inputController, _hexConfig);
             _presenter = new CombatMovementPresenter(
-                _combatController, 
-                _battlefield, 
-                _highlightService, 
+                _combatController,
+                _battlefield,
+                _highlightService,
                 _characterUnit);
-            
+
             // Setup animator
             _animator = gameObject.AddComponent<CharacterCombatAnimator>();
             _animator.Initialize(
-                _animationStrategy, 
-                _battlefield, 
-                _combatController, 
+                _animationStrategy,
+                _battlefield,
+                _combatController,
                 _characterUnit.Id);
-            
+
             Debug.Log("[CharacterCombatCoordinator] Initialization complete");
         }
         

@@ -132,8 +132,8 @@ namespace Combat.Battlefield
                 var hexCellView = hexGO.GetComponent<HexCellView>();
                 if (hexCellView != null)
                 {
+                    cell.Color = defaultCellColor; // Set color on model (single source of truth)
                     hexCellView.Initialize(cell, hexSize);
-                    hexCellView.SetColor(defaultCellColor);
                     Debug.Log($"[BattlefieldView] Initialized HexCellView with size: {hexSize}");
                 }
                 else

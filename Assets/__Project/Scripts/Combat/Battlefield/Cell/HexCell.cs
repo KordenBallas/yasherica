@@ -9,11 +9,11 @@ namespace Combat.Battlefield
         public Color Color { get; set; }
         public bool IsActive { get; set; }
         
-        public HexCell(HexCoordinates coordinates, Vector3 worldPosition)
+        public HexCell(HexCoordinates coordinates, Vector3 worldPosition, Color? initialColor = null)
         {
             Coordinates = coordinates;
             WorldPosition = worldPosition;
-            Color = Color.white;
+            Color = initialColor ?? Color.white;
             IsActive = true;
         }
     }
