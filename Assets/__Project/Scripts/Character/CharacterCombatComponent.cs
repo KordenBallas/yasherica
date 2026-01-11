@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Combat.Battlefield;
+using Combat.Controller;
 using Combat.Core;
 using UnityEngine;
 
@@ -9,10 +10,12 @@ namespace Character
     /// MonoBehaviour that integrates character GameObject with combat system.
     /// Implements IUnit interface by wrapping an internal Unit instance.
     /// Follows composition over inheritance pattern.
+    /// Subscribes to CombatState changes to stay synchronized.
     /// </summary>
     public class CharacterCombatComponent : MonoBehaviour, IUnit
     {
         private Unit _internalUnit;
+        private ICombatController _combatController;
         
         // IUnitIdentity
         public int Id => _internalUnit?.Id ?? -1;
@@ -38,14 +41,17 @@ namespace Character
         
         /// <summary>
         /// Initializes the character for combat.
-        /// Creates internal Unit instance with basic stats.
+        /// Creates internal Unit instance with basic stats and subscribes to state changes.
         /// </summary>
         public void InitializeForCombat(
             int unitId,
-            IPlayer owner, 
+            IPlayer owner,
             HexCoordinates startPosition,
+            ICombatController combatController,
             int maxHP = 100)
         {
+            _combatController = combatController;
+
             // Create internal unit with basic combat stats
             var emptyAbilities = new List<IAbilityInstance>();
             _internalUnit = new Unit(
@@ -55,36 +61,68 @@ namespace Character
                 currentHP: maxHP,
                 maxHP: maxHP,
                 abilities: emptyAbilities);
-            
+
+            // Subscribe to state changes for synchronization
+            _combatController.OnStateChanged += OnCombatStateChanged;
+
             Debug.Log($"[CharacterCombatComponent] Initialized for combat: ID={unitId}, Position={startPosition}, Owner={owner.Name}");
+            Debug.Log($"[CharacterCombatComponent] Subscribed to OnStateChanged");
         }
         
         /// <summary>
-        /// Updates internal state from authoritative combat state.
-        /// Called when CombatState changes.
+        /// Synchronizes internal state when CombatState changes.
+        /// Called automatically via OnStateChanged event subscription.
         /// </summary>
-        public void UpdateFromCombatState(IUnit updatedUnit)
+        private void OnCombatStateChanged(ICombatState newState)
         {
             if (_internalUnit == null)
             {
-                Debug.LogError($"[CharacterCombatComponent] Cannot update: not initialized");
-                return;
+                return; // Not initialized yet
             }
-            
-            if (updatedUnit.Id != _internalUnit.Id)
+
+            // Get updated unit from new state
+            var updatedUnit = newState.GetUnit(_internalUnit.Id);
+
+            if (updatedUnit == null)
             {
-                Debug.LogError($"[CharacterCombatComponent] Trying to update with wrong unit ID: expected {_internalUnit.Id}, got {updatedUnit.Id}");
+                Debug.LogWarning($"[CharacterCombatComponent] Unit {_internalUnit.Id} not found in updated state");
                 return;
             }
-            
-            _internalUnit = updatedUnit as Unit;
-            Debug.Log($"[CharacterCombatComponent] Updated from combat state: Position={Position}, HP={CurrentHP}/{MaxHP}");
+
+            // Update internal reference (cast is safe - CombatState only stores Unit)
+            var newUnit = updatedUnit as Unit;
+            if (newUnit == null)
+            {
+                Debug.LogError($"[CharacterCombatComponent] State contains non-Unit IUnit: {updatedUnit.GetType().Name}");
+                return;
+            }
+
+            _internalUnit = newUnit;
+            Debug.Log($"[CharacterCombatComponent] Synchronized: Position={Position}, HP={CurrentHP}/{MaxHP}");
         }
+
+        /// <summary>
+        /// Provides access to the internal Unit for registration with CombatState.
+        /// Used during initialization to add the pure C# Unit to CombatState.
+        /// </summary>
+        public IUnit InternalUnit => _internalUnit;
         
         // IUnitCombatant methods
         public IAbilityInstance GetAbility(int abilityId) => _internalUnit?.GetAbility(abilityId);
         public IReadOnlyList<IAbilityInstance> GetAvailableAbilities() => _internalUnit?.GetAvailableAbilities() ?? new List<IAbilityInstance>();
         public bool CanScheduleAbility() => _internalUnit?.CanScheduleAbility() ?? false;
         public bool CanMove() => _internalUnit?.CanMove() ?? false;
+
+        /// <summary>
+        /// Cleanup - unsubscribe from events to prevent memory leaks.
+        /// </summary>
+        private void OnDestroy()
+        {
+            if (_combatController != null)
+            {
+                _combatController.OnStateChanged -= OnCombatStateChanged;
+                Debug.Log("[CharacterCombatComponent] Unsubscribed from OnStateChanged");
+            }
+        }
     }
 }

@@ -1,5 +1,6 @@
 using Combat.Core;
 using System.Linq;
+using UnityEngine;
 
 namespace Combat.Execution
 {
@@ -38,6 +39,11 @@ namespace Combat.Execution
             if (action.EndsTurn)
             {
                 var unit = newState.GetUnit(action.UnitId);
+                if (unit == null)
+                {
+                    Debug.LogError($"[ActionExecutor] Cannot set HasActedThisTurn: Unit {action.UnitId} not found in state after executing {action.Type}");
+                    return ActionResult.Successful(newState);
+                }
                 var updatedUnit = (unit as Unit).WithActedThisTurn(true);
                 newState = (newState as CombatState).WithUpdatedUnit(updatedUnit);
             }
@@ -48,6 +54,11 @@ namespace Combat.Execution
         private ICombatState ExecuteMove(ICombatState gameState, MoveAction action)
         {
             var unit = gameState.GetUnit(action.UnitId);
+            if (unit == null)
+            {
+                Debug.LogError($"[ActionExecutor] Cannot execute MoveAction: Unit {action.UnitId} not found in combat state. Action: Move to {action.TargetPosition}");
+                return gameState;
+            }
             var updatedUnit = (unit as Unit).WithPosition(action.TargetPosition);
             return (gameState as CombatState).WithUpdatedUnit(updatedUnit);
         }
@@ -55,6 +66,11 @@ namespace Combat.Execution
         private ICombatState ExecuteScheduleAbility(ICombatState gameState, ScheduleAbilityAction action)
         {
             var unit = gameState.GetUnit(action.UnitId);
+            if (unit == null)
+            {
+                Debug.LogError($"[ActionExecutor] Cannot execute ScheduleAbilityAction: Unit {action.UnitId} not found in combat state. Ability ID: {action.AbilityId}");
+                return gameState;
+            }
             var abilityInstance = unit.GetAbility(action.AbilityId);
             
             if (abilityInstance == null)
@@ -76,6 +92,11 @@ namespace Combat.Execution
         private ICombatState ExecuteAbilityQueue(ICombatState gameState, ExecuteAbilityQueueAction action)
         {
             var unit = gameState.GetUnit(action.UnitId);
+            if (unit == null)
+            {
+                Debug.LogError($"[ActionExecutor] Cannot execute ExecuteAbilityQueueAction: Unit {action.UnitId} not found in combat state");
+                return gameState;
+            }
             var newState = gameState;
             
             // Execute all abilities in order
@@ -86,6 +107,11 @@ namespace Combat.Execution
             
             // Reset cooldowns for executed abilities
             var updatedUnit = newState.GetUnit(action.UnitId) as Unit;
+            if (updatedUnit == null)
+            {
+                Debug.LogError($"[ActionExecutor] Cannot update cooldowns: Unit {action.UnitId} not found in state after ability execution");
+                return newState;
+            }
             var newAbilities = updatedUnit.Abilities.Select(a =>
             {
                 // If ability was in queue, reset its cooldown
@@ -107,6 +133,11 @@ namespace Combat.Execution
         private ICombatState ExecuteReorderAbilities(ICombatState gameState, ReorderAbilitiesAction action)
         {
             var unit = gameState.GetUnit(action.UnitId);
+            if (unit == null)
+            {
+                Debug.LogError($"[ActionExecutor] Cannot execute ReorderAbilitiesAction: Unit {action.UnitId} not found in combat state");
+                return gameState;
+            }
             
             // Reorder queue based on new indices
             var newQueue = action.NewOrder
@@ -124,6 +155,11 @@ namespace Combat.Execution
         private ICombatState ExecuteRetargetAbility(ICombatState gameState, RetargetAbilityAction action)
         {
             var unit = gameState.GetUnit(action.UnitId);
+            if (unit == null)
+            {
+                Debug.LogError($"[ActionExecutor] Cannot execute RetargetAbilityAction: Unit {action.UnitId} not found in combat state. Ability index: {action.AbilityIndexInQueue}");
+                return gameState;
+            }
             
             // Update target for specified ability
             var newQueue = unit.AbilityQueue

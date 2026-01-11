@@ -68,6 +68,43 @@ namespace Combat.Controller
             OnStateChanged?.Invoke(_gameState);
         }
         
+        public void AddUnit(IUnit unit)
+        {
+            if (unit == null)
+            {
+                Debug.LogWarning("[CombatController] Cannot add null unit to combat state");
+                return;
+            }
+
+            // Validate that it's actually a Unit instance (prevent architectural violations)
+            if (!(unit is Unit))
+            {
+                Debug.LogError($"[CombatController] CombatState can only contain Unit instances. " +
+                              $"Received: {unit.GetType().Name}. " +
+                              $"MonoBehaviour adapters should add their internal Unit, not themselves.");
+                return;
+            }
+
+            // Check if unit with same ID already exists
+            var existingUnit = _gameState.GetUnit(unit.Id);
+            if (existingUnit != null)
+            {
+                Debug.LogWarning($"[CombatController] Unit with ID {unit.Id} already exists in combat state. Skipping add.");
+                return;
+            }
+            
+            // Create new units list with existing units plus the new unit
+            var newUnits = new List<IUnit>(_gameState.Units) { unit };
+            
+            // Create new immutable state with updated units
+            _gameState = (_gameState as CombatState).WithUnits(newUnits);
+            
+            Debug.Log($"[CombatController] Added unit {unit.Id} (Owner: {unit.Owner?.Name ?? "null"}, Position: {unit.Position}) to combat state");
+            
+            // Trigger state change event
+            OnStateChanged?.Invoke(_gameState);
+        }
+        
         public ActionResult ProcessAction(IAction action)
         {
             // Validate action

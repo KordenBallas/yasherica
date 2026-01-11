@@ -74,13 +74,13 @@ namespace Combat.Integration
             
             // Initialize component
             int unitId = GenerateUnitId();
-            combatComponent.InitializeForCombat(unitId, player, startCell);
-            
-            // Add to combat state
-            // Note: This requires ICombatController to expose a method to add units
-            // For now, we'll log this as a design gap
+            combatComponent.InitializeForCombat(unitId, player, startCell, combatController);
+
             Debug.Log($"[CharacterCombatInitializer] Character initialized: ID={unitId}, Cell={startCell}");
-            Debug.LogWarning("[CharacterCombatInitializer] TODO: Add unit to combat state (requires ICombatController.AddUnit method)");
+
+            // Add internal Unit to combat state (NOT the MonoBehaviour component)
+            combatController.AddUnit(combatComponent.InternalUnit);
+            Debug.Log($"[CharacterCombatInitializer] Added internal Unit (not component) to combat state");
             
             // Disable CharacterMovementController
             var movementController = character.GetComponent<CharacterMovementController>();

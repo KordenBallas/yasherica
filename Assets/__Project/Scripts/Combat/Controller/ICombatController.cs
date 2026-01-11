@@ -31,6 +31,11 @@ namespace Combat.Controller
         void Initialize(ICombatState initialState, System.Collections.Generic.IReadOnlyList<IPlayer> players);
         
         /// <summary>
+        /// Adds a unit to the combat state.
+        /// </summary>
+        void AddUnit(IUnit unit);
+        
+        /// <summary>
         /// Processes a player action.
         /// </summary>
         Execution.ActionResult ProcessAction(IAction action);
