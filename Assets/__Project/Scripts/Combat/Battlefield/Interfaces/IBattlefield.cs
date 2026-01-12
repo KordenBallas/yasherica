@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Combat.Config;
 using UnityEngine;
 
 namespace Combat.Battlefield
@@ -9,12 +10,12 @@ namespace Combat.Battlefield
         float HexSize { get; }
         Vector3 Center { get; }
         IHexGrid Grid { get; } // Expose grid for accessing GetCellPosition
-        
-        void Initialize(List<Vector3> boundary, Vector3 center, float hexSize, HexOrientation orientation);
+
+        void Initialize(List<Vector3> boundary, Vector3 center, float hexSize, HexOrientation orientation, HexDirectionConfig hexConfig);
         void Activate();
         void Deactivate();
         void Clear();
-        
+
         // Grid access through Battlefield interface (encapsulated)
         IHexCell GetCellAt(HexCoordinates coordinates);
         IReadOnlyList<IHexCell> GetCellsInRange(HexCoordinates center, int range);
@@ -22,6 +23,9 @@ namespace Combat.Battlefield
         Vector3 HexToWorld(HexCoordinates hex);
         HexCoordinates WorldToHex(Vector3 world);
         bool IsCellInBoundary(HexCoordinates hex);
+
+        // Cell selection methods
+        IReadOnlyList<IHexCell> GetCellsBySelection(CellSelectionType selectionType, CellSelectionParams parameters);
     }
 }
 

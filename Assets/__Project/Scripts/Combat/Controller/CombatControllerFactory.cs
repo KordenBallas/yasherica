@@ -19,7 +19,8 @@ namespace Combat.Controller
         private readonly IDamageSystem _damageSystem;
         private readonly BattlefieldFactory _battlefieldFactory;
         private readonly CombatConfig _config;
-        
+        private readonly HexDirectionConfig _hexConfig;
+
         [Inject]
         public CombatControllerFactory(
             IActionValidator actionValidator,
@@ -27,7 +28,8 @@ namespace Combat.Controller
             ITurnManager turnManager,
             IDamageSystem damageSystem,
             BattlefieldFactory battlefieldFactory,
-            CombatConfig config)
+            CombatConfig config,
+            HexDirectionConfig hexConfig)
         {
             _actionValidator = actionValidator;
             _actionExecutor = actionExecutor;
@@ -35,8 +37,9 @@ namespace Combat.Controller
             _damageSystem = damageSystem;
             _battlefieldFactory = battlefieldFactory;
             _config = config;
+            _hexConfig = hexConfig;
         }
-        
+
         public ICombatController Create()
         {
             return new CombatController(
@@ -45,7 +48,8 @@ namespace Combat.Controller
                 _turnManager,
                 _damageSystem,
                 _battlefieldFactory,
-                _config);
+                _config,
+                _hexConfig);
         }
     }
 }

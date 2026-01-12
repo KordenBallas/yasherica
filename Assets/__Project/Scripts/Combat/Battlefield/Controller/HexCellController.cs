@@ -1,6 +1,5 @@
 using Combat.Config;
 using Combat.Core;
-using Combat.View;
 using UnityEngine;
 
 namespace Combat.Battlefield

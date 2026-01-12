@@ -1,7 +1,7 @@
+using System.Collections.Generic;
 using Combat.Battlefield;
 using Combat.Controller;
 using Combat.Core;
-using Combat.View;
 using UnityEngine;
 
 namespace Combat.Player
@@ -15,20 +15,21 @@ namespace Combat.Player
     {
         private readonly ICombatController _combatController;
         private readonly IBattlefield _battlefield;
-        private readonly ICellHighlightService _highlightService;
+        private readonly HexCellController _cellController;
         private readonly IUnitPosition _playerUnit;
-        
+
         private HexCoordinates? _hoveredCell;
-        
+        private readonly HashSet<HexCoordinates> _highlightedCells = new();
+
         public CombatMovementPresenter(
             ICombatController combatController,
             IBattlefield battlefield,
-            ICellHighlightService highlightService,
+            HexCellController cellController,
             IUnitPosition playerUnit)
         {
             _combatController = combatController;
             _battlefield = battlefield;
-            _highlightService = highlightService;
+            _cellController = cellController;
             _playerUnit = playerUnit;
         }
         
@@ -37,22 +38,34 @@ namespace Combat.Player
         /// </summary>
         public void UpdateHighlight(HexCoordinates? targetCell)
         {
-            // Clear previous highlight
-            if (_hoveredCell.HasValue)
-                _highlightService.ClearHighlight();
-            
+            // Clear all previous highlights
+            ClearAllHighlights();
+
             // Highlight new cell
             if (targetCell.HasValue)
             {
                 bool isValid = IsValidMove(targetCell.Value);
                 var highlightType = isValid ? HighlightType.Hovered : HighlightType.InvalidMove;
-                _highlightService.HighlightCell(targetCell.Value, highlightType);
+                _cellController.HighlightCell(targetCell.Value, highlightType);
+                _highlightedCells.Add(targetCell.Value);
                 _hoveredCell = targetCell;
             }
             else
             {
                 _hoveredCell = null;
             }
+        }
+
+        /// <summary>
+        /// Clears all highlighted cells.
+        /// </summary>
+        private void ClearAllHighlights()
+        {
+            foreach (var coords in _highlightedCells)
+            {
+                _cellController.ClearHighlight(coords);
+            }
+            _highlightedCells.Clear();
         }
         
         /// <summary>

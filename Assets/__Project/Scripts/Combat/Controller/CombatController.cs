@@ -21,26 +21,28 @@ namespace Combat.Controller
         private readonly IDamageSystem _damageSystem;
         private readonly BattlefieldFactory _battlefieldFactory;
         private readonly CombatConfig _config;
+        private readonly HexDirectionConfig _hexConfig;
         private readonly List<IWinCondition> _winConditions;
-        
+
         private ICombatState _gameState;
         private IBattlefield _battlefield;
-        
+
         public ICombatState CombatState => _gameState;
         public ITurnManager TurnManager => _turnManager;
         public IBattlefield Battlefield => _battlefield;
-        
+
         public event System.Action<ICombatState> OnStateChanged;
         public event System.Action<IPlayer> OnTurnStarted;
         public event System.Action<IPlayer, CombatPhase> OnGameEnded;
-        
+
         public CombatController(
             IActionValidator actionValidator,
             IActionExecutor actionExecutor,
             ITurnManager turnManager,
             IDamageSystem damageSystem,
             BattlefieldFactory battlefieldFactory,
-            CombatConfig config)
+            CombatConfig config,
+            HexDirectionConfig hexConfig)
         {
             _actionValidator = actionValidator;
             _actionExecutor = actionExecutor;
@@ -48,6 +50,7 @@ namespace Combat.Controller
             _damageSystem = damageSystem;
             _battlefieldFactory = battlefieldFactory;
             _config = config;
+            _hexConfig = hexConfig;
             _winConditions = new List<IWinCondition>();
         }
         
@@ -276,10 +279,11 @@ namespace Combat.Controller
         {
             _battlefield = _battlefieldFactory.Create();
             _battlefield.Initialize(
-                boundary, 
-                center, 
-                _config.HexCellSize, 
-                _config.HexOrientation);
+                boundary,
+                center,
+                _config.HexCellSize,
+                _config.HexOrientation,
+                _hexConfig);
             _battlefield.Activate();
         }
         

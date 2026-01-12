@@ -4,7 +4,6 @@ using Combat.Battlefield;
 using Combat.Config;
 using Combat.Controller;
 using Combat.Input;
-using Combat.View;
 using UnityEngine;
 using Zenject;
 
@@ -19,7 +18,7 @@ namespace Combat.Player
         private CombatMovementInputHandler _inputHandler;
         private CombatMovementPresenter _presenter;
         private CharacterCombatAnimator _animator;
-        private ICellHighlightService _highlightService;
+        private HexCellController _cellController;
 
         // Global dependencies injected by Zenject
         [Inject] private IInputController _inputController;
@@ -45,17 +44,14 @@ namespace Combat.Player
             Debug.Log($"[CharacterCombatCoordinator] Initializing for unit {_characterUnit.Id}");
 
             // Create cell controller (manages cell state transitions)
-            var cellController = new HexCellController(_battlefield, _movementConfig);
-
-            // Create highlight service with cell controller
-            _highlightService = new CellHighlightService(cellController);
+            _cellController = new HexCellController(_battlefield, _movementConfig);
 
             // Create handler and presenter
             _inputHandler = new CombatMovementInputHandler(_inputController, _hexConfig);
             _presenter = new CombatMovementPresenter(
                 _combatController,
                 _battlefield,
-                _highlightService,
+                _cellController,
                 _characterUnit);
 
             // Setup animator

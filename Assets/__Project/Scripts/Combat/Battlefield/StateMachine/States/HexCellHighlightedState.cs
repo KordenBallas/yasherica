@@ -1,4 +1,3 @@
-using Combat.View;
 using UnityEngine;
 
 namespace Combat.Battlefield
