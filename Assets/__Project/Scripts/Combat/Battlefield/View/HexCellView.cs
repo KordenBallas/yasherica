@@ -2,13 +2,19 @@ using UnityEngine;
 
 namespace Combat.Battlefield
 {
+    /// <summary>
+    /// View component for hexagonal cells.
+    /// Uses LineRenderer to display cell outline.
+    /// Subscribes to state change events for reactive updates.
+    /// NO business logic - pure visualization.
+    /// </summary>
     [RequireComponent(typeof(LineRenderer))]
     public class HexCellView : MonoBehaviour
     {
         private IHexCell cell;
         private LineRenderer lineRenderer;
         private float size = 1f;
-        private Color lastColor;
+        private MaterialPropertyBlock materialPropertyBlock;
         
         private static readonly Vector3[] basePoints = new Vector3[]
         {
@@ -26,15 +32,50 @@ namespace Combat.Battlefield
             lineRenderer = GetComponent<LineRenderer>();
             lineRenderer.useWorldSpace = false;
             lineRenderer.positionCount = basePoints.Length;
+
+            // Initialize MaterialPropertyBlock for per-instance color changes
+            materialPropertyBlock = new MaterialPropertyBlock();
         }
-        
+
         public void Initialize(IHexCell cell, float hexSize)
         {
+            // Unsubscribe from old cell if exists
+            if (this.cell != null)
+            {
+                this.cell.OnStateChanged -= OnCellStateChanged;
+            }
+
             this.cell = cell;
             this.size = hexSize;
-            this.lastColor = cell.Color; // Initialize cache with current color
+
+            // Subscribe to state changes
+            cell.OnStateChanged += OnCellStateChanged;
+
             UpdateHex();
-            SetColor(cell.Color); // Apply initial color
+
+            // Apply initial state
+            if (cell.StateMachine?.CurrentState != null)
+            {
+                OnCellStateChanged(cell.StateMachine.CurrentState);
+            }
+        }
+
+        /// <summary>
+        /// Event handler called when the cell's state changes.
+        /// Updates the visual representation based on the new state.
+        /// </summary>
+        private void OnCellStateChanged(IHexCellState newState)
+        {
+            if (newState == null) return;
+
+            // Update color based on new state
+            Color newColor = newState.GetColor();
+            SetColor(newColor);
+
+            // Update active state
+            gameObject.SetActive(cell.IsActive);
+
+            Debug.Log($"[HexCellView] Cell {cell.Coordinates} state changed, applying color {newColor}");
         }
         
         public void UpdateHex()
@@ -50,8 +91,19 @@ namespace Combat.Battlefield
         public void SetColor(Color color)
         {
             if (lineRenderer == null) lineRenderer = GetComponent<LineRenderer>();
+            
+            // Set vertex colors (for shaders that support them)
             lineRenderer.startColor = color;
             lineRenderer.endColor = color;
+            
+            // Set material property for URP shaders
+            if (materialPropertyBlock != null && lineRenderer != null)
+            {
+                lineRenderer.GetPropertyBlock(materialPropertyBlock);
+                materialPropertyBlock.SetColor("_BaseColor", color);
+                materialPropertyBlock.SetColor("_Color", color); // Fallback for some shaders
+                lineRenderer.SetPropertyBlock(materialPropertyBlock);
+            }
         }
         
         public void SetSize(float newSize)
@@ -59,25 +111,14 @@ namespace Combat.Battlefield
             size = newSize;
             UpdateHex();
         }
-        
-        void Update()
+
+        void OnDestroy()
         {
+            // Unsubscribe to prevent memory leaks
             if (cell != null)
             {
-                // Only update LineRenderer if color actually changed
-                if (cell.Color != lastColor)
-                {
-                    Debug.Log("[HexCellView] Changing color from " + lastColor + " to " + cell.Color);
-                    SetColor(cell.Color);
-                    lastColor = cell.Color;
-                }
-                //Debug.Log("[HexCellView] Last color is " + lastColor + ", current one is " + cell.Color);
-                gameObject.SetActive(cell.IsActive);
+                cell.OnStateChanged -= OnCellStateChanged;
             }
-            /*else
-            {
-                Debug.Log("[HexCellView] No hex cell model is linked to this view");
-            }*/
         }
     }
 }

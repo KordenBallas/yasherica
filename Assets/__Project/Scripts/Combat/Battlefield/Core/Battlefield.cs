@@ -40,16 +40,20 @@ namespace Combat.Battlefield
         private void PreCreateCellsInBoundary()
         {
             cells.Clear();
-            
+
             var cellsInBoundary = grid.GetCellsInBoundary();
             foreach (var coords in cellsInBoundary)
             {
                 // Get local position (offset from center) and convert to world for storage
-                Vector3 localPos = grid is HexGridBase gridBase 
-                    ? gridBase.GetCellPosition(coords) 
+                Vector3 localPos = grid is HexGridBase gridBase
+                    ? gridBase.GetCellPosition(coords)
                     : (grid.HexToWorld(coords) - center);
                 Vector3 worldPos = localPos + center;
                 var cell = new HexCell(coords, worldPos);
+
+                // Initialize state machine with idle state
+                cell.InitializeStateMachine(new HexCellIdleState());
+
                 cells[coords] = cell;
             }
         }
@@ -79,16 +83,20 @@ namespace Combat.Battlefield
             {
                 return cell;
             }
-            
+
             // Create new cell if it's in boundary
             if (grid != null && grid.IsCellInBoundary(coordinates))
             {
                 Vector3 worldPos = grid.HexToWorld(coordinates);
                 var newCell = new HexCell(coordinates, worldPos);
+
+                // Initialize state machine with idle state
+                newCell.InitializeStateMachine(new HexCellIdleState());
+
                 cells[coordinates] = newCell;
                 return newCell;
             }
-            
+
             return null;
         }
         

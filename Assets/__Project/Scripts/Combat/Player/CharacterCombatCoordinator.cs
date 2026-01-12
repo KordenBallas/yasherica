@@ -44,8 +44,11 @@ namespace Combat.Player
 
             Debug.Log($"[CharacterCombatCoordinator] Initializing for unit {_characterUnit.Id}");
 
-            // Create highlight service with battlefield
-            _highlightService = new CellHighlightService(_movementConfig, _battlefield);
+            // Create cell controller (manages cell state transitions)
+            var cellController = new HexCellController(_battlefield, _movementConfig);
+
+            // Create highlight service with cell controller
+            _highlightService = new CellHighlightService(cellController);
 
             // Create handler and presenter
             _inputHandler = new CombatMovementInputHandler(_inputController, _hexConfig);

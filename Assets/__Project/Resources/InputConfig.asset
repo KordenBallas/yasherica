@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Combat.Config.InputConfig
   targetPlatform: 0
   controllerType: 0
-  movementModeKey: 109
-  confirmKey: 323
+  movementModeKey: 9
+  confirmKey: 32
   cancelKey: 324
   touchDragSensitivity: 1
   tapConfirmRadius: 50
