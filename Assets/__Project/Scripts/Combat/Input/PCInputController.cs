@@ -1,4 +1,6 @@
+using System;
 using Combat.Config;
+using Combat.Input.Commands;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Zenject;
@@ -8,17 +10,28 @@ namespace Combat.Input
     /// <summary>
     /// PC input controller using mouse and keyboard.
     /// Implements platform-agnostic IInputController interface.
+    /// Emits commands via events when input state changes.
     /// </summary>
     public class PCInputController : MonoBehaviour, IInputController
     {
         [Inject] private InputConfig _config;
         [SerializeField] private Camera _camera;
         [SerializeField] private Transform _characterTransform;
-        
+
         private bool _isEnabled;
         private float _lastLogTime;
-        private const float LOG_INTERVAL = 0.5f; // Log every 0.5 seconds to avoid spam
-        
+        private const float LOG_INTERVAL = 0.5f;
+
+        // State tracking for change detection
+        private bool _wasMovementModeActive;
+        private Vector3? _lastDirection;
+
+        // Events
+        public event Action<MovementModeChangedCommand> OnMovementModeChanged;
+        public event Action<MovementDirectionChangedCommand> OnMovementDirectionChanged;
+        public event Action<MovementConfirmedCommand> OnMovementConfirmed;
+        public event Action<MovementCancelledCommand> OnMovementCancelled;
+
         private void Awake()
         {
             if (_camera == null)
@@ -26,13 +39,106 @@ namespace Combat.Input
                 _camera = Camera.main;
             }
         }
-        
+
+        private void Update()
+        {
+            if (!_isEnabled) return;
+
+            // Check for movement mode change
+            bool isMovementModeActive = IsKeyPressed(_config.movementModeKey);
+            if (isMovementModeActive != _wasMovementModeActive)
+            {
+                _wasMovementModeActive = isMovementModeActive;
+                OnMovementModeChanged?.Invoke(
+                    new MovementModeChangedCommand(isMovementModeActive, Time.time));
+
+                // Clear direction when movement mode deactivates
+                if (!isMovementModeActive)
+                {
+                    _lastDirection = null;
+                }
+            }
+
+            // Check for direction change (only while movement mode is active)
+            if (isMovementModeActive)
+            {
+                var currentDirection = CalculateMovementDirection();
+                if (!DirectionsEqual(currentDirection, _lastDirection))
+                {
+                    _lastDirection = currentDirection;
+                    OnMovementDirectionChanged?.Invoke(
+                        new MovementDirectionChangedCommand(currentDirection, Time.time));
+                }
+            }
+
+            // Check for confirm
+            if (IsKeyPressedThisFrame(_config.confirmKey))
+            {
+                OnMovementConfirmed?.Invoke(new MovementConfirmedCommand(Time.time));
+            }
+
+            // Check for cancel
+            if (IsKeyPressedThisFrame(_config.cancelKey))
+            {
+                OnMovementCancelled?.Invoke(new MovementCancelledCommand(Time.time));
+            }
+        }
+
+        /// <summary>
+        /// Calculates the current movement direction from mouse position.
+        /// </summary>
+        private Vector3? CalculateMovementDirection()
+        {
+            if (_characterTransform == null)
+            {
+                return null;
+            }
+
+            if (Mouse.current == null)
+            {
+                return null;
+            }
+
+            // Raycast from mouse to battlefield plane
+            Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
+            Plane groundPlane = new Plane(Vector3.up, _characterTransform.position);
+
+            if (groundPlane.Raycast(ray, out float distance))
+            {
+                Vector3 worldPoint = ray.GetPoint(distance);
+                Vector3 direction = (worldPoint - _characterTransform.position);
+                direction.y = 0; // Flatten to XZ plane
+
+                bool hasDirection = direction.magnitude > _config.inputDeadzone;
+
+                if (hasDirection)
+                {
+                    direction.Normalize();
+                    return direction;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Compares two direction vectors with tolerance.
+        /// </summary>
+        private bool DirectionsEqual(Vector3? a, Vector3? b)
+        {
+            if (!a.HasValue && !b.HasValue) return true;
+            if (!a.HasValue || !b.HasValue) return false;
+            return Vector3.Distance(a.Value, b.Value) < 0.01f;
+        }
+
+        // Legacy properties (deprecated but functional for backwards compatibility)
+        [Obsolete("Use OnMovementModeChanged event instead.")]
         public bool IsMovementModeActive
         {
             get
             {
                 bool isActive = _isEnabled && IsKeyPressed(_config.movementModeKey);
-                
+
                 // Throttled logging to avoid spam
                 if (Time.time - _lastLogTime > LOG_INTERVAL)
                 {
@@ -42,80 +148,60 @@ namespace Combat.Input
                         _lastLogTime = Time.time;
                     }
                 }
-                
+
                 return isActive;
             }
         }
-        
+
+        [Obsolete("Use OnMovementDirectionChanged event instead.")]
         public Vector3? GetMovementDirection()
         {
+#pragma warning disable CS0618 // Suppress obsolete warning for internal use
             if (!IsMovementModeActive)
             {
                 return null;
             }
-            
-            if (_characterTransform == null)
+#pragma warning restore CS0618
+
+            var direction = CalculateMovementDirection();
+            if (direction.HasValue)
             {
-                Debug.LogWarning("[PCInputController] GetMovementDirection: _characterTransform is null");
-                return null;
+                Debug.Log($"[PCInputController] Direction calculated: {direction.Value}");
             }
-            
-            if (Mouse.current == null)
-            {
-                Debug.LogWarning("[PCInputController] Mouse input device not available");
-                return null;
-            }
-            
-            // Raycast from mouse to battlefield plane
-            Ray ray = _camera.ScreenPointToRay(Mouse.current.position.ReadValue());
-            Plane groundPlane = new Plane(Vector3.up, _characterTransform.position);
-            
-            if (groundPlane.Raycast(ray, out float distance))
-            {
-                Vector3 worldPoint = ray.GetPoint(distance);
-                Vector3 direction = (worldPoint - _characterTransform.position);
-                direction.y = 0; // Flatten to XZ plane
-                
-                bool hasDirection = direction.magnitude > _config.inputDeadzone;
-                
-                if (hasDirection)
-                {
-                    direction.Normalize();
-                    Debug.Log($"[PCInputController] Direction calculated: {direction} (magnitude: {direction.magnitude})");
-                    return direction;
-                }
-                else
-                {
-                    Debug.Log($"[PCInputController] Direction too small (magnitude: {direction.magnitude}, deadzone: {_config.inputDeadzone})");
-                    return null;
-                }
-            }
-            else
-            {
-                Debug.LogWarning("[PCInputController] Raycast did not hit ground plane");
-            }
-            
-            return null;
+            return direction;
         }
-        
-        public bool IsConfirmPressed => 
+
+        [Obsolete("Use OnMovementConfirmed event instead.")]
+        public bool IsConfirmPressed =>
             _isEnabled && IsKeyPressedThisFrame(_config.confirmKey);
-        
-        public bool IsCancelPressed => 
+
+        [Obsolete("Use OnMovementCancelled event instead.")]
+        public bool IsCancelPressed =>
             _isEnabled && IsKeyPressedThisFrame(_config.cancelKey);
-        
+
         public void Enable()
         {
             _isEnabled = true;
+            _wasMovementModeActive = false;
+            _lastDirection = null;
             Debug.Log($"[PCInputController] Enabled (Movement: {_config.movementModeKey}, Confirm: {_config.confirmKey})");
         }
-        
+
         public void Disable()
         {
+            // Emit deactivation if movement was active
+            if (_wasMovementModeActive)
+            {
+                OnMovementModeChanged?.Invoke(
+                    new MovementModeChangedCommand(false, Time.time));
+            }
+
             _isEnabled = false;
+            _wasMovementModeActive = false;
+            _lastDirection = null;
             Debug.Log("[PCInputController] Disabled");
         }
-        
+
         /// <summary>
         /// Sets the character transform for direction calculation.
         /// Called by initializer when character is set up.
@@ -125,7 +211,7 @@ namespace Combat.Input
             _characterTransform = characterTransform;
             Debug.Log($"[PCInputController] SetCharacterTransform called with {characterTransform?.name ?? "null"}");
         }
-        
+
         /// <summary>
         /// Checks if a key is currently pressed using the new Input System.
         /// </summary>
@@ -138,18 +224,18 @@ namespace Combat.Input
                 return Mouse.current != null && Mouse.current.rightButton.isPressed;
             if (keyCode == KeyCode.Mouse2)
                 return Mouse.current != null && Mouse.current.middleButton.isPressed;
-            
+
             // Handle keyboard keys
             if (Keyboard.current == null)
                 return false;
-            
+
             Key key = ConvertKeyCodeToKey(keyCode);
             if (key == Key.None)
                 return false;
-            
+
             return Keyboard.current[key].isPressed;
         }
-        
+
         /// <summary>
         /// Checks if a key was pressed this frame using the new Input System.
         /// </summary>
@@ -162,18 +248,18 @@ namespace Combat.Input
                 return Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
             if (keyCode == KeyCode.Mouse2)
                 return Mouse.current != null && Mouse.current.middleButton.wasPressedThisFrame;
-            
+
             // Handle keyboard keys
             if (Keyboard.current == null)
                 return false;
-            
+
             Key key = ConvertKeyCodeToKey(keyCode);
             if (key == Key.None)
                 return false;
-            
+
             return Keyboard.current[key].wasPressedThisFrame;
         }
-        
+
         /// <summary>
         /// Converts Unity's old KeyCode to the new Input System Key enum.
         /// </summary>

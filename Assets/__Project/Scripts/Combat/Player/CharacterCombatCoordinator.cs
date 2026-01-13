@@ -12,10 +12,12 @@ namespace Combat.Player
     /// <summary>
     /// Thin MonoBehaviour coordinator that wires together all combat movement components.
     /// Follows MVP pattern - delegates to presenters and handlers.
+    /// Uses event-driven InputCommandHandler instead of polling.
     /// </summary>
     public class CharacterCombatCoordinator : MonoBehaviour
     {
-        private CombatMovementInputHandler _inputHandler;
+        // New: Pure C# command handler (replaces CombatMovementInputHandler)
+        private InputCommandHandler _commandHandler;
         private CombatMovementPresenter _presenter;
         private CharacterCombatAnimator _animator;
         private HexCellController _cellController;
@@ -31,7 +33,7 @@ namespace Combat.Player
         private IBattlefield _battlefield;
 
         private CharacterCombatComponent _characterUnit;
-        
+
         public void Initialize(
             CharacterCombatComponent characterUnit,
             ICombatController combatController,
@@ -46,13 +48,19 @@ namespace Combat.Player
             // Create cell controller (manages cell state transitions)
             _cellController = new HexCellController(_battlefield, _movementConfig);
 
-            // Create handler and presenter
-            _inputHandler = new CombatMovementInputHandler(_inputController, _hexConfig);
+            // Create presenter
             _presenter = new CombatMovementPresenter(
                 _combatController,
                 _battlefield,
                 _cellController,
                 _characterUnit);
+
+            // Create and bind command handler (event-driven input handling)
+            _commandHandler = new InputCommandHandler(_inputController, _hexConfig);
+            _commandHandler.Bind(
+                _presenter,
+                () => _characterUnit.Position,
+                IsPlayerTurn);
 
             // Setup animator
             _animator = gameObject.AddComponent<CharacterCombatAnimator>();
@@ -64,74 +72,35 @@ namespace Combat.Player
 
             Debug.Log("[CharacterCombatCoordinator] Initialization complete");
         }
-        
-        private void Update()
-        {
-            // Early exit if not initialized yet
-            if (_characterUnit == null)
-            {
-                return; // Silent return during initialization
-            }
-            
-            if (_inputHandler == null || _presenter == null)
-            {
-                return; // Silent return during initialization
-            }
-            
-            bool isPlayerTurn = IsPlayerTurn();
-            if (!isPlayerTurn)
-            {
-                return; // Silent return - not our turn
-            }
-            
-            bool isActive = _inputHandler.IsActive;
-            
-            if (isActive)
-            {
-                var targetCell = _inputHandler.GetTargetCell(_characterUnit.Position);
-                
-                if (targetCell.HasValue)
-                {
-                    Debug.Log($"[CharacterCombatCoordinator] Movement active, target cell: {targetCell.Value}");
-                }
-                
-                _presenter.UpdateHighlight(targetCell);
-                
-                if (_inputHandler.IsConfirmed && targetCell.HasValue)
-                {
-                    Debug.Log($"[CharacterCombatCoordinator] Confirm pressed! Attempting move to cell {targetCell.Value}");
-                    _presenter.TryMoveToCell(targetCell.Value);
-                }
-            }
-            else
-            {
-                _presenter.UpdateHighlight(null); // Clear highlight
-            }
-        }
-        
+
+        // Note: Update() method removed entirely.
+        // All input handling is now event-driven via InputCommandHandler.
+
         private bool IsPlayerTurn()
         {
             if (_combatController?.TurnManager == null)
             {
                 return false;
             }
-            
+
             if (_combatController.TurnManager.CurrentPlayer == null)
             {
                 return false;
             }
-            
+
             if (_characterUnit?.Owner == null)
             {
                 return false;
             }
-            
+
             bool isMatch = _combatController.TurnManager.CurrentPlayer.Id == _characterUnit.Owner.Id;
             return isMatch;
         }
-        
+
         private void OnDestroy()
         {
+            _commandHandler?.Dispose();
+
             if (_animator != null)
             {
                 Destroy(_animator);
