@@ -94,7 +94,13 @@ namespace Combat.Battlefield
         
         public override Vector3 HexToWorld(HexCoordinates hex)
         {
-            // Flat-top hex to world conversion
+            // Use stored position if available (ensures character is at actual cell center)
+            if (cellPositions.TryGetValue(hex, out var localPos))
+            {
+                return new Vector3(localPos.x, center.y, localPos.z) + center;
+            }
+
+            // Fallback: Flat-top hex to world conversion
             float x = HexSize * (1.5f * hex.Q);
             float z = HexSize * (Mathf.Sqrt(3f) * (hex.R + 0.5f * hex.Q));
             return new Vector3(x, center.y, z) + center;

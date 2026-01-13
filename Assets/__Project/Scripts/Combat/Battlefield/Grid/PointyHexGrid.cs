@@ -87,7 +87,13 @@ namespace Combat.Battlefield
         
         public override Vector3 HexToWorld(HexCoordinates hex)
         {
-            // Pointy-top hex to world conversion
+            // Use stored position if available (ensures character is at actual cell center)
+            if (cellPositions.TryGetValue(hex, out var localPos))
+            {
+                return new Vector3(localPos.x, center.y, localPos.z) + center;
+            }
+
+            // Fallback: Pointy-top hex to world conversion
             float x = HexSize * (Mathf.Sqrt(3f) * hex.Q + Mathf.Sqrt(3f) / 2f * hex.R);
             float z = HexSize * (1.5f * hex.R);
             return new Vector3(x, center.y, z) + center;
