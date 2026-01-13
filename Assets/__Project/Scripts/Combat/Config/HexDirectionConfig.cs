@@ -14,15 +14,17 @@ namespace Combat.Config
         public HexOrientation orientation = HexOrientation.Flat;
         
         [Header("Direction Mappings (Flat-Top Hex)")]
-        [Tooltip("Offset vectors for 6 hex directions in axial coordinates")]
+        [Tooltip("Offset vectors for 6 hex directions in axial coordinates, ordered by sector index")]
         public HexDirectionOffset[] directionOffsets = new HexDirectionOffset[6]
         {
-            new HexDirectionOffset(HexDirection.E,  new Vector2Int(+1,  0)), // East
-            new HexDirectionOffset(HexDirection.NE, new Vector2Int(+1, -1)), // Northeast
-            new HexDirectionOffset(HexDirection.NW, new Vector2Int( 0, -1)), // Northwest
-            new HexDirectionOffset(HexDirection.W,  new Vector2Int(-1,  0)), // West
-            new HexDirectionOffset(HexDirection.SW, new Vector2Int(-1, +1)), // Southwest
-            new HexDirectionOffset(HexDirection.SE, new Vector2Int( 0, +1)), // Southeast
+            // Array index maps directly to sector index from DirectionToHexConverter
+            // Order empirically determined based on actual world coordinate behavior
+            new HexDirectionOffset(HexDirection.NW, new Vector2Int( 0, -1)), // Index 0 - Northwest (sector 0)
+            new HexDirectionOffset(HexDirection.NE, new Vector2Int(+1, -1)), // Index 1 - Northeast (sector 1)
+            new HexDirectionOffset(HexDirection.E,  new Vector2Int(+1,  0)), // Index 2 - East (sector 2)
+            new HexDirectionOffset(HexDirection.SE, new Vector2Int( 0, +1)), // Index 3 - Southeast (sector 3)
+            new HexDirectionOffset(HexDirection.SW, new Vector2Int(-1, +1)), // Index 4 - Southwest (sector 4)
+            new HexDirectionOffset(HexDirection.W,  new Vector2Int(-1,  0)), // Index 5 - West (sector 5)
         };
         
         [Header("World Direction Thresholds")]

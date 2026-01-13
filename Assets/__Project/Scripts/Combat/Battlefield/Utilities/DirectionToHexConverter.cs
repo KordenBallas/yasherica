@@ -56,13 +56,17 @@ namespace Combat.Battlefield
         private static HexDirection FindClosestHexDirection(float angle, HexDirectionConfig config)
         {
             // Divide 360° into 6 sectors (60° each for hex)
-            // Adjust based on orientation
+            // Adjust based on orientation:
+            // - Flat-top hex neighbors are at 30°, 90°, 150°, 210°, 270°, 330°
+            // - Pointy-top hex neighbors are at 0°, 60°, 120°, 180°, 240°, 300°
             float sectorSize = 60f;
-            float startAngle = config.orientation == HexOrientation.Flat ? 0f : 30f;
-            
-            int sectorIndex = Mathf.RoundToInt((angle - startAngle) / sectorSize) % 6;
+            float startAngle = config.orientation == HexOrientation.Flat ? 30f : 0f;
+
+            // Use FloorToInt with +30° offset to create clean 60° sectors centered on each direction
+            // This ensures each hex direction owns its full sector (e.g., 0-60° for first direction)
+            int sectorIndex = Mathf.FloorToInt((angle - startAngle + 30f) / sectorSize) % 6;
             if (sectorIndex < 0) sectorIndex += 6;
-            
+
             return config.directionOffsets[sectorIndex].direction;
         }
         
