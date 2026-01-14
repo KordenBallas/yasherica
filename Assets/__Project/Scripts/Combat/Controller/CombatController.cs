@@ -110,25 +110,34 @@ namespace Combat.Controller
         
         public ActionResult ProcessAction(IAction action)
         {
+            Debug.Log($"[CombatController] ProcessAction called: Action={action.Type}, UnitId={action.UnitId}, ActionPlayerId={action.Player?.Id}");
+            Debug.Log($"[CombatController] Current turn player: {_turnManager.CurrentPlayer?.Id} ({_turnManager.CurrentPlayer?.Name})");
+
+            var unit = _gameState.GetUnit(action.UnitId);
+            if (unit != null)
+            {
+                Debug.Log($"[CombatController] Unit {unit.Id} Owner: {unit.Owner?.Id} ({unit.Owner?.Name})");
+            }
+
             // Validate action
             var validationResult = _actionValidator.ValidateDetailed(_gameState, action);
             if (!validationResult.IsValid)
             {
                 return ActionResult.Failed(_gameState, validationResult.FailureReason);
             }
-            
+
             // Execute action
             var result = _actionExecutor.ExecuteWithResult(_gameState, action);
             _gameState = result.NewState;
-            
+
             OnStateChanged?.Invoke(_gameState);
-            
+
             // Check for turn end
             CheckTurnEnd();
-            
+
             // Check win conditions
             CheckWinConditions();
-            
+
             return result;
         }
         
@@ -140,13 +149,37 @@ namespace Combat.Controller
         
         private void CheckTurnEnd()
         {
+            var currentPlayer = _turnManager.CurrentPlayer;
+
+            Debug.Log($"[CombatController] CheckTurnEnd called - Current Player: {currentPlayer?.Id} ({currentPlayer?.Name})");
+
+            // Get all units belonging to current player
+            var playerUnits = _gameState.GetUnitsByPlayer(currentPlayer);
+            Debug.Log($"[CombatController] Total units for player {currentPlayer?.Id}: {playerUnits.Count}");
+
+            foreach (var unit in playerUnits)
+            {
+                Debug.Log($"[CombatController] Unit {unit.Id}: IsAlive={unit.IsAlive}, HasActedThisTurn={unit.HasActedThisTurn}, CanAct={unit.CanAct}, ActionState={unit.ActionState}");
+            }
+
             // Check if all units of current player have acted
-            var activeUnits = _gameState.GetActiveUnitsByPlayer(_turnManager.CurrentPlayer);
-            
+            var activeUnits = _gameState.GetActiveUnitsByPlayer(currentPlayer);
+
+            Debug.Log($"[CombatController] Active units remaining for player {currentPlayer?.Id}: {activeUnits.Count}");
+
             if (activeUnits.Count == 0)
             {
+                Debug.Log($"[CombatController] All units have acted - advancing turn");
                 // All units have acted, advance turn
                 AdvanceTurn();
+            }
+            else
+            {
+                Debug.Log($"[CombatController] Turn continues - {activeUnits.Count} unit(s) can still act");
+                foreach (var unit in activeUnits)
+                {
+                    Debug.Log($"[CombatController] Active unit: {unit.Id}");
+                }
             }
         }
         

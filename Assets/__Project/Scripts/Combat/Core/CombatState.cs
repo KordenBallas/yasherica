@@ -47,7 +47,9 @@ namespace Combat.Core
         
         public IReadOnlyList<IUnit> GetActiveUnitsByPlayer(IPlayer player)
         {
-            return Units.Where(u => u.Owner.Id == player.Id && u.CanAct && !u.HasActedThisTurn).ToList();
+            return Units
+                .Where(u => u.Owner.Id == player.Id && u.IsAlive && u.CanAct)
+                .ToList();
         }
         
         /// <summary>

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Character;
 using Combat.Controller;
+using Combat.Data;
 using Combat.Input;
 using Combat.Integration;
 using Combat.Core;
@@ -23,24 +24,30 @@ namespace LevelGeneration
         private readonly IInputController _inputController;
         private readonly IPlayerRegistry _playerRegistry;
         private readonly ICharacterRegistry _characterRegistry;
+        private readonly EnemyCombatIntegrator _enemyIntegrator;
+        private readonly IEnemyDataProvider _enemyDataProvider;
+        private readonly Combat.Player.AITurnController _aiTurnController;
         private readonly Dictionary<int, IPlatform> platforms = new();
         private readonly Dictionary<int, PlatformView> platformViews = new();
         private IPlatform entryPlatform;
         private GameObject areaGameObject;
         private float cursorX = 0f;
         private float baselineY = 0f;
-        
+
         public IPlatform EntryPlatform => entryPlatform;
-        
+
         public AreaGenerator(
-            PlatformGraphData graph, 
-            PerlinNoiseMap noiseMap, 
+            PlatformGraphData graph,
+            PerlinNoiseMap noiseMap,
             IFactory<ICombatController> controllerFactory,
             ICameraService cameraService,
             CharacterCombatInitializer characterInitializer,
             IInputController inputController,
             IPlayerRegistry playerRegistry,
             ICharacterRegistry characterRegistry,
+            EnemyCombatIntegrator enemyIntegrator,
+            IEnemyDataProvider enemyDataProvider,
+            Combat.Player.AITurnController aiTurnController,
             AreaGeneratorConfig config = null)
         {
             this.graph = graph;
@@ -51,6 +58,9 @@ namespace LevelGeneration
             _inputController = inputController;
             _playerRegistry = playerRegistry;
             _characterRegistry = characterRegistry;
+            _enemyIntegrator = enemyIntegrator;
+            _enemyDataProvider = enemyDataProvider;
+            _aiTurnController = aiTurnController;
             this.config = config ?? new AreaGeneratorConfig();
         }
         
@@ -138,8 +148,8 @@ namespace LevelGeneration
         private IPlatform CreatePlatformFromNode(GraphNode node)
         {
             // Create platform based on type
-            IPlatform platform = node.Type == PlatformType.Combat 
-                ? new CombatPlatform(node.Id, _controllerFactory, _cameraService, _characterInitializer, _inputController, _playerRegistry, _characterRegistry)
+            IPlatform platform = node.Type == PlatformType.Combat
+                ? new CombatPlatform(node.Id, _controllerFactory, _cameraService, _characterInitializer, _inputController, _playerRegistry, _characterRegistry, _enemyIntegrator, _enemyDataProvider, _aiTurnController)
                 : new SimplePlatform(node.Id);
             
             // Add content BEFORE Initialize

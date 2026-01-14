@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace Combat.TurnManagement
 {
@@ -36,6 +37,7 @@ namespace Combat.TurnManagement
             _turnOrder = players.ToList();
             _currentPlayerIndex = 0;
             _turnNumber = 1;
+            Debug.Log($"[TurnManager] Initialized with {players?.Count} players.");
         }
         
         public void NextTurn()

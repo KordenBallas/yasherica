@@ -44,8 +44,15 @@ namespace Combat.Execution
                     Debug.LogError($"[ActionExecutor] Cannot set HasActedThisTurn: Unit {action.UnitId} not found in state after executing {action.Type}");
                     return ActionResult.Successful(newState);
                 }
+
+                Debug.Log($"[ActionExecutor] Terminal action executed - Setting Unit {action.UnitId} HasActedThisTurn=true (Action: {action.Type})");
+
                 var updatedUnit = (unit as Unit).WithActedThisTurn(true);
                 newState = (newState as CombatState).WithUpdatedUnit(updatedUnit);
+
+                // Verify the update worked
+                var verifyUnit = newState.GetUnit(action.UnitId);
+                Debug.Log($"[ActionExecutor] Verification - Unit {action.UnitId} HasActedThisTurn={verifyUnit?.HasActedThisTurn}, CanAct={verifyUnit?.CanAct}");
             }
             
             return ActionResult.Successful(newState);

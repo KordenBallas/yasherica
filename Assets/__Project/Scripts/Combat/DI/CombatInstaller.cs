@@ -89,7 +89,19 @@ namespace Combat.DI
 
             // Services
             Container.Bind<CharacterCombatInitializer>().AsSingle();
-            
+
+            // Enemy combat integration
+            Container.Bind<Data.IEnemyDataProvider>()
+                .To<Data.SimpleEnemyDataProvider>()
+                .AsSingle();
+
+            Container.Bind<EnemyCombatIntegrator>()
+                .AsSingle();
+
+            // AI turn controller
+            Container.Bind<Player.AITurnController>()
+                .AsSingle();
+
             // Battlefield bindings (internal to Combat)
             Container.BindFactory<FlatHexGrid, FlatHexGrid.Factory>();
             Container.BindFactory<PointyHexGrid, PointyHexGrid.Factory>();
@@ -111,11 +123,16 @@ namespace Combat.DI
             // Turn management
             Container.Bind<ITurnManager>().To<TurnManager>().AsSingle();
             
+            // Combat controller
+            Container.Bind<ICombatController>()
+                .To<CombatController>()
+                .AsSingle();
+
             // Combat controller factory
             Container.Bind<IFactory<ICombatController>>()
                 .To<CombatControllerFactory>()
                 .AsSingle();
-            
+
             // Battlefield integration
             Container.Bind<CombatBattlefield>().AsSingle();
             

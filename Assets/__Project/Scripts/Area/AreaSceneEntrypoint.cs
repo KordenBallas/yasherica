@@ -61,6 +61,12 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     [Inject]
     private Combat.Input.IInputController _inputController;
     [Inject]
+    private Combat.Integration.EnemyCombatIntegrator _enemyIntegrator;
+    [Inject]
+    private Combat.Data.IEnemyDataProvider _enemyDataProvider;
+    [Inject]
+    private Combat.Player.AITurnController _aiTurnController;
+    [Inject]
     private DiContainer _container;
     
     private IPlayer _localPlayer;
@@ -131,7 +137,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
         };
         
         // 6. Create area generator
-        areaGenerator = new AreaGenerator(graph, noiseMap, _controllerFactory, _cameraService, _characterInitializer, _inputController, _playerRegistry, _characterRegistry, config);
+        areaGenerator = new AreaGenerator(graph, noiseMap, _controllerFactory, _cameraService, _characterInitializer, _inputController, _playerRegistry, _characterRegistry, _enemyIntegrator, _enemyDataProvider, _aiTurnController, config);
         areaGenerator.Generate();
         
         // 7. Set up AreaView
