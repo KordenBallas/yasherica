@@ -53,6 +53,22 @@ namespace Combat.Core
         /// Gets all units owned by a player that can still act this turn.
         /// </summary>
         IReadOnlyList<IUnit> GetActiveUnitsByPlayer(IPlayer player);
+
+        /// <summary>
+        /// Checks if a hex position is valid (within battlefield boundaries).
+        /// </summary>
+        bool IsPositionValid(HexCoordinates position);
+
+        /// <summary>
+        /// Gets all valid positions within range of a center point.
+        /// Filters out positions outside battlefield boundaries and occupied cells.
+        /// </summary>
+        IReadOnlyList<HexCoordinates> GetValidPositionsInRange(HexCoordinates center, int range);
+
+        /// <summary>
+        /// Calculates hex distance between two positions.
+        /// </summary>
+        int CalculateDistance(HexCoordinates from, HexCoordinates to);
     }
 }
 

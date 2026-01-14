@@ -67,7 +67,8 @@ namespace Combat.Integration
                 players,
                 _humanPlayer,
                 1,
-                CombatPhase.Setup
+                CombatPhase.Setup,
+                null  // Battlefield will be injected later if needed
             );
             
             // Initialize game controller

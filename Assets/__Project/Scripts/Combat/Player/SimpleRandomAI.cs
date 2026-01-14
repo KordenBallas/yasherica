@@ -2,6 +2,7 @@ using Combat.Core;
 using System.Collections.Generic;
 using System.Linq;
 using Combat.Battlefield;
+using UnityEngine;
 
 namespace Combat.Player
 {
@@ -30,7 +31,9 @@ namespace Combat.Player
             
             // Pick random action
             int index = _random.Next(validActions.Count);
-            return validActions[index];
+            IAction action = validActions[index];
+            Debug.Log($"[SimpleRandomAI] Decided to perform {action.Type}.");
+            return action;
         }
         
         private List<IAction> GetValidActions(ICombatState gameState, IUnit unit)
@@ -68,6 +71,8 @@ namespace Combat.Player
             
             // Always can end turn
             actions.Add(new EndUnitTurnAction(unit.Owner, unit.Id));
+
+            Debug.Log($"[SimpleRandomAI] Identified {actions.Count} valid actions.");
             
             return actions;
         }
@@ -117,41 +122,22 @@ namespace Combat.Player
         
         private List<HexCoordinates> GetValidMovePositions(ICombatState gameState, IUnit unit)
         {
-            var validPositions = new List<HexCoordinates>();
-            
-            // Simple implementation: check positions within range
-            int maxRange = 3; // Default movement range
-            
-            for (int q = -maxRange; q <= maxRange; q++)
-            {
-                for (int r = -maxRange; r <= maxRange; r++)
-                {
-                    if (q == 0 && r == 0)
-                        continue; // Skip current position
-                    
-                    var pos = new HexCoordinates(unit.Position.Q + q, unit.Position.R + r);
-                    
-                    // Check distance
-                    if (CalculateDistance(unit.Position, pos) > maxRange)
-                        continue;
-                    
-                    // Check if occupied
-                    if (gameState.GetUnitAt(pos) != null)
-                        continue;
-                    
-                    validPositions.Add(pos);
-                }
-            }
-            
-            return validPositions;
+            int maxRange = 1; // SimpleRandomAI uses 1 hex movement range
+
+            // Use gameState's battlefield-aware method
+            var validPositions = gameState.GetValidPositionsInRange(unit.Position, maxRange);
+
+            Debug.Log($"[SimpleRandomAI] Found {validPositions.Count} valid move positions within range {maxRange}");
+
+            return validPositions.ToList();
         }
         
+        // To be refactored
         private int CalculateDistance(HexCoordinates from, HexCoordinates to)
         {
             var dq = System.Math.Abs(from.Q - to.Q);
             var dr = System.Math.Abs(from.R - to.R);
             var ds = System.Math.Abs((from.Q + from.R) - (to.Q + to.R));
-            
             return (dq + dr + ds) / 2;
         }
     }

@@ -57,14 +57,22 @@ namespace Combat.Controller
         public void Initialize(ICombatState initialState, IReadOnlyList<IPlayer> players)
         {
             _gameState = initialState;
+
+            // Inject battlefield if it already exists
+            if (_battlefield != null && _gameState is CombatState combatState)
+            {
+                _gameState = combatState.WithBattlefield(_battlefield);
+            }
+
             _turnManager.Initialize(players);
-            
+
             // Start combat phase
             _gameState = (_gameState as CombatState).WithPhase(CombatPhase.Combat);
             _gameState = (_gameState as CombatState).WithCurrentPlayer(_turnManager.CurrentPlayer);
             
             // Register default win condition
-            _winConditions.Add(new EliminateAllEnemiesWinCondition());
+            //_winConditions.Add(new EliminateAllEnemiesWinCondition());
+            _winConditions.Add(new SurviveTurnsWinCondition(10, players.First().Id));
             
             // Trigger turn start
             OnTurnStarted?.Invoke(_turnManager.CurrentPlayer);
@@ -318,6 +326,13 @@ namespace Combat.Controller
                 _config.HexOrientation,
                 _hexConfig);
             _battlefield.Activate();
+
+            // Inject battlefield into existing state if state already exists
+            if (_gameState != null && _gameState is CombatState combatState)
+            {
+                _gameState = combatState.WithBattlefield(_battlefield);
+                OnStateChanged?.Invoke(_gameState);
+            }
         }
         
         /// <summary>

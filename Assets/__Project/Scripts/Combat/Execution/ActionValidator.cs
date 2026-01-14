@@ -73,7 +73,15 @@ namespace Combat.Execution
         private ValidationResult ValidateMoveAction(ICombatState gameState, MoveAction action)
         {
             var unit = gameState.GetUnit(action.UnitId);
-            
+
+            // Check if position is within battlefield boundaries
+            if (!gameState.IsPositionValid(action.TargetPosition))
+            {
+                return ValidationResult.Failure(
+                    "Position out of bounds",
+                    $"Position {action.TargetPosition.Q},{action.TargetPosition.R} is outside battlefield boundaries");
+            }
+
             // Check if target position is occupied
             var occupyingUnit = gameState.GetUnitAt(action.TargetPosition);
             if (occupyingUnit != null)
@@ -82,10 +90,18 @@ namespace Combat.Execution
                     "Position occupied",
                     $"Position {action.TargetPosition.Q},{action.TargetPosition.R} is occupied by unit {occupyingUnit.Id}");
             }
-            
-            // Note: Range validation would go here (requires battlefield/movement rules)
-            // For now, we accept any unoccupied position
-            
+
+            // Check movement range (assume max range of 3 for now)
+            int distance = gameState.CalculateDistance(unit.Position, action.TargetPosition);
+            int maxRange = 3; // TODO: Get from unit movement stats when implemented
+
+            if (distance > maxRange)
+            {
+                return ValidationResult.Failure(
+                    "Move out of range",
+                    $"Target position is {distance} hexes away, but max movement range is {maxRange}");
+            }
+
             return ValidationResult.Success();
         }
         
@@ -212,10 +228,17 @@ namespace Combat.Execution
                         "Invalid target",
                         "Ability requires ally target but target is enemy");
                 }
-                
-                // Note: Range validation would go here (requires battlefield distance calculation)
+
+                // Range validation
+                int distance = gameState.CalculateDistance(caster.Position, targetUnit.Position);
+                if (distance > ability.Range)
+                {
+                    return ValidationResult.Failure(
+                        "Target out of range",
+                        $"Target is {distance} hexes away, but ability range is {ability.Range}");
+                }
             }
-            
+
             return ValidationResult.Success();
         }
     }

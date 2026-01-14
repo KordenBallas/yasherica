@@ -1,5 +1,6 @@
 using Combat.Core;
 using System.Linq;
+using UnityEngine;
 
 namespace Combat.Core
 {
@@ -26,6 +27,7 @@ namespace Combat.Core
             {
                 // Find the target player
                 winningPlayer = gameState.Players.FirstOrDefault(p => p.Id == _targetPlayerId);
+                Debug.Log($"[SurviveTurnsWinCondition] Target player check {winningPlayer?.Id} {winningPlayer?.Name}.");
                 
                 // Check if they have any alive units
                 if (winningPlayer != null)
@@ -33,11 +35,13 @@ namespace Combat.Core
                     var aliveUnits = gameState.GetUnitsByPlayer(winningPlayer).Where(u => u.IsAlive);
                     if (aliveUnits.Any())
                     {
+                        Debug.Log($"[SurviveTurnsWinCondition] Survive turns win for player {winningPlayer.Id} {winningPlayer.Name}");
                         return true;
                     }
                 }
             }
             
+            Debug.Log($"[SurviveTurnsWinCondition] Survive turns not met. Turn number {gameState.TurnNumber}.");
             winningPlayer = null;
             return false;
         }

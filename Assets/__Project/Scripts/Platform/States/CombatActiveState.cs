@@ -129,7 +129,8 @@ namespace Platform
                         allPlayers,
                         allPlayers[0],  // First player starts
                         1,              // turnNumber
-                        CombatPhase.Combat
+                        CombatPhase.Combat,
+                        null            // Battlefield already initialized, will be injected next
                     );
 
                     // Initialize combat controller with turn system

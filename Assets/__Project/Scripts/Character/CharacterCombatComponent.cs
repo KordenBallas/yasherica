@@ -98,7 +98,18 @@ namespace Character
             }
 
             _internalUnit = newUnit;
-            Debug.Log($"[CharacterCombatComponent] Synchronized: Position={Position}, HP={CurrentHP}/{MaxHP}");
+
+            // Update GameObject visual position to match new hex position
+            if (_combatController?.Battlefield != null)
+            {
+                Vector3 worldPosition = _combatController.Battlefield.HexToWorld(Position);
+                transform.position = worldPosition;
+                Debug.Log($"[CharacterCombatComponent] Synchronized: Position={Position}, WorldPos={worldPosition}, HP={CurrentHP}/{MaxHP}");
+            }
+            else
+            {
+                Debug.Log($"[CharacterCombatComponent] Synchronized: Position={Position}, HP={CurrentHP}/{MaxHP}");
+            }
         }
 
         /// <summary>

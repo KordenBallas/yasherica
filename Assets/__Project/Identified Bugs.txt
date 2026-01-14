@@ -1,0 +1,3 @@
+﻿Combat logic
+
+1. When AIPlayer selects cell to move to, that is occupied by another player - the combat is stopped and hanging forever.

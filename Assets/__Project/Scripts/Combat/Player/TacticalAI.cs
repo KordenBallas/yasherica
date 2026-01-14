@@ -2,6 +2,7 @@ using Combat.Core;
 using System.Collections.Generic;
 using System.Linq;
 using Combat.Battlefield;
+using UnityEngine;
 
 namespace Combat.Player
 {
@@ -30,6 +31,7 @@ namespace Combat.Player
             
             // Pick the action with the highest score
             var bestAction = scoredActions.OrderByDescending(sa => sa.Score).First();
+            Debug.Log($"[TacticalAI] Decided to perform {bestAction.Action.Type}.");
             return bestAction.Action;
         }
         
@@ -63,7 +65,7 @@ namespace Combat.Player
                 new EndUnitTurnAction(unit.Owner, unit.Id),
                 10 // Base score
             ));
-            
+            Debug.Log($"[TacticalAI] Identified {scoredActions.Count} valid actions.");
             return scoredActions;
         }
         
@@ -220,38 +222,12 @@ namespace Combat.Player
         
         private List<HexCoordinates> GetValidMovePositions(ICombatState gameState, IUnit unit)
         {
-            var validPositions = new List<HexCoordinates>();
-            int maxRange = 3;
-            
-            for (int q = -maxRange; q <= maxRange; q++)
-            {
-                for (int r = -maxRange; r <= maxRange; r++)
-                {
-                    if (q == 0 && r == 0)
-                        continue;
-                    
-                    var pos = new HexCoordinates(unit.Position.Q + q, unit.Position.R + r);
-                    
-                    if (CalculateDistance(unit.Position, pos) > maxRange)
-                        continue;
-                    
-                    if (gameState.GetUnitAt(pos) != null)
-                        continue;
-                    
-                    validPositions.Add(pos);
-                }
-            }
-            
-            return validPositions;
-        }
-        
-        private int CalculateDistance(HexCoordinates from, HexCoordinates to)
-        {
-            var dq = System.Math.Abs(from.Q - to.Q);
-            var dr = System.Math.Abs(from.R - to.R);
-            var ds = System.Math.Abs((from.Q + from.R) - (to.Q + to.R));
-            
-            return (dq + dr + ds) / 2;
+            int maxRange = 3; // TacticalAI uses 3 hex movement range
+
+            // Use gameState's battlefield-aware method
+            var validPositions = gameState.GetValidPositionsInRange(unit.Position, maxRange);
+
+            return validPositions.ToList();
         }
         
         private struct ScoredAction
@@ -265,6 +241,16 @@ namespace Combat.Player
                 Score = score;
             }
         }
+        
+        // To be refactored
+        private int CalculateDistance(HexCoordinates from, HexCoordinates to)
+        {
+            var dq = System.Math.Abs(from.Q - to.Q);
+            var dr = System.Math.Abs(from.R - to.R);
+            var ds = System.Math.Abs((from.Q + from.R) - (to.Q + to.R));
+            return (dq + dr + ds) / 2;
+        }
+        
     }
 }
 

@@ -5,6 +5,7 @@ using Combat.Data;
 using Combat.Integration;
 using Combat.Input;
 using Core.Camera;
+using UnityEngine;
 using Zenject;
 
 namespace Platform
@@ -63,6 +64,9 @@ namespace Platform
             // Create combat controller
             _controller = _controllerFactory.Create();
 
+            // Subscribe to combat end event
+            _controller.OnGameEnded += HandleCombatEnded;
+
             // Create combat active state that handles battlefield initialization and camera management
             _combatActiveState = new CombatActiveState(
                 _controller,
@@ -88,7 +92,23 @@ namespace Platform
         // This state will initialize battlefield and switch to combat camera
         StateMachine.ChangeState(_combatActiveState);
     }
-        
+
+        private void HandleCombatEnded(IPlayer winner, CombatPhase phase)
+        {
+            Debug.Log($"[CombatPlatform] Combat ended - Phase: {phase}, Winner: {winner?.Name ?? "None"}");
+
+            // Transition to completed state for both Victory and Defeat
+            StateMachine.ChangeState(new PlatformCompletedState());
+        }
+
+        public void Dispose()
+        {
+            if (_controller != null)
+            {
+                _controller.OnGameEnded -= HandleCombatEnded;
+            }
+        }
+
         public class Factory : PlaceholderFactory<CombatPlatform>
         {
         }

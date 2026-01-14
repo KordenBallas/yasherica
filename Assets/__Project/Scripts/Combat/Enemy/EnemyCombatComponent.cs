@@ -106,8 +106,17 @@ namespace Combat.Enemy
 
             _internalUnit = newUnit;
 
-            // Log state changes for debugging
-            Debug.Log($"[EnemyCombatComponent] Unit {Id} synchronized: Position={Position}, HP={CurrentHP}/{MaxHP}, Alive={IsAlive}");
+            // Update GameObject visual position to match new hex position
+            if (_combatController?.Battlefield != null)
+            {
+                Vector3 worldPosition = _combatController.Battlefield.HexToWorld(Position);
+                transform.position = worldPosition;
+                Debug.Log($"[EnemyCombatComponent] Unit {Id} synchronized: Position={Position}, WorldPos={worldPosition}, HP={CurrentHP}/{MaxHP}, Alive={IsAlive}");
+            }
+            else
+            {
+                Debug.Log($"[EnemyCombatComponent] Unit {Id} synchronized: Position={Position}, HP={CurrentHP}/{MaxHP}, Alive={IsAlive}");
+            }
         }
 
         /// <summary>
