@@ -156,13 +156,7 @@ namespace Combat.DI
             Container.BindFactory<PointyHexGrid, PointyHexGrid.Factory>();
             Container.BindFactory<IBattlefield, BattlefieldFactory>().To<Battlefield.Battlefield>();
             Container.Bind<IHexGridFactory>().To<HexGridFactory>().AsSingle();
-            
-            // Combat platform state
-            /*Container.Bind<IPlatformState>()
-                .To<CombatPlatformActiveState>()
-                .AsTransient()
-                .WhenInjectedInto<CombatPlatform>();*/
-            
+
             // Core systems
             Container.Bind<IDamageSystem>().To<DamageSystem>().AsSingle();
             Container.Bind<IAbilityExecutor>().To<AbilityExecutor>().AsSingle();
@@ -188,6 +182,10 @@ namespace Combat.DI
             // Rules
             Container.Bind<Rules.MovementRules>().AsSingle();
             Container.Bind<Rules.AbilityRules>().AsSingle();
+
+            // Combat state factories for platform system
+            Container.BindFactory<CombatActiveState, CombatActiveState.Factory>();
+            Container.BindFactory<CombatIdleState, CombatIdleState.Factory>();
         }
     }
 }

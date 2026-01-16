@@ -1,9 +1,12 @@
 using UnityEngine;
+using Zenject;
 
 namespace Platform
 {
     public class PlatformActiveState : PlatformStateBase
     {
+        public class Factory : PlaceholderFactory<PlatformActiveState> { }
+
         public override void OnEnter(IPlatform platform)
         {
             // Player is on platform, content is active

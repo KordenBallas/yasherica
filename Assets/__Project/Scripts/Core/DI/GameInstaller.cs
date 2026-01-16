@@ -13,12 +13,8 @@ namespace Core.DI
             Container.Bind<IScenarioGenerator>().To<ScenarioGenerator>().AsSingle();
             Container.Bind<IPlatformGraphGenerator>().To<PlatformGraphGenerator>().AsSingle();
             
-            // Factory Registry
+            // Factory Registry (legacy - kept for backwards compatibility)
             Container.Bind<IPlatformFactoryRegistry>().To<PlatformFactory>().AsSingle();
-            
-            // Platform Factories
-            Container.BindFactory<SimplePlatform, SimplePlatform.Factory>();
-            Container.BindFactory<CombatPlatform, CombatPlatform.Factory>();
             
             // Camera Service
             Container.Bind<ICameraService>().To<CameraService>().FromComponentInHierarchy().AsSingle();

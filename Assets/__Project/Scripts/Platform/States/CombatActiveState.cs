@@ -8,6 +8,7 @@ using Combat.Player;
 using Core.Camera;
 using System.Collections.Generic;
 using UnityEngine;
+using Zenject;
 
 namespace Platform
 {
@@ -16,10 +17,13 @@ namespace Platform
     /// Initializes the combat battlefield when entered and cleans up when exited.
     /// Manages camera switching between isometric and combat views.
     /// Now includes character combat initialization following DIP principles.
+    /// Creates and manages ICombatController lifecycle.
     /// </summary>
     public class CombatActiveState : PlatformStateBase
     {
-        private readonly ICombatController _controller;
+        public class Factory : PlaceholderFactory<CombatActiveState> { }
+
+        private readonly IFactory<ICombatController> _controllerFactory;
         private readonly ICameraService _cameraService;
         private readonly CharacterCombatInitializer _characterInitializer;
         private readonly IInputController _inputController;
@@ -29,19 +33,20 @@ namespace Platform
         private readonly AITurnController _aiTurnController;
 
         private IPlatform _platform;
+        private ICombatController _controller;
         private BattlefieldView _battlefieldView;
 
         public CombatActiveState(
-            ICombatController controller,
+            IFactory<ICombatController> controllerFactory,
             ICameraService cameraService,
-            CharacterCombatInitializer characterInitializer = null,
-            IInputController inputController = null,
-            IPlayerRegistry playerRegistry = null,
-            ICharacterRegistry characterRegistry = null,
-            EnemyCombatIntegrator enemyIntegrator = null,
-            AITurnController aiTurnController = null)
+            CharacterCombatInitializer characterInitializer,
+            IInputController inputController,
+            IPlayerRegistry playerRegistry,
+            ICharacterRegistry characterRegistry,
+            EnemyCombatIntegrator enemyIntegrator,
+            AITurnController aiTurnController)
         {
-            _controller = controller;
+            _controllerFactory = controllerFactory;
             _cameraService = cameraService;
             _characterInitializer = characterInitializer;
             _inputController = inputController;
@@ -50,22 +55,34 @@ namespace Platform
             _enemyIntegrator = enemyIntegrator;
             _aiTurnController = aiTurnController;
         }
-        
+
         public override void OnEnter(IPlatform platform)
         {
             _platform = platform;
-            
+
             Debug.Log($"[CombatActiveState] Entering combat active state for platform {platform.Id}");
-            
+
+            // Get existing controller from platform or create new one
+            _controller = platform.GetCombatController();
+            if (_controller == null)
+            {
+                _controller = _controllerFactory.Create();
+                platform.SetCombatController(_controller);
+                Debug.Log($"[CombatActiveState] Created new CombatController for platform {platform.Id}");
+            }
+
+            // Subscribe to combat end event
+            _controller.OnGameEnded += HandleCombatEnded;
+
             // Initialize combat battlefield with platform geometry
             if (platform.Visual?.TopBoundary != null && platform.Visual.TopBoundary.Count > 0)
             {
                 _controller.InitializeBattlefield(
                     platform.Visual.TopBoundary,
                     platform.Visual.Position);
-                    
+
                 Debug.Log($"[CombatActiveState] Initialized battlefield for platform {platform.Id}");
-                
+
                 // Create and initialize BattlefieldView for visualization
                 InitializeBattlefieldView(platform);
 
@@ -151,7 +168,7 @@ namespace Platform
                 {
                     Debug.LogWarning("[CombatActiveState] Cannot initialize combat: no players available");
                 }
-                
+
                 // Initialize character for combat
                 if (_characterInitializer != null && _playerRegistry != null)
                 {
@@ -165,8 +182,8 @@ namespace Platform
                             if (mono != null)
                             {
                                 mono.StartCoroutine(_characterInitializer.InitializeCharacterForCombat(
-                                    player, 
-                                    _controller.Battlefield, 
+                                    player,
+                                    _controller.Battlefield,
                                     _controller));
                                 Debug.Log("[CombatActiveState] Started character combat initialization");
                             }
@@ -215,7 +232,16 @@ namespace Platform
                 Debug.LogWarning($"[CombatActiveState] Cannot initialize battlefield: invalid platform geometry");
             }
         }
-        
+
+        private void HandleCombatEnded(IPlayer winner, CombatPhase phase)
+        {
+            Debug.Log($"[CombatActiveState] Combat ended - Phase: {phase}, Winner: {winner?.Name ?? "None"}");
+
+            // Use platform's state factory to create completed state
+            var completedState = _platform.StateFactory.CreateCompletedState();
+            _platform.StateMachine.ChangeState(completedState);
+        }
+
         private void InitializeBattlefieldView(IPlatform platform)
         {
             // Get platform GameObject from Visual
@@ -224,9 +250,9 @@ namespace Platform
                 Debug.LogWarning($"[CombatActiveState] Cannot create BattlefieldView: platform GameObject is null");
                 return;
             }
-            
+
             var platformGO = platform.Visual.GameObject;
-            
+
             // Get or add BattlefieldView component
             var battlefieldView = platformGO.GetComponent<BattlefieldView>();
             if (battlefieldView == null)
@@ -234,7 +260,7 @@ namespace Platform
                 battlefieldView = platformGO.AddComponent<BattlefieldView>();
                 Debug.Log($"[CombatActiveState] Added BattlefieldView component to platform {platform.Id}");
             }
-            
+
             // Initialize view with battlefield
             if (_controller.Battlefield != null)
             {
@@ -284,6 +310,12 @@ namespace Platform
         {
             Debug.Log($"[CombatActiveState] Exiting combat active state for platform {platform.Id}");
 
+            // Unsubscribe from combat end event
+            if (_controller != null)
+            {
+                _controller.OnGameEnded -= HandleCombatEnded;
+            }
+
             // Dispose AI turn controller if provided
             if (_aiTurnController != null)
             {
@@ -296,7 +328,7 @@ namespace Platform
             {
                 _inputController.Disable();
             }
-            
+
             // Cleanup character combat mode
             if (_characterRegistry != null)
             {
@@ -353,7 +385,7 @@ namespace Platform
                     }
                 }
             }
-            
+
             // Cleanup battlefield view
             if (_battlefieldView != null)
             {
@@ -362,17 +394,20 @@ namespace Platform
                 _battlefieldView = null;
                 Debug.Log($"[CombatActiveState] Destroyed BattlefieldView for platform {_platform?.Id}");
             }
-            
+
             // Cleanup combat when leaving platform
-            _controller.CleanupBattlefield();
-            Debug.Log($"[CombatActiveState] Cleaned up battlefield for platform {_platform?.Id}");
-            
+            if (_controller != null)
+            {
+                _controller.CleanupBattlefield();
+                Debug.Log($"[CombatActiveState] Cleaned up battlefield for platform {_platform?.Id}");
+            }
+
             // Revert to isometric camera with smooth transition
             _cameraService.SwitchToIsometricCamera();
-            
+
             _platform = null;
         }
-        
+
         public override void OnUpdate(IPlatform platform)
         {
             // Combat update logic if needed
@@ -380,4 +415,3 @@ namespace Platform
         }
     }
 }
-

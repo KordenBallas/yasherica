@@ -38,11 +38,8 @@ namespace Platform
 
         public override void Initialize(IPlatform platform)
         {
-            // Validate that enemy content is on a combat platform
-            if (platform is not CombatPlatform)
-            {
-                Debug.LogWarning($"[EnemyContent] Enemy content should be placed on CombatPlatform, but found on {platform.GetType().Name}");
-            }
+            // Enemy content initialization - no longer type-checks platform
+            // State factory handles appropriate state selection based on content
         }
 
         public override void OnPlatformEntered(IPlatform platform)

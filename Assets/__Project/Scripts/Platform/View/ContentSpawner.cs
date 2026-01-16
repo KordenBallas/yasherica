@@ -119,27 +119,28 @@ namespace Platform
         Vector3 GetSpawnPosition(IPlatform platform, IPlatformContent content)
         {
             Vector3 basePosition = platform.Visual.Position;
-            
-            // For combat platforms, we might want to spawn on hex cells
-            if (platform is CombatPlatform combatPlatform && combatPlatform.Battlefield != null)
+
+            // For platforms with active combat, we might want to spawn on hex cells
+            var combatController = platform.GetCombatController();
+            if (combatController?.Battlefield != null)
             {
                 // Spawn at a random hex cell in the battlefield
-                var cellsInBoundary = combatPlatform.Battlefield.GetCellsInBoundary();
+                var cellsInBoundary = combatController.Battlefield.GetCellsInBoundary();
                 if (cellsInBoundary.Count > 0)
                 {
                     int randomIndex = Random.Range(0, cellsInBoundary.Count);
                     var coords = cellsInBoundary[randomIndex];
-                    basePosition = combatPlatform.Battlefield.HexToWorld(coords);
+                    basePosition = combatController.Battlefield.HexToWorld(coords);
                 }
             }
-            
+
             // Add height offset
             basePosition.y += spawnHeightOffset;
-            
+
             // Add some random variation
             basePosition.x += Random.Range(-0.5f, 0.5f);
             basePosition.z += Random.Range(-0.5f, 0.5f);
-            
+
             return basePosition;
         }
         

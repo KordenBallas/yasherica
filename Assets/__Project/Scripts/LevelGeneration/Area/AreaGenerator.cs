@@ -1,158 +1,130 @@
 using System.Collections.Generic;
 using System.Linq;
-using Character;
-using Combat.Controller;
-using Combat.Data;
-using Combat.Input;
-using Combat.Integration;
-using Combat.Core;
-using Core.Camera;
 using Platform;
 using UnityEngine;
 using Zenject;
 
 namespace LevelGeneration
 {
+    /// <summary>
+    /// Generates area with platforms from graph data.
+    /// Uses unified Platform.Factory - state behavior is content-driven.
+    /// </summary>
     public class AreaGenerator : IAreaGenerator
     {
-        private readonly PlatformGraphData graph;
-        private readonly PerlinNoiseMap noiseMap;
-        private readonly AreaGeneratorConfig config;
-        private readonly IFactory<ICombatController> _controllerFactory;
-        private readonly ICameraService _cameraService;
-        private readonly CharacterCombatInitializer _characterInitializer;
-        private readonly IInputController _inputController;
-        private readonly IPlayerRegistry _playerRegistry;
-        private readonly ICharacterRegistry _characterRegistry;
-        private readonly EnemyCombatIntegrator _enemyIntegrator;
-        private readonly IEnemyDataProvider _enemyDataProvider;
-        private readonly Combat.Player.AITurnController _aiTurnController;
-        private readonly Dictionary<int, IPlatform> platforms = new();
-        private readonly Dictionary<int, PlatformView> platformViews = new();
-        private IPlatform entryPlatform;
-        private GameObject areaGameObject;
-        private float cursorX = 0f;
-        private float baselineY = 0f;
+        private readonly PlatformGraphData _graph;
+        private readonly PerlinNoiseMap _noiseMap;
+        private readonly AreaGeneratorConfig _config;
+        private readonly Platform.Platform.Factory _platformFactory;
 
-        public IPlatform EntryPlatform => entryPlatform;
+        private readonly Dictionary<int, IPlatform> _platforms = new();
+        private readonly Dictionary<int, PlatformView> _platformViews = new();
+        private IPlatform _entryPlatform;
+        private GameObject _areaGameObject;
+        private float _cursorX = 0f;
+        private float _baselineY = 0f;
+
+        public IPlatform EntryPlatform => _entryPlatform;
 
         public AreaGenerator(
             PlatformGraphData graph,
             PerlinNoiseMap noiseMap,
-            IFactory<ICombatController> controllerFactory,
-            ICameraService cameraService,
-            CharacterCombatInitializer characterInitializer,
-            IInputController inputController,
-            IPlayerRegistry playerRegistry,
-            ICharacterRegistry characterRegistry,
-            EnemyCombatIntegrator enemyIntegrator,
-            IEnemyDataProvider enemyDataProvider,
-            Combat.Player.AITurnController aiTurnController,
+            Platform.Platform.Factory platformFactory,
             AreaGeneratorConfig config = null)
         {
-            this.graph = graph;
-            this.noiseMap = noiseMap;
-            _controllerFactory = controllerFactory;
-            _cameraService = cameraService;
-            _characterInitializer = characterInitializer;
-            _inputController = inputController;
-            _playerRegistry = playerRegistry;
-            _characterRegistry = characterRegistry;
-            _enemyIntegrator = enemyIntegrator;
-            _enemyDataProvider = enemyDataProvider;
-            _aiTurnController = aiTurnController;
-            this.config = config ?? new AreaGeneratorConfig();
+            _graph = graph;
+            _noiseMap = noiseMap;
+            _platformFactory = platformFactory;
+            _config = config ?? new AreaGeneratorConfig();
         }
-        
+
         public void Generate()
         {
             Clear();
-            
+
             // Reset cursor for positioning
-            cursorX = 0f;
-            baselineY = 0f;
-            
+            _cursorX = 0f;
+            _baselineY = 0f;
+
             // Create Area GameObject as parent
             CreateAreaGameObject();
-            
+
             // Create all platform instances from graph
             CreatePlatformsFromGraph();
-            
+
             // Connect platforms based on graph edges
             ConnectPlatforms();
-            
+
             // Find and set entry platform
             FindEntryPlatform();
-            
+
             // Create GameObjects for all platforms (all active)
             CreatePlatformGameObjects();
-            
-            Debug.Log($"[AreaGenerator] Created {platformViews.Count} platform GameObjects");
-            
-            if (entryPlatform == null)
+
+            Debug.Log($"[AreaGenerator] Created {_platformViews.Count} platform GameObjects");
+
+            if (_entryPlatform == null)
             {
                 Debug.LogWarning("[AreaGenerator] No entry platform found!");
             }
         }
-        
+
         public void Clear()
         {
             // Unregister all platforms from registry
             var registry = PlatformRegistry.Instance;
             if (registry != null)
             {
-                foreach (var platform in platforms.Values)
+                foreach (var platform in _platforms.Values)
                 {
                     registry.UnregisterPlatform(platform);
                 }
             }
-            
+
             // Destroy all platform GameObjects
-            foreach (var view in platformViews.Values)
+            foreach (var view in _platformViews.Values)
             {
                 if (view != null)
                 {
                     Object.Destroy(view.gameObject);
                 }
             }
-            platformViews.Clear();
-            
+            _platformViews.Clear();
+
             // Destroy area GameObject
-            if (areaGameObject != null)
+            if (_areaGameObject != null)
             {
-                Object.Destroy(areaGameObject);
-                areaGameObject = null;
+                Object.Destroy(_areaGameObject);
+                _areaGameObject = null;
             }
-            
-            platforms.Clear();
-            entryPlatform = null;
+
+            _platforms.Clear();
+            _entryPlatform = null;
         }
-        
+
         private void CreateAreaGameObject()
         {
-            areaGameObject = new GameObject("Area");
+            _areaGameObject = new GameObject("Area");
         }
-        
+
         private void CreatePlatformsFromGraph()
         {
-            foreach (var node in graph.Nodes)
+            foreach (var node in _graph.Nodes)
             {
                 IPlatform platform = CreatePlatformFromNode(node);
                 if (platform != null)
                 {
-                    platforms[node.Id] = platform;
+                    _platforms[node.Id] = platform;
                 }
             }
         }
-        
+
         private IPlatform CreatePlatformFromNode(GraphNode node)
         {
-            // Create platform based on type
-            IPlatform platform = node.Type == PlatformType.Combat
-                ? new CombatPlatform(node.Id, _controllerFactory, _cameraService, _characterInitializer, _inputController, _playerRegistry, _characterRegistry, _enemyIntegrator, _enemyDataProvider, _aiTurnController)
-                : new SimplePlatform(node.Id);
-            
-            // Add content BEFORE Initialize
+            // Create unified platform - state factory handles the rest based on content
+            IPlatform platform = _platformFactory.Create(node.Id);
+
+            // Add content (determines which states activate)
             foreach (var contentType in node.ContentTypes)
             {
                 var content = CreateContent(contentType);
@@ -161,49 +133,49 @@ namespace LevelGeneration
                     platform.AddContent(content);
                 }
             }
-            
+
             // Create visual with position from noise map
             var visual = new PlatformVisual();
             Vector2 position2D = CalculatePlatformPosition(node);
-            visual.Position = noiseMap.GetPositionWithHeight(position2D);
+            visual.Position = _noiseMap.GetPositionWithHeight(position2D);
             visual.Size = CalculatePlatformSize(node);
             visual.TopBoundary = GeneratePlatformBoundary(visual.Size);
-            
-            // Initialize with visual (will also initialize content)
+
+            // Initialize with visual (will also initialize content and state machine)
             platform.Initialize(visual);
-            
+
             return platform;
         }
-        
+
         private Vector2 CalculatePlatformPosition(GraphNode node)
         {
             // Calculate position based on previous platforms and gap
             float sx = CalculatePlatformSize(node).x;
-            float posX = cursorX + sx * 0.5f;
-            
+            float posX = _cursorX + sx * 0.5f;
+
             // Height deviation relative to previous node
             float dy = 0f;
             if (node.Id > 0)
             {
-                dy = Random.Range(-config.heightDeviation, config.heightDeviation);
+                dy = Random.Range(-_config.heightDeviation, _config.heightDeviation);
             }
-            float posY = (node.Id == 0) ? baselineY : (baselineY + dy);
-            
+            float posY = (node.Id == 0) ? _baselineY : (_baselineY + dy);
+
             // Advance cursor for next platform
-            cursorX += sx + config.gapBetweenPlatforms;
-            baselineY = posY;
-            
+            _cursorX += sx + _config.gapBetweenPlatforms;
+            _baselineY = posY;
+
             return new Vector2(posX, posY);
         }
-        
+
         private Vector2 CalculatePlatformSize(GraphNode node)
         {
             // Random size in range
-            float sx = Random.Range(config.platformSizeMin.x, config.platformSizeMax.x);
-            float sz = Random.Range(config.platformSizeMin.y, config.platformSizeMax.y);
+            float sx = Random.Range(_config.platformSizeMin.x, _config.platformSizeMax.x);
+            float sz = Random.Range(_config.platformSizeMin.y, _config.platformSizeMax.y);
             return new Vector2(sx, sz);
         }
-        
+
         private List<Vector3> GeneratePlatformBoundary(Vector2 size)
         {
             // Use PlatformMeshBuilder to generate proper boundary with jitter
@@ -211,17 +183,17 @@ namespace LevelGeneration
             var boundary = new List<Vector3>();
             float halfX = size.x * 0.5f;
             float halfZ = size.y * 0.5f;
-            
+
             // Simple rectangular boundary for initial placement
             // The actual boundary will be generated by PlatformMeshBuilder
             boundary.Add(new Vector3(-halfX, 0, -halfZ));
             boundary.Add(new Vector3(halfX, 0, -halfZ));
             boundary.Add(new Vector3(halfX, 0, halfZ));
             boundary.Add(new Vector3(-halfX, 0, halfZ));
-            
+
             return boundary;
         }
-        
+
         private IPlatformContent CreateContent(PlatformContentType contentType)
         {
             return contentType switch
@@ -233,114 +205,89 @@ namespace LevelGeneration
                 _ => null
             };
         }
-        
+
         private void ConnectPlatforms()
         {
-            foreach (var edge in graph.Edges)
+            foreach (var edge in _graph.Edges)
             {
-                if (platforms.TryGetValue(edge.FromNodeId, out var fromPlatform) &&
-                    platforms.TryGetValue(edge.ToNodeId, out var toPlatform))
+                if (_platforms.TryGetValue(edge.FromNodeId, out var fromPlatform) &&
+                    _platforms.TryGetValue(edge.ToNodeId, out var toPlatform))
                 {
                     fromPlatform.AddNeighbor(toPlatform);
                     toPlatform.AddNeighbor(fromPlatform);
                 }
             }
         }
-        
+
         private void FindEntryPlatform()
         {
-            int entryNodeId = graph.EntryNodeId;
-            foreach (var platform in platforms.Values)
+            int entryNodeId = _graph.EntryNodeId;
+            foreach (var platform in _platforms.Values)
             {
                 if (platform.Id == entryNodeId)
                 {
-                    entryPlatform = platform;
-                    Debug.Log("Found entry platform : " + entryPlatform.Id);
+                    _entryPlatform = platform;
+                    Debug.Log("Found entry platform : " + _entryPlatform.Id);
                     return;
                 }
-                
             }
-            entryPlatform = platforms.Values.First();
-            Debug.Log("Found entry platform (fallback logic) : " + entryPlatform.Id);
-            /*
-            // Entry platform is the one with no incoming edges
-            var nodesWithIncomingEdges = graph.Edges.Select(e => e.ToNodeId).ToHashSet();
-
-            foreach (var node in graph.Nodes)
-            {
-                if (!nodesWithIncomingEdges.Contains(node.Id))
-                {
-                    if (platforms.TryGetValue(node.Id, out var platform))
-                    {
-                        entryPlatform = platform;
-                        break;
-                    }
-                }
-            }
-
-            // Fallback: use first platform if no entry found
-            if (entryPlatform == null && platforms.Count > 0)
-            {
-                entryPlatform = platforms.Values.First();
-                Debug.Log("Found entry platform (fallback logic): " + entryPlatform);
-            }*/
+            _entryPlatform = _platforms.Values.First();
+            Debug.Log("Found entry platform (fallback logic) : " + _entryPlatform.Id);
         }
-        
+
         private void CreatePlatformGameObjects()
         {
-            foreach (var platform in platforms.Values)
+            foreach (var platform in _platforms.Values)
             {
                 CreatePlatformGameObject(platform);
             }
         }
-        
+
         private void CreatePlatformGameObject(IPlatform platform)
         {
-            if (platform == null || areaGameObject == null) return;
-            
+            if (platform == null || _areaGameObject == null) return;
+
             // Create GameObject for platform
             var platformGO = new GameObject($"Platform_{platform.Id}");
             platform.Visual.GameObject = platformGO; // TODO: refactor this
-            platformGO.transform.SetParent(areaGameObject.transform);
+            platformGO.transform.SetParent(_areaGameObject.transform);
             platformGO.transform.position = platform.Visual.Position;
-            
+
             // Add PlatformView component
             var platformView = platformGO.AddComponent<PlatformView>();
-            
+
             // Configure PlatformView with config
             platformView.SetConfig(
-                config.platformMaterial,
-                config.platformThickness,
-                config.edgeVertexCount,
-                config.edgeJitter,
-                config.colorVariation ? GetPlatformColor(platform.Id) : null
+                _config.platformMaterial,
+                _config.platformThickness,
+                _config.edgeVertexCount,
+                _config.edgeJitter,
+                _config.colorVariation ? GetPlatformColor(platform.Id) : null
             );
-            
+
             platformView.Initialize(platform);
-            
+
             // Store the view
-            platformViews[platform.Id] = platformView;
-            
+            _platformViews[platform.Id] = platformView;
+
             // Register with PlatformRegistry
             var registry = PlatformRegistry.Instance;
             if (registry != null)
             {
                 registry.RegisterPlatform(platform, platformView);
             }
-            
+
             // All platforms are active (no pooling)
             platformGO.SetActive(true);
         }
-        
+
         private Color? GetPlatformColor(int platformId)
         {
-            if (!config.colorVariation) return null;
-            
-            int totalPlatforms = platforms.Count;
+            if (!_config.colorVariation) return null;
+
+            int totalPlatforms = _platforms.Count;
             float hue = (platformId / (float)Mathf.Max(1, totalPlatforms)) * 0.6f;
             return Color.HSVToRGB(hue, 0.6f, 0.9f);
         }
-        
     }
 }
-

@@ -8,7 +8,9 @@ namespace Platform
         Loot,
         Quest,
         Village,
-        Crossroad
+        Crossroad,
+        Cutscene,
+        Dialogue
     }
 
     public interface IPlatformContent

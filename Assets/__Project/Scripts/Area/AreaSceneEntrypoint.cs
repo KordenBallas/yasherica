@@ -1,12 +1,8 @@
 using UnityEngine;
 using LevelGeneration;
 using Platform;
-using Combat.Controller;
 using Combat.Core;
 using Combat.Player;
-using Combat.Integration;
-using Character;
-using Core.Camera;
 using Zenject;
 
 public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
@@ -47,25 +43,11 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     private IAreaGenerator areaGenerator;
     private AreaView areaView;
     private IPlatform currentPlatform;
-    
+
     [Inject]
-    private IFactory<ICombatController> _controllerFactory;
-    [Inject]
-    private ICameraService _cameraService;
+    private Platform.Platform.Factory _platformFactory;
     [Inject]
     private IPlayerRegistry _playerRegistry;
-    [Inject]
-    private ICharacterRegistry _characterRegistry;
-    [Inject]
-    private CharacterCombatInitializer _characterInitializer;
-    [Inject]
-    private Combat.Input.IInputController _inputController;
-    [Inject]
-    private Combat.Integration.EnemyCombatIntegrator _enemyIntegrator;
-    [Inject]
-    private Combat.Data.IEnemyDataProvider _enemyDataProvider;
-    [Inject]
-    private Combat.Player.AITurnController _aiTurnController;
     [Inject]
     private DiContainer _container;
     
@@ -136,8 +118,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             colorVariation = colorVariation
         };
         
-        // 6. Create area generator
-        areaGenerator = new AreaGenerator(graph, noiseMap, _controllerFactory, _cameraService, _characterInitializer, _inputController, _playerRegistry, _characterRegistry, _enemyIntegrator, _enemyDataProvider, _aiTurnController, config);
+        // 6. Create area generator (uses Platform.Factory - states handle combat dependencies)
+        areaGenerator = new AreaGenerator(graph, noiseMap, _platformFactory, config);
         areaGenerator.Generate();
         
         // 7. Set up AreaView

@@ -1,7 +1,11 @@
+using Zenject;
+
 namespace Platform
 {
     public class PlatformLockedState : PlatformStateBase
     {
+        public class Factory : PlaceholderFactory<PlatformLockedState> { }
+
         public override void OnEnter(IPlatform platform)
         {
             // Platform is locked (not accessible yet)

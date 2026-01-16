@@ -1,23 +1,33 @@
+using Platform;
 using Zenject;
 
 namespace Core.DI
 {
     /// <summary>
-    /// Platform installer - currently empty as platform factory bindings
-    /// are handled in GameInstaller to avoid circular dependencies.
-    /// This installer is kept for future platform-specific bindings.
+    /// Zenject installer for platform system dependencies.
+    /// Binds platform factory, state factory, and all state factories.
     /// </summary>
     public class PlatformInstaller : MonoInstaller
     {
         public override void InstallBindings()
         {
-            // Platform factory bindings are in GameInstaller
-            // to avoid dependency resolution issues during installation.
-            // 
-            // Note: IPlatformFactoryRegistry is bound but not currently used
-            // by AreaGenerator, which creates platforms directly.
-            // This is intentional to avoid factory abstraction overhead.
+            // State Factory (content-driven state selection)
+            Container.Bind<IPlatformStateFactory>()
+                .To<PlatformStateFactory>()
+                .AsSingle();
+
+            // Platform Factory (uses state factory)
+            Container.BindFactory<int, Platform.Platform, Platform.Platform.Factory>();
+
+            // Default state factories
+            Container.BindFactory<PlatformActiveState, PlatformActiveState.Factory>();
+            Container.BindFactory<PlatformIdleState, PlatformIdleState.Factory>();
+            Container.BindFactory<PlatformCompletedState, PlatformCompletedState.Factory>();
+            Container.BindFactory<PlatformLockedState, PlatformLockedState.Factory>();
+
+            // Placeholder state factories for future content types
+            Container.BindFactory<DialogueActiveState, DialogueActiveState.Factory>();
+            Container.BindFactory<CutsceneActiveState, CutsceneActiveState.Factory>();
         }
     }
 }
-

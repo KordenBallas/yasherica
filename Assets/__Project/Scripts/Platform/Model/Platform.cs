@@ -1,74 +1,98 @@
 using System.Collections.Generic;
-using System.Linq;
+using Combat.Controller;
+using Zenject;
 
 namespace Platform
 {
+    /// <summary>
+    /// Unified platform class that supports any combination of states.
+    /// State activation is content-driven through IPlatformStateFactory.
+    /// </summary>
     public class Platform : IPlatform
     {
+        public class Factory : PlaceholderFactory<int, Platform> { }
+
         public int Id { get; private set; }
-        
+
         public PlatformStateMachine StateMachine { get; private set; }
-        public IReadOnlyList<IPlatformContent> Contents => contents.AsReadOnly();
-        public IReadOnlyList<IPlatform> Neighbors => neighbors.AsReadOnly();
+        public IReadOnlyList<IPlatformContent> Contents => _contents.AsReadOnly();
+        public IReadOnlyList<IPlatform> Neighbors => _neighbors.AsReadOnly();
         public IPlatformVisual Visual { get; private set; }
-        
-        private readonly List<IPlatformContent> contents = new();
-        private readonly List<IPlatform> neighbors = new();
-        
-        public Platform(int id)
+        public IPlatformStateFactory StateFactory { get; private set; }
+
+        private readonly List<IPlatformContent> _contents = new();
+        private readonly List<IPlatform> _neighbors = new();
+        private ICombatController _combatController;
+
+        public Platform(int id, IPlatformStateFactory stateFactory)
         {
             Id = id;
+            StateFactory = stateFactory;
             StateMachine = new PlatformStateMachine();
         }
-        
+
         public virtual void Initialize(IPlatformVisual visual)
         {
             Visual = visual;
-            
+
             // Initialize all content
-            foreach (var content in contents)
+            foreach (var content in _contents)
             {
                 content.Initialize(this);
             }
-            
-            // Set up state machine (can be overridden)
+
+            // Set up state machine using factory
             InitializeStateMachine();
         }
-        
+
         protected virtual void InitializeStateMachine()
         {
-            StateMachine.Initialize(this, new PlatformIdleState());
+            // Factory creates appropriate idle state based on content
+            var idleState = StateFactory.CreateIdleState(this);
+            StateMachine.Initialize(this, idleState);
         }
-        
-    public virtual void Enter()
-    {
-        StateMachine.ChangeState(new PlatformActiveState());
-    }
-    
-    public virtual void Exit()
-    {
-        // Return to idle if not completed
-        if (StateMachine.CurrentState is not PlatformCompletedState)
+
+        public virtual void Enter()
         {
-            StateMachine.ChangeState(new PlatformIdleState());
+            // Factory creates appropriate active state based on content
+            var activeState = StateFactory.CreateActiveState(this);
+            StateMachine.ChangeState(activeState);
         }
-    }
-        
+
+        public virtual void Exit()
+        {
+            // Return to idle if not completed
+            if (StateMachine.CurrentState is not PlatformCompletedState)
+            {
+                var idleState = StateFactory.CreateIdleState(this);
+                StateMachine.ChangeState(idleState);
+            }
+        }
+
         public void AddNeighbor(IPlatform platform)
         {
-            if (platform != null && !neighbors.Contains(platform))
+            if (platform != null && !_neighbors.Contains(platform))
             {
-                neighbors.Add(platform);
+                _neighbors.Add(platform);
             }
         }
-        
+
         public void AddContent(IPlatformContent content)
         {
-            if (content != null && !contents.Contains(content))
+            if (content != null && !_contents.Contains(content))
             {
-                contents.Add(content);
+                _contents.Add(content);
             }
+        }
+
+        public void SetCombatController(ICombatController controller)
+        {
+            _combatController = controller;
+        }
+
+        public ICombatController GetCombatController()
+        {
+            return _combatController;
         }
     }
 }
-

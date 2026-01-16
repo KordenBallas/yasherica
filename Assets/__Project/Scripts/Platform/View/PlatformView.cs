@@ -91,9 +91,8 @@ namespace Platform
             // Update visual boundary with the actual generated outline
             platform.Visual.TopBoundary = outline;
             
-            // Note: Battlefield initialization for CombatPlatform is now handled by
-            // CombatPlatformActiveState when the platform is entered.
-            // The Combat system will use the TopBoundary set here.
+            // Note: Battlefield initialization is handled by CombatActiveState
+            // when the platform is entered. The Combat system uses the TopBoundary set here.
         }
         
         public void SetActive(bool active)

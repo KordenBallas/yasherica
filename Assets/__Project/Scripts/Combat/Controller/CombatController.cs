@@ -355,7 +355,7 @@ namespace Combat.Controller
         
         /// <summary>
         /// Initializes the battlefield with geometric data from platform.
-        /// Called by CombatPlatformActiveState when platform is entered.
+        /// Called by CombatActiveState when platform is entered.
         /// Uses Combat configuration for hex size and orientation.
         /// </summary>
         public void InitializeBattlefield(List<Vector3> boundary, Vector3 center)
@@ -379,7 +379,7 @@ namespace Combat.Controller
         
         /// <summary>
         /// Cleans up battlefield when combat ends or platform is exited.
-        /// Called by CombatPlatformActiveState.OnExit().
+        /// Called by CombatActiveState.OnExit().
         /// </summary>
         public void CleanupBattlefield()
         {
