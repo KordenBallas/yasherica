@@ -1,0 +1,7 @@
+﻿I have created Ability Definition SO, EnemyDefinition SO and registered them with
+  @Assets/__Project/Scripts/Combat/DI/CombatInstaller.cs Now I wanna refactor the
+  @Assets/__Project/Scripts/LevelGeneration/Scenario/ScenarioGenerator.cs. I want it to create a level scenario considering
+  @Assets/__Project/Scripts/LevelGeneration/Scenario/GameContext.cs, and I want GameContext on a startup to just suggest
+  creating several combat platforms with enemies build from enemy definitions in
+  @Assets/__Project/Scripts/Combat/DI/CombatInstaller.cs. I want the rest level initialization and creation logic in
+  @Assets/__Project/Scripts/Area/AreaSceneEntrypoint.cs to follow the scenario generated.

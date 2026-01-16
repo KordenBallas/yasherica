@@ -1,6 +1,7 @@
 using Combat.Battlefield;
 using Combat.Config;
 using Combat.Core;
+using Combat.Core.StatusEffects;
 using Combat.Execution;
 using Combat.TurnManagement;
 using Zenject;
@@ -17,6 +18,7 @@ namespace Combat.Controller
         private readonly IActionExecutor _actionExecutor;
         private readonly ITurnManager _turnManager;
         private readonly IDamageSystem _damageSystem;
+        private readonly StatusEffectTriggerProcessor _triggerProcessor;
         private readonly BattlefieldFactory _battlefieldFactory;
         private readonly CombatConfig _config;
         private readonly HexDirectionConfig _hexConfig;
@@ -27,6 +29,7 @@ namespace Combat.Controller
             IActionExecutor actionExecutor,
             ITurnManager turnManager,
             IDamageSystem damageSystem,
+            StatusEffectTriggerProcessor triggerProcessor,
             BattlefieldFactory battlefieldFactory,
             CombatConfig config,
             HexDirectionConfig hexConfig)
@@ -35,6 +38,7 @@ namespace Combat.Controller
             _actionExecutor = actionExecutor;
             _turnManager = turnManager;
             _damageSystem = damageSystem;
+            _triggerProcessor = triggerProcessor;
             _battlefieldFactory = battlefieldFactory;
             _config = config;
             _hexConfig = hexConfig;
@@ -47,6 +51,7 @@ namespace Combat.Controller
                 _actionExecutor,
                 _turnManager,
                 _damageSystem,
+                _triggerProcessor,
                 _battlefieldFactory,
                 _config,
                 _hexConfig);

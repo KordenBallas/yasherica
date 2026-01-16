@@ -4,6 +4,8 @@ using Combat.Battlefield;
 using Combat.Controller;
 using Combat.Core;
 using Combat.Data;
+using Combat.Data.Definitions;
+using Combat.Data.Providers;
 using Combat.Enemy;
 using Combat.Player;
 using UnityEngine;
@@ -38,15 +40,19 @@ namespace Combat.Integration
 
         /// <summary>
         /// Creates AIPlayer for enemy with appropriate decision maker based on AI personality.
+        /// Uses ConfigurableTacticalAI when AIProfileDefinition is available.
         /// </summary>
         public IPlayer CreateEnemyPlayer(int enemyId, EnemyData enemyData)
         {
-            IAIDecisionMaker decisionMaker = enemyData.AIType switch
+            // Try to get AIProfile from ScriptableObject provider
+            AIProfileDefinition aiProfile = null;
+            if (_enemyDataProvider is ScriptableObjectEnemyDataProvider soProvider)
             {
-                AIPersonality.SimpleRandom => new SimpleRandomAI(),
-                AIPersonality.Tactical => new TacticalAI(),
-                _ => new SimpleRandomAI()
-            };
+                var enemyDefinition = soProvider.GetEnemyDefinition(enemyId);
+                aiProfile = enemyDefinition?.AIProfile;
+            }
+
+            IAIDecisionMaker decisionMaker = CreateDecisionMaker(enemyData.AIType, aiProfile);
 
             var playerId = _nextPlayerId++;
             var player = new AIPlayer(
@@ -54,9 +60,32 @@ namespace Combat.Integration
                 name: enemyData.Name,
                 decisionMaker: decisionMaker);
 
-            Debug.Log($"[EnemyCombatIntegrator] Created AIPlayer: ID={playerId}, Name={enemyData.Name}, AI={enemyData.AIType}");
+            string aiDescription = aiProfile != null
+                ? $"{enemyData.AIType} (Configurable)"
+                : enemyData.AIType.ToString();
+            Debug.Log($"[EnemyCombatIntegrator] Created AIPlayer: ID={playerId}, Name={enemyData.Name}, AI={aiDescription}");
 
             return player;
+        }
+
+        /// <summary>
+        /// Creates the appropriate AI decision maker based on personality and profile.
+        /// </summary>
+        private IAIDecisionMaker CreateDecisionMaker(AIPersonality personality, AIProfileDefinition profile)
+        {
+            // If we have an AI profile, use ConfigurableTacticalAI for Tactical personality
+            if (profile != null && personality == AIPersonality.Tactical)
+            {
+                return new ConfigurableTacticalAI(profile);
+            }
+
+            // Fallback to standard AI implementations
+            return personality switch
+            {
+                AIPersonality.SimpleRandom => new SimpleRandomAI(),
+                AIPersonality.Tactical => new TacticalAI(),
+                _ => new SimpleRandomAI()
+            };
         }
 
         /// <summary>

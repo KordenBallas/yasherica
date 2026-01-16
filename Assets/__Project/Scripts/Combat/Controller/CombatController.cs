@@ -1,6 +1,7 @@
 using Combat.Battlefield;
 using Combat.Config;
 using Combat.Core;
+using Combat.Core.StatusEffects;
 using Combat.Execution;
 using Combat.TurnManagement;
 using System.Collections.Generic;
@@ -19,6 +20,7 @@ namespace Combat.Controller
         private readonly IActionExecutor _actionExecutor;
         private readonly ITurnManager _turnManager;
         private readonly IDamageSystem _damageSystem;
+        private readonly StatusEffectTriggerProcessor _triggerProcessor;
         private readonly BattlefieldFactory _battlefieldFactory;
         private readonly CombatConfig _config;
         private readonly HexDirectionConfig _hexConfig;
@@ -40,6 +42,7 @@ namespace Combat.Controller
             IActionExecutor actionExecutor,
             ITurnManager turnManager,
             IDamageSystem damageSystem,
+            StatusEffectTriggerProcessor triggerProcessor,
             BattlefieldFactory battlefieldFactory,
             CombatConfig config,
             HexDirectionConfig hexConfig)
@@ -48,6 +51,7 @@ namespace Combat.Controller
             _actionExecutor = actionExecutor;
             _turnManager = turnManager;
             _damageSystem = damageSystem;
+            _triggerProcessor = triggerProcessor;
             _battlefieldFactory = battlefieldFactory;
             _config = config;
             _hexConfig = hexConfig;
@@ -237,13 +241,28 @@ namespace Combat.Controller
         {
             var currentPlayerUnits = gameState.GetUnitsByPlayer(_turnManager.CurrentPlayer);
             var newState = gameState;
-            
+
             foreach (var unit in currentPlayerUnits)
             {
-                // Apply DOT/HOT effects
-                newState = ApplyStatusEffects(newState, unit);
+                // Use trigger processor for data-driven effects (TurnStart)
+                if (_triggerProcessor != null)
+                {
+                    var currentUnit = newState.GetUnit(unit.Id);
+                    if (currentUnit != null && currentUnit.IsAlive)
+                    {
+                        newState = _triggerProcessor.ProcessTrigger(
+                            newState, currentUnit, StatusEffectTriggerType.TurnStart);
+                    }
+                }
+
+                // Also apply legacy DOT/HOT effects for backward compatibility
+                var updatedUnit = newState.GetUnit(unit.Id);
+                if (updatedUnit != null && updatedUnit.IsAlive)
+                {
+                    newState = ApplyLegacyStatusEffects(newState, updatedUnit);
+                }
             }
-            
+
             return newState;
         }
         
@@ -251,22 +270,45 @@ namespace Combat.Controller
         {
             var currentPlayerUnits = gameState.GetUnitsByPlayer(_turnManager.CurrentPlayer);
             var newState = gameState;
-            
+
             foreach (var unit in currentPlayerUnits)
             {
+                // Use trigger processor for data-driven effects (TurnEnd)
+                if (_triggerProcessor != null)
+                {
+                    var currentUnit = newState.GetUnit(unit.Id);
+                    if (currentUnit != null && currentUnit.IsAlive)
+                    {
+                        newState = _triggerProcessor.ProcessTrigger(
+                            newState, currentUnit, StatusEffectTriggerType.TurnEnd);
+                    }
+                }
+
                 // Decrement status effect durations
-                newState = DecrementStatusEffects(newState, unit);
+                var updatedUnit = newState.GetUnit(unit.Id);
+                if (updatedUnit != null)
+                {
+                    newState = DecrementStatusEffects(newState, updatedUnit);
+                }
             }
-            
+
             return newState;
         }
         
-        private ICombatState ApplyStatusEffects(ICombatState gameState, IUnit unit)
+        /// <summary>
+        /// Applies legacy hardcoded status effects (PoisonEffect, RegenerationEffect).
+        /// Kept for backward compatibility with existing status effect implementations.
+        /// </summary>
+        private ICombatState ApplyLegacyStatusEffects(ICombatState gameState, IUnit unit)
         {
             var newState = gameState;
-            
+
             foreach (var effect in unit.StatusEffects)
             {
+                // Skip data-driven effects (they're handled by trigger processor)
+                if (effect is ITriggeredStatusEffect)
+                    continue;
+
                 if (effect is PoisonEffect poison)
                 {
                     newState = _damageSystem.ApplyDamage(newState, unit, poison.DamagePerTurn);
@@ -276,7 +318,7 @@ namespace Combat.Controller
                     newState = _damageSystem.ApplyHealing(newState, unit, regen.HealPerTurn);
                 }
             }
-            
+
             return newState;
         }
         

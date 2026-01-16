@@ -1,9 +1,14 @@
+using System.Collections.Generic;
 using Character;
 using Combat.Animation;
 using Combat.Battlefield;
 using Combat.Config;
 using Combat.Controller;
 using Combat.Core;
+using Combat.Core.StatusEffects;
+using Combat.Data.Definitions;
+using Combat.Data.Factories;
+using Combat.Data.Providers;
 using Combat.Execution;
 using Combat.Integration;
 using Combat.TurnManagement;
@@ -24,6 +29,16 @@ namespace Combat.DI
         [SerializeField] private CombatMovementConfig _movementConfig;
         [SerializeField] private InputConfig _inputConfig;
         [SerializeField] private HexDirectionConfig _hexDirectionConfig;
+
+        [Header("Data Definitions (Optional - for data-driven system)")]
+        [Tooltip("Status effect definitions for the data-driven system")]
+        [SerializeField] private List<StatusEffectDefinition> _statusEffectDefinitions;
+
+        [Tooltip("Ability definitions for the data-driven system")]
+        [SerializeField] private List<AbilityDefinition> _abilityDefinitions;
+
+        [Tooltip("Enemy definitions for the data-driven system")]
+        [SerializeField] private List<EnemyDefinition> _enemyDefinitions;
         
         public override void InstallBindings()
         {
@@ -90,10 +105,44 @@ namespace Combat.DI
             // Services
             Container.Bind<CharacterCombatInitializer>().AsSingle();
 
-            // Enemy combat integration
-            Container.Bind<Data.IEnemyDataProvider>()
-                .To<Data.SimpleEnemyDataProvider>()
+            // Status Effect Factory (bind first as abilities may need it)
+            Container.Bind<IStatusEffectFactory>()
+                .To<StatusEffectFactory>()
                 .AsSingle();
+
+            // Ability Factory
+            Container.Bind<IAbilityFactory>()
+                .To<AbilityFactory>()
+                .AsSingle();
+
+            // Status Effect Trigger Processor
+            Container.Bind<StatusEffectTriggerProcessor>()
+                .AsSingle();
+
+            // Ability Data Provider (optional - for data-driven system)
+            if (_abilityDefinitions != null && _abilityDefinitions.Count > 0)
+            {
+                Container.Bind<IAbilityDataProvider>()
+                    .To<ScriptableObjectAbilityProvider>()
+                    .AsSingle()
+                    .WithArguments(_abilityDefinitions as IReadOnlyList<AbilityDefinition>);
+            }
+
+            // Enemy combat integration
+            // Use ScriptableObject provider if definitions are available, otherwise fallback to simple provider
+            if (_enemyDefinitions != null && _enemyDefinitions.Count > 0)
+            {
+                Container.Bind<Data.IEnemyDataProvider>()
+                    .To<ScriptableObjectEnemyDataProvider>()
+                    .AsSingle()
+                    .WithArguments(_enemyDefinitions as IReadOnlyList<EnemyDefinition>);
+            }
+            else
+            {
+                Container.Bind<Data.IEnemyDataProvider>()
+                    .To<Data.SimpleEnemyDataProvider>()
+                    .AsSingle();
+            }
 
             Container.Bind<EnemyCombatIntegrator>()
                 .AsSingle();
