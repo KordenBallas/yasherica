@@ -52,7 +52,12 @@ namespace Core.DI
         private void InstallGameCoreBindings()
         {
             // Core systems
-            Container.Bind<IScenarioGenerator>().To<ScenarioGenerator>().AsSingle();
+            // Note: IScenarioGenerator is bound by NarrativeInstaller (StoryAwareScenarioGenerator)
+            // Fallback binding if NarrativeInstaller is not present
+            if (!Container.HasBinding<IScenarioGenerator>())
+            {
+                Container.Bind<IScenarioGenerator>().To<ScenarioGenerator>().AsSingle();
+            }
             Container.Bind<IPlatformGraphGenerator>().To<PlatformGraphGenerator>().AsSingle();
 
             // Factory Registry (legacy - kept for backwards compatibility)

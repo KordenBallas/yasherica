@@ -270,7 +270,11 @@ If a request violates SOLID, KISS, MVP, or these rules:
 
 ---
 
-## 14. Final Principle
+## 15. Context7
+
+Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+
+## 16. Final Principle
 
 This is a **production‑quality Unity project**.
 

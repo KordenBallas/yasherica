@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Combat.Controller;
+using LevelGeneration;
 using Zenject;
 
 namespace Platform
@@ -19,6 +20,7 @@ namespace Platform
         public IReadOnlyList<IPlatform> Neighbors => _neighbors.AsReadOnly();
         public IPlatformVisual Visual { get; private set; }
         public IPlatformStateFactory StateFactory { get; private set; }
+        public StoryPlatformData StoryData { get; private set; }
 
         private readonly List<IPlatformContent> _contents = new();
         private readonly List<IPlatform> _neighbors = new();
@@ -83,6 +85,16 @@ namespace Platform
             {
                 _contents.Add(content);
             }
+        }
+
+        public void TransitionToState(IPlatformState state)
+        {
+            StateMachine.ChangeState(state);
+        }
+
+        public void SetStoryData(StoryPlatformData storyData)
+        {
+            StoryData = storyData;
         }
 
         public void SetCombatController(ICombatController controller)

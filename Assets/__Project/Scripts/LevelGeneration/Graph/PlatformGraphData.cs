@@ -37,7 +37,9 @@ namespace LevelGeneration
         Loot,
         Quest,
         Village,
-        Crossroad
+        Crossroad,
+        Dialogue,
+        Cutscene
     }
 }
 

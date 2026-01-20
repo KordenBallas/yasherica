@@ -40,7 +40,7 @@ namespace Platform
 
         /// <summary>
         /// Creates the appropriate active state based on platform content.
-        /// Priority: Enemy (Combat) > Npc (Dialogue) > Cutscene > Default (Active)
+        /// Priority: Enemy (Combat) > Npc (Dialogue) > Dialogue > Cutscene > Default (Active)
         /// </summary>
         public IPlatformState CreateActiveState(IPlatform platform)
         {
@@ -58,9 +58,19 @@ namespace Platform
                 return _dialogueActiveStateFactory.Create();
             }
 
-            // Check for cutscene content -> Cutscene state (using new ContentType)
-            // Note: ContentType.Cutscene may need to be added to the enum
-            // For now, default to active state
+            // Check for pure dialogue content -> Dialogue state
+            if (HasContentType(platform, ContentType.Dialogue))
+            {
+                Debug.Log($"[PlatformStateFactory] Creating DialogueActiveState for platform {platform.Id}");
+                return _dialogueActiveStateFactory.Create();
+            }
+
+            // Check for cutscene content -> Cutscene state
+            if (HasContentType(platform, ContentType.Cutscene))
+            {
+                Debug.Log($"[PlatformStateFactory] Creating CutsceneActiveState for platform {platform.Id}");
+                return _cutsceneActiveStateFactory.Create();
+            }
 
             // Default: generic active state
             Debug.Log($"[PlatformStateFactory] Creating PlatformActiveState for platform {platform.Id}");
