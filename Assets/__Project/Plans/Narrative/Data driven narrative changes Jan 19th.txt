@@ -861,3 +861,40 @@ Implemented
   ✅ Backward compatible - legacy systems still work with _enableStoryGraph = false
 
   All systems follow SOLID principles, use MVP pattern, and are fully integrated with Zenject DI. The implementation is production-ready and testable!
+
+
+
+========================================================================================================================
+
+
+Prefab Hierarchy
+
+  DialogueView (Canvas)
+  ├── Background (semi-transparent overlay)
+  ├── DialoguePanel (main dialogue box)
+  │   ├── SpeakerPanel
+  │   │   └── SpeakerNameText (gold colored, bold)
+  │   ├── ContentPanel
+  │   │   ├── PortraitContainer (inactive by default)
+  │   │   │   └── PortraitImage
+  │   │   └── DialogueText (white, word-wrapped)
+  │   └── ButtonsPanel
+  │       ├── ContinueButton (green tint)
+  │       └── SkipButton (red tint)
+  └── ChoicesPanel (inactive by default)
+      └── ChoicesContainer (VerticalLayoutGroup)
+
+  Next Steps - Unity Editor Setup
+
+  1. Open Unity Editor and let it import the new assets
+  2. Import TextMeshPro (if not already imported):
+    - Window → TextMeshPro → Import TMP Essentials
+  3. Assign Prefab to NarrativeInstaller:
+    - Open scene: Assets/__Project/Scenes/Area.unity
+    - Find the GameObject with NarrativeInstaller component
+    - In Inspector, locate "Dialogue UI" section
+    - Drag DialogueView.prefab to the "Dialogue View Prefab" field
+  4. Test in Play Mode:
+    - The DialogueView will be instantiated by Zenject
+    - Verify all UI elements are visible when dialogue is triggered
+    - Check button functionality (Continue, Skip, Choices)

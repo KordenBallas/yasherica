@@ -10,6 +10,11 @@ namespace Platform
         /// Creates the appropriate active state based on platform content.
         /// </summary>
         IPlatformState CreateActiveState(IPlatform platform);
+        
+        /// <summary>
+        /// Creates the appropriate active state based on platform content.
+        /// </summary>
+        IPlatformState CreateActiveState(IPlatform platform, ContentType contentType);
 
         /// <summary>
         /// Creates the appropriate idle state based on platform content.

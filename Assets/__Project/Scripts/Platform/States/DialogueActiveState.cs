@@ -21,6 +21,7 @@ namespace Platform
         private readonly IPlatformStateFactory _stateFactory;
         private readonly ISideStoryProvider _sideStoryProvider;
         private readonly IStoryManager _storyManager;
+        private readonly IInkExternalFunctionBinder _externalFunctionBinder;
 
         private IPlatform _currentPlatform;
         private NpcContent _npcContent;
@@ -35,13 +36,15 @@ namespace Platform
             IStoryStateProvider storyStateProvider,
             IPlatformStateFactory stateFactory,
             ISideStoryProvider sideStoryProvider,
-            IStoryManager storyManager)
+            IStoryManager storyManager,
+            IInkExternalFunctionBinder externalFunctionBinder = null)
         {
             _dialoguePresenter = dialoguePresenter;
             _storyStateProvider = storyStateProvider;
             _stateFactory = stateFactory;
             _sideStoryProvider = sideStoryProvider;
             _storyManager = storyManager;
+            _externalFunctionBinder = externalFunctionBinder;
         }
 
         public override void OnEnter(IPlatform platform)
@@ -181,6 +184,7 @@ namespace Platform
 
             // Load the side story's Ink content
             _storyManager.LoadStory(sideStory.GetInkJson());
+            _externalFunctionBinder?.BindAllExternalFunctions();
 
             // Record NPC encounter if applicable
             if (!string.IsNullOrEmpty(storyData.NpcId))
@@ -237,6 +241,9 @@ namespace Platform
 
         private void HandleCombatOutcome()
         {
+            // TODO: When multi-enemy combat is implemented, use
+            // _externalFunctionBinder.LastCombatEnemyCount to spawn multiple enemies
+
             if (_npcContent != null && _npcContent.CanBecomeEnemy)
             {
                 // Transition NPC to enemy
@@ -256,7 +263,15 @@ namespace Platform
                 }
             }
 
-            // If no enemy transition possible, just complete
+            // Check if combat was explicitly triggered via trigger_combat()
+            if (_combatTriggered)
+            {
+                Debug.Log("[DialogueActiveState] Combat triggered via Ink function - transitioning to combat");
+                TransitionToCombat();
+                return;
+            }
+
+            // If no enemy transition possible and combat not triggered, just complete
             TransitionToCompleted();
         }
 
@@ -265,7 +280,7 @@ namespace Platform
             if (_currentPlatform == null)
                 return;
 
-            var combatState = _stateFactory.CreateActiveState(_currentPlatform);
+            var combatState = _stateFactory.CreateActiveState(_currentPlatform, ContentType.Enemy);
             _currentPlatform.TransitionToState(combatState);
         }
 

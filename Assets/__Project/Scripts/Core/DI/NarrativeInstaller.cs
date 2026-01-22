@@ -36,19 +36,21 @@ namespace Core.DI
         [Tooltip("Dialogue view prefab for dynamic instantiation")]
         [SerializeField] private DialogueView _dialogueViewPrefab;
 
-        [Header("Story Graph Configuration")]
-        [Tooltip("Enable story graph system for advanced narrative features")]
-        [SerializeField] private bool _enableStoryGraph = true;
+        [Header("Scenario Generator Configuration")]
+        [Tooltip("Select which scenario generator to use")]
+        [SerializeField] private ScenarioGeneratorType _generatorType = ScenarioGeneratorType.StoryGraph;
 
         public override void InstallBindings()
         {
+            Debug.Log("[NarrativeInstaller] Install Bindings");
             InstallStoryManagement();
             InstallNpcDataProvider();
             InstallDialogueSystem();
+            InstallExternalFunctionBinder();
             InstallSideStorySystem();
 
-            // NEW: Install story graph system if enabled
-            if (_enableStoryGraph)
+            // Install story graph system for generators that need it
+            if (_generatorType == ScenarioGeneratorType.StoryGraph)
             {
                 InstallStoryGraph();
                 InstallNpcStoryProvider();
@@ -99,21 +101,15 @@ namespace Core.DI
 
         private void InstallDialogueSystem()
         {
-            // Dialogue presenter (coordinates between model, view, and story)
-            Container.Bind<DialoguePresenter>()
-                .AsSingle();
-
-            // Dialogue view binding
+            // Dialogue view binding (MUST be first so presenter can use it)
             if (_dialogueView != null)
             {
-                // Use existing scene view
                 Container.Bind<IDialogueView>()
                     .FromInstance(_dialogueView)
                     .AsSingle();
             }
             else if (_dialogueViewPrefab != null)
             {
-                // Create view from prefab
                 Container.Bind<IDialogueView>()
                     .To<DialogueView>()
                     .FromComponentInNewPrefab(_dialogueViewPrefab)
@@ -122,8 +118,23 @@ namespace Core.DI
             }
             else
             {
-                Debug.LogWarning("[NarrativeInstaller] No dialogue view assigned - dialogue UI will not be available");
+                throw new System.InvalidOperationException(
+                    "[NarrativeInstaller] No dialogue view assigned! " +
+                    "Assign either _dialogueView or _dialogueViewPrefab in the inspector. " +
+                    "DialoguePresenter requires a view to function.");
             }
+
+            // Dialogue presenter - will automatically receive IDialogueView via constructor injection
+            Container.Bind<DialoguePresenter>()
+                .AsSingle();
+        }
+
+        private void InstallExternalFunctionBinder()
+        {
+            // External function binder for Ink external functions
+            Container.Bind<IInkExternalFunctionBinder>()
+                .To<InkExternalFunctionBinder>()
+                .AsSingle();
         }
 
         private void InstallSideStorySystem()
@@ -188,24 +199,51 @@ namespace Core.DI
 
         private void InstallScenarioGeneration()
         {
-            if (_enableStoryGraph)
+            Debug.Log("[NarrativeInstaller] Binding ScenarioGenerator");
+            switch (_generatorType)
             {
-                // NEW: Story graph scenario generator (uses graph and selection strategies)
-                Container.Bind<IScenarioGenerator>()
-                    .To<StoryGraphScenarioGenerator>()
-                    .AsSingle();
+                case ScenarioGeneratorType.StoryGraph:
+                    Container.Bind<IScenarioGenerator>()
+                        .To<StoryGraphScenarioGenerator>()
+                        .AsSingle();
+                    Debug.Log("[NarrativeInstaller] Using StoryGraphScenarioGenerator");
+                    break;
 
-                Debug.Log("[NarrativeInstaller] Using StoryGraphScenarioGenerator for enhanced narrative generation");
-            }
-            else
-            {
-                // LEGACY: Story-aware scenario generator (old system)
-                Container.Bind<IScenarioGenerator>()
-                    .To<StoryAwareScenarioGenerator>()
-                    .AsSingle();
+                case ScenarioGeneratorType.StoryAware:
+                    Container.Bind<IScenarioGenerator>()
+                        .To<StoryAwareScenarioGenerator>()
+                        .AsSingle();
+                    Debug.Log("[NarrativeInstaller] Using StoryAwareScenarioGenerator");
+                    break;
 
-                Debug.Log("[NarrativeInstaller] Using legacy StoryAwareScenarioGenerator");
+                case ScenarioGeneratorType.NpcSequence:
+                    Container.Bind<IScenarioGenerator>()
+                        .To<NpcSequenceScenarioGenerator>()
+                        .AsSingle();
+                    Debug.Log("[NarrativeInstaller] Using NpcSequenceScenarioGenerator");
+                    break;
             }
         }
+    }
+
+    /// <summary>
+    /// Available scenario generator types.
+    /// </summary>
+    public enum ScenarioGeneratorType
+    {
+        /// <summary>
+        /// Uses story graph and selection strategies for advanced narrative generation.
+        /// </summary>
+        StoryGraph,
+
+        /// <summary>
+        /// Uses story-aware generation with Ink requirements (legacy).
+        /// </summary>
+        StoryAware,
+
+        /// <summary>
+        /// Generates sequential NPC encounters with empty platforms between each.
+        /// </summary>
+        NpcSequence
     }
 }

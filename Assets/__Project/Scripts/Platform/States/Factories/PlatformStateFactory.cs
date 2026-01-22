@@ -76,6 +76,23 @@ namespace Platform
             Debug.Log($"[PlatformStateFactory] Creating PlatformActiveState for platform {platform.Id}");
             return _activeStateFactory.Create();
         }
+        
+        /// <summary>
+        /// Creates the appropriate active state based on platform content.
+        /// </summary>
+        public IPlatformState CreateActiveState(IPlatform platform, ContentType contentType)
+        {
+            // Check for enemy content -> Combat state
+            if (ContentType.Enemy.Equals(contentType))
+            {
+                Debug.Log($"[PlatformStateFactory] Creating CombatActiveState for platform {platform.Id}");
+                return _combatActiveStateFactory.Create();
+            }
+
+            // Default: generic active state
+            Debug.Log($"[PlatformStateFactory] Creating PlatformActiveState for platform {platform.Id}");
+            return _activeStateFactory.Create();
+        }
 
         /// <summary>
         /// Creates the appropriate idle state based on platform content.

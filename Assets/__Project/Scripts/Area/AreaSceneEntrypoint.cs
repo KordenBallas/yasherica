@@ -1,5 +1,6 @@
 using UnityEngine;
 using LevelGeneration;
+using Narrative.Data.Providers;
 using Platform;
 using Combat.Core;
 using Combat.Player;
@@ -50,7 +51,11 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     private IPlayerRegistry _playerRegistry;
     [Inject]
     private DiContainer _container;
-    
+    [Inject]
+    private IScenarioGenerator _scenarioGenerator;
+    [Inject]
+    private INpcDataProvider _npcDataProvider;
+
     private IPlayer _localPlayer;
     
     /// <summary>
@@ -88,8 +93,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
         };
         
         // 2. Generate scenario
-        var scenarioGenerator = new ScenarioGenerator();
-        var scenario = scenarioGenerator.GenerateScenario(gameContext);
+        var scenario = _scenarioGenerator.GenerateScenario(gameContext);
         
         // Override platform count if needed
         if (platformCount > 0)
@@ -119,7 +123,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
         };
         
         // 6. Create area generator (uses Platform.Factory - states handle combat dependencies)
-        areaGenerator = new AreaGenerator(graph, noiseMap, _platformFactory, config);
+        areaGenerator = new AreaGenerator(graph, noiseMap, _platformFactory, _npcDataProvider, config);
         areaGenerator.Generate();
         
         // 7. Set up AreaView

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Combat.Core;
+using UnityEngine;
 
 namespace Combat.Data
 {
@@ -28,6 +29,7 @@ namespace Combat.Data
         public int MaxHP { get; set; }
         public List<IAbilityInstance> Abilities { get; set; }
         public AIPersonality AIType { get; set; }
+        public GameObject Prefab { get; set; }
     }
 
     /// <summary>

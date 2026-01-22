@@ -21,7 +21,8 @@ namespace LevelGeneration
                     Id = nodeId++,
                     Type = requirement.Type,
                     ContentTypes = new List<PlatformContentType>(requirement.ContentTypes),
-                    IsKeyPlatform = true
+                    IsKeyPlatform = true,
+                    StoryData = requirement.StoryData
                 };
                 nodes.Add(node);
             }

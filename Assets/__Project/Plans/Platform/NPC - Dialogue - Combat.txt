@@ -1,0 +1,229 @@
+﻿Implementation Summary                                                                                                                                                                                                                                                       
+  1. Created New Files
+
+  IInkExternalFunctionBinder.cs
+  - Interface for external function binding service
+  - Defines BindAllExternalFunctions() method
+  - Exposes LastCombatEnemyCount property for future multi-enemy combat
+
+  InkExternalFunctionBinder.cs
+  - Pure C# service implementation (no MonoBehaviour)
+  - Binds trigger_combat(int) external function to C# handler
+  - Stores enemy count and fires DialoguePresenter.OnCombatTriggered event
+  - Includes debug logging for binding confirmation
+
+  2. Updated Existing Files
+
+  DialoguePresenter.cs (Assets/__Project/Scripts/Narrative/Dialogue/DialoguePresenter.cs:212)
+  - Added FireCombatTriggered(string enemyId) public method
+  - Exposes combat event firing for external function bindings
+
+  NarrativeInstaller.cs (Assets/__Project/Scripts/Core/DI/NarrativeInstaller.cs:49, 131-137)
+  - Added InstallExternalFunctionBinder() method
+  - Registered IInkExternalFunctionBinder as singleton
+  - Called from InstallBindings() after dialogue system setup
+
+  StoryStateProvider.cs (Assets/__Project/Scripts/Narrative/Core/StoryStateProvider.cs:22, 38, 44, 224, 262)
+  - Added optional IInkExternalFunctionBinder parameter to constructor
+  - Calls BindAllExternalFunctions() after LoadStory() in:
+    - AdvanceToChapter() method
+    - LoadState() method
+
+  DialogueActiveState.cs (Assets/__Project/Scripts/Platform/States/DialogueActiveState.cs:24, 40, 47, 187, 244-245)
+  - Added optional IInkExternalFunctionBinder parameter to constructor
+  - Calls BindAllExternalFunctions() after LoadStory() in StartSideStoryDialogue()
+  - Added TODO comment in HandleCombatOutcome() for future multi-enemy combat support
+
+  How It Works
+
+  The solution follows this flow:
+
+  1. When an Ink story is loaded via LoadStory(), the binder's BindAllExternalFunctions() is called
+  2. The binder registers trigger_combat(int) with the story manager
+  3. When Ink calls ~ trigger_combat(1), the C# handler executes:
+    - Stores enemy count (for future use)
+    - Logs the function call
+    - Fires DialoguePresenter.OnCombatTriggered event
+  4. DialogueActiveState handles the event and sets _combatTriggered = true
+  5. Later, when Ink tag # outcome: Combat is processed, the dialogue ends and combat transition occurs
+
+  Next Steps
+
+  You should test the implementation by:
+
+  1. Opening the Unity project (it will generate .meta files for new scripts)
+  2. Opening the Area.unity scene
+  3. Entering play mode
+  4. Navigating to a platform with an NPC
+  5. Triggering dialogue that calls trigger_combat(1)
+
+  Expected behavior:
+  - Console logs: [InkExternalFunctionBinder] Bound: trigger_combat(int) and [InkExternalFunctionBinder] trigger_combat called: enemyCount=1
+  - No StoryException error
+  - Combat transition works as expected
+
+  The implementation is complete and follows SOLID principles with proper dependency injection, optional parameters for backward compatibility, and forward compatibility for multi-enemy combat.
+
+
+========================================================================================================================
+
+
+
+Fix Dialogue UI Not Showing
+
+ Problem
+
+ The dialogue UI doesn't appear when the character enters a platform with dialogue content. The DialogueActiveState properly transitions and calls DialoguePresenter.StartNpcDialogue(), but the UI remains hidden.
+
+ Root Cause
+
+ The DialoguePresenter has a _view field (IDialogueView) that remains null. When StartNpcDialogue() calls _view?.Show(), nothing happens due to the null-coalescing operator.
+
+ Why is _view null?
+ - DialoguePresenter constructor doesn't accept IDialogueView as a parameter
+ - NarrativeInstaller binds DialoguePresenter and IDialogueView independently
+ - SetView() method exists but is never called anywhere in the codebase
+ - The two components are never connected
+
+ Solution: Constructor Injection
+
+ Add IDialogueView to DialoguePresenter's constructor so Zenject automatically injects and connects it.
+
+ Why this approach:
+ - Follows CLAUDE.md rules: "Prefer constructor injection for pure C# classes"
+ - No breaking changes (all instantiation is via Zenject, no manual new DialoguePresenter() calls)
+ - Clean dependency injection pattern
+ - Fail-fast if view is missing (catches configuration errors at startup)
+ - Consistent with other presenters in the codebase
+
+ Implementation Steps
+
+ 1. Modify DialoguePresenter Constructor
+
+ File: Assets/__Project/Scripts/Narrative/Dialogue/DialoguePresenter.cs (lines 50-59)
+
+ Add IDialogueView parameter and initialize view immediately:
+
+ public DialoguePresenter(
+     IStoryManager storyManager,
+     INpcDataProvider npcDataProvider,
+     IDialogueView view)  // ADD THIS
+ {
+     _storyManager = storyManager ?? throw new ArgumentNullException(nameof(storyManager));
+     _npcDataProvider = npcDataProvider;
+     _view = view ?? throw new ArgumentNullException(nameof(view));  // CHANGE THIS
+     _model = new DialogueModel();
+
+     SubscribeToStoryEvents();
+     SubscribeToViewEvents();  // ADD THIS - subscribe immediately
+ }
+
+ 2. Update NarrativeInstaller Binding Order
+
+ File: Assets/__Project/Scripts/Core/DI/NarrativeInstaller.cs (lines 102-129)
+
+ Reorder bindings so view exists before presenter is created, and add validation:
+
+ private void InstallDialogueSystem()
+ {
+     // Dialogue view binding (MUST be first so presenter can use it)
+     if (_dialogueView != null)
+     {
+         Container.Bind<IDialogueView>()
+             .FromInstance(_dialogueView)
+             .AsSingle();
+     }
+     else if (_dialogueViewPrefab != null)
+     {
+         Container.Bind<IDialogueView>()
+             .To<DialogueView>()
+             .FromComponentInNewPrefab(_dialogueViewPrefab)
+             .AsSingle()
+             .NonLazy();
+     }
+     else
+     {
+         throw new System.InvalidOperationException(
+             "[NarrativeInstaller] No dialogue view assigned! " +
+             "Assign either _dialogueView or _dialogueViewPrefab in the inspector. " +
+             "DialoguePresenter requires a view to function.");
+     }
+
+     // Dialogue presenter - will automatically receive IDialogueView via constructor injection
+     Container.Bind<DialoguePresenter>()
+         .AsSingle();
+ }
+
+ 3. Optional: Remove or Deprecate SetView()
+
+ File: Assets/__Project/Scripts/Narrative/Dialogue/DialoguePresenter.cs (lines 64-77)
+
+ The SetView() method is no longer needed since view is injected via constructor.
+
+ Option A: Delete the method entirely (recommended)
+
+ Option B: Mark as obsolete for backwards compatibility:
+ [System.Obsolete("View is now injected via constructor. This method is no longer needed.")]
+ public void SetView(IDialogueView view)
+ {
+     // ... existing code ...
+ }
+
+ Critical Files
+
+ - Assets/__Project/Scripts/Narrative/Dialogue/DialoguePresenter.cs - Update constructor (lines 50-59), optionally remove SetView (lines 64-77)
+ - Assets/__Project/Scripts/Core/DI/NarrativeInstaller.cs - Reorder bindings in InstallDialogueSystem (lines 102-129)
+
+ Verification Steps
+
+ 1. Scene Setup Check
+
+ - Open Area scene
+ - Verify NarrativeInstaller has either _dialogueView OR _dialogueViewPrefab assigned in inspector
+ - If neither is assigned, you'll get a clear error message at startup (fail-fast)
+
+ 2. Dialogue Flow Test
+
+ - Run the Area scene
+ - Dash to a platform with NPC content
+ - Expected: Dialogue UI should appear with speaker name and text
+ - Check logs for "[DialogueActiveState] Entering dialogue for platform X"
+ - Verify UI panel is visible and interactive
+
+ 3. No Regression Test
+
+ - Test all dialogue scenarios:
+   - NPC dialogue (DialogueActiveState)
+   - Cutscene text (CutsceneActiveState)
+   - Combat triggers via dialogue (InkExternalFunctionBinder)
+ - All should work since they use DialoguePresenter via Zenject injection
+
+ 4. Error Handling Test
+
+ - Temporarily remove dialogue view assignment from NarrativeInstaller
+ - Run scene
+ - Expected: Clear error at startup: "No dialogue view assigned! DialoguePresenter requires a view to function."
+ - This confirms fail-fast behavior vs silent failure
+
+ Rollback Plan
+
+ If issues arise:
+ 1. Revert DialoguePresenter.cs constructor to 2 parameters
+ 2. Revert NarrativeInstaller.cs binding order
+ 3. Add manual SetView call in DialogueActiveState.OnEnter() as emergency fix
+
+ Why This Works
+
+ Before:
+ NarrativeInstaller.InstallDialogueSystem()
+ ├─> Bind DialoguePresenter (no view dependency)
+ └─> Bind IDialogueView (separate binding)
+     └─> DialoguePresenter._view remains null
+
+ After:
+ NarrativeInstaller.InstallDialogueSystem()
+ ├─> Bind IDialogueView (created first)
+ └─> Bind DialoguePresenter (receives IDialogueView via constructor)
+     └─> Zenject auto-injects view → _view is properly initialized
+
+ When DialogueActiveState calls presenter.StartNpcDialogue(), the presenter's _view.Show() now works because _view is no longer null.

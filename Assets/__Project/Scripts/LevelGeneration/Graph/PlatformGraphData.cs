@@ -15,6 +15,7 @@ namespace LevelGeneration
         public PlatformType Type { get; set; }
         public List<PlatformContentType> ContentTypes { get; set; } = new();  // Multiple content types
         public bool IsKeyPlatform { get; set; }  // vs filler
+        public StoryPlatformData StoryData { get; set; }
     }
 
     public class GraphEdge

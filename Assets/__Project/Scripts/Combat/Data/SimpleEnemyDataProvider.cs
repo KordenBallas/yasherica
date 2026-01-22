@@ -22,7 +22,8 @@ namespace Combat.Data
                 Name = $"Enemy {enemyId}",
                 MaxHP = 50,
                 Abilities = CreateDefaultAbilities(),
-                AIType = AIPersonality.SimpleRandom
+                AIType = AIPersonality.SimpleRandom,
+                Prefab = null  // No prefab - will fallback to Resources loading
             };
         }
 

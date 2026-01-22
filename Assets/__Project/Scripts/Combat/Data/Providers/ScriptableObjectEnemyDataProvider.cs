@@ -84,7 +84,8 @@ namespace Combat.Data.Providers
                 Name = definition.Name,
                 MaxHP = definition.MaxHP,
                 Abilities = abilities,
-                AIType = aiType
+                AIType = aiType,
+                Prefab = definition.Prefab
             };
         }
 

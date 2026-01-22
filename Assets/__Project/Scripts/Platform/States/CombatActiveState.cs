@@ -2,6 +2,7 @@ using Character;
 using Combat.Controller;
 using Combat.Battlefield;
 using Combat.Core;
+using Combat.Data;
 using Combat.Integration;
 using Combat.Input;
 using Combat.Player;
@@ -31,6 +32,7 @@ namespace Platform
         private readonly ICharacterRegistry _characterRegistry;
         private readonly EnemyCombatIntegrator _enemyIntegrator;
         private readonly AITurnController _aiTurnController;
+        private readonly IEnemyDataProvider _enemyDataProvider;
 
         private IPlatform _platform;
         private ICombatController _controller;
@@ -44,7 +46,8 @@ namespace Platform
             IPlayerRegistry playerRegistry,
             ICharacterRegistry characterRegistry,
             EnemyCombatIntegrator enemyIntegrator,
-            AITurnController aiTurnController)
+            AITurnController aiTurnController,
+            IEnemyDataProvider enemyDataProvider)
         {
             _controllerFactory = controllerFactory;
             _cameraService = cameraService;
@@ -54,6 +57,7 @@ namespace Platform
             _characterRegistry = characterRegistry;
             _enemyIntegrator = enemyIntegrator;
             _aiTurnController = aiTurnController;
+            _enemyDataProvider = enemyDataProvider;
         }
 
         public override void OnEnter(IPlatform platform)
@@ -85,6 +89,10 @@ namespace Platform
 
                 // Create and initialize BattlefieldView for visualization
                 InitializeBattlefieldView(platform);
+
+                // Instantiate any uninstantiated enemies (e.g., from NPC transitions)
+                // MUST happen BEFORE collecting players
+                InstantiateUninstantiatedEnemies(platform);
 
                 // Initialize AI turn controller BEFORE initializing combat state
                 // This ensures it's subscribed to OnTurnStarted before first turn begins
@@ -272,6 +280,83 @@ namespace Platform
             {
                 Debug.LogWarning($"[CombatActiveState] Cannot initialize BattlefieldView: controller battlefield is null");
             }
+        }
+
+        /// <summary>
+        /// Instantiates any enemies that haven't been instantiated yet.
+        /// This handles NPC-to-enemy transitions where EnemyContent is created
+        /// but not yet instantiated as a GameObject.
+        /// </summary>
+        private void InstantiateUninstantiatedEnemies(IPlatform platform)
+        {
+            Debug.Log("[CombatActiveState] Checking for uninstantiated enemies");
+
+            foreach (var content in platform.Contents)
+            {
+                if (content is EnemyContent enemyContent && !enemyContent.HasBeenInstantiated)
+                {
+                    InstantiateEnemy(platform, enemyContent);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Instantiates a single enemy from EnemyContent.
+        /// Creates AIPlayer, spawns GameObject, and initializes combat component.
+        /// </summary>
+        private void InstantiateEnemy(IPlatform platform, EnemyContent enemyContent)
+        {
+            Debug.Log($"[CombatActiveState] Instantiating enemy {enemyContent.EnemyId} from NPC transition");
+
+            // Get enemy data
+            var enemyData = _enemyDataProvider.GetEnemyData(enemyContent.EnemyId);
+            if (enemyData == null)
+            {
+                Debug.LogError($"[CombatActiveState] Enemy data not found for enemy {enemyContent.EnemyId}");
+                return;
+            }
+
+            // Create AIPlayer for this enemy
+            var enemyPlayer = _enemyIntegrator.CreateEnemyPlayer(enemyContent.EnemyId, enemyData);
+
+            // Load enemy prefab - prefer EnemyDefinition.Prefab, fallback to Resources
+            GameObject enemyPrefab = enemyData.Prefab;
+            if (enemyPrefab == null)
+            {
+                enemyPrefab = Resources.Load<GameObject>("Prefabs/Enemy");
+                if (enemyPrefab == null)
+                {
+                    Debug.LogError($"[CombatActiveState] Enemy prefab not found for enemy {enemyContent.EnemyId}");
+                    return;
+                }
+            }
+
+            // Instantiate enemy above platform center (will fall via gravity to surface)
+            const float spawnHeightOffset = 2f;
+            Vector3 spawnPosition = platform.Visual.Position + Vector3.up * spawnHeightOffset;
+            GameObject enemyGO = Object.Instantiate(enemyPrefab, spawnPosition, Quaternion.identity);
+            enemyGO.name = $"Enemy_{enemyContent.EnemyId}";
+
+            // Get or add combat component
+            var combatComponent = enemyGO.GetComponent<Combat.Enemy.EnemyCombatComponent>();
+            if (combatComponent == null)
+            {
+                combatComponent = enemyGO.AddComponent<Combat.Enemy.EnemyCombatComponent>();
+            }
+
+            // Add Rigidbody for gravity simulation if not present
+            var rb = enemyGO.GetComponent<Rigidbody>();
+            if (rb == null)
+            {
+                rb = enemyGO.AddComponent<Rigidbody>();
+                rb.constraints = RigidbodyConstraints.FreezeRotation;
+                Debug.Log($"[CombatActiveState] Added Rigidbody to enemy {enemyContent.EnemyId} for gravity simulation");
+            }
+
+            // Store in content
+            enemyContent.InstantiateEnemy(enemyPlayer, combatComponent);
+
+            Debug.Log($"[CombatActiveState] Enemy {enemyContent.EnemyId} instantiated on platform {platform.Id}");
         }
 
         /// <summary>

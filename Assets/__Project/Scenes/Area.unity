@@ -664,6 +664,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _scriptableObjectInstallers: []
   _monoInstallers:
+  - {fileID: 1154528041}
   - {fileID: 584990438}
   _installerPrefabs: []
   _autoRun: 1
@@ -1097,6 +1098,59 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1154528040
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1154528042}
+  - component: {fileID: 1154528041}
+  m_Layer: 0
+  m_Name: NarrativeInstaller
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1154528041
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1154528040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6146366b21385b449d42a87aa5c1661, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Core.DI.NarrativeInstaller
+  _chapterDefinitions:
+  - {fileID: 11400000, guid: 06dfda0298e4d9f4ea5ad1d67855099c, type: 2}
+  _npcDefinitions:
+  - {fileID: 11400000, guid: 062f46f3901bc3842a6d30197ab25c34, type: 2}
+  - {fileID: 11400000, guid: db08c6013186b1d40bf91c678c61c6d8, type: 2}
+  - {fileID: 11400000, guid: 7fd3d58ca3ac1a445bfa37609fe0ed10, type: 2}
+  _dialogueView: {fileID: 0}
+  _dialogueViewPrefab: {fileID: 2000000000000000006, guid: a8b9c1d2e3f4567890abcdef12345678, type: 3}
+  _generatorType: 2
+--- !u!4 &1154528042
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1154528040}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1839344881
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1129,12 +1183,13 @@ MonoBehaviour:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 749762320}
   - {fileID: 283143254}
   - {fileID: 835292313}
   - {fileID: 442541923}
+  - {fileID: 1025287266}
   - {fileID: 1009419568}
   - {fileID: 465012898}
   - {fileID: 751937880}
+  - {fileID: 1154528042}
   - {fileID: 584990439}
-  - {fileID: 1025287266}
+  - {fileID: 749762320}

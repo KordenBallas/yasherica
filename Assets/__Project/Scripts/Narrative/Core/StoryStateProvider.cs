@@ -19,6 +19,7 @@ namespace Narrative
         private readonly IStoryRequirementParser _requirementParser;
         private readonly IReadOnlyList<StoryChapterDefinition> _chapters;
         private readonly IStoryGraphProvider _storyGraph;
+        private readonly IInkExternalFunctionBinder _externalFunctionBinder;
 
         private StoryState _currentState;
         private StoryChapterDefinition _currentChapter;
@@ -33,12 +34,14 @@ namespace Narrative
             IStoryManager storyManager,
             IStoryRequirementParser requirementParser,
             IReadOnlyList<StoryChapterDefinition> chapters,
-            IStoryGraphProvider storyGraph = null)
+            IStoryGraphProvider storyGraph = null,
+            IInkExternalFunctionBinder externalFunctionBinder = null)
         {
             _storyManager = storyManager ?? throw new ArgumentNullException(nameof(storyManager));
             _requirementParser = requirementParser ?? throw new ArgumentNullException(nameof(requirementParser));
             _chapters = chapters ?? new List<StoryChapterDefinition>();
             _storyGraph = storyGraph; // Optional - may be null if graph not used
+            _externalFunctionBinder = externalFunctionBinder; // Optional - may be null
 
             _currentState = new StoryState();
             _cachedRequirements = new List<StoryNodeRequirement>();
@@ -218,6 +221,7 @@ namespace Narrative
             if (chapter.HasInkContent)
             {
                 _storyManager.LoadStory(chapter.GetInkJson());
+                _externalFunctionBinder?.BindAllExternalFunctions();
                 _storyManager.GoToKnot(chapter.StartingKnot);
             }
 
@@ -255,6 +259,7 @@ namespace Narrative
                     if (chapter.HasInkContent)
                     {
                         _storyManager.LoadStory(chapter.GetInkJson());
+                        _externalFunctionBinder?.BindAllExternalFunctions();
 
                         if (!string.IsNullOrEmpty(_currentState.InkStateJson))
                         {

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Narrative.Data.Providers;
 using Platform;
 using UnityEngine;
 using Zenject;
@@ -16,6 +17,7 @@ namespace LevelGeneration
         private readonly PerlinNoiseMap _noiseMap;
         private readonly AreaGeneratorConfig _config;
         private readonly Platform.Platform.Factory _platformFactory;
+        private readonly INpcDataProvider _npcDataProvider;
 
         private readonly Dictionary<int, IPlatform> _platforms = new();
         private readonly Dictionary<int, PlatformView> _platformViews = new();
@@ -30,11 +32,13 @@ namespace LevelGeneration
             PlatformGraphData graph,
             PerlinNoiseMap noiseMap,
             Platform.Platform.Factory platformFactory,
+            INpcDataProvider npcDataProvider,
             AreaGeneratorConfig config = null)
         {
             _graph = graph;
             _noiseMap = noiseMap;
             _platformFactory = platformFactory;
+            _npcDataProvider = npcDataProvider;
             _config = config ?? new AreaGeneratorConfig();
         }
 
@@ -124,10 +128,16 @@ namespace LevelGeneration
             // Create unified platform - state factory handles the rest based on content
             IPlatform platform = _platformFactory.Create(node.Id);
 
+            // Set story data BEFORE adding content (content might need it during Initialize)
+            if (node.StoryData != null)
+            {
+                platform.SetStoryData(node.StoryData);
+            }
+
             // Add content (determines which states activate)
             foreach (var contentType in node.ContentTypes)
             {
-                var content = CreateContent(contentType);
+                var content = CreateContent(contentType, node.StoryData);
                 if (content != null)
                 {
                     platform.AddContent(content);
@@ -194,16 +204,70 @@ namespace LevelGeneration
             return boundary;
         }
 
-        private IPlatformContent CreateContent(PlatformContentType contentType)
+        private IPlatformContent CreateContent(PlatformContentType contentType, StoryPlatformData storyData)
         {
-            return contentType switch
+            switch (contentType)
             {
-                PlatformContentType.Enemy => new EnemyContent(),
-                PlatformContentType.Npc => new NpcContent(),
-                PlatformContentType.Loot => new LootContent(),
-                PlatformContentType.Quest => new QuestContent(),
-                _ => null
-            };
+                case PlatformContentType.Enemy:
+                    return CreateEnemyContent(storyData);
+
+                case PlatformContentType.Npc:
+                    return CreateNpcContent(storyData);
+
+                case PlatformContentType.Loot:
+                    return new LootContent();
+
+                case PlatformContentType.Quest:
+                    return new QuestContent();
+
+                default:
+                    return null;
+            }
+        }
+
+        private NpcContent CreateNpcContent(StoryPlatformData storyData)
+        {
+            if (storyData == null || string.IsNullOrEmpty(storyData.NpcId))
+            {
+                Debug.LogWarning("[AreaGenerator] NPC platform has no NpcId in StoryData - creating empty NpcContent");
+                return new NpcContent();
+            }
+
+            // Resolve NPC definition from data provider
+            var npcDefinition = _npcDataProvider.GetNpcById(storyData.NpcId);
+
+            if (npcDefinition == null)
+            {
+                Debug.LogWarning($"[AreaGenerator] NPC definition not found for ID '{storyData.NpcId}'");
+                return new NpcContent();
+            }
+
+            // Create NpcContent with resolved definition
+            var npcContent = new NpcContent(npcDefinition);
+            npcContent.DialogueKnot = storyData.DialogueKnot ?? npcDefinition.DefaultDialogueKnot;
+
+            Debug.Log($"[AreaGenerator] Created NpcContent for '{npcDefinition.DisplayName}' (ID: {storyData.NpcId})");
+            return npcContent;
+        }
+
+        private EnemyContent CreateEnemyContent(StoryPlatformData storyData)
+        {
+            var enemyContent = new EnemyContent();
+
+            if (storyData != null && !string.IsNullOrEmpty(storyData.EnemyId))
+            {
+                // Parse EnemyId - stored as string but EnemyContent expects int
+                if (int.TryParse(storyData.EnemyId, out int enemyId))
+                {
+                    enemyContent.EnemyId = enemyId;
+                }
+                else
+                {
+                    Debug.LogWarning($"[AreaGenerator] Invalid EnemyId format: '{storyData.EnemyId}'");
+                }
+            }
+
+            return enemyContent;
         }
 
         private void ConnectPlatforms()

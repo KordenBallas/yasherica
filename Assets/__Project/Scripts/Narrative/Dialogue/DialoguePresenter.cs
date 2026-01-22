@@ -49,31 +49,16 @@ namespace Narrative.Dialogue
 
         public DialoguePresenter(
             IStoryManager storyManager,
-            INpcDataProvider npcDataProvider)
+            INpcDataProvider npcDataProvider,
+            IDialogueView view)
         {
             _storyManager = storyManager ?? throw new ArgumentNullException(nameof(storyManager));
             _npcDataProvider = npcDataProvider;
+            _view = view ?? throw new ArgumentNullException(nameof(view));
             _model = new DialogueModel();
 
             SubscribeToStoryEvents();
-        }
-
-        /// <summary>
-        /// Sets the view for this presenter.
-        /// </summary>
-        public void SetView(IDialogueView view)
-        {
-            if (_view != null)
-            {
-                UnsubscribeFromViewEvents();
-            }
-
-            _view = view;
-
-            if (_view != null)
-            {
-                SubscribeToViewEvents();
-            }
+            SubscribeToViewEvents();
         }
 
         /// <summary>
@@ -161,8 +146,16 @@ namespace Narrative.Dialogue
         /// </summary>
         public void SelectChoice(int choiceIndex)
         {
+            Debug.Log($"[DialoguePresenter] SelectChoice called: {choiceIndex}");
+            Debug.Log($"  IsActive: {_model.IsActive}");
+            Debug.Log($"  HasChoices: {_model.HasChoices}");
+            Debug.Log($"  Choices count: {_model.Choices.Count}");
+
             if (!_model.IsActive || !_model.HasChoices)
+            {
+                Debug.LogWarning("[DialoguePresenter] Cannot select choice - dialogue not active or no choices");
                 return;
+            }
 
             if (choiceIndex < 0 || choiceIndex >= _model.Choices.Count)
             {
@@ -170,9 +163,11 @@ namespace Narrative.Dialogue
                 return;
             }
 
+            Debug.Log($"[DialoguePresenter] Choosing choice {choiceIndex} in story manager");
             _storyManager.ChooseChoice(choiceIndex);
             _view?.HideChoices();
 
+            Debug.Log("[DialoguePresenter] Continuing dialogue after choice");
             ContinueDialogue();
         }
 
@@ -204,6 +199,14 @@ namespace Narrative.Dialogue
             {
                 EndDialogue(DialogueOutcomeType.Exit);
             }
+        }
+
+        /// <summary>
+        /// Fires the combat triggered event. Used by external function bindings.
+        /// </summary>
+        public void FireCombatTriggered(string enemyId)
+        {
+            OnCombatTriggered?.Invoke(enemyId);
         }
 
         public void Dispose()
@@ -239,12 +242,19 @@ namespace Narrative.Dialogue
                     .Select(c => new DialogueChoice(c.Index, c.Text, true, c.Tags))
                     .ToList();
 
+                Debug.Log($"[DialoguePresenter] UpdateChoicesDisplay - {choices.Count} choices from story:");
+                foreach (var choice in choices)
+                {
+                    Debug.Log($"  Choice {choice.Index}: '{choice.Text}' (Enabled: {choice.IsEnabled})");
+                }
+
                 _model.SetChoices(choices);
                 _view?.ShowChoices(choices);
                 _view?.HideContinueButton();
             }
             else
             {
+                Debug.Log("[DialoguePresenter] UpdateChoicesDisplay - No choices available");
                 _model.SetChoices(Array.Empty<DialogueChoice>());
                 _view?.HideChoices();
             }
@@ -348,11 +358,16 @@ namespace Narrative.Dialogue
         private void SubscribeToViewEvents()
         {
             if (_view == null)
+            {
+                Debug.LogError("[DialoguePresenter] Cannot subscribe to view events: view is null!");
                 return;
+            }
 
             _view.OnContinueClicked += HandleContinueClicked;
             _view.OnChoiceSelected += HandleChoiceSelected;
             _view.OnSkipRequested += HandleSkipRequested;
+
+            Debug.Log("[DialoguePresenter] Successfully subscribed to view events");
         }
 
         private void UnsubscribeFromViewEvents()
@@ -372,6 +387,7 @@ namespace Narrative.Dialogue
 
         private void HandleChoiceSelected(int index)
         {
+            Debug.Log($"[DialoguePresenter] HandleChoiceSelected called with index: {index}");
             SelectChoice(index);
         }
 
@@ -382,10 +398,31 @@ namespace Narrative.Dialogue
 
         private void HandleStoryEnded()
         {
-            if (_model.IsActive)
+            if (!_model.IsActive)
+                return;
+
+            // Check if there are unprocessed outcome tags
+            var currentTags = _storyManager.CurrentTags;
+            if (currentTags != null && currentTags.Count > 0)
             {
-                EndDialogue(DialogueOutcomeType.Continue);
+                foreach (var tag in currentTags)
+                {
+                    var colonIndex = tag.IndexOf(':');
+                    if (colonIndex > 0)
+                    {
+                        var key = tag.Substring(0, colonIndex).Trim().ToLowerInvariant();
+                        if (key == "outcome")
+                        {
+                            var value = tag.Substring(colonIndex + 1).Trim();
+                            HandleOutcomeTag(value);
+                            return; // Exit early - outcome tag will call EndDialogue
+                        }
+                    }
+                }
             }
+
+            // No outcome tag found, use default Continue outcome
+            EndDialogue(DialogueOutcomeType.Continue);
         }
     }
 }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Narrative.Dialogue;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem.UI;
 using TMPro;
 
 namespace Narrative.View
@@ -48,8 +49,52 @@ namespace Narrative.View
 
         private void Awake()
         {
+            ValidateUISetup();
             SetupButtons();
             Hide();
+        }
+
+        private void ValidateUISetup()
+        {
+            var canvas = GetComponentInParent<Canvas>();
+            if (canvas == null)
+            {
+                Debug.LogError("[DialogueView] No Canvas found in parent hierarchy!");
+                return;
+            }
+
+            var raycaster = canvas.GetComponent<UnityEngine.UI.GraphicRaycaster>();
+            if (raycaster == null)
+            {
+                Debug.LogError("[DialogueView] Canvas missing GraphicRaycaster component!");
+            }
+            else
+            {
+                Debug.Log($"[DialogueView] GraphicRaycaster found and enabled: {raycaster.enabled}");
+            }
+
+            EnsureEventSystemExists();
+        }
+
+        private void EnsureEventSystemExists()
+        {
+            var eventSystem = FindObjectOfType<UnityEngine.EventSystems.EventSystem>();
+            if (eventSystem == null)
+            {
+                Debug.LogWarning("[DialogueView] No EventSystem found - creating one automatically");
+                var eventSystemObj = new GameObject("EventSystem");
+                eventSystem = eventSystemObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                eventSystemObj.AddComponent<InputSystemUIInputModule>();
+                Debug.Log("[DialogueView] EventSystem created successfully with InputSystemUIInputModule");
+            }
+            else if (!eventSystem.enabled)
+            {
+                Debug.LogError("[DialogueView] EventSystem is disabled!");
+            }
+            else
+            {
+                Debug.Log("[DialogueView] EventSystem found and enabled");
+            }
         }
 
         private void SetupButtons()
@@ -135,9 +180,14 @@ namespace Narrative.View
         {
             ClearChoiceButtons();
 
+            Debug.Log($"[DialogueView] ShowChoices called with {choices?.Count ?? 0} choices");
+
             if (_choicesPanel == null || _choicesContainer == null || _choiceButtonPrefab == null)
             {
-                Debug.LogWarning("[DialogueView] Choice UI elements not configured");
+                Debug.LogError("[DialogueView] Choice UI elements not configured!");
+                Debug.LogError($"  _choicesPanel null? {_choicesPanel == null}");
+                Debug.LogError($"  _choicesContainer null? {_choicesContainer == null}");
+                Debug.LogError($"  _choiceButtonPrefab null? {_choiceButtonPrefab == null}");
                 return;
             }
 
@@ -148,19 +198,31 @@ namespace Narrative.View
                 var button = Instantiate(_choiceButtonPrefab, _choicesContainer);
                 button.gameObject.SetActive(true);
 
+                Debug.Log($"[DialogueView] Created choice button {choice.Index}: '{choice.Text}', IsEnabled={choice.IsEnabled}");
+
                 var buttonText = button.GetComponentInChildren<TextMeshProUGUI>();
                 if (buttonText != null)
                 {
                     buttonText.text = choice.Text;
                 }
+                else
+                {
+                    Debug.LogError($"[DialogueView] Choice button {choice.Index} has no TextMeshProUGUI!");
+                }
 
                 button.interactable = choice.IsEnabled;
+                Debug.Log($"[DialogueView] Button {choice.Index} interactable set to: {button.interactable}");
 
                 int choiceIndex = choice.Index;
-                button.onClick.AddListener(() => OnChoiceSelected?.Invoke(choiceIndex));
+                button.onClick.AddListener(() => {
+                    Debug.Log($"[DialogueView] Button {choiceIndex} CLICKED!");
+                    OnChoiceSelected?.Invoke(choiceIndex);
+                });
 
                 _choiceButtons.Add(button);
             }
+
+            Debug.Log($"[DialogueView] Total buttons created: {_choiceButtons.Count}");
         }
 
         public void HideChoices()

@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e01d7756068a7814094723cc73475e1b, type: 3}
+  m_Name: SideStoryDefinition
+  m_EditorClassIdentifier: Assembly-CSharp::Narrative.Data.Definitions.SideStoryDefinition
+  _storyId: 67
+  _displayName: 67 story
+  _description: Test story to verify narrative system implementation
+  _storyType: 1
+  _inkJsonAsset: {fileID: 4900000, guid: 79aa4997b60d88343ab3319688b0401c, type: 3}
+  _startingKnot: start
+  _relationships: []
+  _attributes:
+  - _attributeKey: npc
+    _attributeValue: 
+    _matchType: 0
+    _weight: 0.7
+  _prerequisites:
+    _requiredCompletedStories: []
+    _requiredCompletedQuests: []
+    _requiredActiveQuests: []
+    _requiredEncounteredNpcs: []
+    _customVariableConditions: []
+    _minChapterNumber: 0
+    _maxChapterNumber: 0
+  _platformConfig:
+    _overrideTheme: 0
+    _themeOverride: 0
+    _basePriority: 50
+    _isKeyProgression: 0
+  _platformType: 0
+  _associatedNpc: {fileID: 11400000, guid: 062f46f3901bc3842a6d30197ab25c34, type: 2}
+  _npcCanBecomeEnemy: 1
+  _enemyId: 67
+  _isRepeatable: 0
+  _cooldownPlatforms: 10
+  _legacyTags: []
