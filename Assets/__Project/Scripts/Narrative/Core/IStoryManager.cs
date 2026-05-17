@@ -111,6 +111,16 @@ namespace Narrative
         void BindExternalFunction<T1>(string functionName, Action<T1> function);
 
         /// <summary>
+        /// Binds an external C# function with two parameters.
+        /// </summary>
+        void BindExternalFunction<T1, T2, TResult>(string functionName, Func<T1, T2, TResult> function);
+
+        /// <summary>
+        /// Binds an external void function with two parameters.
+        /// </summary>
+        void BindExternalFunction<T1, T2>(string functionName, Action<T1, T2> function);
+
+        /// <summary>
         /// Saves the current story state to a serializable format.
         /// </summary>
         string SaveState();

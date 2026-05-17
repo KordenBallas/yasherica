@@ -11,7 +11,7 @@ namespace Narrative.Dialogue
     /// Coordinates between dialogue model, view, and Ink story manager.
     /// Pure C# class following MVP pattern.
     /// </summary>
-    public class DialoguePresenter : IDisposable
+    public class DialoguePresenter : IDialoguePresenter, IDisposable
     {
         private readonly DialogueModel _model;
         private readonly IStoryManager _storyManager;

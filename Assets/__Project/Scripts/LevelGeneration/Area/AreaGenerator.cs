@@ -246,6 +246,20 @@ namespace LevelGeneration
             var npcContent = new NpcContent(npcDefinition);
             npcContent.DialogueKnot = storyData.DialogueKnot ?? npcDefinition.DefaultDialogueKnot;
 
+            // Bind NpcInstance from BoundStory if available (Phase 5 integration)
+            if (storyData.HasBoundStory && storyData.GeneratedBoundStory.BoundNpcs != null)
+            {
+                foreach (var boundNpc in storyData.GeneratedBoundStory.BoundNpcs)
+                {
+                    if (boundNpc.NpcId == storyData.NpcId)
+                    {
+                        npcContent.BindRuntimeInstance(boundNpc);
+                        Debug.Log($"[AreaGenerator] Bound NpcInstance '{boundNpc.InstanceId}' to NpcContent");
+                        break;
+                    }
+                }
+            }
+
             Debug.Log($"[AreaGenerator] Created NpcContent for '{npcDefinition.DisplayName}' (ID: {storyData.NpcId})");
             return npcContent;
         }

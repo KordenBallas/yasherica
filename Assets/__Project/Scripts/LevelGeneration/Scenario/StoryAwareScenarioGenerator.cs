@@ -3,6 +3,7 @@ using System.Linq;
 using Narrative;
 using Narrative.Data.Definitions;
 using Narrative.Discovery;
+using Narrative.Generation;
 using UnityEngine;
 
 namespace LevelGeneration
@@ -16,6 +17,7 @@ namespace LevelGeneration
     {
         private readonly IStoryStateProvider _storyStateProvider;
         private readonly ISideStoryProvider _sideStoryProvider;
+        private readonly IStoryPolicyProvider _policyProvider;
         private readonly ScenarioGenerator _fallbackGenerator;
 
         private const int MinFillerPlatforms = 2;
@@ -25,11 +27,13 @@ namespace LevelGeneration
 
         public StoryAwareScenarioGenerator(
             IStoryStateProvider storyStateProvider,
-            ISideStoryProvider sideStoryProvider = null)
+            ISideStoryProvider sideStoryProvider = null,
+            IStoryPolicyProvider policyProvider = null)
         {
             _storyStateProvider = storyStateProvider;
             _sideStoryProvider = sideStoryProvider;
-            _fallbackGenerator = new ScenarioGenerator();
+            _policyProvider = policyProvider;
+            _fallbackGenerator = new ScenarioGenerator(_policyProvider);
         }
 
         public ScenarioData GenerateScenario(GameContext context)

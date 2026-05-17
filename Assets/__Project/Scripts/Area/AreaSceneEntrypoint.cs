@@ -1,5 +1,6 @@
 using UnityEngine;
 using LevelGeneration;
+using LevelGeneration.Orchestration;
 using Narrative.Data.Providers;
 using Platform;
 using Combat.Core;
@@ -52,7 +53,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     [Inject]
     private DiContainer _container;
     [Inject]
-    private IScenarioGenerator _scenarioGenerator;
+    private IAreaNarrativeOrchestrator _areaOrchestrator;
     [Inject]
     private INpcDataProvider _npcDataProvider;
 
@@ -92,9 +93,14 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             StoryState = 1
         };
         
-        // 2. Generate scenario
-        var scenario = _scenarioGenerator.GenerateScenario(gameContext);
-        
+        // 2. Generate scenario with narrative content
+        var scenario = _areaOrchestrator.GenerateAreaScenario(gameContext);
+        if (scenario == null)
+        {
+            Debug.LogError("[AreaSceneEntrypoint] Failed to generate scenario - aborting area generation");
+            return;
+        }
+
         // Override platform count if needed
         if (platformCount > 0)
         {

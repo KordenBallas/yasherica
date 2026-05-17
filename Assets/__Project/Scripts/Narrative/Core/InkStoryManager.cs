@@ -237,6 +237,28 @@ namespace Narrative
             _story.BindExternalFunction(functionName, function);
         }
 
+        public void BindExternalFunction<T1, T2, TResult>(string functionName, Func<T1, T2, TResult> function)
+        {
+            if (_story == null)
+            {
+                Debug.LogWarning("[InkStoryManager] Cannot bind function: no story loaded");
+                return;
+            }
+
+            _story.BindExternalFunction(functionName, (Func<T1, T2, object>)((arg1, arg2) => function(arg1, arg2)));
+        }
+
+        public void BindExternalFunction<T1, T2>(string functionName, Action<T1, T2> function)
+        {
+            if (_story == null)
+            {
+                Debug.LogWarning("[InkStoryManager] Cannot bind function: no story loaded");
+                return;
+            }
+
+            _story.BindExternalFunction(functionName, function);
+        }
+
         public string SaveState()
         {
             if (_story == null)

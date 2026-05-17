@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc770960d755ca545943683393cef70c, type: 3}
+  m_Name: Story_SageWisdom
+  m_EditorClassIdentifier: Assembly-CSharp::Narrative.Data.Definitions.DialogueStoryDefinition
+  _storyId: sage_wisdom
+  _displayName: Sage's Prophecy
+  _description: Seek ancient knowledge from a wise sage
+  _storyType: 2
+  _inkJsonAsset: {fileID: 4900000, guid: b1b2c3d4e5f70004b1b2c3d4e5f70004, type: 3}
+  _startingKnot: start
+  _relationships:
+  - _targetStory: {fileID: 11400000, guid: c1b2c3d4e5f80005c1b2c3d4e5f80005, type: 2}
+    _relationshipType: 0
+    _condition:
+      _conditionType: 0
+      _requiredQuestId:
+      _requiredNpcId:
+      _inkVariableName:
+      _expectedValue:
+      _requiredChapterNumber: 0
+      _customEvaluator:
+  _attributes:
+  - _attributeKey: npc
+    _attributeValue: 103
+    _matchType: 0
+    _weight: 1
+  - _attributeKey: tone
+    _attributeValue: wise
+    _matchType: 0
+    _weight: 0.8
+  _prerequisites:
+    _requiredCompletedStories: []
+    _requiredCompletedQuests: []
+    _requiredActiveQuests: []
+    _requiredEncounteredNpcs: []
+    _customVariableConditions: []
+    _minChapterNumber: 0
+    _maxChapterNumber: 0
+  _platformConfig:
+    _overrideTheme: 0
+    _themeOverride: 0
+    _basePriority: 70
+    _isKeyProgression: 1
+  _npc: {fileID: 11400000, guid: a1b2c3d4e5f60004a1b2c3d4e5f60004, type: 2}
+  _inkStitch:
+  _allowEarlyExit: 0
+  _autoAdvance: 0
+  _autoAdvanceDelay: 2
+  _possibleOutcomes:
+  - _outcome: 2
+    _label: Quest
+    _questId: prophecy_quest
+    _npcId:
+  _isRepeatable: 0
+  _cooldownEncounters: 0

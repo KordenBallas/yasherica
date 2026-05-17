@@ -19,7 +19,7 @@ namespace Narrative
         private readonly IStoryRequirementParser _requirementParser;
         private readonly IReadOnlyList<StoryChapterDefinition> _chapters;
         private readonly IStoryGraphProvider _storyGraph;
-        private readonly IInkExternalFunctionBinder _externalFunctionBinder;
+        private readonly Lazy<IInkExternalFunctionBinder> _externalFunctionBinder;
 
         private StoryState _currentState;
         private StoryChapterDefinition _currentChapter;
@@ -35,7 +35,7 @@ namespace Narrative
             IStoryRequirementParser requirementParser,
             IReadOnlyList<StoryChapterDefinition> chapters,
             IStoryGraphProvider storyGraph = null,
-            IInkExternalFunctionBinder externalFunctionBinder = null)
+            Lazy<IInkExternalFunctionBinder> externalFunctionBinder = null)
         {
             _storyManager = storyManager ?? throw new ArgumentNullException(nameof(storyManager));
             _requirementParser = requirementParser ?? throw new ArgumentNullException(nameof(requirementParser));
@@ -221,7 +221,7 @@ namespace Narrative
             if (chapter.HasInkContent)
             {
                 _storyManager.LoadStory(chapter.GetInkJson());
-                _externalFunctionBinder?.BindAllExternalFunctions();
+                _externalFunctionBinder?.Value?.BindAllExternalFunctions();
                 _storyManager.GoToKnot(chapter.StartingKnot);
             }
 
@@ -259,7 +259,7 @@ namespace Narrative
                     if (chapter.HasInkContent)
                     {
                         _storyManager.LoadStory(chapter.GetInkJson());
-                        _externalFunctionBinder?.BindAllExternalFunctions();
+                        _externalFunctionBinder?.Value?.BindAllExternalFunctions();
 
                         if (!string.IsNullOrEmpty(_currentState.InkStateJson))
                         {

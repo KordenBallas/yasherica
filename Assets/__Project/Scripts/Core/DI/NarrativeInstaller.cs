@@ -5,11 +5,14 @@ using Narrative.Data.Definitions;
 using Narrative.Data.Providers;
 using Narrative.Dialogue;
 using Narrative.Discovery;
+using Narrative.Generation;
 using Narrative.Graph;
+using Narrative.Persistence;
 using Narrative.Providers;
 using Narrative.Selection;
 using Narrative.View;
 using LevelGeneration;
+using LevelGeneration.Orchestration;
 using UnityEngine;
 using Zenject;
 
@@ -40,6 +43,13 @@ namespace Core.DI
         [Tooltip("Select which scenario generator to use")]
         [SerializeField] private ScenarioGeneratorType _generatorType = ScenarioGeneratorType.StoryGraph;
 
+        [Header("Procedural Generation")]
+        [Tooltip("Story templates for procedural narrative generation")]
+        [SerializeField] private List<StoryTemplateDefinition> _storyTemplates;
+
+        [Tooltip("Reward definitions for quest rewards")]
+        [SerializeField] private List<RewardDefinition> _rewardDefinitions;
+
         public override void InstallBindings()
         {
             Debug.Log("[NarrativeInstaller] Install Bindings");
@@ -56,7 +66,11 @@ namespace Core.DI
                 InstallNpcStoryProvider();
             }
 
+            // IMPORTANT: Install procedural generation BEFORE scenario generation
+            // so that IStoryPolicyProvider is available for scenario generators
+            InstallProceduralGeneration();
             InstallScenarioGeneration();
+            InstallPersistence();
         }
 
         private void InstallStoryManagement()
@@ -125,7 +139,32 @@ namespace Core.DI
             }
 
             // Dialogue presenter - will automatically receive IDialogueView via constructor injection
+            Container.Bind<IDialoguePresenter>()
+                .To<DialoguePresenter>()
+                .AsSingle();
+
+            // Also bind concrete type for legacy references during migration
             Container.Bind<DialoguePresenter>()
+                .FromResolve();
+
+            // NpcContent instance binder - bridges NpcPool to platform content
+            Container.Bind<INpcContentInstanceBinder>()
+                .To<NpcContentInstanceBinder>()
+                .AsSingle();
+
+            // Dialogue session initializer - ensures consistent story/function setup
+            Container.Bind<IDialogueSessionInitializer>()
+                .To<DialogueSessionInitializer>()
+                .AsSingle();
+
+            // Dialogue outcome handler - handles quest/NPC/relationship outcomes
+            Container.Bind<IDialogueOutcomeHandler>()
+                .To<DialogueOutcomeHandler>()
+                .AsSingle();
+
+            // Combat transition handler - handles dialogue-to-combat transitions
+            Container.Bind<ICombatTransitionHandler>()
+                .To<CombatTransitionHandler>()
                 .AsSingle();
         }
 
@@ -200,6 +239,10 @@ namespace Core.DI
         private void InstallScenarioGeneration()
         {
             Debug.Log("[NarrativeInstaller] Binding ScenarioGenerator");
+
+            // Note: IStoryPolicyProvider is already bound in InstallProceduralGeneration
+            // and will be automatically injected into generators that need it
+
             switch (_generatorType)
             {
                 case ScenarioGeneratorType.StoryGraph:
@@ -213,7 +256,7 @@ namespace Core.DI
                     Container.Bind<IScenarioGenerator>()
                         .To<StoryAwareScenarioGenerator>()
                         .AsSingle();
-                    Debug.Log("[NarrativeInstaller] Using StoryAwareScenarioGenerator");
+                    Debug.Log("[NarrativeInstaller] Using StoryAwareScenarioGenerator (with StoryPolicyProvider support)");
                     break;
 
                 case ScenarioGeneratorType.NpcSequence:
@@ -223,6 +266,102 @@ namespace Core.DI
                     Debug.Log("[NarrativeInstaller] Using NpcSequenceScenarioGenerator");
                     break;
             }
+        }
+
+        private void InstallProceduralGeneration()
+        {
+            Debug.Log("[NarrativeInstaller] Installing Procedural Generation System");
+
+            // Load story templates from Resources if not assigned
+            var templates = _storyTemplates != null && _storyTemplates.Count > 0
+                ? _storyTemplates
+                : new List<StoryTemplateDefinition>(Resources.LoadAll<StoryTemplateDefinition>("StoryTemplates"));
+
+            // Load reward definitions from Resources if not assigned
+            var rewards = _rewardDefinitions != null && _rewardDefinitions.Count > 0
+                ? _rewardDefinitions
+                : new List<RewardDefinition>(Resources.LoadAll<RewardDefinition>("Rewards"));
+
+            Debug.Log($"[NarrativeInstaller] Found {templates.Count} story templates, {rewards.Count} reward definitions");
+
+            // Story Policy Provider - defines Main Story vs Side Story policies
+            Container.Bind<IStoryPolicyProvider>()
+                .To<StoryPolicyProvider>()
+                .AsSingle();
+
+            // NPC Pool - manages available NPCs for binding
+            Container.Bind<INpcPool>()
+                .To<NpcPool>()
+                .AsSingle();
+
+            // Story Template Selector - selects templates based on context and policies
+            Container.Bind<IStoryTemplateSelector>()
+                .To<StoryTemplateSelector>()
+                .AsSingle()
+                .WithArguments(templates as IReadOnlyList<StoryTemplateDefinition>);
+
+            // Parameter Binder - binds NPCs, locations, rewards to templates
+            Container.Bind<IParameterBinder>()
+                .To<ParameterBinder>()
+                .AsSingle()
+                .WithArguments(rewards as IReadOnlyList<RewardDefinition>);
+
+            // Quest Manager - creates and tracks quest instances
+            Container.Bind<IQuestManager>()
+                .To<QuestManager>()
+                .AsSingle();
+
+            // Reward Instance Factory - creates reward instances from definitions
+            Container.Bind<IRewardInstanceFactory>()
+                .To<RewardInstanceFactory>()
+                .AsSingle();
+
+            // Narrative Context - holds current narrative state
+            Container.Bind<INarrativeContext>()
+                .To<NarrativeContext>()
+                .AsSingle();
+
+            // Narrative Generator - orchestrates the generation pipeline with policy support
+            Container.Bind<INarrativeGenerator>()
+                .To<NarrativeGenerator>()
+                .AsSingle()
+                .WithArguments(_npcDefinitions as IReadOnlyList<NpcDefinition>);
+
+            // Story Platform Data Binder - bridges generation output to platform data
+            Container.Bind<IStoryPlatformDataBinder>()
+                .To<StoryPlatformDataBinder>()
+                .AsSingle();
+
+            // Area Narrative Orchestrator - coordinates scenario and narrative generation
+            Container.Bind<IAreaNarrativeOrchestrator>()
+                .To<AreaNarrativeOrchestrator>()
+                .AsSingle();
+
+            Debug.Log("[NarrativeInstaller] Procedural Generation System installed with Story Policy support");
+        }
+
+        private void InstallPersistence()
+        {
+            Debug.Log("[NarrativeInstaller] Installing Narrative Persistence System");
+
+            // Load reward definitions for snapshot restoration
+            var rewards = _rewardDefinitions != null && _rewardDefinitions.Count > 0
+                ? _rewardDefinitions
+                : new List<RewardDefinition>(Resources.LoadAll<RewardDefinition>("Rewards"));
+
+            var npcs = _npcDefinitions != null && _npcDefinitions.Count > 0
+                ? _npcDefinitions
+                : new List<NpcDefinition>();
+
+            // Narrative Persistence Service - saves and loads narrative state
+            Container.Bind<INarrativePersistenceService>()
+                .To<NarrativePersistenceService>()
+                .AsSingle()
+                .WithArguments(
+                    rewards as IReadOnlyList<RewardDefinition>,
+                    npcs as IReadOnlyList<NpcDefinition>);
+
+            Debug.Log("[NarrativeInstaller] Narrative Persistence System installed");
         }
     }
 

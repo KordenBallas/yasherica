@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Narrative;
+using Narrative.Generation;
 
 namespace LevelGeneration
 {
@@ -83,6 +84,22 @@ namespace LevelGeneration
         /// Checks if this platform is for a side story.
         /// </summary>
         public bool IsSideStory => !string.IsNullOrEmpty(SideStoryId);
+
+        /// <summary>
+        /// The generated bound story for this platform (procedural generation).
+        /// Contains template, bound NPCs, rewards, and parameters.
+        /// </summary>
+        public BoundStory GeneratedBoundStory { get; set; }
+
+        /// <summary>
+        /// Session ID for tracking story execution state.
+        /// </summary>
+        public string SessionId { get; set; }
+
+        /// <summary>
+        /// Whether this platform has a generated bound story.
+        /// </summary>
+        public bool HasBoundStory => GeneratedBoundStory != null;
 
         public StoryPlatformData()
         {

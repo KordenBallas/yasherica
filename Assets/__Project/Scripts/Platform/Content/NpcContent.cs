@@ -1,6 +1,7 @@
 using System;
 using Narrative;
 using Narrative.Data.Definitions;
+using Narrative.Generation;
 using Narrative.Providers;
 using UnityEngine;
 using Zenject;
@@ -32,6 +33,12 @@ namespace Platform
         public BaseStoryDefinition SelectedStory { get; private set; }
 
         /// <summary>
+        /// Runtime NpcInstance with bound state, role, and relationships.
+        /// Set by NpcContentInstanceBinder when using procedural generation.
+        /// </summary>
+        public NpcInstance RuntimeInstance { get; private set; }
+
+        /// <summary>
         /// The Ink knot to use for this NPC's dialogue.
         /// Falls back to Definition.DefaultDialogueKnot if not set.
         /// </summary>
@@ -40,6 +47,7 @@ namespace Platform
         // Optional dependencies for dynamic story selection
         [Inject(Optional = true)] private INpcStoryProvider _npcStoryProvider;
         [Inject(Optional = true)] private IStoryStateProvider _storyStateProvider;
+        [Inject(Optional = true)] private INpcPool _npcPool;
 
         /// <summary>
         /// Whether this NPC has transitioned to an enemy.
@@ -101,6 +109,9 @@ namespace Platform
                 return;
             }
 
+            // Bind runtime instance from NpcPool if available
+            TryBindRuntimeInstance();
+
             // NEW: Use NpcStoryProvider to dynamically select story if available
             if (_npcStoryProvider != null && _storyStateProvider != null)
             {
@@ -118,6 +129,36 @@ namespace Platform
             }
 
             SpawnNpcVisual(platform);
+        }
+
+        /// <summary>
+        /// Attempts to bind the RuntimeInstance from the NpcPool.
+        /// </summary>
+        private void TryBindRuntimeInstance()
+        {
+            if (RuntimeInstance != null)
+            {
+                // Already bound
+                return;
+            }
+
+            if (_npcPool == null || Definition == null)
+            {
+                return;
+            }
+
+            var npcId = Definition.NpcId;
+            if (string.IsNullOrEmpty(npcId))
+            {
+                return;
+            }
+
+            var instance = _npcPool.GetNpc(npcId);
+            if (instance != null)
+            {
+                RuntimeInstance = instance;
+                Debug.Log($"[NpcContent] Auto-bound RuntimeInstance for NPC '{npcId}' from pool");
+            }
         }
 
         /// <summary>
@@ -199,6 +240,29 @@ namespace Platform
         public void NotifyDialogueEnded()
         {
             OnDialogueEnded?.Invoke(this);
+        }
+
+        /// <summary>
+        /// Binds a runtime NpcInstance to this content.
+        /// Called by NpcContentInstanceBinder during platform initialization.
+        /// </summary>
+        /// <param name="instance">The NpcInstance to bind</param>
+        public void BindRuntimeInstance(NpcInstance instance)
+        {
+            RuntimeInstance = instance;
+
+            if (instance != null)
+            {
+                UnityEngine.Debug.Log($"[NpcContent] Bound RuntimeInstance '{instance.InstanceId}' to NPC '{Definition?.NpcId}'");
+            }
+        }
+
+        /// <summary>
+        /// Gets the effective NpcInstance, preferring RuntimeInstance if available.
+        /// </summary>
+        public NpcInstance GetEffectiveInstance()
+        {
+            return RuntimeInstance;
         }
 
         private void SpawnNpcVisual(IPlatform platform)

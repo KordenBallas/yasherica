@@ -1,0 +1,298 @@
+﻿ Implementation: New Section Content
+
+ Section to Add: "8. Detailed Runtime Flow"
+
+ ## 8. Detailed Runtime Flow
+
+ ### 8.1 Entry Point: NarrativeGenerator.GenerateForArea()
+
+ **Trigger:** Area generation complete, platforms defined
+
+ **Input:** INarrativeContext containing:
+ - CurrentAreaId, CurrentTheme, CurrentChapterNumber
+ - TotalPlatforms, CurrentPlatformIndex
+ - WorldState (StoryState)
+ - PlayerData (alignment, faction relationships)
+
+ ---
+
+ ### 8.2 Phase 1: NPC Pool Initialization
+
+ NpcPool.PopulatePool(npcDefinitions, context)
+ │
+ ├─► For each NpcDefinition:
+ │   ├─► Create NpcInstance with unique InstanceId
+ │   ├─► Set initial state: Available
+ │   └─► Register in pool dictionaries (by instanceId, by definitionId)
+ │
+ └─► NpcPool.DecrementCooldowns()
+     └─► All NPCs on cooldown: cooldownPlatforms--
+         └─► If cooldown reaches 0: state → Available
+
+ **Decision Point:** NPCs with cooldown > 0 remain unavailable for this area
+
+ ---
+
+ ### 8.3 Phase 2: Story Count Determination
+
+ mainStoryCount = 1  (always)
+ sideStoryCount = max(0, (TotalPlatforms / 3) - 1)
+ totalStories = mainStoryCount + sideStoryCount
+
+ | TotalPlatforms | Main | Side | Total |
+ |----------------|------|------|-------|
+ | 1-5            | 1    | 0    | 1     |
+ | 6-8            | 1    | 1    | 2     |
+ | 9-11           | 1    | 2    | 3     |
+ | 12+            | 1    | 3+   | 4+    |
+
+ ---
+
+ ### 8.4 Phase 3: Main Story Generation
+
+ **StoryType: Chapter**
+
+ GenerateSingleStory(context, StoryType.Chapter)
+ │
+ ├─► [SELECTION] StoryTemplateSelector.SelectBestTemplate()
+ │   │
+ │   ├─► Filter: Eligibility Checks (see 8.6)
+ │   │   ├─► HasInkContent == true
+ │   │   ├─► MinimumChapter <= CurrentChapter <= MaximumChapter
+ │   │   ├─► Theme match (if RequiresSpecificTheme)
+ │   │   ├─► Player alignment within AlignmentRange
+ │   │   ├─► Not recently played (if !IsRepeatable)
+ │   │   ├─► Prerequisites met (stories, quests, NPCs)
+ │   │   └─► RequiredNpcCount <= AvailableNpcs
+ │   │
+ │   ├─► Score: Scoring Factors (see 8.7)
+ │   │   ├─► BasePriority (from template)
+ │   │   ├─► +10 theme match bonus
+ │   │   ├─► +20 key progression bonus
+ │   │   ├─► +15 variety bonus (not recently played)
+ │   │   ├─► +N attribute match bonus
+ │   │   └─► +progress bonus (chapter position)
+ │   │
+ │   └─► Return: StoryTemplateSelection (best score)
+ │
+ ├─► [VALIDATION] ParameterBinder.CanBindAllParameters()
+ │   └─► Count required NPC slots, verify pool has enough
+ │
+ ├─► [BINDING] ParameterBinder.BindParameters()
+ │   │
+ │   ├─► For each TemplateParameterSlot:
+ │   │   ├─► Npc: Find/reserve matching NPC
+ │   │   ├─► Location: Use current area
+ │   │   ├─► Reward: Weighted selection from definitions
+ │   │   ├─► ItemName: Generate placeholder
+ │   │   ├─► Quantity: Random within range
+ │   │   └─► Custom: Use slot default
+ │   │
+ │   ├─► For each TemplateRewardSlot:
+ │   │   └─► Create RewardInstance (probability check, scaling)
+ │   │
+ │   └─► Return: BoundStory
+ │
+ ├─► [INSTANTIATION] new StorySession(boundStory, storyManager)
+ │
+ ├─► [QUEST] QuestManager.CreateQuest(boundStory)
+ │   └─► Create QuestInstance with objectives, NPCs, rewards
+ │
+ ├─► [COOLDOWN] NpcPool.SetCooldown(npc, template.CooldownPlatforms)
+ │   └─► For each bound NPC
+ │
+ └─► [RECORD] context.RecordCompletedStory(storyId)
+
+ ---
+
+ ### 8.5 Phase 4: Side Story Generation (Loop)
+
+ **StoryType: SideStory**
+
+ For i = 0 to sideStoryCount:
+ │
+ ├─► GenerateSingleStory(context, StoryType.SideStory)
+ │   │
+ │   └─► Same flow as Main Story (8.4) with differences:
+ │       ├─► Template pool filtered to StoryType.SideStory
+ │       ├─► Lower priority in scoring (no key progression)
+ │       ├─► Typically shorter CooldownPlatforms
+ │       └─► Often theme-flexible (no RequiresSpecificTheme)
+ │
+ └─► If generation fails:
+     └─► Warning logged, continue to next
+
+ ---
+
+ ### 8.6 Decision Point: Template Eligibility Filters
+
+ IsTemplateEligible(template, context) → bool
+ │
+ ├─► REJECT if !HasInkContent
+ ├─► REJECT if CurrentChapter < MinimumChapter
+ ├─► REJECT if MaximumChapter > 0 && CurrentChapter > MaximumChapter
+ ├─► REJECT if RequiresSpecificTheme && RequiredTheme != CurrentTheme
+ ├─► REJECT if PlayerAlignment outside AlignmentRange
+ ├─► REJECT if !IsRepeatable && WasRecentlyPlayed
+ ├─► REJECT if Prerequisites not met:
+ │   ├─► RequiredCompletedStories
+ │   ├─► RequiredCompletedQuests
+ │   ├─► RequiredActiveQuests
+ │   └─► RequiredEncounteredNpcs
+ ├─► REJECT if RequiredNpcCount > AvailableNpcs.Count
+ │
+ └─► ACCEPT
+
+ ---
+
+ ### 8.7 Decision Point: Template Scoring
+
+ ScoreTemplate(template, context) → float
+ │
+ ├─► score = BasePriority
+ │
+ ├─► Theme Match (if !RequiresSpecificTheme):
+ │   └─► IF template.Theme == context.CurrentTheme: +10
+ │
+ ├─► Progression Relevance:
+ │   └─► IF IsKeyProgression: +20
+ │
+ ├─► Variety:
+ │   └─► IF !WasRecentlyPlayed: +15
+ │
+ ├─► Attribute Match:
+ │   └─► FOR each matching attribute: +weight * 10
+ │
+ ├─► Chapter Progress:
+ │   └─► IF MinimumChapter > 0: +ChapterProgress * 5
+ │
+ └─► RETURN score
+
+ ---
+
+ ### 8.8 Decision Point: NPC Selection
+
+ BindNpcParameter(slot, context, npcPool) → BoundParameter
+ │
+ ├─► IF slot.HasSpecificNpc:
+ │   ├─► npc = pool.GetNpc(SpecificNpcId)
+ │   └─► FAIL if npc == null || !npc.IsAvailable
+ │
+ ├─► ELSE: Search by criteria
+ │   ├─► criteria.RequiredFaction (if EnforceFaction)
+ │   ├─► criteria.RequiredRole (if != None)
+ │   ├─► criteria.RequiredTraits
+ │   ├─► criteria.MaxResults = 5
+ │   │
+ │   ├─► matches = pool.FindMatchingNpcs(criteria)
+ │   └─► selectedNpc = matches[random(0, min(3, count))]
+ │
+ ├─► IF selectedNpc == null: FAIL
+ │
+ ├─► pool.ReserveNpc(npc.InstanceId, role, areaId)
+ │   └─► npc.State → Assigned
+ │
+ └─► RETURN BoundParameter(slot, npc, displayName)
+
+ ---
+
+ ### 8.9 Main Story vs Side Story Differences
+
+ | Aspect | Main Story | Side Story |
+ |--------|------------|------------|
+ | **StoryType** | Chapter | SideStory |
+ | **Count per Area** | Always 1 | 0+ based on platform count |
+ | **Priority** | Higher base priority | Lower base priority |
+ | **Progression** | Often IsKeyProgression | Rarely key progression |
+ | **Prerequisites** | May require prior chapters | Minimal prerequisites |
+ | **Theme** | May require specific theme | Usually theme-flexible |
+ | **Failure Handling** | Critical warning | Non-critical, continue |
+ | **NPC Pool Impact** | Primary reservation | Secondary/remaining pool |
+ | **Cooldown** | Longer CooldownPlatforms | Shorter cooldowns |
+
+ ---
+
+ ### 8.10 Template Selection vs Instantiation Boundary
+
+ ┌─────────────────────────────────────────────────────────────┐
+ │                    TEMPLATE SELECTION                       │
+ │         (Stateless, Scoring-based, Reversible)              │
+ ├─────────────────────────────────────────────────────────────┤
+ │  • Eligibility filtering (no state changes)                 │
+ │  • Scoring and ranking                                      │
+ │  • Returns: StoryTemplateSelection                          │
+ │  • Can be repeated without side effects                     │
+ └─────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+ ┌─────────────────────────────────────────────────────────────┐
+ │                  VALIDATION GATE                            │
+ ├─────────────────────────────────────────────────────────────┤
+ │  • CanBindAllParameters() - verifies binding feasibility    │
+ │  • Last chance to reject before committing resources        │
+ └─────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+ ┌─────────────────────────────────────────────────────────────┐
+ │                    INSTANTIATION                            │
+ │         (Stateful, Resource-consuming, Irreversible)        │
+ ├─────────────────────────────────────────────────────────────┤
+ │  • BindParameters() - reserves NPCs, creates instances      │
+ │  • new StorySession() - creates runtime session             │
+ │  • CreateQuest() - creates QuestInstance                    │
+ │  • SetCooldown() - marks NPCs unavailable                   │
+ │  • RecordCompletedStory() - updates context                 │
+ │                                                             │
+ │  State Changes:                                             │
+ │  • NpcInstance.State: Available → Assigned                  │
+ │  • NpcInstance.Cooldown: set to CooldownPlatforms           │
+ │  • Context.RecentStoryIds: updated                          │
+ │  • QuestManager: new active quest                           │
+ └─────────────────────────────────────────────────────────────┘
+
+ ---
+
+ ### 8.11 Complete Pipeline Sequence Diagram
+
+ NarrativeGenerator           NpcPool              TemplateSelector        ParameterBinder         QuestManager
+       │                         │                        │                       │                      │
+       │ GenerateForArea()       │                        │                       │                      │
+       │─────────────────────────│                        │                       │                      │
+       │                         │                        │                       │                      │
+       │ PopulatePool()          │                        │                       │                      │
+       │────────────────────────►│                        │                       │                      │
+       │◄────────────────────────│                        │                       │                      │
+       │                         │                        │                       │                      │
+       │ DecrementCooldowns()    │                        │                       │                      │
+       │────────────────────────►│                        │                       │                      │
+       │                         │                        │                       │                      │
+       │ [MAIN STORY]            │                        │                       │                      │
+       │                         │ SelectBestTemplate()   │                       │                      │
+       │────────────────────────────────────────────────►│                       │                      │
+       │◄────────────────────────────────────────────────│ StoryTemplateSelection│                      │
+       │                         │                        │                       │                      │
+       │                         │                        │CanBindAllParameters() │                      │
+       │────────────────────────────────────────────────────────────────────────►│                      │
+       │◄────────────────────────────────────────────────────────────────────────│ true/false           │
+       │                         │                        │                       │                      │
+       │                         │                        │ BindParameters()      │                      │
+       │────────────────────────────────────────────────────────────────────────►│                      │
+       │                         │◄───────────────────────────────────────────────│ ReserveNpc()        │
+       │◄────────────────────────────────────────────────────────────────────────│ BoundStory           │
+       │                         │                        │                       │                      │
+       │                         │                        │                       │ CreateQuest()        │
+       │─────────────────────────────────────────────────────────────────────────────────────────────►│
+       │◄─────────────────────────────────────────────────────────────────────────────────────────────│
+       │                         │                        │                       │                      │
+       │ SetCooldown()           │                        │                       │                      │
+       │────────────────────────►│                        │                       │                      │
+       │                         │                        │                       │                      │
+       │ [SIDE STORIES - repeat] │                        │                       │                      │
+       │ ...                     │                        │                       │                      │
+       │                         │                        │                       │                      │
+       │ GenerationResult        │                        │                       │                      │
+       │◄────────────────────────│                        │                       │                      │
+
+
+ ---
+ Files to Modify

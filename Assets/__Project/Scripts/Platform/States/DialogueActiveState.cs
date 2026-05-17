@@ -16,35 +16,39 @@ namespace Platform
     {
         public class Factory : PlaceholderFactory<DialogueActiveState> { }
 
-        private readonly DialoguePresenter _dialoguePresenter;
-        private readonly IStoryStateProvider _storyStateProvider;
+        private readonly IDialoguePresenter _dialoguePresenter;
         private readonly IPlatformStateFactory _stateFactory;
         private readonly ISideStoryProvider _sideStoryProvider;
         private readonly IStoryManager _storyManager;
-        private readonly IInkExternalFunctionBinder _externalFunctionBinder;
+        private readonly IDialogueSessionInitializer _sessionInitializer;
+        private readonly IDialogueOutcomeHandler _outcomeHandler;
+        private readonly ICombatTransitionHandler _combatHandler;
 
         private IPlatform _currentPlatform;
         private NpcContent _npcContent;
         private DialogueContent _dialogueContent;
+        private IDialogueContext _currentContext;
         private bool _combatTriggered;
         private string _triggeredEnemyId;
         private string _activeSideStoryId;
 
         [Inject]
         public DialogueActiveState(
-            DialoguePresenter dialoguePresenter,
-            IStoryStateProvider storyStateProvider,
+            IDialoguePresenter dialoguePresenter,
             IPlatformStateFactory stateFactory,
             ISideStoryProvider sideStoryProvider,
             IStoryManager storyManager,
-            IInkExternalFunctionBinder externalFunctionBinder = null)
+            IDialogueSessionInitializer sessionInitializer = null,
+            IDialogueOutcomeHandler outcomeHandler = null,
+            ICombatTransitionHandler combatHandler = null)
         {
             _dialoguePresenter = dialoguePresenter;
-            _storyStateProvider = storyStateProvider;
             _stateFactory = stateFactory;
             _sideStoryProvider = sideStoryProvider;
             _storyManager = storyManager;
-            _externalFunctionBinder = externalFunctionBinder;
+            _sessionInitializer = sessionInitializer;
+            _outcomeHandler = outcomeHandler;
+            _combatHandler = combatHandler;
         }
 
         public override void OnEnter(IPlatform platform)
@@ -107,10 +111,7 @@ namespace Platform
                 _sideStoryProvider?.RecordSideStoryPlayed(_activeSideStoryId);
             }
 
-            _currentPlatform = null;
-            _npcContent = null;
-            _dialogueContent = null;
-            _activeSideStoryId = null;
+            ResetDialogueState();
         }
 
         private void StartNpcDialogue()
@@ -128,11 +129,15 @@ namespace Platform
                 return;
             }
 
-            // Record NPC encounter in story state
-            if (!string.IsNullOrEmpty(npcId))
-            {
-                _storyStateProvider?.RecordNpcEncounter(npcId);
-            }
+            // Create dialogue context with NPC runtime instance if available
+            _currentContext = DialogueContext.ForNpc(
+                npcId,
+                dialogueKnot,
+                _npcContent.Definition?.DisplayName,
+                _npcContent.RuntimeInstance);
+
+            // Initialize session (ensures external functions are bound)
+            _sessionInitializer?.InitializeSession(_currentContext);
 
             _dialoguePresenter.StartNpcDialogue(npcId, dialogueKnot);
         }
@@ -150,6 +155,12 @@ namespace Platform
                 TransitionToCompleted();
                 return;
             }
+
+            // Create dialogue context for pure dialogue
+            _currentContext = DialogueContext.ForDialogue(dialogueKnot, _dialogueContent.SpeakerName);
+
+            // Initialize session (ensures external functions are bound)
+            _sessionInitializer?.InitializeSession(_currentContext);
 
             _dialoguePresenter.StartDialogue(dialogueKnot, _dialogueContent.SpeakerName);
         }
@@ -182,15 +193,14 @@ namespace Platform
 
             Debug.Log($"[DialogueActiveState] Starting side story: {sideStory.DisplayName}");
 
+            // Create dialogue context for side story
+            _currentContext = DialogueContext.ForSideStory(storyData.SideStoryId, sideStory, storyData.NpcId);
+
             // Load the side story's Ink content
             _storyManager.LoadStory(sideStory.GetInkJson());
-            _externalFunctionBinder?.BindAllExternalFunctions();
 
-            // Record NPC encounter if applicable
-            if (!string.IsNullOrEmpty(storyData.NpcId))
-            {
-                _storyStateProvider?.RecordNpcEncounter(storyData.NpcId);
-            }
+            // Initialize session (binds external functions)
+            _sessionInitializer?.EnsureExternalFunctionsBound();
 
             // Start dialogue at the configured starting knot
             _dialoguePresenter.StartDialogue(sideStory.StartingKnot, null);
@@ -200,6 +210,9 @@ namespace Platform
         {
             Debug.Log($"[DialogueActiveState] Dialogue ended with outcome: {outcome}");
 
+            // Delegate outcome handling to the outcome handler
+            _outcomeHandler?.HandleOutcome(outcome, _currentContext);
+
             switch (outcome)
             {
                 case DialogueOutcomeType.Combat:
@@ -207,15 +220,7 @@ namespace Platform
                     break;
 
                 case DialogueOutcomeType.Quest:
-                    // Quest already triggered via OnQuestTriggered
-                    TransitionToCompleted();
-                    break;
-
                 case DialogueOutcomeType.Trade:
-                    // Trade system extension point
-                    TransitionToCompleted();
-                    break;
-
                 case DialogueOutcomeType.Continue:
                 case DialogueOutcomeType.Exit:
                 default:
@@ -234,44 +239,54 @@ namespace Platform
         {
             if (!string.IsNullOrEmpty(questId))
             {
-                _storyStateProvider?.StartQuest(questId);
-                Debug.Log($"[DialogueActiveState] Quest started: {questId}");
+                _outcomeHandler?.StartQuest(questId);
+                Debug.Log($"[DialogueActiveState] Quest triggered: {questId}");
             }
         }
 
         private void HandleCombatOutcome()
         {
-            // TODO: When multi-enemy combat is implemented, use
-            // _externalFunctionBinder.LastCombatEnemyCount to spawn multiple enemies
-
-            if (_npcContent != null && _npcContent.CanBecomeEnemy)
+            // Use combat handler if available
+            if (_combatHandler != null)
             {
-                // Transition NPC to enemy
-                var enemyContent = _npcContent.TransitionToEnemy();
-
-                if (enemyContent != null)
+                if (_combatHandler.CanTransitionToCombat(_currentPlatform, _currentContext, _combatTriggered))
                 {
-                    // Add enemy content to platform
-                    _currentPlatform.AddContent(enemyContent);
+                    // Prepare enemy content if transitioning from NPC
+                    EnemyContent enemyContent = null;
+                    if (_npcContent != null && _npcContent.CanBecomeEnemy)
+                    {
+                        enemyContent = _combatHandler.PrepareEnemyContent(_npcContent);
+                    }
 
-                    // Destroy NPC visual
-                    _npcContent.DestroyNpcVisual();
+                    _combatHandler.ExecuteTransition(_currentPlatform, _npcContent, enemyContent);
+                    return;
+                }
+            }
+            else
+            {
+                // Fallback: original implementation
+                if (_npcContent != null && _npcContent.CanBecomeEnemy)
+                {
+                    var enemyContent = _npcContent.TransitionToEnemy();
 
-                    // Transition to combat
+                    if (enemyContent != null)
+                    {
+                        _currentPlatform.AddContent(enemyContent);
+                        _npcContent.DestroyNpcVisual();
+                        TransitionToCombat();
+                        return;
+                    }
+                }
+
+                if (_combatTriggered)
+                {
+                    Debug.Log("[DialogueActiveState] Combat triggered via Ink function - transitioning to combat");
                     TransitionToCombat();
                     return;
                 }
             }
 
-            // Check if combat was explicitly triggered via trigger_combat()
-            if (_combatTriggered)
-            {
-                Debug.Log("[DialogueActiveState] Combat triggered via Ink function - transitioning to combat");
-                TransitionToCombat();
-                return;
-            }
-
-            // If no enemy transition possible and combat not triggered, just complete
+            // If no combat transition possible, complete normally
             TransitionToCompleted();
         }
 
@@ -289,39 +304,17 @@ namespace Platform
             if (_currentPlatform == null)
                 return;
 
-            // Mark story node as completed if applicable
-            CompleteStoryNode();
-
             var completedState = _stateFactory.CreateCompletedState();
             _currentPlatform.TransitionToState(completedState);
         }
 
-        private void CompleteStoryNode()
+        private void ResetDialogueState()
         {
-            if (_storyStateProvider == null)
-                return;
-
-            // Try to find the story node ID for this platform
-            string nodeId = null;
-
-            // Check if this is a side story completion
-            if (!string.IsNullOrEmpty(_activeSideStoryId))
-            {
-                nodeId = $"sidestory_{_activeSideStoryId}";
-            }
-            else if (_npcContent?.Definition != null)
-            {
-                nodeId = $"npc_{_npcContent.Definition.NpcId}";
-            }
-            else if (_dialogueContent != null)
-            {
-                nodeId = _dialogueContent.DialogueKnot;
-            }
-
-            if (!string.IsNullOrEmpty(nodeId))
-            {
-                _storyStateProvider.CompleteStoryNode(nodeId);
-            }
+            _currentPlatform = null;
+            _npcContent = null;
+            _dialogueContent = null;
+            _currentContext = null;
+            _activeSideStoryId = null;
         }
     }
 }

@@ -34,5 +34,5 @@ MonoBehaviour:
     _editorNotes: 
   _legacyDialogueSessions: []
   _faction: 0
-  _canBecomeEnemy: 0
-  _enemyDefinition: {fileID: 0}
+  _canBecomeEnemy: 1
+  _enemyDefinition: {fileID: 11400000, guid: 95a0e66c9c2c8d54b8d18e228b3c852d, type: 2}

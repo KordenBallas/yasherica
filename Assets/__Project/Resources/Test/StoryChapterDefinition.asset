@@ -38,6 +38,7 @@ MonoBehaviour:
   _baseDifficulty: 1
   _requiredNpcs:
   - {fileID: 11400000, guid: 062f46f3901bc3842a6d30197ab25c34, type: 2}
+  - {fileID: 11400000, guid: db08c6013186b1d40bf91c678c61c6d8, type: 2}
   _keyDialogueSessions: []
   _completionKnots: []
   _nextChapter: {fileID: 0}
