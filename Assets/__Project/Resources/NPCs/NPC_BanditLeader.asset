@@ -21,4 +21,4 @@ MonoBehaviour:
   _tags: []
   _faction: 2
   _canBecomeEnemy: 1
-  _enemyDefinition: {fileID: 11400000, guid: 95a0e66c9c2c8d54b8d18e228b3c852d, type: 2}
+  _enemyDefinition: {fileID: 11400000, guid: b04656b47004689479713b702921616f, type: 2}

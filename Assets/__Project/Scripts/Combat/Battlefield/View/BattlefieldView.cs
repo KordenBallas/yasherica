@@ -137,7 +137,7 @@ namespace Combat.Battlefield
                     hexCellView.Initialize(cell, hexSize);
                     Debug.Log($"[BattlefieldView] Initialized HexCellView with size: {hexSize}");
                 }
-                else
+                /*else
                 {
                     // Fallback to legacy HexagonController
                     var hexController = hexGO.GetComponent<HexagonController>();
@@ -153,7 +153,7 @@ namespace Combat.Battlefield
                     {
                         Debug.LogWarning($"[BattlefieldView] Hex cell prefab '{prefab.name}' has neither HexCellView nor HexagonController component!");
                     }
-                }
+                }*/
                 
                 spawnedCells.Add(hexGO);
                 hexGO.SetActive(isActive);

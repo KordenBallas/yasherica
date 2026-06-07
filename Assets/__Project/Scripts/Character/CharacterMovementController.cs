@@ -372,11 +372,11 @@ namespace Character
         cc.enabled = true;
     }
 
-    void MoveToNode(PlatformGraphRegistry.Node node)
+    /*void MoveToNode(PlatformGraphRegistry.Node node)
     {
         cc.enabled = false;
         transform.position = node.worldPos + Vector3.up * dashHeightOffset;
         cc.enabled = true;
-    }
+    }*/
 }
 }

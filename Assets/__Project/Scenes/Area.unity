@@ -851,8 +851,9 @@ MonoBehaviour:
   landingDepth: 0.9
   wallMargin: 0.05
   wallLayer:
-    serializedVersion: 2
     m_Bits: 0
+  cc: {fileID: 0}
+  velocity: {x: 0, y: 0, z: 0}
 --- !u!114 &1009419562
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -872,6 +873,7 @@ MonoBehaviour:
   dashHeightOffset: 0.5
   dashDelay: 0.05
   minInput: 0.2
+  cc: {fileID: 0}
 --- !u!114 &1009419563
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -884,8 +886,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a70dd4b886414c468d8671622572464, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  characterController: {fileID: 0}
   moveSpeed: 10
   gravity: -9.81
+  velocity: {x: 0, y: 0, z: 0}
   moveAction: {fileID: -1680190386980627800, guid: 052faaac586de48259a63d0c4782560b, type: 3}
 --- !u!143 &1009419564
 CharacterController:
@@ -1128,7 +1132,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Core.DI.NarrativeInstaller
   _storyDefinitions:
-  - {fileID: 11400000, guid: 638ee379fc60f39498b94b8408182491, type: 2}
+  - {fileID: 11400000, guid: 07dc8a2cfbda7cb4aa18b68145493e3d, type: 2}
   _npcDefinitions:
   - {fileID: 11400000, guid: 6f1df950e2282204b8eeecee75d323bc, type: 2}
   - {fileID: 11400000, guid: f5df8e262bba393448baa3ec7d576da4, type: 2}

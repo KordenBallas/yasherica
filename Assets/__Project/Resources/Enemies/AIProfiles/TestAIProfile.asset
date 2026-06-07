@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ecab9c45464477247af444e5c32a1f6c, type: 3}
+  m_Name: TestAIProfile
+  m_EditorClassIdentifier: Yasherica::Combat.Data.Definitions.AIProfileDefinition
+  _basePersonality: 0
+  _movementRange: 3
+  _damageWeight: 2
+  _healWeight: 1.5
+  _killBonus: 50
+  _killThresholdPercent: 0.3
+  _statusEffectBonus: 30
+  _defensiveHpThreshold: 0.5
+  _closeRangeBonus: 20
+  _surroundPenalty: 15
