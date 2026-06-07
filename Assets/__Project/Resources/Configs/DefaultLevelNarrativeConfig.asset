@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Yasherica::Narrative.Data.Definitions.LevelNarrativeConfig
   _minStories: 1
   _maxStories: 3
-  _minNpcs: 1
+  _minNpcs: 2
   _maxNpcs: 4
   _theme: 0
   _difficulty: 0
