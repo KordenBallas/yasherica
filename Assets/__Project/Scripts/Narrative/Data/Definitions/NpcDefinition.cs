@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using Combat.Data.Definitions;
 
@@ -6,85 +5,63 @@ namespace Narrative.Data.Definitions
 {
     /// <summary>
     /// ScriptableObject definition for NPC configurations.
-    /// Contains ONLY configuration data - NO logic.
+    /// Contains identity, visual, character Ink, and combat data.
     /// </summary>
     [CreateAssetMenu(fileName = "NpcDefinition", menuName = "Narrative/NPCs/NPC")]
     public class NpcDefinition : ScriptableObject
     {
         [Header("Identity")]
-        [Tooltip("Unique identifier for this NPC")]
         [SerializeField] private string _npcId;
-
-        [Tooltip("Display name of the NPC")]
         [SerializeField] private string _displayName;
 
-        [TextArea(2, 4)]
-        [Tooltip("Description of the NPC")]
-        [SerializeField] private string _description;
-
         [Header("Visual")]
-        [Tooltip("Prefab for NPC GameObject")]
         [SerializeField] private GameObject _prefab;
-
-        [Tooltip("Portrait sprite for dialogue UI")]
         [SerializeField] private Sprite _portrait;
 
-        [Header("Dialogue")]
-        [Tooltip("Default Ink knot for initial dialogue")]
-        [SerializeField] private string _defaultDialogueKnot;
+        [Header("Character Ink")]
+        [Tooltip("Compiled Ink JSON for this NPC's personality/dialogue")]
+        [SerializeField] private TextAsset _characterInkJson;
 
-        [Header("Story Associations")]
-        [Tooltip("Stories this NPC is involved in with their roles")]
-        [SerializeField] private List<Data.NpcStoryAssociation> _associatedStories = new();
+        [Tooltip("Starting knot in the character Ink file")]
+        [SerializeField] private string _characterStartKnot = "greeting";
 
-        [Header("Legacy Dialogue Sessions (Deprecated)")]
-        [Tooltip("Old dialogue session system - use Story Associations instead")]
-        [SerializeField] private List<DialogueSessionDefinition> _legacyDialogueSessions = new();
-
-        [Header("Faction & Behavior")]
-        [Tooltip("NPC's faction alignment")]
+        [Header("Filters")]
+        [SerializeField] private string[] _tags;
         [SerializeField] private NpcFaction _faction = NpcFaction.Neutral;
 
-        [Header("Combat Integration")]
-        [Tooltip("Whether this NPC can transition to an enemy in combat")]
+        [Header("Combat")]
         [SerializeField] private bool _canBecomeEnemy;
-
-        [Tooltip("Enemy definition to use when NPC becomes hostile")]
         [SerializeField] private EnemyDefinition _enemyDefinition;
 
-        // Public read-only accessors
         public string NpcId => _npcId;
         public string DisplayName => _displayName;
-        public string Description => _description;
         public GameObject Prefab => _prefab;
         public Sprite Portrait => _portrait;
-        public string DefaultDialogueKnot => _defaultDialogueKnot;
-        public IReadOnlyList<Data.NpcStoryAssociation> AssociatedStories => _associatedStories;
-        public IReadOnlyList<DialogueSessionDefinition> LegacyDialogueSessions => _legacyDialogueSessions;
+        public TextAsset CharacterInkJson => _characterInkJson;
+        public string CharacterStartKnot => _characterStartKnot;
+        public System.Collections.Generic.IReadOnlyList<string> Tags => _tags;
         public NpcFaction Faction => _faction;
         public bool CanBecomeEnemy => _canBecomeEnemy;
         public EnemyDefinition EnemyDefinition => _enemyDefinition;
 
-        /// <summary>
-        /// Checks if NPC has a default dialogue entry point.
-        /// </summary>
-        public bool HasDefaultDialogue => !string.IsNullOrEmpty(_defaultDialogueKnot);
+        public bool HasCharacterInk => _characterInkJson != null;
 
-        /// <summary>
-        /// Checks if NPC has any story associations.
-        /// </summary>
-        public bool HasStoryAssociations => _associatedStories.Count > 0;
-
-        /// <summary>
-        /// Gets stories where this NPC has a specific role.
-        /// </summary>
-        public IEnumerable<Data.NpcStoryAssociation> GetStoriesByRole(Data.NpcStoryRole role)
+        public string GetCharacterInkJson()
         {
-            foreach (var association in _associatedStories)
+            return _characterInkJson != null ? _characterInkJson.text : string.Empty;
+        }
+
+        public bool HasTag(string tag)
+        {
+            if (_tags == null || _tags.Length == 0)
+                return false;
+
+            for (int i = 0; i < _tags.Length; i++)
             {
-                if (association.Role == role)
-                    yield return association;
+                if (_tags[i] == tag)
+                    return true;
             }
+            return false;
         }
     }
 

@@ -1,7 +1,7 @@
 using UnityEngine;
 using LevelGeneration;
-using LevelGeneration.Orchestration;
-using Narrative.Data.Providers;
+using Narrative.Data.Definitions;
+using Narrative.Generation;
 using Platform;
 using Combat.Core;
 using Combat.Player;
@@ -38,10 +38,10 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     [Header("Noise Settings")]
     public float noiseScale = 0.1f;
     public int noiseOctaves = 4;
-    
+
     [Header("Character Settings")]
     public Transform characterTransform;
-    
+
     private IAreaGenerator areaGenerator;
     private AreaView areaView;
     private IPlatform currentPlatform;
@@ -53,29 +53,25 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     [Inject]
     private DiContainer _container;
     [Inject]
-    private IAreaNarrativeOrchestrator _areaOrchestrator;
+    private ILevelNarrativeGenerator _narrativeGenerator;
     [Inject]
-    private INpcDataProvider _npcDataProvider;
+    private LevelNarrativeConfig _levelConfig;
+    [Inject]
+    private IScenarioGenerator _scenarioGenerator;
 
     private IPlayer _localPlayer;
-    
-    /// <summary>
-    /// Called by Zenject after all dependencies have been injected.
-    /// Automatically generates the area on scene start.
-    /// </summary>
+
     public void Initialize()
     {
-        // Create and register local player for combat system
         _localPlayer = new HumanPlayer(id: 1, name: "Player");
         _playerRegistry.RegisterLocalPlayer(_localPlayer);
         Debug.Log("[AreaSceneEntrypoint] Created and registered local player");
-        
+
         GenerateArea();
     }
-    
+
     public void GenerateArea()
     {
-        // Initialize random seed
         if (seed != 0)
         {
             Random.InitState(seed);
@@ -84,36 +80,36 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
         {
             Random.InitState((int)System.DateTime.Now.Ticks & 0x0000FFFF);
         }
-        
-        // 1. Create game context
+
+        // 1. Generate narrative content (NPC assignments)
+        var levelNarrative = _narrativeGenerator.Generate(_levelConfig);
+
+        // 2. Generate scenario (platform layout)
         var gameContext = new GameContext
         {
             CharacterLevel = 5,
             Progress = 100,
             StoryState = 1
         };
-        
-        // 2. Generate scenario with narrative content
-        var scenario = _areaOrchestrator.GenerateAreaScenario(gameContext);
+        var scenario = _scenarioGenerator.GenerateScenario(gameContext, levelNarrative);
         if (scenario == null)
         {
-            Debug.LogError("[AreaSceneEntrypoint] Failed to generate scenario - aborting area generation");
+            Debug.LogError("[AreaSceneEntrypoint] Failed to generate scenario");
             return;
         }
 
-        // Override platform count if needed
         if (platformCount > 0)
         {
             scenario.EstimatedPlatformCount = platformCount;
         }
-        
+
         // 3. Generate platform graph
         var graphGenerator = new PlatformGraphGenerator();
         var graph = graphGenerator.GenerateGraph(scenario);
-        
+
         // 4. Create noise map
         var noiseMap = new PerlinNoiseMap(seed, noiseScale, noiseOctaves);
-        
+
         // 5. Create configuration
         var config = new AreaGeneratorConfig
         {
@@ -127,25 +123,24 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             platformMaterial = platformMaterial,
             colorVariation = colorVariation
         };
-        
-        // 6. Create area generator (uses Platform.Factory - states handle combat dependencies)
-        areaGenerator = new AreaGenerator(graph, noiseMap, _platformFactory, _npcDataProvider, config);
+
+        // 6. Create area generator with narrative data
+        areaGenerator = new AreaGenerator(graph, noiseMap, _platformFactory, levelNarrative, config);
         areaGenerator.Generate();
-        
+
         // 7. Set up AreaView
         if (areaView == null)
         {
             areaView = gameObject.AddComponent<AreaView>();
         }
         areaView.Initialize(areaGenerator);
-        
+
         // 8. Place character at entry platform
         if (areaGenerator.EntryPlatform != null && characterTransform != null)
         {
             currentPlatform = areaGenerator.EntryPlatform;
             characterTransform.position = currentPlatform.Visual.Position + Vector3.up * 2f;
-            
-            // Initialize character movement controller if present
+
             var characterController = characterTransform.GetComponent<Character.CharacterMovementController>();
             if (characterController == null)
             {
@@ -153,15 +148,11 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             }
             else
             {
-                // Manually inject dependencies into scene character object
-                // This is necessary because Zenject doesn't automatically inject into referenced scene objects
                 _container.Inject(characterController);
                 Debug.Log("[AreaSceneEntrypoint] Injected dependencies into CharacterMovementController");
             }
-            
-            // Character will self-register in CharacterMovementController.Start() after injection
         }
-        
+
         // 9. Set up content spawner
         var contentSpawner = gameObject.GetComponent<Platform.ContentSpawner>();
         if (contentSpawner == null)
@@ -169,7 +160,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             contentSpawner = gameObject.AddComponent<Platform.ContentSpawner>();
         }
     }
-    
+
     [ContextMenu("Clear Area")]
     public void ClearArea()
     {
@@ -178,8 +169,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             areaGenerator.Clear();
         }
     }
-    
-    // Call this when character moves to a new platform
+
     public void OnCharacterMovedToPlatform(IPlatform newPlatform)
     {
         if (newPlatform != null && newPlatform != currentPlatform)

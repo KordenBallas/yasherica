@@ -78,7 +78,7 @@ namespace Narrative.View
 
         private void EnsureEventSystemExists()
         {
-            var eventSystem = FindObjectOfType<UnityEngine.EventSystems.EventSystem>();
+            var eventSystem = FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
             if (eventSystem == null)
             {
                 Debug.LogWarning("[DialogueView] No EventSystem found - creating one automatically");

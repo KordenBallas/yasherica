@@ -1,4 +1,8 @@
-﻿You are a senior game systems architect and technical designer.
+﻿I want to refactor the NArrative system significantly. I find it too complicated and define too many features I do not plan to make use of. I want to have more simple system for procedurally generated game      run narrative. On each new game area aka level/biome I want to procedurally generate narrative from a set of existing story definitions, npc definitions, reward definitions. I want it to be simple now. I        want NarrativeInstaller to accept list of story, npc, reward definitions and combine them into narrative for that level. I want stories/quests/dialogies to be defined via Ink files. I want Ink files not to      stick to certain NPC, but be generic - npcs for stories/quests should be resolved at runtime, as well as rewards. I am thinking of having the dialogues to be composed from 2 factors: the story/quest + npc       specific character dialogues/quests; thus the same story, but with different npcs feels and plays differently and combining npcs and stories the game provides unique runs for rogue-like loops, so I can          extend the game by introducing new npcs, new stories, keeping the same procedural logic. Level narrative could be composied from multiple stories. I want you to propose me simplified architecture for            simplified Narrative system. I want it to answer on questions: How the level narrative is formed? How selected stories and npcs form dialogues and available quests and rewards?
+
+####
+
+You are a senior game systems architect and technical designer.
 
 I am developing a procedural narrative system for a Unity roguelike game using Ink.
 The current system is partially implemented but inconsistent and difficult to extend.
@@ -179,3 +183,8 @@ Propose a refactoring strategy:
 - Risk areas
 - Temporary adapters
 - How to migrate existing content
+
+
+
+
+######

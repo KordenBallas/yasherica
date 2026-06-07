@@ -154,9 +154,9 @@ namespace Platform
             {
                 return platformGO.GetComponent<PlatformView>();
             }
-            
+
             // Alternative: search in scene
-            var allViews = FindObjectsOfType<PlatformView>();
+            var allViews = FindObjectsByType<PlatformView>(FindObjectsSortMode.None);
             foreach (var view in allViews)
             {
                 // We can't directly access the platform from view, so we'll use GameObject name

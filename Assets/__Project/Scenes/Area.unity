@@ -1127,22 +1127,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6146366b21385b449d42a87aa5c1661, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Core.DI.NarrativeInstaller
-  _chapterDefinitions:
-  - {fileID: 11400000, guid: 06dfda0298e4d9f4ea5ad1d67855099c, type: 2}
+  _storyDefinitions:
+  - {fileID: 11400000, guid: 638ee379fc60f39498b94b8408182491, type: 2}
   _npcDefinitions:
-  - {fileID: 11400000, guid: 062f46f3901bc3842a6d30197ab25c34, type: 2}
-  - {fileID: 11400000, guid: db08c6013186b1d40bf91c678c61c6d8, type: 2}
-  - {fileID: 11400000, guid: 7fd3d58ca3ac1a445bfa37609fe0ed10, type: 2}
-  - {fileID: 11400000, guid: a1b2c3d4e5f60001a1b2c3d4e5f60001, type: 2}
-  - {fileID: 11400000, guid: a1b2c3d4e5f60002a1b2c3d4e5f60002, type: 2}
-  - {fileID: 11400000, guid: a1b2c3d4e5f60003a1b2c3d4e5f60003, type: 2}
-  - {fileID: 11400000, guid: a1b2c3d4e5f60004a1b2c3d4e5f60004, type: 2}
-  - {fileID: 11400000, guid: a1b2c3d4e5f60005a1b2c3d4e5f60005, type: 2}
+  - {fileID: 11400000, guid: 6f1df950e2282204b8eeecee75d323bc, type: 2}
+  - {fileID: 11400000, guid: f5df8e262bba393448baa3ec7d576da4, type: 2}
+  _rewardDefinitions: []
+  _levelConfig: {fileID: 11400000, guid: ba64644a076a24c41bc07ad4f8d62918, type: 2}
   _dialogueView: {fileID: 0}
   _dialogueViewPrefab: {fileID: 2000000000000000006, guid: a8b9c1d2e3f4567890abcdef12345678, type: 3}
-  _generatorType: 0
-  _storyTemplates: []
-  _rewardDefinitions: []
 --- !u!4 &1154528042
 Transform:
   m_ObjectHideFlags: 0

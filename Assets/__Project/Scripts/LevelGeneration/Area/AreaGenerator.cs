@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using Narrative.Data.Providers;
+using Narrative.Generation;
 using Platform;
 using UnityEngine;
 using Zenject;
@@ -17,7 +17,7 @@ namespace LevelGeneration
         private readonly PerlinNoiseMap _noiseMap;
         private readonly AreaGeneratorConfig _config;
         private readonly Platform.Platform.Factory _platformFactory;
-        private readonly INpcDataProvider _npcDataProvider;
+        private readonly LevelNarrative _levelNarrative;
 
         private readonly Dictionary<int, IPlatform> _platforms = new();
         private readonly Dictionary<int, PlatformView> _platformViews = new();
@@ -32,13 +32,13 @@ namespace LevelGeneration
             PlatformGraphData graph,
             PerlinNoiseMap noiseMap,
             Platform.Platform.Factory platformFactory,
-            INpcDataProvider npcDataProvider,
+            LevelNarrative levelNarrative,
             AreaGeneratorConfig config = null)
         {
             _graph = graph;
             _noiseMap = noiseMap;
             _platformFactory = platformFactory;
-            _npcDataProvider = npcDataProvider;
+            _levelNarrative = levelNarrative;
             _config = config ?? new AreaGeneratorConfig();
         }
 
@@ -229,39 +229,35 @@ namespace LevelGeneration
         {
             if (storyData == null || string.IsNullOrEmpty(storyData.NpcId))
             {
-                Debug.LogWarning("[AreaGenerator] NPC platform has no NpcId in StoryData - creating empty NpcContent");
-                return new NpcContent();
+                Debug.LogWarning("[AreaGenerator] NPC platform has no NpcId in StoryData - skipping NpcContent creation");
+                return null;
             }
 
-            // Resolve NPC definition from data provider
-            var npcDefinition = _npcDataProvider.GetNpcById(storyData.NpcId);
+            // Find matching NpcAssignment from level narrative
+            NpcAssignment assignment = FindAssignmentForNpc(storyData.NpcId);
 
-            if (npcDefinition == null)
+            if (assignment == null)
             {
-                Debug.LogWarning($"[AreaGenerator] NPC definition not found for ID '{storyData.NpcId}'");
-                return new NpcContent();
+                Debug.LogWarning($"[AreaGenerator] No NpcAssignment found for NPC '{storyData.NpcId}' - skipping NpcContent creation");
+                return null;
             }
 
-            // Create NpcContent with resolved definition
-            var npcContent = new NpcContent(npcDefinition);
-            npcContent.DialogueKnot = storyData.DialogueKnot ?? npcDefinition.DefaultDialogueKnot;
-
-            // Bind NpcInstance from BoundStory if available (Phase 5 integration)
-            if (storyData.HasBoundStory && storyData.GeneratedBoundStory.BoundNpcs != null)
-            {
-                foreach (var boundNpc in storyData.GeneratedBoundStory.BoundNpcs)
-                {
-                    if (boundNpc.NpcId == storyData.NpcId)
-                    {
-                        npcContent.BindRuntimeInstance(boundNpc);
-                        Debug.Log($"[AreaGenerator] Bound NpcInstance '{boundNpc.InstanceId}' to NpcContent");
-                        break;
-                    }
-                }
-            }
-
-            Debug.Log($"[AreaGenerator] Created NpcContent for '{npcDefinition.DisplayName}' (ID: {storyData.NpcId})");
+            var npcContent = new NpcContent(assignment);
+            Debug.Log($"[AreaGenerator] Created NpcContent for '{assignment.Npc.DisplayName}' (ID: {storyData.NpcId})");
             return npcContent;
+        }
+
+        private NpcAssignment FindAssignmentForNpc(string npcId)
+        {
+            if (_levelNarrative?.Assignments == null)
+                return null;
+
+            for (int i = 0; i < _levelNarrative.Assignments.Count; i++)
+            {
+                if (_levelNarrative.Assignments[i].Npc.NpcId == npcId)
+                    return _levelNarrative.Assignments[i];
+            }
+            return null;
         }
 
         private EnemyContent CreateEnemyContent(StoryPlatformData storyData)

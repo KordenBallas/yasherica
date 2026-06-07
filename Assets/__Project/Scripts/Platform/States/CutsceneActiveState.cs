@@ -15,8 +15,7 @@ namespace Platform
     {
         public class Factory : PlaceholderFactory<CutsceneActiveState> { }
 
-        private readonly DialoguePresenter _dialoguePresenter;
-        private readonly IStoryStateProvider _storyStateProvider;
+        private readonly IDialoguePresenter _dialoguePresenter;
         private readonly IPlatformStateFactory _stateFactory;
 
         private IPlatform _currentPlatform;
@@ -24,12 +23,10 @@ namespace Platform
 
         [Inject]
         public CutsceneActiveState(
-            DialoguePresenter dialoguePresenter,
-            IStoryStateProvider storyStateProvider,
+            IDialoguePresenter dialoguePresenter,
             IPlatformStateFactory stateFactory)
         {
             _dialoguePresenter = dialoguePresenter;
-            _storyStateProvider = storyStateProvider;
             _stateFactory = stateFactory;
         }
 
@@ -89,13 +86,6 @@ namespace Platform
         private void HandleCutsceneContentEnded(CutsceneContent content, bool wasSkipped)
         {
             Debug.Log($"[CutsceneActiveState] Cutscene '{content.CutsceneId}' ended (skipped: {wasSkipped})");
-
-            // Mark as completed in story state
-            if (!string.IsNullOrEmpty(content.CutsceneId))
-            {
-                _storyStateProvider?.CompleteStoryNode(content.CutsceneId);
-            }
-
             TransitionToCompleted();
         }
 

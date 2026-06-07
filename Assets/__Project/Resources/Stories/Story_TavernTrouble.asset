@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eabee7deaba61e74d8a90c9f4e6dd16a, type: 3}
+  m_Name: Story_TavernTrouble
+  m_EditorClassIdentifier: Yasherica::Narrative.Data.Definitions.StoryDefinition
+  _storyId: tavern_trouble
+  _displayName: Tavern Trouble
+  _description: There's trouble brewing in the tavern.
+  _inkJsonAsset: {fileID: 4900000, guid: b1b2c3d4e5f70003b1b2c3d4e5f70003, type: 3}
+  _startingKnot: start
+  _allowedThemes: 
+  _minDifficulty: 0
+  _maxDifficulty: 0
+  _tags: []
+  _isRepeatable: 1
+  _cooldownRuns: 0
+  _canTransitionToCombat: 0
+  _rewards: []
