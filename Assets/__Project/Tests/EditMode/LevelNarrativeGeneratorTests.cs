@@ -12,7 +12,7 @@ namespace Tests.EditMode
     [TestFixture]
     public class LevelNarrativeGeneratorTests
     {
-        private StoryDefinition CreateStory(string id)
+        private StoryDefinition CreateStory(string id, bool canTransitionToCombat = false)
         {
             var story = ScriptableObject.CreateInstance<StoryDefinition>();
             var so = new UnityEditor.SerializedObject(story);
@@ -20,18 +20,20 @@ namespace Tests.EditMode
             so.FindProperty("_displayName").stringValue = id;
             so.FindProperty("_startingKnot").stringValue = "start";
             so.FindProperty("_isRepeatable").boolValue = true;
+            so.FindProperty("_canTransitionToCombat").boolValue = canTransitionToCombat;
             var inkAsset = new TextAsset("{}");
             so.FindProperty("_inkJsonAsset").objectReferenceValue = inkAsset;
             so.ApplyModifiedPropertiesWithoutUndo();
             return story;
         }
 
-        private NpcDefinition CreateNpc(string id)
+        private NpcDefinition CreateNpc(string id, bool canBecomeEnemy = false)
         {
             var npc = ScriptableObject.CreateInstance<NpcDefinition>();
             var so = new UnityEditor.SerializedObject(npc);
             so.FindProperty("_npcId").stringValue = id;
             so.FindProperty("_displayName").stringValue = id;
+            so.FindProperty("_canBecomeEnemy").boolValue = canBecomeEnemy;
             so.ApplyModifiedPropertiesWithoutUndo();
             return npc;
         }
@@ -192,6 +194,114 @@ namespace Tests.EditMode
             // This tests that RecordUsage is called (verified by the pool's state)
             var remaining = storyPool.Filter(LevelTheme.Forest, 0, null, null);
             Assert.AreEqual(2, remaining.Count); // No cooldown set, still available
+        }
+
+        [Test]
+        public void Generate_CombatStoryNotStarvedByNonCombatStory()
+        {
+            // Reported bug: a non-combat story randomly grabbed the only
+            // combat-capable NPC, so the combat story was skipped and the
+            // remaining NPC ended up with a greeting only.
+            for (int seed = 0; seed < 50; seed++)
+            {
+                var stories = new List<StoryDefinition>
+                {
+                    CreateStory("merchant_story"),
+                    CreateStory("bandit_story", canTransitionToCombat: true)
+                };
+                var npcs = new List<NpcDefinition>
+                {
+                    CreateNpc("merchant"),
+                    CreateNpc("bandit", canBecomeEnemy: true)
+                };
+
+                var storyPool = new StoryPool(stories);
+                var npcPool = new NpcPool(npcs);
+                var resolver = new RewardResolver(new System.Random(seed));
+                var config = CreateConfig(2, 2, 2, 2);
+
+                var gen = new LevelNarrativeGenerator(storyPool, npcPool, resolver, new System.Random(seed));
+                var result = gen.Generate(config);
+
+                int withStory = result.Assignments.Count(a => a.HasStory);
+                Assert.AreEqual(2, withStory,
+                    $"Seed {seed}: both stories should be assigned");
+
+                var combatAssignment = result.Assignments
+                    .First(a => a.HasStory && a.Story.CanTransitionToCombat);
+                Assert.IsTrue(combatAssignment.Npc.CanBecomeEnemy,
+                    $"Seed {seed}: combat story must be on a combat-capable NPC");
+            }
+        }
+
+        [Test]
+        public void Generate_CombatStoriesAlwaysGetCombatCapableNpcs()
+        {
+            for (int seed = 0; seed < 20; seed++)
+            {
+                var stories = new List<StoryDefinition>
+                {
+                    CreateStory("c1", canTransitionToCombat: true),
+                    CreateStory("c2", canTransitionToCombat: true),
+                    CreateStory("c3", canTransitionToCombat: true),
+                    CreateStory("p1"),
+                    CreateStory("p2")
+                };
+                var npcs = new List<NpcDefinition>
+                {
+                    CreateNpc("f1", canBecomeEnemy: true),
+                    CreateNpc("f2", canBecomeEnemy: true),
+                    CreateNpc("f3", canBecomeEnemy: true),
+                    CreateNpc("n1"),
+                    CreateNpc("n2"),
+                    CreateNpc("n3")
+                };
+
+                var storyPool = new StoryPool(stories);
+                var npcPool = new NpcPool(npcs);
+                var resolver = new RewardResolver(new System.Random(seed));
+                var config = CreateConfig(5, 5, 5, 6);
+
+                var gen = new LevelNarrativeGenerator(storyPool, npcPool, resolver, new System.Random(seed));
+                var result = gen.Generate(config);
+
+                foreach (var assignment in result.Assignments)
+                {
+                    if (assignment.HasStory && assignment.Story.CanTransitionToCombat)
+                    {
+                        Assert.IsTrue(assignment.Npc.CanBecomeEnemy,
+                            $"Seed {seed}: combat story '{assignment.Story.StoryId}' " +
+                            "must be on a combat-capable NPC");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void Generate_SkipsCombatStory_WhenNoCombatCapableNpcRemains()
+        {
+            var stories = new List<StoryDefinition>
+            {
+                CreateStory("c1", canTransitionToCombat: true),
+                CreateStory("c2", canTransitionToCombat: true)
+            };
+            var npcs = new List<NpcDefinition>
+            {
+                CreateNpc("f1", canBecomeEnemy: true),
+                CreateNpc("n1")
+            };
+
+            var storyPool = new StoryPool(stories);
+            var npcPool = new NpcPool(npcs);
+            var resolver = new RewardResolver(new System.Random(42));
+            var config = CreateConfig(2, 2, 2, 2);
+
+            var gen = new LevelNarrativeGenerator(storyPool, npcPool, resolver, new System.Random(42));
+            var result = gen.Generate(config);
+
+            int withStory = result.Assignments.Count(a => a.HasStory);
+            Assert.AreEqual(1, withStory,
+                "Only one combat story can be satisfied by a single combat-capable NPC");
         }
 
         [Test]

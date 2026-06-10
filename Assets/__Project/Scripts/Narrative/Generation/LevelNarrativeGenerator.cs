@@ -7,7 +7,8 @@ namespace Narrative.Generation
 {
     /// <summary>
     /// Picks stories and NPCs for a level based on density and filter configuration.
-    /// Assigns one NPC per story, then adds extra character-only NPCs.
+    /// Assigns one NPC per story (combat stories are matched first, since they
+    /// require combat-capable NPCs), then adds extra character-only NPCs.
     /// </summary>
     public class LevelNarrativeGenerator : ILevelNarrativeGenerator
     {
@@ -42,6 +43,7 @@ namespace Narrative.Generation
             _npcPool.ResetAssignments();
 
             var assignments = new List<NpcAssignment>();
+            int storyAssignmentCount = 0;
 
             // Step 1: Filter stories
             var filteredStories = _storyPool.Filter(
@@ -54,31 +56,23 @@ namespace Narrative.Generation
             int storyCount = PickCount(config.MinStories, config.MaxStories, filteredStories.Count);
             var selectedStories = PickRandom(filteredStories, storyCount);
 
-            // Step 3: Assign one NPC per story
+            // Step 3: Assign one NPC per story. Combat stories draw from a strict
+            // subset of NPCs (combat-capable only), so they are matched first;
+            // otherwise a non-combat story can consume the last combat-capable NPC
+            // and orphan a combat story.
+            var npcByStoryIndex = new NpcDefinition[selectedStories.Count];
+            AssignNpcsForPass(selectedStories, config, npcByStoryIndex, combatPass: true);
+            AssignNpcsForPass(selectedStories, config, npcByStoryIndex, combatPass: false);
+
             for (int i = 0; i < selectedStories.Count; i++)
             {
-                var story = selectedStories[i];
-                var availableNpcs = _npcPool.Filter(config.RequiredTags, null);
-
-                // Combat stories require a combat-capable NPC; pairing any NPC would start
-                // an enemy-less fight. This activates the CanTransitionToCombat config flag.
-                var candidates = story.CanTransitionToCombat
-                    ? FilterCombatCapableNpcs(availableNpcs)
-                    : availableNpcs;
-
-                if (candidates.Count == 0)
-                {
-                    Debug.LogWarning(story.CanTransitionToCombat
-                        ? $"[LevelNarrativeGenerator] No combat-capable NPC available for combat story '{story.StoryId}'. Story skipped."
-                        : $"[LevelNarrativeGenerator] No NPCs available for story '{story.StoryId}'");
+                if (npcByStoryIndex[i] == null)
                     continue;
-                }
 
-                var npc = candidates[_random.Next(candidates.Count)];
-                _npcPool.MarkAssigned(npc.NpcId);
-
+                var story = selectedStories[i];
                 var rewards = _rewardResolver.Resolve(story);
-                assignments.Add(new NpcAssignment(npc, story, rewards));
+                assignments.Add(new NpcAssignment(npcByStoryIndex[i], story, rewards));
+                storyAssignmentCount++;
 
                 _storyPool.RecordUsage(story.StoryId);
             }
@@ -100,9 +94,43 @@ namespace Narrative.Generation
             }
 
             Debug.Log($"[LevelNarrativeGenerator] Generated {assignments.Count} assignments " +
-                      $"({selectedStories.Count} with stories, {assignments.Count - selectedStories.Count} character-only)");
+                      $"({storyAssignmentCount} with stories, {assignments.Count - storyAssignmentCount} character-only)");
 
             return new LevelNarrative(assignments);
+        }
+
+        private void AssignNpcsForPass(
+            IReadOnlyList<StoryDefinition> stories,
+            LevelNarrativeConfig config,
+            NpcDefinition[] npcByStoryIndex,
+            bool combatPass)
+        {
+            for (int i = 0; i < stories.Count; i++)
+            {
+                var story = stories[i];
+                if (story.CanTransitionToCombat != combatPass)
+                    continue;
+
+                var availableNpcs = _npcPool.Filter(config.RequiredTags, null);
+
+                // Combat stories require a combat-capable NPC; pairing any NPC would start
+                // an enemy-less fight. This activates the CanTransitionToCombat config flag.
+                var candidates = combatPass
+                    ? FilterCombatCapableNpcs(availableNpcs)
+                    : availableNpcs;
+
+                if (candidates.Count == 0)
+                {
+                    Debug.LogWarning(combatPass
+                        ? $"[LevelNarrativeGenerator] No combat-capable NPC available for combat story '{story.StoryId}'. Story skipped."
+                        : $"[LevelNarrativeGenerator] No NPCs available for story '{story.StoryId}'");
+                    continue;
+                }
+
+                var npc = candidates[_random.Next(candidates.Count)];
+                _npcPool.MarkAssigned(npc.NpcId);
+                npcByStoryIndex[i] = npc;
+            }
         }
 
         private int PickCount(int min, int max, int available)
