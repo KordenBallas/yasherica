@@ -76,9 +76,6 @@ namespace Platform
             _storyManager?.Reset();
             _npcManager?.Reset();
 
-            // Reset NPC combat state to allow re-triggering combat
-            _npcContent?.ResetCombatState();
-
             _npcContent?.NotifyDialogueEnded();
             _dialogueContent?.NotifyDialogueCompleted();
 
@@ -108,7 +105,12 @@ namespace Platform
                     HandleCombatOutcome();
                     break;
                 default:
-                    TransitionToCompleted();
+                    // trigger_combat() Ink function may have fired without an # outcome: Combat tag
+                    // (e.g., combat triggered from character ink which was previously tag-processing-blind).
+                    if (_combatTriggered)
+                        HandleCombatOutcome();
+                    else
+                        TransitionToCompleted();
                     break;
             }
         }
@@ -126,9 +128,8 @@ namespace Platform
 
         private void HandleCombatOutcome()
         {
-            Debug.Log($"[DialogueActiveState] HandleCombatOutcome: _npcContent={_npcContent != null}, CanBecomeEnemy={_npcContent?.CanBecomeEnemy}, _combatTriggered={_combatTriggered}");
+            Debug.Log($"[DialogueActiveState] HandleCombatOutcome: NPC={_npcContent?.Definition?.NpcId}, CanBecomeEnemy={_npcContent?.CanBecomeEnemy}");
 
-            // Path 1: NPC can transition to enemy
             if (_npcContent != null && _npcContent.CanBecomeEnemy)
             {
                 var enemyContent = _npcContent.TransitionToEnemy();
@@ -136,23 +137,19 @@ namespace Platform
                 {
                     _currentPlatform.AddContent(enemyContent);
                     _npcContent.DestroyNpcVisual();
-                    Debug.Log("[DialogueActiveState] Path 1: NPC transitioned to enemy, starting combat");
                     TransitionToCombat();
                     return;
                 }
+                Debug.LogError($"[DialogueActiveState] NPC '{_npcContent.Definition?.NpcId}' CanBecomeEnemy=true but TransitionToEnemy() returned null.");
             }
-
-            // Path 2: Combat was explicitly triggered via Ink function
-            if (_combatTriggered)
+            else
             {
-                Debug.Log("[DialogueActiveState] Path 2: Combat triggered via Ink function");
-                TransitionToCombat();
-                return;
+                Debug.LogError($"[DialogueActiveState] Combat signaled but NPC cannot become enemy. " +
+                               $"NPC='{_npcContent?.Definition?.NpcId}', CanBecomeEnemy={_npcContent?.CanBecomeEnemy}. " +
+                               $"Verify NPC definition and story-NPC pairing via the compatibility filter.");
             }
 
-            // Path 3: Fallback
-            Debug.LogWarning("[DialogueActiveState] Path 3: Combat outcome signaled but no enemy transition. Starting combat anyway.");
-            TransitionToCombat();
+            TransitionToCompleted();
         }
 
         private void TransitionToCombat()

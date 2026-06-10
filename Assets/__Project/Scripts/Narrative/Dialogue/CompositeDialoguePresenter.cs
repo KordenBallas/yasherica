@@ -9,13 +9,13 @@ namespace Narrative.Dialogue
     /// <summary>
     /// Runs two IStoryManager instances in parallel: one for the quest/encounter Ink
     /// and one for the NPC's character Ink. Combines choices from both into a unified list.
+    /// Character ink speaks first (personality greeting); story ink choices merge alongside.
     /// </summary>
     public class CompositeDialoguePresenter : IDialoguePresenter, IDisposable
     {
         private readonly DialogueModel _model;
         private readonly IDialogueView _view;
 
-        // Two story managers: one for quest, one for NPC character
         private readonly IStoryManager _storyManager;
         private readonly IStoryManager _npcManager;
         private readonly IInkExternalFunctionBinder _externalFunctionBinder;
@@ -23,11 +23,10 @@ namespace Narrative.Dialogue
         private NpcAssignment _currentAssignment;
         private bool _storyActive;
         private bool _npcActive;
-        private bool _isTypewriting;
-        private string _pendingText;
+        // true = story manager advances next; false = NPC manager advances next
+        private bool _lastAdvancedStory;
         private DialogueOutcomeType? _pendingOutcome;
 
-        // Track which manager owns which choice indices
         private readonly List<ChoiceSource> _choiceSources = new();
 
         public event Action<DialogueOutcomeType> OnDialogueEnded;
@@ -68,23 +67,36 @@ namespace Narrative.Dialogue
 
             // Load story Ink if present
             _storyActive = false;
+            string storyJson = null;
             if (assignment.HasStory && assignment.Story.HasInkContent)
             {
-                _storyManager.LoadStory(assignment.Story.GetInkJson());
+                storyJson = assignment.Story.GetInkJson();
+                _storyManager.LoadStory(storyJson);
                 _storyManager.GoToKnot(assignment.Story.StartingKnot);
                 _storyManager.SetVariable("npc_name", npcName);
                 _externalFunctionBinder.BindToStoryManager();
                 _storyActive = true;
             }
 
-            // Load NPC character Ink if present
+            // Load NPC character Ink — skip if it is the same asset as the story Ink
+            // to prevent the identical-content replay bug.
             _npcActive = false;
             if (assignment.Npc.HasCharacterInk)
             {
-                _npcManager.LoadStory(assignment.Npc.GetCharacterInkJson());
-                _npcManager.GoToKnot(assignment.Npc.CharacterStartKnot);
-                _externalFunctionBinder.BindToNpcManager();
-                _npcActive = true;
+                var characterJson = assignment.Npc.GetCharacterInkJson();
+                if (storyJson != null && characterJson == storyJson)
+                {
+                    Debug.LogWarning($"[CompositeDialoguePresenter] NPC '{npcName}': character Ink is identical to story Ink. " +
+                                     "Character Ink disabled to prevent duplicate dialogue. " +
+                                     "Author a distinct character Ink file for this NPC.");
+                }
+                else
+                {
+                    _npcManager.LoadStory(characterJson);
+                    _npcManager.GoToKnot(assignment.Npc.CharacterStartKnot);
+                    _externalFunctionBinder.BindToNpcManager();
+                    _npcActive = true;
+                }
             }
 
             if (!_storyActive && !_npcActive)
@@ -92,6 +104,22 @@ namespace Narrative.Dialogue
                 Debug.LogWarning($"[CompositeDialoguePresenter] No Ink content for NPC '{npcName}'");
                 EndDialogue(DialogueOutcomeType.Exit);
                 return;
+            }
+
+            // Character ink speaks first. Silently prime the story manager to its initial
+            // choice point so both sets of choices can be merged on the first advance.
+            _lastAdvancedStory = false;
+            if (_storyActive && _storyManager.CanContinue && !_storyManager.HasChoices)
+            {
+                _storyManager.Continue();
+                ProcessTags(_storyManager.CurrentTags, fromNpc: false);
+                if (_pendingOutcome.HasValue)
+                {
+                    _view?.Show();
+                    SetupPortrait(assignment.Npc);
+                    EndDialogue(_pendingOutcome.Value);
+                    return;
+                }
             }
 
             _view?.Show();
@@ -110,6 +138,7 @@ namespace Narrative.Dialogue
             _currentAssignment = null;
             _npcActive = false;
             _storyActive = true;
+            _lastAdvancedStory = true;
 
             _model.StartDialogue(null, speakerName);
             _storyManager.GoToKnot(dialogueKnot);
@@ -123,14 +152,6 @@ namespace Narrative.Dialogue
         {
             if (!_model.IsActive)
                 return;
-
-            if (_isTypewriting)
-            {
-                _view?.SkipTypewriterEffect();
-                _isTypewriting = false;
-                ShowDialogueText(_pendingText);
-                return;
-            }
 
             AdvanceAndCompose();
         }
@@ -151,10 +172,12 @@ namespace Narrative.Dialogue
             if (source.IsStory)
             {
                 _storyManager.ChooseChoice(source.OriginalIndex);
+                _lastAdvancedStory = true;
             }
             else
             {
                 _npcManager.ChooseChoice(source.OriginalIndex);
+                _lastAdvancedStory = false;
             }
 
             _view?.HideChoices();
@@ -185,34 +208,48 @@ namespace Narrative.Dialogue
             _model.Clear();
         }
 
-        /// <summary>
-        /// Advances both story managers and composes their output into unified display.
-        /// </summary>
         private void AdvanceAndCompose()
         {
             string text = null;
             _pendingOutcome = null;
 
-            // Priority: advance story first, then NPC
-            if (_storyActive && _storyManager.CanContinue)
+            if (_lastAdvancedStory)
             {
-                text = _storyManager.Continue();
-                ProcessTags(_storyManager.CurrentTags);
+                // Story manager has priority (player chose a story option, or story-only mode)
+                if (_storyActive && _storyManager.CanContinue)
+                {
+                    text = _storyManager.Continue();
+                    ProcessTags(_storyManager.CurrentTags, fromNpc: false);
+                }
+                else if (_npcActive && _npcManager.CanContinue)
+                {
+                    text = _npcManager.Continue();
+                    _lastAdvancedStory = false;
+                    ProcessTags(_npcManager.CurrentTags, fromNpc: true);
+                }
             }
-            else if (_npcActive && _npcManager.CanContinue)
+            else
             {
-                text = _npcManager.Continue();
-                ProcessNpcTags(_npcManager.CurrentTags);
+                // NPC manager has priority (opening sequence or player chose an NPC option)
+                if (_npcActive && _npcManager.CanContinue)
+                {
+                    text = _npcManager.Continue();
+                    ProcessTags(_npcManager.CurrentTags, fromNpc: true);
+                }
+                else if (_storyActive && _storyManager.CanContinue)
+                {
+                    text = _storyManager.Continue();
+                    _lastAdvancedStory = true;
+                    ProcessTags(_storyManager.CurrentTags, fromNpc: false);
+                }
             }
 
-            // Handle pending outcome AFTER all tag processing is complete
             if (_pendingOutcome.HasValue)
             {
                 EndDialogue(_pendingOutcome.Value);
                 return;
             }
 
-            // Check if both stories have ended
             bool storyDone = !_storyActive || (!_storyManager.CanContinue && !_storyManager.HasChoices);
             bool npcDone = !_npcActive || (!_npcManager.CanContinue && !_npcManager.HasChoices);
 
@@ -231,9 +268,6 @@ namespace Narrative.Dialogue
             UpdateContinueButton();
         }
 
-        /// <summary>
-        /// Combines choices from both story managers into one unified list.
-        /// </summary>
         private void ComposeChoices()
         {
             _choiceSources.Clear();
@@ -296,21 +330,14 @@ namespace Narrative.Dialogue
             }
         }
 
-        private void ProcessTags(IReadOnlyList<string> tags)
+        private void ProcessTags(IReadOnlyList<string> tags, bool fromNpc)
         {
             if (tags == null) return;
             for (int i = 0; i < tags.Count; i++)
-                ProcessTag(tags[i]);
+                ProcessTag(tags[i], fromNpc);
         }
 
-        private void ProcessNpcTags(IReadOnlyList<string> tags)
-        {
-            if (tags == null) return;
-            for (int i = 0; i < tags.Count; i++)
-                ProcessNpcTag(tags[i]);
-        }
-
-        private void ProcessTag(string tag)
+        private void ProcessTag(string tag, bool fromNpc)
         {
             if (string.IsNullOrEmpty(tag)) return;
 
@@ -323,8 +350,11 @@ namespace Narrative.Dialogue
             switch (key)
             {
                 case "speaker":
-                    _model.SetSpeaker(value);
-                    _view?.SetSpeakerName(value);
+                    var speakerName = (fromNpc && value.Equals("self", StringComparison.OrdinalIgnoreCase))
+                        ? _currentAssignment?.Npc.DisplayName ?? "NPC"
+                        : value;
+                    _model.SetSpeaker(speakerName);
+                    _view?.SetSpeakerName(speakerName);
                     break;
                 case "outcome":
                     HandleOutcomeTag(value);
@@ -335,28 +365,6 @@ namespace Narrative.Dialogue
                 case "combat":
                     OnCombatTriggered?.Invoke(value);
                     break;
-            }
-        }
-
-        private void ProcessNpcTag(string tag)
-        {
-            if (string.IsNullOrEmpty(tag)) return;
-
-            var colonIndex = tag.IndexOf(':');
-            if (colonIndex <= 0) return;
-
-            var key = tag.Substring(0, colonIndex).Trim().ToLowerInvariant();
-            var value = tag.Substring(colonIndex + 1).Trim();
-
-            if (key == "speaker")
-            {
-                // "self" maps to NPC's display name
-                var speakerName = value.Equals("self", StringComparison.OrdinalIgnoreCase)
-                    ? _currentAssignment?.Npc.DisplayName ?? "NPC"
-                    : value;
-
-                _model.SetSpeaker(speakerName);
-                _view?.SetSpeakerName(speakerName);
             }
         }
 
@@ -373,8 +381,14 @@ namespace Narrative.Dialogue
                 case "trade":
                     _pendingOutcome = DialogueOutcomeType.Trade;
                     break;
+                case "shop":
+                    _pendingOutcome = DialogueOutcomeType.Shop;
+                    break;
                 case "exit":
                     _pendingOutcome = DialogueOutcomeType.Exit;
+                    break;
+                default:
+                    Debug.LogWarning($"[CompositeDialoguePresenter] Unrecognized outcome tag value: '{outcome}'");
                     break;
             }
         }
@@ -427,21 +441,9 @@ namespace Narrative.Dialogue
 
         private void HandleSkipRequested()
         {
-            if (_isTypewriting)
-            {
-                _view?.SkipTypewriterEffect();
-                _isTypewriting = false;
-                ShowDialogueText(_pendingText);
-            }
-            else
-            {
-                EndDialogue(DialogueOutcomeType.Exit);
-            }
+            EndDialogue(DialogueOutcomeType.Exit);
         }
 
-        /// <summary>
-        /// Tracks which IStoryManager owns a displayed choice.
-        /// </summary>
         private readonly struct ChoiceSource
         {
             public bool IsStory { get; }

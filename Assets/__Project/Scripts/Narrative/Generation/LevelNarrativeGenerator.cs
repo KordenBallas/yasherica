@@ -60,13 +60,21 @@ namespace Narrative.Generation
                 var story = selectedStories[i];
                 var availableNpcs = _npcPool.Filter(config.RequiredTags, null);
 
-                if (availableNpcs.Count == 0)
+                // Combat stories require a combat-capable NPC; pairing any NPC would start
+                // an enemy-less fight. This activates the CanTransitionToCombat config flag.
+                var candidates = story.CanTransitionToCombat
+                    ? FilterCombatCapableNpcs(availableNpcs)
+                    : availableNpcs;
+
+                if (candidates.Count == 0)
                 {
-                    Debug.LogWarning($"[LevelNarrativeGenerator] No NPCs available for story '{story.StoryId}'");
+                    Debug.LogWarning(story.CanTransitionToCombat
+                        ? $"[LevelNarrativeGenerator] No combat-capable NPC available for combat story '{story.StoryId}'. Story skipped."
+                        : $"[LevelNarrativeGenerator] No NPCs available for story '{story.StoryId}'");
                     continue;
                 }
 
-                var npc = availableNpcs[_random.Next(availableNpcs.Count)];
+                var npc = candidates[_random.Next(candidates.Count)];
                 _npcPool.MarkAssigned(npc.NpcId);
 
                 var rewards = _rewardResolver.Resolve(story);
@@ -104,6 +112,17 @@ namespace Narrative.Generation
                 return upper;
 
             return _random.Next(min, upper + 1);
+        }
+
+        private static IReadOnlyList<NpcDefinition> FilterCombatCapableNpcs(IReadOnlyList<NpcDefinition> npcs)
+        {
+            var result = new List<NpcDefinition>();
+            for (int i = 0; i < npcs.Count; i++)
+            {
+                if (npcs[i].CanBecomeEnemy)
+                    result.Add(npcs[i]);
+            }
+            return result;
         }
 
         private List<T> PickRandom<T>(IReadOnlyList<T> source, int count)

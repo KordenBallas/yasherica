@@ -115,6 +115,7 @@ namespace Narrative
         Combat,     // Transitioned to combat
         Quest,      // Quest started or updated
         Trade,      // Trading interface opened
+        Shop,       // Shop/merchant interface opened
         Exit        // Player exited dialogue early
     }
 }

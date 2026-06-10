@@ -13,10 +13,8 @@ EXTERNAL trigger_combat(enemy_count)
 ~ return
 
 // === Story Start ===
+// Greeting text is provided by BanditLeaderCharacter.ink; this knot starts at choices.
 === start ===
-# speaker: Bandit Leader
-Well, well... what do we have here? Hand over your gold and nobody gets hurt.
-
 + [Here, take it. (Give gold)]
     -> give_gold
 + [I won't give you anything!]

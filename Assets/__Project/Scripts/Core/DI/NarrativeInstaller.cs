@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Narrative;
 using Narrative.Data.Definitions;
@@ -127,9 +128,9 @@ namespace Core.DI
 
         private void InstallDialoguePresenter()
         {
-            // CompositeDialoguePresenter needs two IStoryManager instances + IInkExternalFunctionBinder + IDialogueView.
-            // Use FromMethod to resolve Id-bound managers.
-            Container.Bind<IDialoguePresenter>()
+            // Bind both IDialoguePresenter and IDisposable to the same singleton so
+            // Zenject automatically calls Dispose() on container teardown.
+            Container.Bind(typeof(IDialoguePresenter), typeof(IDisposable))
                 .To<CompositeDialoguePresenter>()
                 .FromMethod(ctx =>
                 {

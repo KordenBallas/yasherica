@@ -16,8 +16,8 @@ MonoBehaviour:
   _displayName: Merchant Tomas
   _prefab: {fileID: 5096478280230430576, guid: da91e313a98df2143930756085c92389, type: 3}
   _portrait: {fileID: 0}
-  _characterInkJson: {fileID: 4900000, guid: d05c9d05cfb3ece43968c59034e20387, type: 3}
-  _characterStartKnot: start
+  _characterInkJson: {fileID: 4900000, guid: c1e2f3a4b5c6d7e8f9a0b1c2d3e4f501, type: 3}
+  _characterStartKnot: greeting
   _tags: []
   _faction: 3
   _canBecomeEnemy: 0

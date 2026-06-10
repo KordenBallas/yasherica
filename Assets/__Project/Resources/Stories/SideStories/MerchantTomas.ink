@@ -6,10 +6,8 @@ VAR npc_name = ""
 VAR merchant_visited = false
 
 // === Story Start ===
+// Greeting text is provided by MerchantTomasCharacter.ink; this knot starts at choices.
 === start ===
-# speaker: Merchant Tomas
-Greetings, traveler! I am Tomas, a humble merchant. Perhaps you'd like to see my wares?
-
 + [Show me what you have.]
     -> show_goods
 + [Not interested.]
