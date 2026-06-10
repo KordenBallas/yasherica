@@ -6,6 +6,8 @@ using Combat.Battlefield;
 using Combat.Config;
 using Combat.Controller;
 using Combat.Core;
+using Combat.Data.Definitions;
+using Combat.Data.Factories;
 using Combat.Input;
 using Combat.Player;
 using UnityEngine;
@@ -24,19 +26,26 @@ namespace Combat.Integration
         private readonly CombatMovementConfig _config;
         private readonly DiContainer _container;
         private readonly IInputController _inputController;
-        
+        private readonly IAbilityFactory _abilityFactory;
+        private readonly HeroDefinition _heroDefinition;
+        private List<AbilityDefinition> _characterAbilityDefinitions;
+
         public CharacterCombatInitializer(
             ICharacterRegistry characterRegistry,
             CombatEntryAnimator entryAnimator,
             CombatMovementConfig config,
             DiContainer container,
-            IInputController inputController)
+            IInputController inputController,
+            IAbilityFactory abilityFactory,
+            HeroDefinition heroDefinition)
         {
             _characterRegistry = characterRegistry;
             _entryAnimator = entryAnimator;
             _config = config;
             _container = container;
             _inputController = inputController;
+            _abilityFactory = abilityFactory;
+            _heroDefinition = heroDefinition;
         }
         
         /// <summary>
@@ -72,11 +81,26 @@ namespace Combat.Integration
                 Debug.Log("[CharacterCombatInitializer] Added CharacterCombatComponent");
             }
             
-            // Initialize component
-            int unitId = GenerateUnitId();
-            combatComponent.InitializeForCombat(unitId, player, startCell, combatController);
+            // Create ability instances from hero definition
+            var abilityInstances = new List<IAbilityInstance>();
+            _characterAbilityDefinitions = new List<AbilityDefinition>();
+            if (_heroDefinition != null && _heroDefinition.Abilities != null)
+            {
+                foreach (var abilityDef in _heroDefinition.Abilities)
+                {
+                    var abilityInstance = _abilityFactory.CreateAbilityInstance(abilityDef);
+                    abilityInstances.Add(abilityInstance);
+                    _characterAbilityDefinitions.Add(abilityDef);
+                }
+                Debug.Log($"[CharacterCombatInitializer] Created {abilityInstances.Count} ability instances from hero definition");
+            }
 
-            Debug.Log($"[CharacterCombatInitializer] Character initialized: ID={unitId}, Cell={startCell}");
+            // Initialize component with abilities
+            int unitId = GenerateUnitId();
+            int maxHP = _heroDefinition?.MaxHP ?? 100;
+            combatComponent.InitializeForCombat(unitId, player, startCell, combatController, maxHP, abilityInstances);
+
+            Debug.Log($"[CharacterCombatInitializer] Character initialized: ID={unitId}, Cell={startCell}, MaxHP={maxHP}");
 
             // Add internal Unit to combat state (NOT the MonoBehaviour component)
             combatController.AddUnit(combatComponent.InternalUnit);
@@ -140,5 +164,7 @@ namespace Combat.Integration
             // Simple ID generation - in production, use proper ID service
             return UnityEngine.Random.Range(1000, 9999);
         }
+
+        public IReadOnlyList<AbilityDefinition> CharacterAbilityDefinitions => _characterAbilityDefinitions;
     }
 }

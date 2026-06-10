@@ -31,6 +31,7 @@ namespace Combat.Execution
                 ActionType.ExecuteAbilityQueue => ExecuteAbilityQueue(gameState, action as ExecuteAbilityQueueAction),
                 ActionType.ReorderAbilities => ExecuteReorderAbilities(gameState, action as ReorderAbilitiesAction),
                 ActionType.RetargetAbility => ExecuteRetargetAbility(gameState, action as RetargetAbilityAction),
+                ActionType.ChangeDirection => ExecuteChangeDirection(gameState, action as ChangeDirectionAction),
                 ActionType.EndUnitTurn => ExecuteEndUnitTurn(gameState, action as EndUnitTurnAction),
                 _ => gameState
             };
@@ -167,7 +168,7 @@ namespace Combat.Execution
                 Debug.LogError($"[ActionExecutor] Cannot execute RetargetAbilityAction: Unit {action.UnitId} not found in combat state. Ability index: {action.AbilityIndexInQueue}");
                 return gameState;
             }
-            
+
             // Update target for specified ability
             var newQueue = unit.AbilityQueue
                 .Select((sa, index) =>
@@ -179,11 +180,24 @@ namespace Combat.Execution
                     return sa;
                 })
                 .ToList();
-            
+
             var updatedUnit = (unit as Unit).WithAbilityQueue(newQueue);
             return (gameState as CombatState).WithUpdatedUnit(updatedUnit);
         }
-        
+
+        private ICombatState ExecuteChangeDirection(ICombatState gameState, ChangeDirectionAction action)
+        {
+            var unit = gameState.GetUnit(action.UnitId);
+            if (unit == null)
+            {
+                Debug.LogError($"[ActionExecutor] Cannot execute ChangeDirectionAction: Unit {action.UnitId} not found in combat state");
+                return gameState;
+            }
+
+            var updatedUnit = (unit as Unit).WithFacingDirection(action.NewFacingDirection);
+            return (gameState as CombatState).WithUpdatedUnit(updatedUnit);
+        }
+
         private ICombatState ExecuteEndUnitTurn(ICombatState gameState, EndUnitTurnAction action)
         {
             // No state change except HasActedThisTurn (handled in ExecuteWithResult)

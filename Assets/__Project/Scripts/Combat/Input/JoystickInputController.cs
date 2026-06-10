@@ -27,6 +27,13 @@ namespace Combat.Input
         public event Action<MovementDirectionChangedCommand> OnMovementDirectionChanged;
         public event Action<MovementConfirmedCommand> OnMovementConfirmed;
         public event Action<MovementCancelledCommand> OnMovementCancelled;
+        public event Action<AbilitySelectedCommand> OnAbilitySelected;
+        public event Action<AbilityCancelledCommand> OnAbilityCancelled;
+#pragma warning disable 67
+        public event Action<AbilityConfirmedCommand> OnAbilityConfirmed;
+#pragma warning restore 67
+        public event Action<ExecuteQueueCommand> OnExecuteQueueRequested;
+        public event Action<ChangeDirectionModeCommand> OnChangeDirectionRequested;
 
         private void Update()
         {

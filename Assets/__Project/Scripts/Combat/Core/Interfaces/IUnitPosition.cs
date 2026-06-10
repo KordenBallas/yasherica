@@ -12,5 +12,11 @@ namespace Combat.Core
         /// Current position on the battlefield in hex coordinates.
         /// </summary>
         HexCoordinates Position { get; }
+
+        /// <summary>
+        /// Direction the unit is facing as a hex offset (e.g., (1,0) for East).
+        /// Represents one of the six hex neighbor directions.
+        /// </summary>
+        HexCoordinates FacingDirection { get; }
     }
 }

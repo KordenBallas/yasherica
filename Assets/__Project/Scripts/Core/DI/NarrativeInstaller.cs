@@ -127,7 +127,7 @@ namespace Core.DI
 
         private void InstallDialoguePresenter()
         {
-            // CompositeDialoguePresenter needs two IStoryManager instances + IDialogueView.
+            // CompositeDialoguePresenter needs two IStoryManager instances + IInkExternalFunctionBinder + IDialogueView.
             // Use FromMethod to resolve Id-bound managers.
             Container.Bind<IDialoguePresenter>()
                 .To<CompositeDialoguePresenter>()
@@ -135,8 +135,9 @@ namespace Core.DI
                 {
                     var storyMgr = ctx.Container.ResolveId<IStoryManager>("story");
                     var npcMgr = ctx.Container.ResolveId<IStoryManager>("npc");
+                    var binder = ctx.Container.Resolve<IInkExternalFunctionBinder>();
                     var view = ctx.Container.Resolve<IDialogueView>();
-                    return new CompositeDialoguePresenter(storyMgr, npcMgr, view);
+                    return new CompositeDialoguePresenter(storyMgr, npcMgr, binder, view);
                 })
                 .AsSingle();
         }

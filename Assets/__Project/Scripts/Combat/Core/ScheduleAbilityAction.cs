@@ -2,14 +2,14 @@ namespace Combat.Core
 {
     /// <summary>
     /// Action to schedule an ability for later execution.
-    /// This is a non-turn-ending action (allows planning).
+    /// This is a turn-ending action.
     /// </summary>
     public class ScheduleAbilityAction : IAction
     {
         public IPlayer Player { get; }
         public int UnitId { get; }
         public ActionType Type => ActionType.ScheduleAbility;
-        public bool EndsTurn => false;
+        public bool EndsTurn => true;
         
         /// <summary>
         /// ID of the ability to schedule.

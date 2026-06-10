@@ -23,6 +23,7 @@ namespace Character
         
         // IUnitPosition
         public HexCoordinates Position => _internalUnit?.Position ?? new HexCoordinates(0, 0);
+        public HexCoordinates FacingDirection => _internalUnit?.FacingDirection ?? new HexCoordinates(1, 0);
         
         // IUnitHealth
         public int CurrentHP => _internalUnit?.CurrentHP ?? 0;
@@ -50,22 +51,37 @@ namespace Character
             ICombatController combatController,
             int maxHP = 100)
         {
+            var emptyAbilities = new List<IAbilityInstance>();
+            InitializeForCombat(unitId, owner, startPosition, combatController, maxHP, emptyAbilities);
+        }
+
+        /// <summary>
+        /// Initializes the character for combat with specific abilities.
+        /// Creates internal Unit instance with provided abilities and subscribes to state changes.
+        /// </summary>
+        public void InitializeForCombat(
+            int unitId,
+            IPlayer owner,
+            HexCoordinates startPosition,
+            ICombatController combatController,
+            int maxHP,
+            IReadOnlyList<IAbilityInstance> abilities)
+        {
             _combatController = combatController;
 
-            // Create internal unit with basic combat stats
-            var emptyAbilities = new List<IAbilityInstance>();
+            // Create internal unit with combat stats and abilities
             _internalUnit = new Unit(
                 id: unitId,
                 owner: owner,
                 position: startPosition,
                 currentHP: maxHP,
                 maxHP: maxHP,
-                abilities: emptyAbilities);
+                abilities: abilities);
 
             // Subscribe to state changes for synchronization
             _combatController.OnStateChanged += OnCombatStateChanged;
 
-            Debug.Log($"[CharacterCombatComponent] Initialized for combat: ID={unitId}, Position={startPosition}, Owner={owner.Name}");
+            Debug.Log($"[CharacterCombatComponent] Initialized for combat: ID={unitId}, Position={startPosition}, Owner={owner.Name}, Abilities={abilities.Count}");
             Debug.Log($"[CharacterCombatComponent] Subscribed to OnStateChanged");
         }
         

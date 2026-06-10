@@ -25,6 +25,7 @@ namespace Combat.Enemy
 
         // IUnitPosition
         public HexCoordinates Position => _internalUnit?.Position ?? new HexCoordinates(0, 0);
+        public HexCoordinates FacingDirection => _internalUnit?.FacingDirection ?? new HexCoordinates(1, 0);
 
         // IUnitHealth
         public int CurrentHP => _internalUnit?.CurrentHP ?? 0;

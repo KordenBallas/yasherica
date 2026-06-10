@@ -11,22 +11,28 @@ namespace Combat.Config
     {
         public float HexCellSize { get; }
         public HexOrientation HexOrientation { get; }
-        
+
+        /// <summary>
+        /// Maximum number of abilities that can be queued (0 = unlimited).
+        /// </summary>
+        public int MaxAbilityQueueSize { get; }
+
         /// <summary>
         /// Creates a CombatConfig with specified parameters.
         /// This constructor is used by Zenject for dependency injection.
         /// </summary>
         [Inject]
-        public CombatConfig(float hexCellSize, HexOrientation hexOrientation)
+        public CombatConfig(float hexCellSize, HexOrientation hexOrientation, int maxAbilityQueueSize = 3)
         {
             HexCellSize = hexCellSize;
             HexOrientation = hexOrientation;
+            MaxAbilityQueueSize = maxAbilityQueueSize;
         }
-        
+
         /// <summary>
         /// Creates a CombatConfig with default values.
         /// </summary>
-        public CombatConfig() : this(2f, HexOrientation.Flat)
+        public CombatConfig() : this(2f, HexOrientation.Flat, 3)
         {
         }
         

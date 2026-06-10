@@ -9,6 +9,7 @@ using Combat.Core.StatusEffects;
 using Combat.Data.Definitions;
 using Combat.Data.Factories;
 using Combat.Data.Providers;
+using Combat.Core;
 using Combat.Execution;
 using Combat.Integration;
 using Combat.TurnManagement;
@@ -41,6 +42,9 @@ namespace Core.DI
 
         [Tooltip("Enemy definitions for the data-driven system")]
         [SerializeField] private List<EnemyDefinition> _enemyDefinitions;
+
+        [Tooltip("Hero definition for the player character")]
+        [SerializeField] private HeroDefinition _heroDefinition;
 
         public override void InstallBindings()
         {
@@ -145,7 +149,8 @@ namespace Core.DI
             // Combat configuration (legacy)
             Container.Bind<CombatConfig>().AsSingle().WithArguments(
                 2f,  // hexCellSize - default value
-                HexOrientation.Flat  // hexOrientation - default value
+                HexOrientation.Flat,  // hexOrientation - default value
+                3  // maxAbilityQueueSize - default value
             );
         }
 
@@ -169,6 +174,12 @@ namespace Core.DI
                 .To<Combat.Input.PCInputController>()
                 .FromNewComponentOnNewGameObject()
                 .AsSingle();
+
+            // Combat Action Panel View (optional - from scene hierarchy)
+            Container.Bind<ICombatActionPanelView>()
+                .FromComponentInHierarchy()
+                .AsCached()
+                .IfNotBound();
         }
 
         private void InstallAnimationBindings()
@@ -202,6 +213,27 @@ namespace Core.DI
 
         private void InstallDataProviderBindings()
         {
+            // Hero Definition
+            // Auto-load from Resources if not manually assigned
+            HeroDefinition heroDef = _heroDefinition;
+            if (heroDef == null)
+            {
+                heroDef = Resources.Load<HeroDefinition>("Heroes/HeroDefinition");
+                if (heroDef != null)
+                {
+                    Debug.Log("[AreaInstaller] Auto-loaded hero definition from Resources/Heroes/HeroDefinition");
+                }
+                else
+                {
+                    Debug.LogWarning("[AreaInstaller] No hero definition found in Inspector or Resources");
+                }
+            }
+
+            if (heroDef != null)
+            {
+                Container.BindInstance(heroDef).AsSingle();
+            }
+
             // Ability Data Provider (optional - for data-driven system)
             if (_abilityDefinitions != null && _abilityDefinitions.Count > 0)
             {
@@ -212,13 +244,30 @@ namespace Core.DI
             }
 
             // Enemy combat integration
+            // Auto-load enemy definitions from Resources if not manually assigned
+            List<EnemyDefinition> enemyDefs = _enemyDefinitions;
+            if (enemyDefs == null || enemyDefs.Count == 0)
+            {
+                var loadedEnemies = Resources.LoadAll<EnemyDefinition>("Enemies/Definitions");
+                enemyDefs = new List<EnemyDefinition>(loadedEnemies);
+
+                if (enemyDefs.Count > 0)
+                {
+                    Debug.Log($"[AreaInstaller] Auto-loaded {enemyDefs.Count} enemy definitions from Resources/Enemies/Definitions");
+                }
+                else
+                {
+                    Debug.LogWarning("[AreaInstaller] No enemy definitions found in Inspector or Resources");
+                }
+            }
+
             // Use ScriptableObject provider if definitions are available, otherwise fallback to simple provider
-            if (_enemyDefinitions != null && _enemyDefinitions.Count > 0)
+            if (enemyDefs != null && enemyDefs.Count > 0)
             {
                 Container.Bind<Combat.Data.IEnemyDataProvider>()
                     .To<ScriptableObjectEnemyDataProvider>()
                     .AsSingle()
-                    .WithArguments(_enemyDefinitions as IReadOnlyList<EnemyDefinition>);
+                    .WithArguments(enemyDefs as IReadOnlyList<EnemyDefinition>);
             }
             else
             {
@@ -246,6 +295,7 @@ namespace Core.DI
         private void InstallCoreSystemBindings()
         {
             Container.Bind<IDamageSystem>().To<DamageSystem>().AsSingle();
+            Container.Bind<IAbilityShapeCalculator>().To<AbilityShapeCalculator>().AsSingle();
             Container.Bind<IAbilityExecutor>().To<AbilityExecutor>().AsSingle();
             Container.Bind<IActionExecutor>().To<ActionExecutor>().AsSingle();
             Container.Bind<IActionValidator>().To<ActionValidator>().AsSingle();
@@ -255,7 +305,6 @@ namespace Core.DI
 
             // Rules
             Container.Bind<Combat.Rules.MovementRules>().AsSingle();
-            Container.Bind<Combat.Rules.AbilityRules>().AsSingle();
         }
 
         private void InstallTurnManagementBindings()

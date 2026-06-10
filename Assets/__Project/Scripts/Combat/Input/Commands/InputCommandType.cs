@@ -8,6 +8,11 @@ namespace Combat.Input.Commands
         MovementModeChanged,
         MovementDirectionChanged,
         MovementConfirmed,
-        MovementCancelled
+        MovementCancelled,
+        AbilitySelected,
+        AbilityCancelled,
+        AbilityConfirmed,
+        ExecuteQueue,
+        ChangeDirection
     }
 }

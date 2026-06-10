@@ -45,13 +45,4 @@ namespace Combat.Config
         }
     }
     
-    public enum HexDirection
-    {
-        E,  // East
-        NE, // Northeast
-        NW, // Northwest
-        W,  // West
-        SW, // Southwest
-        SE  // Southeast
-    }
 }

@@ -1,4 +1,5 @@
 using Combat.Core;
+using Combat.Config;
 using Combat.Data.Definitions;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,10 +10,15 @@ namespace Combat.Player
 {
     /// <summary>
     /// Tactical AI with configurable parameters from AIProfileDefinition.
-    /// Extends base tactical behavior with data-driven scoring weights.
     /// </summary>
     public class ConfigurableTacticalAI : IAIDecisionMaker
     {
+        private static readonly HexDirection[] AllDirections =
+        {
+            HexDirection.E, HexDirection.NE, HexDirection.NW,
+            HexDirection.W, HexDirection.SW, HexDirection.SE
+        };
+
         private readonly AIProfileDefinition _profile;
         private readonly System.Random _random;
 
@@ -27,9 +33,7 @@ namespace Combat.Player
             var scoredActions = EvaluateAllActions(gameState, unit);
 
             if (scoredActions.Count == 0)
-            {
                 return new EndUnitTurnAction(unit.Owner, unit.Id);
-            }
 
             var bestAction = scoredActions.OrderByDescending(sa => sa.Score).First();
             Debug.Log($"[ConfigurableTacticalAI] Decided to perform {bestAction.Action.Type}.");
@@ -40,191 +44,85 @@ namespace Combat.Player
         {
             var scoredActions = new List<ScoredAction>();
 
-            // Evaluate abilities with configurable weights
-            var availableAbilities = unit.GetAvailableAbilities();
-            foreach (var abilityInstance in availableAbilities)
+            foreach (var abilityInstance in unit.GetAvailableAbilities())
             {
                 var ability = abilityInstance.Ability;
-                var validTargets = GetValidTargetsForAbility(gameState, unit, ability);
 
-                foreach (var target in validTargets)
+                foreach (var target in GetTargetsForAbility(ability))
                 {
-                    var score = EvaluateAbilityAction(gameState, unit, ability, target);
+                    float score = EvaluateAbilityAction(ability);
                     scoredActions.Add(new ScoredAction(
                         new ScheduleAbilityAction(unit.Owner, unit.Id, ability.Id, target),
-                        score
-                    ));
+                        score));
                 }
             }
 
-            // Evaluate movement with configurable range
-            var moveActions = EvaluateMovementActions(gameState, unit);
-            scoredActions.AddRange(moveActions);
+            foreach (var position in gameState.GetValidPositionsInRange(unit.Position, _profile.MovementRange))
+            {
+                float score = EvaluatePosition(gameState, unit, position);
+                scoredActions.Add(new ScoredAction(new MoveAction(unit.Owner, unit.Id, position), score));
+            }
 
-            // End turn action (low priority)
-            scoredActions.Add(new ScoredAction(
-                new EndUnitTurnAction(unit.Owner, unit.Id),
-                10
-            ));
-
+            scoredActions.Add(new ScoredAction(new EndUnitTurnAction(unit.Owner, unit.Id), 10f));
             Debug.Log($"[ConfigurableTacticalAI] Identified {scoredActions.Count} valid actions.");
             return scoredActions;
         }
 
-        private float EvaluateAbilityAction(
-            ICombatState gameState,
-            IUnit caster,
-            IAbility ability,
-            AbilityTarget target)
+        private float EvaluateAbilityAction(IAbility ability)
         {
-            float score = 50;
+            float score = 50f;
 
-            IUnit targetUnit = target.TargetUnitId.HasValue
-                ? gameState.GetUnit(target.TargetUnitId.Value)
-                : null;
-
-            if (ability is IDamageAbility damageAbility && targetUnit != null)
-            {
-                // Use configurable damage weight
+            if (ability is IDamageAbility damageAbility)
                 score += damageAbility.Damage * _profile.DamageWeight;
 
-                // Use configurable kill bonus threshold
-                float hpPercent = (float)targetUnit.CurrentHP / targetUnit.MaxHP;
-                if (hpPercent < _profile.KillThresholdPercent)
-                {
-                    score += _profile.KillBonus;
-                }
-
-                // Use configurable close range bonus
-                int distance = CalculateDistance(caster.Position, targetUnit.Position);
-                if (distance <= 1)
-                {
-                    score += _profile.CloseRangeBonus;
-                }
-            }
-
-            if (ability is IHealAbility healAbility && targetUnit != null)
-            {
-                float hpPercent = (float)targetUnit.CurrentHP / targetUnit.MaxHP;
-
-                if (hpPercent < _profile.DefensiveHpThreshold)
-                {
-                    // Scale healing priority based on how low HP is
-                    score += (1 - hpPercent) * 100 * _profile.HealWeight;
-                }
-                else
-                {
-                    score -= 30; // Penalty for healing healthy allies
-                }
-            }
+            if (ability is IHealAbility healAbility)
+                score += healAbility.HealAmount * _profile.HealWeight;
 
             if (ability is IStatusEffectAbility)
-            {
                 score += _profile.StatusEffectBonus;
-            }
 
             return score;
-        }
-
-        private List<ScoredAction> EvaluateMovementActions(ICombatState gameState, IUnit unit)
-        {
-            var scoredActions = new List<ScoredAction>();
-
-            // Use configurable movement range
-            var validPositions = gameState.GetValidPositionsInRange(
-                unit.Position,
-                _profile.MovementRange);
-
-            foreach (var position in validPositions)
-            {
-                var score = EvaluatePosition(gameState, unit, position);
-                scoredActions.Add(new ScoredAction(
-                    new MoveAction(unit.Owner, unit.Id, position),
-                    score
-                ));
-            }
-
-            return scoredActions;
         }
 
         private float EvaluatePosition(ICombatState gameState, IUnit unit, HexCoordinates position)
         {
-            float score = 30;
+            float score = 30f;
 
-            var enemies = gameState.Units.Where(u =>
-                u.Owner.Id != unit.Owner.Id && u.IsAlive).ToList();
+            var enemies = gameState.Units.Where(u => u.Owner.Id != unit.Owner.Id && u.IsAlive).ToList();
+            if (enemies.Count == 0) return score;
 
-            if (enemies.Count > 0)
-            {
-                var closestEnemy = enemies.OrderBy(e =>
-                    CalculateDistance(position, e.Position)).First();
-                int distanceToEnemy = CalculateDistance(position, closestEnemy.Position);
+            var closestEnemy = enemies.OrderBy(e => CalculateDistance(position, e.Position)).First();
+            int dist = CalculateDistance(position, closestEnemy.Position);
+            float hpPercent = (float)unit.CurrentHP / unit.MaxHP;
 
-                float hpPercent = (float)unit.CurrentHP / unit.MaxHP;
+            score += hpPercent > _profile.DefensiveHpThreshold
+                ? (10 - dist) * 5f
+                : dist * 3f;
 
-                if (hpPercent > _profile.DefensiveHpThreshold)
-                {
-                    // High HP: move closer (aggressive)
-                    score += (10 - distanceToEnemy) * 5;
-                }
-                else
-                {
-                    // Low HP: keep distance (defensive)
-                    score += distanceToEnemy * 3;
-                }
-
-                // Use configurable surround penalty
-                int enemiesNearby = enemies.Count(e =>
-                    CalculateDistance(position, e.Position) <= 2);
-                score -= enemiesNearby * _profile.SurroundPenalty;
-            }
+            int enemiesNearby = enemies.Count(e => CalculateDistance(position, e.Position) <= 2);
+            score -= enemiesNearby * _profile.SurroundPenalty;
 
             return score;
         }
 
-        private List<AbilityTarget> GetValidTargetsForAbility(
-            ICombatState gameState,
-            IUnit caster,
-            IAbility ability)
+        private static IEnumerable<AbilityTarget> GetTargetsForAbility(IAbility ability)
         {
-            var targets = new List<AbilityTarget>();
-
-            switch (ability.TargetType)
+            if (ability.Shape.Type == AbilityShapeType.Ring)
             {
-                case AbilityTargetType.Self:
-                    targets.Add(AbilityTarget.ForSelf());
-                    break;
-
-                case AbilityTargetType.Enemy:
-                    foreach (var enemy in gameState.Units.Where(u =>
-                        u.Owner.Id != caster.Owner.Id &&
-                        u.IsAlive &&
-                        CalculateDistance(caster.Position, u.Position) <= ability.Range))
-                    {
-                        targets.Add(AbilityTarget.ForUnit(enemy.Id, AbilityTargetType.Enemy));
-                    }
-                    break;
-
-                case AbilityTargetType.Ally:
-                    foreach (var ally in gameState.Units.Where(u =>
-                        u.Owner.Id == caster.Owner.Id &&
-                        u.IsAlive &&
-                        u.Id != caster.Id &&
-                        CalculateDistance(caster.Position, u.Position) <= ability.Range))
-                    {
-                        targets.Add(AbilityTarget.ForUnit(ally.Id, AbilityTargetType.Ally));
-                    }
-                    break;
+                yield return AbilityTarget.None();
             }
-
-            return targets;
+            else
+            {
+                foreach (var dir in AllDirections)
+                    yield return AbilityTarget.ForDirection(dir);
+            }
         }
 
-        private int CalculateDistance(HexCoordinates from, HexCoordinates to)
+        private static int CalculateDistance(HexCoordinates from, HexCoordinates to)
         {
-            var dq = System.Math.Abs(from.Q - to.Q);
-            var dr = System.Math.Abs(from.R - to.R);
-            var ds = System.Math.Abs((from.Q + from.R) - (to.Q + to.R));
+            int dq = System.Math.Abs(from.Q - to.Q);
+            int dr = System.Math.Abs(from.R - to.R);
+            int ds = System.Math.Abs((from.Q + from.R) - (to.Q + to.R));
             return (dq + dr + ds) / 2;
         }
 

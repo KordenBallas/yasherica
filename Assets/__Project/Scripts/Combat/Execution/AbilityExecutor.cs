@@ -5,69 +5,78 @@ using System.Linq;
 namespace Combat.Execution
 {
     /// <summary>
-    /// Concrete implementation of ability executor.
-    /// Handles damage, healing, and status effect abilities.
-    /// Processes OnAttack and OnHit triggers for data-driven status effects.
+    /// Executes a scheduled ability against all units in its affected area.
+    /// Affected cells are recomputed from the caster's current position at execution time.
     /// </summary>
     public class AbilityExecutor : IAbilityExecutor
     {
         private readonly IDamageSystem _damageSystem;
         private readonly StatusEffectTriggerProcessor _triggerProcessor;
+        private readonly IAbilityShapeCalculator _shapeCalculator;
 
-        public AbilityExecutor(IDamageSystem damageSystem, StatusEffectTriggerProcessor triggerProcessor)
+        public AbilityExecutor(
+            IDamageSystem damageSystem,
+            StatusEffectTriggerProcessor triggerProcessor,
+            IAbilityShapeCalculator shapeCalculator)
         {
             _damageSystem = damageSystem;
             _triggerProcessor = triggerProcessor;
+            _shapeCalculator = shapeCalculator;
         }
-        
+
         public ICombatState ExecuteAbility(ICombatState gameState, IUnit caster, ScheduledAbility scheduledAbility)
         {
             var ability = scheduledAbility.Ability.Ability;
             var target = scheduledAbility.Target;
 
-            // Get target unit if applicable
-            IUnit targetUnit = null;
-            if (target.TargetUnitId.HasValue)
-            {
-                targetUnit = gameState.GetUnit(target.TargetUnitId.Value);
-                if (targetUnit == null)
-                {
-                    // Target no longer exists (died), skip execution
-                    return gameState;
-                }
-            }
-            else if (target.Type == AbilityTargetType.Self)
-            {
-                targetUnit = caster;
-            }
+            var affectedCells = _shapeCalculator.GetAffectedCells(
+                ability.Shape,
+                caster.Position,
+                target.Direction,
+                gameState.IsPositionValid);
 
-            // Execute based on ability type
             var newState = gameState;
             bool isDamageAbility = ability is IDamageAbility;
             bool isHealAbility = ability is IHealAbility;
 
-            // Track HP before ability for threshold triggers
-            int targetPreviousHp = targetUnit?.CurrentHP ?? 0;
-
-            // Handle damage abilities
-            if (ability is IDamageAbility damageAbility && targetUnit != null)
+            foreach (var cell in affectedCells)
             {
-                newState = _damageSystem.ApplyDamage(newState, targetUnit, damageAbility.Damage);
+                var unitAtCell = newState.GetUnitAt(cell);
+                if (unitAtCell == null || !unitAtCell.IsAlive)
+                    continue;
+
+                int previousHp = unitAtCell.CurrentHP;
+
+                if (isDamageAbility)
+                    newState = _damageSystem.ApplyDamage(newState, unitAtCell, ((IDamageAbility)ability).Damage);
+
+                if (isHealAbility)
+                    newState = _damageSystem.ApplyHealing(newState, unitAtCell, ((IHealAbility)ability).HealAmount);
+
+                if (ability is IStatusEffectAbility statusAbility)
+                    newState = ApplyStatusEffect(newState, unitAtCell, statusAbility);
+
+                if (_triggerProcessor != null)
+                {
+                    var updatedTarget = newState.GetUnit(unitAtCell.Id);
+                    if (updatedTarget != null)
+                    {
+                        if (isDamageAbility && updatedTarget.IsAlive)
+                        {
+                            newState = _triggerProcessor.ProcessTrigger(
+                                newState, updatedTarget, StatusEffectTriggerType.OnHit);
+                        }
+
+                        if ((isDamageAbility || isHealAbility) && updatedTarget.CurrentHP != previousHp)
+                        {
+                            newState = _triggerProcessor.ProcessThresholdTriggers(
+                                newState, updatedTarget, previousHp, updatedTarget.CurrentHP);
+                        }
+                    }
+                }
             }
 
-            // Handle healing abilities
-            if (ability is IHealAbility healAbility && targetUnit != null)
-            {
-                newState = _damageSystem.ApplyHealing(newState, targetUnit, healAbility.HealAmount);
-            }
-
-            // Handle status effect abilities
-            if (ability is IStatusEffectAbility statusAbility && targetUnit != null)
-            {
-                newState = ApplyStatusEffect(newState, targetUnit, statusAbility);
-            }
-
-            // Process OnAttack triggers for caster (after executing the ability)
+            // OnAttack trigger for caster fires once per ability execution
             if (_triggerProcessor != null && isDamageAbility)
             {
                 var updatedCaster = newState.GetUnit(caster.Id);
@@ -78,45 +87,17 @@ namespace Combat.Execution
                 }
             }
 
-            // Process OnHit triggers for target (when target receives damage)
-            if (_triggerProcessor != null && isDamageAbility && targetUnit != null)
-            {
-                var updatedTarget = newState.GetUnit(targetUnit.Id);
-                if (updatedTarget != null && updatedTarget.IsAlive)
-                {
-                    newState = _triggerProcessor.ProcessTrigger(
-                        newState, updatedTarget, StatusEffectTriggerType.OnHit);
-                }
-            }
-
-            // Process OnThreshold triggers when HP changes (from damage or healing)
-            if (_triggerProcessor != null && (isDamageAbility || isHealAbility) && targetUnit != null)
-            {
-                var updatedTarget = newState.GetUnit(targetUnit.Id);
-                if (updatedTarget != null)
-                {
-                    int currentHp = updatedTarget.CurrentHP;
-                    if (currentHp != targetPreviousHp)
-                    {
-                        newState = _triggerProcessor.ProcessThresholdTriggers(
-                            newState, updatedTarget, targetPreviousHp, currentHp);
-                    }
-                }
-            }
-
             return newState;
         }
-        
+
         private ICombatState ApplyStatusEffect(ICombatState gameState, IUnit target, IStatusEffectAbility ability)
         {
             var effect = ability.EffectToApply;
             var updatedTarget = target as Unit;
-            
-            // Check if effect already exists and is stackable
+
             var existingEffect = target.StatusEffects.FirstOrDefault(e => e.Id == effect.Id);
             if (existingEffect != null && existingEffect.IsStackable)
             {
-                // Stack the effect
                 var stackedEffect = (existingEffect as StatusEffect).AddStack();
                 var newEffects = target.StatusEffects
                     .Select(e => e.Id == effect.Id ? stackedEffect : e)
@@ -125,14 +106,11 @@ namespace Combat.Execution
             }
             else if (existingEffect == null)
             {
-                // Add new effect
                 var newEffects = target.StatusEffects.Concat(new[] { effect }).ToList();
                 updatedTarget = updatedTarget.WithStatusEffects(newEffects);
             }
-            // If effect exists and is not stackable, do nothing (don't refresh duration)
-            
+
             return (gameState as CombatState).WithUpdatedUnit(updatedTarget);
         }
     }
 }
-

@@ -1,5 +1,4 @@
 using System;
-using Narrative.Dialogue;
 using UnityEngine;
 using Zenject;
 
@@ -7,14 +6,16 @@ namespace Narrative
 {
     /// <summary>
     /// Binds external C# functions to be callable from Ink stories.
+    /// Binds to both the "story" manager (quest/encounter Ink) and "npc" manager (character Ink).
     /// Handles combat triggers, quest starts, reward grants, and relationship updates.
     /// </summary>
     public class InkExternalFunctionBinder : IInkExternalFunctionBinder
     {
-        private readonly IDialoguePresenter _dialoguePresenter;
-
         [Inject(Id = "story")]
         private IStoryManager _storyManager;
+
+        [Inject(Id = "npc")]
+        private IStoryManager _npcManager;
 
         private int _lastCombatEnemyCount;
         private string _lastStartedQuestId;
@@ -27,32 +28,49 @@ namespace Narrative
         public event Action<string> OnQuestRequested;
         public event Action<string, int> OnRewardRequested;
         public event Action<string, int> OnRelationshipUpdateRequested;
+        public event Action<string> OnCombatRequested;
 
-        public InkExternalFunctionBinder(IDialoguePresenter dialoguePresenter)
+        public void BindToStoryManager()
         {
-            _dialoguePresenter = dialoguePresenter ?? throw new ArgumentNullException(nameof(dialoguePresenter));
+            BindToManager(_storyManager, "story");
+        }
+
+        public void BindToNpcManager()
+        {
+            BindToManager(_npcManager, "npc");
         }
 
         public void BindAllExternalFunctions()
         {
-            if (_storyManager == null)
+            // Bind to story manager (quest/encounter Ink)
+            BindToStoryManager();
+
+            // Bind to NPC manager (character Ink)
+            BindToNpcManager();
+
+            Debug.Log("[InkExternalFunctionBinder] All external functions bound to both managers");
+        }
+
+        private void BindToManager(IStoryManager manager, string managerId)
+        {
+            if (manager == null)
             {
-                Debug.LogWarning("[InkExternalFunctionBinder] No story manager available");
+                Debug.LogWarning($"[InkExternalFunctionBinder] No {managerId} manager available");
                 return;
             }
 
-            _storyManager.BindExternalFunction<int>("trigger_combat", HandleTriggerCombat);
-            _storyManager.BindExternalFunction<string>("start_quest", HandleStartQuest);
-            _storyManager.BindExternalFunction<string, int, int>("grant_reward", HandleGrantReward);
-            _storyManager.BindExternalFunction<string, int>("update_relationship", HandleUpdateRelationship);
+            manager.BindExternalFunction<int>("trigger_combat", HandleTriggerCombat);
+            manager.BindExternalFunction<string>("start_quest", HandleStartQuest);
+            manager.BindExternalFunction<string, int, int>("grant_reward", HandleGrantReward);
+            manager.BindExternalFunction<string, int>("update_relationship", HandleUpdateRelationship);
 
-            Debug.Log("[InkExternalFunctionBinder] All external functions bound");
+            Debug.Log($"[InkExternalFunctionBinder] External functions bound to {managerId} manager");
         }
 
         private void HandleTriggerCombat(int enemyCount)
         {
             _lastCombatEnemyCount = enemyCount;
-            _dialoguePresenter.FireCombatTriggered(enemyCount.ToString());
+            OnCombatRequested?.Invoke(enemyCount.ToString());
         }
 
         private void HandleStartQuest(string questId)

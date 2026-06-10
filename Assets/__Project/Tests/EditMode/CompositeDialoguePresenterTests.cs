@@ -14,6 +14,7 @@ namespace Tests.EditMode
     {
         private MockStoryManager _storyMgr;
         private MockStoryManager _npcMgr;
+        private MockExternalFunctionBinder _binder;
         private MockDialogueView _view;
         private CompositeDialoguePresenter _presenter;
 
@@ -22,8 +23,9 @@ namespace Tests.EditMode
         {
             _storyMgr = new MockStoryManager();
             _npcMgr = new MockStoryManager();
+            _binder = new MockExternalFunctionBinder();
             _view = new MockDialogueView();
-            _presenter = new CompositeDialoguePresenter(_storyMgr, _npcMgr, _view);
+            _presenter = new CompositeDialoguePresenter(_storyMgr, _npcMgr, _binder, _view);
         }
 
         [TearDown]
@@ -220,6 +222,44 @@ namespace Tests.EditMode
             Assert.AreEqual(DialogueOutcomeType.Combat, received);
         }
 
+        [Test]
+        public void StartDialogue_BindsExternalFunctions_AfterLoadStory()
+        {
+            _storyMgr.SetupContinue("Hello.", canContinueAfter: false);
+            _npcMgr.SetupContinue("Hi.", canContinueAfter: false);
+
+            var assignment = CreateAssignment(hasStory: true, hasCharacterInk: true);
+            _presenter.StartDialogue(assignment);
+
+            // Verify both managers had their bindings called
+            Assert.AreEqual(1, _binder.BindToStoryManagerCallCount, "BindToStoryManager should be called once");
+            Assert.AreEqual(1, _binder.BindToNpcManagerCallCount, "BindToNpcManager should be called once");
+        }
+
+        [Test]
+        public void StartDialogue_StoryOnly_BindsOnlyStoryManager()
+        {
+            _storyMgr.SetupContinue("Quest text.", canContinueAfter: false);
+
+            var assignment = CreateAssignment(hasStory: true, hasCharacterInk: false);
+            _presenter.StartDialogue(assignment);
+
+            Assert.AreEqual(1, _binder.BindToStoryManagerCallCount, "BindToStoryManager should be called");
+            Assert.AreEqual(0, _binder.BindToNpcManagerCallCount, "BindToNpcManager should not be called");
+        }
+
+        [Test]
+        public void StartDialogue_NpcOnly_BindsOnlyNpcManager()
+        {
+            _npcMgr.SetupContinue("NPC text.", canContinueAfter: false);
+
+            var assignment = CreateAssignment(hasStory: false, hasCharacterInk: true);
+            _presenter.StartDialogue(assignment);
+
+            Assert.AreEqual(0, _binder.BindToStoryManagerCallCount, "BindToStoryManager should not be called");
+            Assert.AreEqual(1, _binder.BindToNpcManagerCallCount, "BindToNpcManager should be called");
+        }
+
         // --- Mock implementations ---
 
         private class MockStoryManager : IStoryManager
@@ -295,6 +335,7 @@ namespace Tests.EditMode
             public string SaveState() => string.Empty;
             public void LoadState(string savedState) { }
             public void ResetStory() { }
+            public void Reset() { }
         }
 
         private class MockDialogueView : IDialogueView
@@ -321,6 +362,29 @@ namespace Tests.EditMode
             public void SetSkipEnabled(bool enabled) { }
             public void PlayTypewriterEffect(string text, float charsPerSecond, Action onComplete) { }
             public void SkipTypewriterEffect() { }
+        }
+
+        private class MockExternalFunctionBinder : IInkExternalFunctionBinder
+        {
+            public int BindToStoryManagerCallCount { get; private set; }
+            public int BindToNpcManagerCallCount { get; private set; }
+
+            public int LastCombatEnemyCount => 0;
+            public string LastStartedQuestId => null;
+            public string LastGrantedRewardId => null;
+
+            public event Action<string> OnQuestRequested;
+            public event Action<string, int> OnRewardRequested;
+            public event Action<string, int> OnRelationshipUpdateRequested;
+            public event Action<string> OnCombatRequested;
+
+            public void BindToStoryManager() => BindToStoryManagerCallCount++;
+            public void BindToNpcManager() => BindToNpcManagerCallCount++;
+            public void BindAllExternalFunctions()
+            {
+                BindToStoryManager();
+                BindToNpcManager();
+            }
         }
     }
 }

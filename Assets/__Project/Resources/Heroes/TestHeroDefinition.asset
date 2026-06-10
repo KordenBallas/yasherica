@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e20dc505002f8924ba29bf2db6b729d7, type: 3}
+  m_Name: TestHeroDefinition
+  m_EditorClassIdentifier: Yasherica::Combat.Data.Definitions.HeroDefinition
+  _heroId: 0
+  _name: Turbo Denchik
+  _description: 
+  _maxHP: 100
+  _prefab: {fileID: 4249768080361088730, guid: 14305794847987e468d09fa18bab28a7, type: 3}
+  _abilities:
+  - {fileID: 11400000, guid: 967f900deb3eb854e9b83b5886c91075, type: 2}
+  - {fileID: 11400000, guid: 304de35687ec0e24b9605534d6569c62, type: 2}

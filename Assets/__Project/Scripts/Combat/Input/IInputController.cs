@@ -10,65 +10,36 @@ namespace Combat.Input
     /// </summary>
     public interface IInputController
     {
-        // ===== EVENTS (Command Emission) =====
-
-        /// <summary>
-        /// Fired when movement mode is activated or deactivated.
-        /// </summary>
         event Action<MovementModeChangedCommand> OnMovementModeChanged;
-
-        /// <summary>
-        /// Fired when the movement direction changes (only while movement mode is active).
-        /// </summary>
         event Action<MovementDirectionChangedCommand> OnMovementDirectionChanged;
-
-        /// <summary>
-        /// Fired when the player confirms the current movement.
-        /// </summary>
         event Action<MovementConfirmedCommand> OnMovementConfirmed;
-
-        /// <summary>
-        /// Fired when the player cancels the current movement.
-        /// </summary>
         event Action<MovementCancelledCommand> OnMovementCancelled;
-
-        // ===== LEGACY PROPERTIES (Deprecated - Keep for migration) =====
+        event Action<AbilitySelectedCommand> OnAbilitySelected;
+        event Action<AbilityCancelledCommand> OnAbilityCancelled;
 
         /// <summary>
-        /// Returns true if the player is actively requesting movement input.
+        /// Fired when the player releases an ability key to confirm targeting.
         /// </summary>
-        [Obsolete("Use OnMovementModeChanged event instead. Will be removed in future version.")]
+        event Action<AbilityConfirmedCommand> OnAbilityConfirmed;
+
+        event Action<ExecuteQueueCommand> OnExecuteQueueRequested;
+        event Action<ChangeDirectionModeCommand> OnChangeDirectionRequested;
+
+        // ===== LEGACY PROPERTIES (Deprecated) =====
+
+        [Obsolete("Use OnMovementModeChanged event instead.")]
         bool IsMovementModeActive { get; }
 
-        /// <summary>
-        /// Returns normalized world direction vector, or null if no direction input.
-        /// Direction is in world space (XZ plane).
-        /// </summary>
-        [Obsolete("Use OnMovementDirectionChanged event instead. Will be removed in future version.")]
+        [Obsolete("Use OnMovementDirectionChanged event instead.")]
         Vector3? GetMovementDirection();
 
-        /// <summary>
-        /// Returns true if the player confirms the current action.
-        /// </summary>
-        [Obsolete("Use OnMovementConfirmed event instead. Will be removed in future version.")]
+        [Obsolete("Use OnMovementConfirmed event instead.")]
         bool IsConfirmPressed { get; }
 
-        /// <summary>
-        /// Returns true if the player cancels the current action.
-        /// </summary>
-        [Obsolete("Use OnMovementCancelled event instead. Will be removed in future version.")]
+        [Obsolete("Use OnMovementCancelled event instead.")]
         bool IsCancelPressed { get; }
 
-        // ===== CONTROL METHODS =====
-
-        /// <summary>
-        /// Enables input processing.
-        /// </summary>
         void Enable();
-
-        /// <summary>
-        /// Disables input processing.
-        /// </summary>
         void Disable();
     }
 }

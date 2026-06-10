@@ -75,8 +75,8 @@ namespace Combat.Controller
             _gameState = (_gameState as CombatState).WithCurrentPlayer(_turnManager.CurrentPlayer);
             
             // Register default win condition
-            //_winConditions.Add(new EliminateAllEnemiesWinCondition());
-            _winConditions.Add(new SurviveTurnsWinCondition(10, players.First().Id));
+            _winConditions.Add(new EliminateAllEnemiesWinCondition());
+            //_winConditions.Add(new SurviveTurnsWinCondition(10, players.First().Id));
             
             // Trigger turn start
             OnTurnStarted?.Invoke(_turnManager.CurrentPlayer);

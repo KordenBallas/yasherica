@@ -169,6 +169,9 @@ namespace Combat.Battlefield
                 HighlightType.InvalidMove => config.invalidMoveCellColor,
                 HighlightType.Selected => config.selectedCellColor,
                 HighlightType.EnemyThreat => new Color(1f, 0.5f, 0f, 0.4f), // Orange
+                HighlightType.AbilityRange => config.abilityRangeColor,
+                HighlightType.ValidAbilityTarget => config.validAbilityTargetColor,
+                HighlightType.InvalidAbilityTarget => config.invalidAbilityTargetColor,
                 _ => Color.white
             };
         }

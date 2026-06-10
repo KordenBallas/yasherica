@@ -8,25 +8,21 @@ namespace Combat.Core
         public int Id { get; }
         public string Name { get; }
         public int CooldownDuration { get; }
-        public AbilityTargetType TargetType { get; }
-        public int Range { get; }
+        public AbilityShapeData Shape { get; }
         public AbilityEffectType EffectType { get; }
-        
+
         public Ability(
             int id,
             string name,
             int cooldownDuration,
-            AbilityTargetType targetType,
-            int range,
+            AbilityShapeData shape,
             AbilityEffectType effectType)
         {
             Id = id;
             Name = name;
             CooldownDuration = cooldownDuration;
-            TargetType = targetType;
-            Range = range;
+            Shape = shape;
             EffectType = effectType;
         }
     }
 }
-

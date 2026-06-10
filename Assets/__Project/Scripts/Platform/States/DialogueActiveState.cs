@@ -18,7 +18,12 @@ namespace Platform
 
         private readonly IDialoguePresenter _dialoguePresenter;
         private readonly IPlatformStateFactory _stateFactory;
-        private readonly IInkExternalFunctionBinder _externalFunctionBinder;
+
+        [Inject(Id = "story")]
+        private IStoryManager _storyManager;
+
+        [Inject(Id = "npc")]
+        private IStoryManager _npcManager;
 
         private IPlatform _currentPlatform;
         private NpcContent _npcContent;
@@ -28,12 +33,10 @@ namespace Platform
         [Inject]
         public DialogueActiveState(
             IDialoguePresenter dialoguePresenter,
-            IPlatformStateFactory stateFactory,
-            IInkExternalFunctionBinder externalFunctionBinder = null)
+            IPlatformStateFactory stateFactory)
         {
             _dialoguePresenter = dialoguePresenter;
             _stateFactory = stateFactory;
-            _externalFunctionBinder = externalFunctionBinder;
         }
 
         public override void OnEnter(IPlatform platform)
@@ -51,7 +54,6 @@ namespace Platform
             if (_npcContent?.Assignment != null)
             {
                 _dialoguePresenter.StartDialogue(_npcContent.Assignment);
-                _externalFunctionBinder?.BindAllExternalFunctions();
             }
             else if (_dialogueContent != null)
             {
@@ -69,6 +71,13 @@ namespace Platform
             _dialoguePresenter.OnDialogueEnded -= HandleDialogueEnded;
             _dialoguePresenter.OnCombatTriggered -= HandleCombatTriggered;
             _dialoguePresenter.OnQuestTriggered -= HandleQuestTriggered;
+
+            // Reset story managers to prevent state pollution between dialogues
+            _storyManager?.Reset();
+            _npcManager?.Reset();
+
+            // Reset NPC combat state to allow re-triggering combat
+            _npcContent?.ResetCombatState();
 
             _npcContent?.NotifyDialogueEnded();
             _dialogueContent?.NotifyDialogueCompleted();
@@ -117,6 +126,9 @@ namespace Platform
 
         private void HandleCombatOutcome()
         {
+            Debug.Log($"[DialogueActiveState] HandleCombatOutcome: _npcContent={_npcContent != null}, CanBecomeEnemy={_npcContent?.CanBecomeEnemy}, _combatTriggered={_combatTriggered}");
+
+            // Path 1: NPC can transition to enemy
             if (_npcContent != null && _npcContent.CanBecomeEnemy)
             {
                 var enemyContent = _npcContent.TransitionToEnemy();
@@ -124,25 +136,43 @@ namespace Platform
                 {
                     _currentPlatform.AddContent(enemyContent);
                     _npcContent.DestroyNpcVisual();
+                    Debug.Log("[DialogueActiveState] Path 1: NPC transitioned to enemy, starting combat");
                     TransitionToCombat();
                     return;
                 }
             }
 
+            // Path 2: Combat was explicitly triggered via Ink function
             if (_combatTriggered)
             {
+                Debug.Log("[DialogueActiveState] Path 2: Combat triggered via Ink function");
                 TransitionToCombat();
                 return;
             }
 
-            TransitionToCompleted();
+            // Path 3: Fallback
+            Debug.LogWarning("[DialogueActiveState] Path 3: Combat outcome signaled but no enemy transition. Starting combat anyway.");
+            TransitionToCombat();
         }
 
         private void TransitionToCombat()
         {
-            if (_currentPlatform == null) return;
-            var combatState = _stateFactory.CreateActiveState(_currentPlatform, ContentType.Enemy);
-            _currentPlatform.TransitionToState(combatState);
+            if (_currentPlatform == null)
+            {
+                Debug.LogError("[DialogueActiveState] Cannot transition to combat: platform is null");
+                return;
+            }
+
+            try
+            {
+                var combatState = _stateFactory.CreateActiveState(_currentPlatform, ContentType.Enemy);
+                _currentPlatform.TransitionToState(combatState);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[DialogueActiveState] Failed to transition to combat: {ex.Message}\n{ex.StackTrace}");
+                TransitionToCompleted();
+            }
         }
 
         private void TransitionToCompleted()

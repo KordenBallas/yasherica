@@ -13,6 +13,7 @@ namespace Combat.Core
         public int Id { get; }
         public IPlayer Owner { get; }
         public HexCoordinates Position { get; }
+        public HexCoordinates FacingDirection { get; }
         public int CurrentHP { get; }
         public int MaxHP { get; }
         public bool IsAlive => CurrentHP > 0;
@@ -49,11 +50,13 @@ namespace Combat.Core
             IReadOnlyList<IAbilityInstance> abilities,
             IReadOnlyList<ScheduledAbility> abilityQueue = null,
             IReadOnlyList<IStatusEffect> statusEffects = null,
-            bool hasActedThisTurn = false)
+            bool hasActedThisTurn = false,
+            HexCoordinates? facingDirection = null)
         {
             Id = id;
             Owner = owner;
             Position = position;
+            FacingDirection = facingDirection ?? new HexCoordinates(1, 0); // Default: East
             CurrentHP = currentHP;
             MaxHP = maxHP;
             Abilities = abilities ?? new List<IAbilityInstance>();
@@ -89,47 +92,55 @@ namespace Combat.Core
         /// </summary>
         public Unit WithPosition(HexCoordinates newPosition)
         {
-            return new Unit(Id, Owner, newPosition, CurrentHP, MaxHP, Abilities, AbilityQueue, StatusEffects, HasActedThisTurn);
+            return new Unit(Id, Owner, newPosition, CurrentHP, MaxHP, Abilities, AbilityQueue, StatusEffects, HasActedThisTurn, FacingDirection);
         }
-        
+
+        /// <summary>
+        /// Creates a new unit with updated facing direction.
+        /// </summary>
+        public Unit WithFacingDirection(HexCoordinates newFacingDirection)
+        {
+            return new Unit(Id, Owner, Position, CurrentHP, MaxHP, Abilities, AbilityQueue, StatusEffects, HasActedThisTurn, newFacingDirection);
+        }
+
         /// <summary>
         /// Creates a new unit with updated HP.
         /// </summary>
         public Unit WithHP(int newHP)
         {
-            return new Unit(Id, Owner, Position, System.Math.Max(0, System.Math.Min(newHP, MaxHP)), MaxHP, Abilities, AbilityQueue, StatusEffects, HasActedThisTurn);
+            return new Unit(Id, Owner, Position, System.Math.Max(0, System.Math.Min(newHP, MaxHP)), MaxHP, Abilities, AbilityQueue, StatusEffects, HasActedThisTurn, FacingDirection);
         }
-        
+
         /// <summary>
         /// Creates a new unit with HasActedThisTurn set.
         /// </summary>
         public Unit WithActedThisTurn(bool acted)
         {
-            return new Unit(Id, Owner, Position, CurrentHP, MaxHP, Abilities, AbilityQueue, StatusEffects, acted);
+            return new Unit(Id, Owner, Position, CurrentHP, MaxHP, Abilities, AbilityQueue, StatusEffects, acted, FacingDirection);
         }
-        
+
         /// <summary>
         /// Creates a new unit with updated abilities (e.g., after cooldown changes).
         /// </summary>
         public Unit WithAbilities(IReadOnlyList<IAbilityInstance> newAbilities)
         {
-            return new Unit(Id, Owner, Position, CurrentHP, MaxHP, newAbilities, AbilityQueue, StatusEffects, HasActedThisTurn);
+            return new Unit(Id, Owner, Position, CurrentHP, MaxHP, newAbilities, AbilityQueue, StatusEffects, HasActedThisTurn, FacingDirection);
         }
-        
+
         /// <summary>
         /// Creates a new unit with updated ability queue.
         /// </summary>
         public Unit WithAbilityQueue(IReadOnlyList<ScheduledAbility> newQueue)
         {
-            return new Unit(Id, Owner, Position, CurrentHP, MaxHP, Abilities, newQueue, StatusEffects, HasActedThisTurn);
+            return new Unit(Id, Owner, Position, CurrentHP, MaxHP, Abilities, newQueue, StatusEffects, HasActedThisTurn, FacingDirection);
         }
-        
+
         /// <summary>
         /// Creates a new unit with updated status effects.
         /// </summary>
         public Unit WithStatusEffects(IReadOnlyList<IStatusEffect> newEffects)
         {
-            return new Unit(Id, Owner, Position, CurrentHP, MaxHP, Abilities, AbilityQueue, newEffects, HasActedThisTurn);
+            return new Unit(Id, Owner, Position, CurrentHP, MaxHP, Abilities, AbilityQueue, newEffects, HasActedThisTurn, FacingDirection);
         }
     }
 }

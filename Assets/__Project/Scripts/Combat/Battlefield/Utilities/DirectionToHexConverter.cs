@@ -53,6 +53,16 @@ namespace Combat.Battlefield
             return neighbors;
         }
         
+        /// <summary>
+        /// Returns the closest HexDirection for a given world direction vector.
+        /// </summary>
+        public static HexDirection GetHexDirection(Vector3 worldDirection, HexDirectionConfig config)
+        {
+            float angle = Mathf.Atan2(worldDirection.z, worldDirection.x) * Mathf.Rad2Deg;
+            if (angle < 0) angle += 360f;
+            return FindClosestHexDirection(angle, config);
+        }
+
         private static HexDirection FindClosestHexDirection(float angle, HexDirectionConfig config)
         {
             // Divide 360° into 6 sectors (60° each for hex)

@@ -134,6 +134,12 @@ namespace Narrative
         /// Resets the story to its initial state.
         /// </summary>
         void ResetStory();
+
+        /// <summary>
+        /// Resets the story manager, clearing current story and state.
+        /// Call this between dialogue interactions to prevent state pollution.
+        /// </summary>
+        void Reset();
     }
 
     /// <summary>

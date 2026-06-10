@@ -101,6 +101,16 @@ namespace Platform
             OnDialogueEnded?.Invoke(this);
         }
 
+        /// <summary>
+        /// Resets the NPC's combat transition state.
+        /// Call this when restarting dialogue or resetting platform state.
+        /// </summary>
+        public void ResetCombatState()
+        {
+            HasTransitionedToEnemy = false;
+            Debug.Log($"[NpcContent] Combat state reset for NPC '{Definition?.NpcId}'");
+        }
+
         public void DestroyNpcVisual()
         {
             if (NpcVisual != null)

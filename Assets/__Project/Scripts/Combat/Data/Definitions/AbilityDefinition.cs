@@ -1,5 +1,5 @@
-using UnityEngine;
 using Combat.Core;
+using UnityEngine;
 
 namespace Combat.Data.Definitions
 {
@@ -12,38 +12,40 @@ namespace Combat.Data.Definitions
     public class AbilityDefinition : ScriptableObject
     {
         [Header("Identity")]
-        [Tooltip("Unique identifier for this ability")]
         [SerializeField] private int _id;
-
-        [Tooltip("Display name of the ability")]
         [SerializeField] private string _name;
-
         [TextArea(2, 4)]
-        [Tooltip("Description of the ability")]
         [SerializeField] private string _description;
 
-        [Header("Targeting")]
-        [Tooltip("Type of target this ability affects")]
-        [SerializeField] private AbilityTargetType _targetType = AbilityTargetType.Enemy;
+        [Header("Shape")]
+        [Tooltip("Line: straight row of cells in a chosen direction. Ring: hollow circle around the caster.")]
+        [SerializeField] private AbilityShapeType _shape = AbilityShapeType.Line;
 
-        [Tooltip("Maximum range in hex cells")]
-        [SerializeField] private int _range = 1;
+        [Tooltip("Number of cells in the line (Line only)")]
+        [SerializeField, Min(1)] private int _lineLength = 1;
+
+        [Tooltip("Distance of the hollow ring from the caster (Ring only)")]
+        [SerializeField, Min(1)] private int _ringRadius = 1;
 
         [Header("Cooldown")]
-        [Tooltip("Turns before ability can be used again (0 = no cooldown)")]
         [SerializeField] private int _cooldownDuration;
 
         [Header("Effect Type")]
-        [Tooltip("Primary effect type of this ability")]
         [SerializeField] private AbilityEffectType _effectType = AbilityEffectType.Damage;
 
-        // Public read-only accessors
+        [Header("Visual")]
+        [SerializeField] private Sprite _icon;
+        [SerializeField] private string _animationTrigger;
+
         public int Id => _id;
         public string Name => _name;
         public string Description => _description;
-        public AbilityTargetType TargetType => _targetType;
-        public int Range => _range;
+        public AbilityShapeType Shape => _shape;
+        public int LineLength => _lineLength;
+        public int RingRadius => _ringRadius;
         public int CooldownDuration => _cooldownDuration;
         public AbilityEffectType EffectType => _effectType;
+        public Sprite Icon => _icon;
+        public string AnimationTrigger => _animationTrigger;
     }
 }

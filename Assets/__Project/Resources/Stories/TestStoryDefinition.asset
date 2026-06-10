@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eabee7deaba61e74d8a90c9f4e6dd16a, type: 3}
   m_Name: TestStoryDefinition
   m_EditorClassIdentifier: Yasherica::Narrative.Data.Definitions.StoryDefinition
-  _storyId: 1
+  _storyId: 3
   _displayName: Test Story
   _description: 
   _inkJsonAsset: {fileID: 4900000, guid: 79aa4997b60d88343ab3319688b0401c, type: 3}

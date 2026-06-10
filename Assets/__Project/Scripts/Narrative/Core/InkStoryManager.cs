@@ -312,6 +312,15 @@ namespace Narrative
             Debug.Log("[InkStoryManager] Story reset to initial state");
         }
 
+        public void Reset()
+        {
+            _story = null;
+            _currentText = string.Empty;
+            _currentChoices.Clear();
+            _currentTags.Clear();
+            Debug.Log("[InkStoryManager] Story manager reset");
+        }
+
         private void UpdateTags()
         {
             _currentTags.Clear();

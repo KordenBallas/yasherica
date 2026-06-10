@@ -16,8 +16,8 @@ MonoBehaviour:
   _displayName: Bandit
   _prefab: {fileID: 5096478280230430576, guid: da91e313a98df2143930756085c92389, type: 3}
   _portrait: {fileID: 0}
-  _characterInkJson: {fileID: 0}
-  _characterStartKnot: greeting
+  _characterInkJson: {fileID: 4900000, guid: 5b6eb2ab4f8d6bf48801273ff0543f81, type: 3}
+  _characterStartKnot: start
   _tags: []
   _faction: 2
   _canBecomeEnemy: 1

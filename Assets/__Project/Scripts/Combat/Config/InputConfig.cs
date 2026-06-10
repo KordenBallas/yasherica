@@ -16,14 +16,32 @@ namespace Combat.Config
         public InputControllerType controllerType;
         
         [Header("PC Settings")]
-        [Tooltip("Key for activating movement mode")]
+        [Tooltip("Hold this key to enter movement mode; release to confirm the move")]
         public KeyCode movementModeKey = KeyCode.M;
-        
+
+        [Tooltip("Key for change direction mode")]
+        public KeyCode changeDirectionKey = KeyCode.S;
+
         [Tooltip("Key for confirming actions")]
         public KeyCode confirmKey = KeyCode.Mouse0;
-        
+
         [Tooltip("Key for canceling actions")]
         public KeyCode cancelKey = KeyCode.Mouse1;
+
+        [Tooltip("Key for executing the ability queue")]
+        public KeyCode executeQueueKey = KeyCode.Return;
+
+        [Header("Ability Hotkeys")]
+        [Tooltip("Ability hotkeys (Q/W/E/R/T/Y by default, index 0-5)")]
+        public System.Collections.Generic.List<KeyCode> abilityKeys = new System.Collections.Generic.List<KeyCode>
+        {
+            KeyCode.Q,
+            KeyCode.W,
+            KeyCode.E,
+            KeyCode.R,
+            KeyCode.T,
+            KeyCode.Y
+        };
         
         [Header("Mobile Settings")]
         [Tooltip("Touch drag sensitivity multiplier")]

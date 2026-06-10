@@ -33,7 +33,12 @@ namespace Combat.Core
         /// <summary>
         /// Explicitly end the unit's turn without taking an action.
         /// </summary>
-        EndUnitTurn
+        EndUnitTurn,
+
+        /// <summary>
+        /// Change the direction a unit is facing (free action by default).
+        /// </summary>
+        ChangeDirection
     }
 }
 

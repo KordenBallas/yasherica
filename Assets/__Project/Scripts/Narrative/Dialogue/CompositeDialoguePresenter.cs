@@ -18,12 +18,14 @@ namespace Narrative.Dialogue
         // Two story managers: one for quest, one for NPC character
         private readonly IStoryManager _storyManager;
         private readonly IStoryManager _npcManager;
+        private readonly IInkExternalFunctionBinder _externalFunctionBinder;
 
         private NpcAssignment _currentAssignment;
         private bool _storyActive;
         private bool _npcActive;
         private bool _isTypewriting;
         private string _pendingText;
+        private DialogueOutcomeType? _pendingOutcome;
 
         // Track which manager owns which choice indices
         private readonly List<ChoiceSource> _choiceSources = new();
@@ -38,14 +40,17 @@ namespace Narrative.Dialogue
         public CompositeDialoguePresenter(
             IStoryManager storyManager,
             IStoryManager npcManager,
+            IInkExternalFunctionBinder externalFunctionBinder,
             IDialogueView view)
         {
             _storyManager = storyManager ?? throw new ArgumentNullException(nameof(storyManager));
             _npcManager = npcManager ?? throw new ArgumentNullException(nameof(npcManager));
+            _externalFunctionBinder = externalFunctionBinder ?? throw new ArgumentNullException(nameof(externalFunctionBinder));
             _view = view ?? throw new ArgumentNullException(nameof(view));
             _model = new DialogueModel();
 
             SubscribeToViewEvents();
+            SubscribeToBinderEvents();
         }
 
         public void StartDialogue(NpcAssignment assignment)
@@ -68,6 +73,7 @@ namespace Narrative.Dialogue
                 _storyManager.LoadStory(assignment.Story.GetInkJson());
                 _storyManager.GoToKnot(assignment.Story.StartingKnot);
                 _storyManager.SetVariable("npc_name", npcName);
+                _externalFunctionBinder.BindToStoryManager();
                 _storyActive = true;
             }
 
@@ -77,6 +83,7 @@ namespace Narrative.Dialogue
             {
                 _npcManager.LoadStory(assignment.Npc.GetCharacterInkJson());
                 _npcManager.GoToKnot(assignment.Npc.CharacterStartKnot);
+                _externalFunctionBinder.BindToNpcManager();
                 _npcActive = true;
             }
 
@@ -174,6 +181,7 @@ namespace Narrative.Dialogue
         public void Dispose()
         {
             UnsubscribeFromViewEvents();
+            UnsubscribeFromBinderEvents();
             _model.Clear();
         }
 
@@ -183,6 +191,7 @@ namespace Narrative.Dialogue
         private void AdvanceAndCompose()
         {
             string text = null;
+            _pendingOutcome = null;
 
             // Priority: advance story first, then NPC
             if (_storyActive && _storyManager.CanContinue)
@@ -194,6 +203,13 @@ namespace Narrative.Dialogue
             {
                 text = _npcManager.Continue();
                 ProcessNpcTags(_npcManager.CurrentTags);
+            }
+
+            // Handle pending outcome AFTER all tag processing is complete
+            if (_pendingOutcome.HasValue)
+            {
+                EndDialogue(_pendingOutcome.Value);
+                return;
             }
 
             // Check if both stories have ended
@@ -349,16 +365,16 @@ namespace Narrative.Dialogue
             switch (outcome.ToLowerInvariant())
             {
                 case "combat":
-                    EndDialogue(DialogueOutcomeType.Combat);
+                    _pendingOutcome = DialogueOutcomeType.Combat;
                     break;
                 case "quest":
-                    EndDialogue(DialogueOutcomeType.Quest);
+                    _pendingOutcome = DialogueOutcomeType.Quest;
                     break;
                 case "trade":
-                    EndDialogue(DialogueOutcomeType.Trade);
+                    _pendingOutcome = DialogueOutcomeType.Trade;
                     break;
                 case "exit":
-                    EndDialogue(DialogueOutcomeType.Exit);
+                    _pendingOutcome = DialogueOutcomeType.Exit;
                     break;
             }
         }
@@ -393,8 +409,21 @@ namespace Narrative.Dialogue
             _view.OnSkipRequested -= HandleSkipRequested;
         }
 
+        private void SubscribeToBinderEvents()
+        {
+            if (_externalFunctionBinder == null) return;
+            _externalFunctionBinder.OnCombatRequested += HandleBinderCombatRequested;
+        }
+
+        private void UnsubscribeFromBinderEvents()
+        {
+            if (_externalFunctionBinder == null) return;
+            _externalFunctionBinder.OnCombatRequested -= HandleBinderCombatRequested;
+        }
+
         private void HandleContinueClicked() => ContinueDialogue();
         private void HandleChoiceSelected(int index) => SelectChoice(index);
+        private void HandleBinderCombatRequested(string enemyId) => FireCombatTriggered(enemyId);
 
         private void HandleSkipRequested()
         {

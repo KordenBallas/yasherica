@@ -8,13 +8,9 @@ namespace Combat.Core
         public int Damage { get; }
 
         public DataDrivenDamageAbility(
-            int id,
-            string name,
-            int cooldownDuration,
-            AbilityTargetType targetType,
-            int range,
-            int damage)
-            : base(id, name, cooldownDuration, targetType, range, AbilityEffectType.Damage)
+            int id, string name, int cooldownDuration,
+            AbilityShapeData shape, int damage)
+            : base(id, name, cooldownDuration, shape, AbilityEffectType.Damage)
         {
             Damage = damage;
         }
@@ -28,13 +24,9 @@ namespace Combat.Core
         public int HealAmount { get; }
 
         public DataDrivenHealAbility(
-            int id,
-            string name,
-            int cooldownDuration,
-            AbilityTargetType targetType,
-            int range,
-            int healAmount)
-            : base(id, name, cooldownDuration, targetType, range, AbilityEffectType.Heal)
+            int id, string name, int cooldownDuration,
+            AbilityShapeData shape, int healAmount)
+            : base(id, name, cooldownDuration, shape, AbilityEffectType.Heal)
         {
             HealAmount = healAmount;
         }
@@ -49,14 +41,9 @@ namespace Combat.Core
         public int EffectDuration { get; }
 
         public DataDrivenStatusEffectAbility(
-            int id,
-            string name,
-            int cooldownDuration,
-            AbilityTargetType targetType,
-            int range,
-            IStatusEffect effect,
-            int effectDuration)
-            : base(id, name, cooldownDuration, targetType, range, AbilityEffectType.StatusEffect)
+            int id, string name, int cooldownDuration,
+            AbilityShapeData shape, IStatusEffect effect, int effectDuration)
+            : base(id, name, cooldownDuration, shape, AbilityEffectType.StatusEffect)
         {
             EffectToApply = effect;
             EffectDuration = effectDuration;
@@ -73,15 +60,9 @@ namespace Combat.Core
         public int EffectDuration { get; }
 
         public DataDrivenHybridAbility(
-            int id,
-            string name,
-            int cooldownDuration,
-            AbilityTargetType targetType,
-            int range,
-            int damage,
-            IStatusEffect effect,
-            int effectDuration)
-            : base(id, name, cooldownDuration, targetType, range, AbilityEffectType.Hybrid)
+            int id, string name, int cooldownDuration,
+            AbilityShapeData shape, int damage, IStatusEffect effect, int effectDuration)
+            : base(id, name, cooldownDuration, shape, AbilityEffectType.Hybrid)
         {
             Damage = damage;
             EffectToApply = effect;
