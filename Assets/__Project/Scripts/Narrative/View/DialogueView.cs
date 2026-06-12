@@ -18,6 +18,8 @@ namespace Narrative.View
         [Header("Panel References")]
         [SerializeField] private GameObject _dialoguePanel;
         [SerializeField] private GameObject _choicesPanel;
+        [Tooltip("Fullscreen modal dim behind the dialogue; must hide with the panel or it keeps swallowing every pointer event in the scene")]
+        [SerializeField] private GameObject _backgroundDim;
 
         [Header("Text Elements")]
         [SerializeField] private TextMeshProUGUI _speakerNameText;
@@ -112,6 +114,11 @@ namespace Narrative.View
 
         public void Show()
         {
+            if (_backgroundDim != null)
+            {
+                _backgroundDim.SetActive(true);
+            }
+
             if (_dialoguePanel != null)
             {
                 _dialoguePanel.SetActive(true);
@@ -125,6 +132,13 @@ namespace Narrative.View
             if (_dialoguePanel != null)
             {
                 _dialoguePanel.SetActive(false);
+            }
+
+            // The dim is a raycast target covering the whole screen; leaving it
+            // active outside dialogues blocks clicks for every system below this canvas.
+            if (_backgroundDim != null)
+            {
+                _backgroundDim.SetActive(false);
             }
 
             HideChoices();

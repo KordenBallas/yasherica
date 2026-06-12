@@ -294,6 +294,10 @@ namespace Core.DI
 
         private void InstallCoreSystemBindings()
         {
+            // Combat activity flag: combat layer mutates the concrete tracker,
+            // other subsystems (e.g. inventory) observe ICombatActivityTracker.
+            Container.BindInterfacesAndSelfTo<CombatActivityTracker>().AsSingle();
+
             Container.Bind<IDamageSystem>().To<DamageSystem>().AsSingle();
             Container.Bind<IAbilityShapeCalculator>().To<AbilityShapeCalculator>().AsSingle();
             Container.Bind<IAbilityExecutor>().To<AbilityExecutor>().AsSingle();

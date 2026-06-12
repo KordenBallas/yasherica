@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0  m_Script: {fileID: 11500000, guid: c98e5cdce6664286a2ad3a9e04b17819, type: 3}
+  m_Name: Recipe_WaterBacteria_Virus
+  m_EditorClassIdentifier: 
+  _inputs:
+  - {fileID: 11400000, guid: 8484a611a6954e0e8eba84283067abdf, type: 2}
+  - {fileID: 11400000, guid: 61988621db1049a491dcee1777c48fc6, type: 2}
+  _output: {fileID: 11400000, guid: de7d12ae00c641e491be635ed30b7d41, type: 2}

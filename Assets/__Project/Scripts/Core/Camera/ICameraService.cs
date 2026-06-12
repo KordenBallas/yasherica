@@ -21,9 +21,35 @@ namespace Core.Camera
         void SwitchToIsometricCamera(float transitionTime = -1f);
         
         /// <summary>
+        /// Registers the world anchor the belly camera follows while active.
+        /// Provided by the hero (IBellyAnchorProvider) so the framing tracks the
+        /// character even while it rotates.
+        /// </summary>
+        void SetBellyAnchor(UnityEngine.Transform anchor);
+
+        /// <summary>
+        /// Switch to the belly close-up camera (magic pot inventory view).
+        /// </summary>
+        /// <param name="transitionTime">Duration of the transition in seconds. If negative, uses config default.</param>
+        void SwitchToBellyCamera(float transitionTime = -1f);
+
+        /// <summary>
+        /// Switch back to whichever camera (isometric or combat) was active
+        /// before the belly camera took over.
+        /// </summary>
+        /// <param name="transitionTime">Duration of the transition in seconds. If negative, uses config default.</param>
+        void SwitchToPreviousCamera(float transitionTime = -1f);
+
+        /// <summary>
         /// Indicates whether the camera is currently transitioning between views.
         /// </summary>
         bool IsTransitioning { get; }
+
+        /// <summary>
+        /// World position of the camera that actually renders the frame (the
+        /// Cinemachine brain output), e.g. for turning the character toward it.
+        /// </summary>
+        UnityEngine.Vector3 OutputCameraPosition { get; }
     }
 }
 

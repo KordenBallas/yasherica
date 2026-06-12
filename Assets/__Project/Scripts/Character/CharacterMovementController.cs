@@ -13,7 +13,7 @@ namespace Character
     /// Dash mechanic implemented exactly as in Demo CharacterDashController.
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
-    public class CharacterMovementController : MonoBehaviour
+    public class CharacterMovementController : MonoBehaviour, IMovementInputLock
     {
     [Header("Input")]
     [SerializeField] private InputActionReference moveAction;
@@ -50,6 +50,24 @@ namespace Character
     {
         moveAction?.action?.Disable();
         dashAction?.action?.Disable();
+    }
+
+    /// <summary>
+    /// IMovementInputLock adapter: toggles the input actions so movement and dash
+    /// stop reacting while another system (e.g. the inventory) owns the screen.
+    /// </summary>
+    public void SetMovementEnabled(bool enabled)
+    {
+        if (enabled)
+        {
+            moveAction?.action?.Enable();
+            dashAction?.action?.Enable();
+        }
+        else
+        {
+            moveAction?.action?.Disable();
+            dashAction?.action?.Disable();
+        }
     }
 
     void Start()

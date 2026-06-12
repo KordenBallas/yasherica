@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ff06598d0c84ee98fbc52107fa0e20f, type: 3}
+  m_Name: InventoryConfig
+  m_EditorClassIdentifier:
+  _itemsToCombine: 2
+  _startingInventory:
+  - {fileID: 11400000, guid: d1830ad55165404c96284e81fffcad5a, type: 2}
+  - {fileID: 11400000, guid: 8484a611a6954e0e8eba84283067abdf, type: 2}
+  - {fileID: 11400000, guid: 6f9c88a8779d45219bad912ec3be9e15, type: 2}
+  - {fileID: 11400000, guid: 61988621db1049a491dcee1777c48fc6, type: 2}
+  - {fileID: 11400000, guid: d1830ad55165404c96284e81fffcad5a, type: 2}
+  _minBubbleRadius: 0.05
+  _maxBubbleRadius: 0.13
+  _radiusFalloff: 0.35
+  _edgePadding: 0.02
+  _bubbleDriftAmplitude: 0.01
+  _bubbleDriftFrequency: 0.35
+  _artifactLayerCount: 4
+  _artifactLayerSpacing: 0.015
+  _artifactBackLayerDarkening: 0.45
+  _liquidWaveAmplitude: 0.02
+  _liquidWaveFrequency: 1.2
+  _liquidWaveSpatialScale: 6
+  _liquidSecondaryWaveWeight: 0.5
+  _liquidEmissionPulseSpeed: 1.5
+  _liquidEmissionPulseStrength: 0.3
+  _facingRotationDuration: 0.4
+  _cameraTransitionTime: 1
+  _mergeDuration: 0.45
+  _failReturnDuration: 0.3
+  _resultPopDuration: 0.35
+  _resultDropDuration: 0.4

@@ -119,6 +119,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _dialoguePanel: {fileID: 2000000000000000201}
   _choicesPanel: {fileID: 2000000000000000701}
+  _backgroundDim: {fileID: 2000000000000000101}
   _speakerNameText: {fileID: 2000000000000000305}
   _dialogueText: {fileID: 2000000000000000505}
   _portraitImage: {fileID: 2000000000000000404}

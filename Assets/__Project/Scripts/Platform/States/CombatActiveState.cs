@@ -33,6 +33,7 @@ namespace Platform
         private readonly EnemyCombatIntegrator _enemyIntegrator;
         private readonly AITurnController _aiTurnController;
         private readonly IEnemyDataProvider _enemyDataProvider;
+        private readonly CombatActivityTracker _combatActivityTracker;
 
         private IPlatform _platform;
         private ICombatController _controller;
@@ -47,7 +48,8 @@ namespace Platform
             ICharacterRegistry characterRegistry,
             EnemyCombatIntegrator enemyIntegrator,
             AITurnController aiTurnController,
-            IEnemyDataProvider enemyDataProvider)
+            IEnemyDataProvider enemyDataProvider,
+            CombatActivityTracker combatActivityTracker)
         {
             _controllerFactory = controllerFactory;
             _cameraService = cameraService;
@@ -58,11 +60,14 @@ namespace Platform
             _enemyIntegrator = enemyIntegrator;
             _aiTurnController = aiTurnController;
             _enemyDataProvider = enemyDataProvider;
+            _combatActivityTracker = combatActivityTracker;
         }
 
         public override void OnEnter(IPlatform platform)
         {
             _platform = platform;
+
+            _combatActivityTracker?.SetCombatActive(true);
 
             Debug.Log($"[CombatActiveState] Entering combat active state for platform {platform.Id}");
 
@@ -394,6 +399,8 @@ namespace Platform
         public override void OnExit(IPlatform platform)
         {
             Debug.Log($"[CombatActiveState] Exiting combat active state for platform {platform.Id}");
+
+            _combatActivityTracker?.SetCombatActive(false);
 
             // Unsubscribe from combat end event
             if (_controller != null)
