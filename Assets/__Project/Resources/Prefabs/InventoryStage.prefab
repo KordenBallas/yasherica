@@ -1428,6 +1428,7 @@ ParticleSystem:
       minMaxState: 0
       scalar: 0
       minScalar: 0
+    m_BurstCount: 1
     m_Bursts:
     - serializedVersion: 2
       time: 0
@@ -1711,6 +1712,7 @@ ParticleSystem:
       minMaxState: 0
       scalar: 0
       minScalar: 0
+    m_BurstCount: 1
     m_Bursts:
     - serializedVersion: 2
       time: 0
