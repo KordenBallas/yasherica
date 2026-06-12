@@ -110,7 +110,9 @@ namespace Platform
             {
                 ContentType.Enemy => enemyPrefab,
                 ContentType.Npc => npcPrefab,
-                ContentType.Loot => lootPrefab,
+                // Loot pickups are spawned by PlatformLootSpawnCoordinator with
+                // per-item visuals; the generic prefab path would double-spawn.
+                ContentType.Loot => null,
                 ContentType.Quest => questPrefab,
                 _ => null
             };

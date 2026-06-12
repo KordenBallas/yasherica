@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0fcf18b1d774742b55f4e72dc003985, type: 3}
+  m_Name: LootConfig
+  m_EditorClassIdentifier:
+  _pickupDuration: 0.5
+  _pickupGrowScale: 1.3
+  _pickupPeakFraction: 0.4
+  _pickupFadeEnabled: 1
+  _pickupMoveToPlayer: 1
+  _depthLayerCount: 4
+  _depthLayerSpacing: 0.015
+  _depthLayerDarkening: 0.45
+  _shadowScale: 0.8
+  _shadowAlpha: 0.35
+  _shadowVerticalOffset: 0.55
+  _bobAmplitude: 0.08
+  _bobFrequency: 1.2
+  _spawnHeightOffset: 0.8
+  _spawnScatterRadius: 1.2
+  _tagBiasMultiplier: 2
+  _rejectShakeDuration: 0.3

@@ -30,6 +30,12 @@ namespace Combat.Data
         public List<IAbilityInstance> Abilities { get; set; }
         public AIPersonality AIType { get; set; }
         public GameObject Prefab { get; set; }
+
+        /// <summary>
+        /// Artifact drop slots rolled on defeat; empty falls back to the
+        /// biome enemy drop table.
+        /// </summary>
+        public IReadOnlyList<Loot.Core.LootSlotData> LootSlots { get; set; }
     }
 
     /// <summary>

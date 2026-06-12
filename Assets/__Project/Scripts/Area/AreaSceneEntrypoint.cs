@@ -58,6 +58,12 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     private LevelNarrativeConfig _levelConfig;
     [Inject]
     private IScenarioGenerator _scenarioGenerator;
+    [Inject]
+    private Loot.Core.IRunSeedProvider _runSeedProvider;
+    [Inject]
+    private Loot.Core.ILootRollService _lootRollService;
+    [Inject]
+    private Loot.Core.ICurrentThemeProvider _currentThemeProvider;
 
     private IPlayer _localPlayer;
 
@@ -72,14 +78,9 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
 
     public void GenerateArea()
     {
-        if (seed != 0)
-        {
-            Random.InitState(seed);
-        }
-        else
-        {
-            Random.InitState((int)System.DateTime.Now.Ticks & 0x0000FFFF);
-        }
+        // Effective seed is computed once at install time (LootInstaller) so loot
+        // rolls and narrative randoms share the same run seed as the layout.
+        Random.InitState(_runSeedProvider.RunSeed);
 
         // 1. Generate narrative content (NPC assignments)
         var levelNarrative = _narrativeGenerator.Generate(_levelConfig);
@@ -97,6 +98,9 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             Debug.LogError("[AreaSceneEntrypoint] Failed to generate scenario");
             return;
         }
+
+        // Runtime loot rolls (enemy drops, quest rewards) need the biome theme.
+        _currentThemeProvider.SetTheme(scenario.Theme);
 
         if (platformCount > 0)
         {
@@ -125,7 +129,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
         };
 
         // 6. Create area generator with narrative data
-        areaGenerator = new AreaGenerator(graph, noiseMap, _platformFactory, levelNarrative, config);
+        areaGenerator = new AreaGenerator(
+            graph, noiseMap, _platformFactory, levelNarrative, _lootRollService, scenario.Theme, config);
         areaGenerator.Generate();
 
         // 7. Set up AreaView
@@ -153,11 +158,12 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             }
         }
 
-        // 9. Set up content spawner
+        // 9. Set up content spawner (instantiated through the container so its
+        // injected dependencies resolve)
         var contentSpawner = gameObject.GetComponent<Platform.ContentSpawner>();
         if (contentSpawner == null)
         {
-            contentSpawner = gameObject.AddComponent<Platform.ContentSpawner>();
+            contentSpawner = _container.InstantiateComponent<Platform.ContentSpawner>(gameObject);
         }
     }
 

@@ -1,0 +1,71 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f61494f114594130a12b59f9ebd5e0ab, type: 3}
+  m_Name: Biome_Cave
+  m_EditorClassIdentifier:
+  _theme: 3
+  _platformLootChance: 0.6
+  _platformLootCountRange: {x: 1, y: 3}
+  _platformTable:
+  - _artifactId: bacteria
+    _weight: 3
+    _biasTags: []
+    _minPlayerLevel: 0
+    _requiredAchievements: []
+    _requiredPastQuests: []
+  - _artifactId: virus
+    _weight: 2
+    _biasTags: []
+    _minPlayerLevel: 0
+    _requiredAchievements: []
+    _requiredPastQuests: []
+  - _artifactId: rock
+    _weight: 3
+    _biasTags: []
+    _minPlayerLevel: 0
+    _requiredAchievements: []
+    _requiredPastQuests: []
+  _enemyDropChance: 0.5
+  _enemyDropTable:
+  - _artifactId: virus
+    _weight: 1
+    _biasTags: []
+    _minPlayerLevel: 0
+    _requiredAchievements: []
+    _requiredPastQuests: []
+  - _artifactId: bacteria
+    _weight: 2
+    _biasTags: []
+    _minPlayerLevel: 0
+    _requiredAchievements: []
+    _requiredPastQuests: []
+  _questRewardCountRange: {x: 1, y: 2}
+  _questTable:
+  - _artifactId: bacteria
+    _weight: 2
+    _biasTags: []
+    _minPlayerLevel: 0
+    _requiredAchievements: []
+    _requiredPastQuests: []
+  - _artifactId: virus
+    _weight: 2
+    _biasTags:
+    - bandit
+    _minPlayerLevel: 0
+    _requiredAchievements: []
+    _requiredPastQuests: []
+  - _artifactId: rock
+    _weight: 2
+    _biasTags: []
+    _minPlayerLevel: 0
+    _requiredAchievements: []
+    _requiredPastQuests: []

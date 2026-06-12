@@ -34,6 +34,7 @@ namespace Platform
         private readonly AITurnController _aiTurnController;
         private readonly IEnemyDataProvider _enemyDataProvider;
         private readonly CombatActivityTracker _combatActivityTracker;
+        private readonly Loot.Application.IEnemyLootDropper _enemyLootDropper;
 
         private IPlatform _platform;
         private ICombatController _controller;
@@ -49,7 +50,8 @@ namespace Platform
             EnemyCombatIntegrator enemyIntegrator,
             AITurnController aiTurnController,
             IEnemyDataProvider enemyDataProvider,
-            CombatActivityTracker combatActivityTracker)
+            CombatActivityTracker combatActivityTracker,
+            Loot.Application.IEnemyLootDropper enemyLootDropper)
         {
             _controllerFactory = controllerFactory;
             _cameraService = cameraService;
@@ -61,6 +63,7 @@ namespace Platform
             _aiTurnController = aiTurnController;
             _enemyDataProvider = enemyDataProvider;
             _combatActivityTracker = combatActivityTracker;
+            _enemyLootDropper = enemyLootDropper;
         }
 
         public override void OnEnter(IPlatform platform)
@@ -249,6 +252,11 @@ namespace Platform
         private void HandleCombatEnded(IPlayer winner, CombatPhase phase)
         {
             Debug.Log($"[CombatActiveState] Combat ended - Phase: {phase}, Winner: {winner?.Name ?? "None"}");
+
+            // Drop loot BEFORE the state change: OnExit destroys dead enemy
+            // GameObjects, losing their death positions.
+            bool playerWon = winner != null && winner.Id == _playerRegistry.GetLocalPlayer()?.Id;
+            _enemyLootDropper.DropFor(_platform, playerWon);
 
             // Use platform's state factory to create completed state
             var completedState = _platform.StateFactory.CreateCompletedState();

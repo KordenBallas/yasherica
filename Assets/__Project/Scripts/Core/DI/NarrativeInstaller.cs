@@ -64,8 +64,10 @@ namespace Core.DI
                 .AsSingle()
                 .WithArguments(npcs);
 
+            // Seeded from the run seed so reward slot rolls are reproducible per run.
             Container.Bind<IRewardResolver>()
                 .To<RewardResolver>()
+                .FromMethod(ctx => new RewardResolver(CreateSeededRandom(ctx.Container, "narrative-rewards")))
                 .AsSingle();
 
             // Always bind LevelNarrativeConfig - create default if not assigned
@@ -84,7 +86,18 @@ namespace Core.DI
         {
             Container.Bind<ILevelNarrativeGenerator>()
                 .To<LevelNarrativeGenerator>()
+                .FromMethod(ctx => new LevelNarrativeGenerator(
+                    ctx.Container.Resolve<IStoryPool>(),
+                    ctx.Container.Resolve<INpcPool>(),
+                    ctx.Container.Resolve<IRewardResolver>(),
+                    CreateSeededRandom(ctx.Container, "narrative-generation")))
                 .AsSingle();
+        }
+
+        private static System.Random CreateSeededRandom(DiContainer container, string contextKey)
+        {
+            var seedProvider = container.Resolve<Loot.Core.IRunSeedProvider>();
+            return new System.Random(Loot.Core.LootSeed.Derive(seedProvider.RunSeed, contextKey));
         }
 
         private void InstallStoryManagers()

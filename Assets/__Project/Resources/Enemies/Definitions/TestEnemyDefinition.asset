@@ -19,3 +19,12 @@ MonoBehaviour:
   _prefab: {fileID: 3589321321802962806, guid: 5559ed53e398fe848bf5e475990f97cb, type: 3}
   _abilities: []
   _aiProfile: {fileID: 11400000, guid: b6aa4ef5ce17e964d93cefa3749bc7a5, type: 2}
+  _lootSlots:
+  - _artifactId: snake
+    _probability: 0.6
+    _quantityRange: {x: 1, y: 2}
+    _isBonus: 0
+  - _artifactId: virus
+    _probability: 0.1
+    _quantityRange: {x: 1, y: 1}
+    _isBonus: 1

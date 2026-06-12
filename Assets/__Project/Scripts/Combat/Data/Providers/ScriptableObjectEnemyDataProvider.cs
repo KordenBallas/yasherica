@@ -85,7 +85,8 @@ namespace Combat.Data.Providers
                 MaxHP = definition.MaxHP,
                 Abilities = abilities,
                 AIType = aiType,
-                Prefab = definition.Prefab
+                Prefab = definition.Prefab,
+                LootSlots = Loot.Data.LootSlotMapper.ToData(definition.LootSlots)
             };
         }
 
@@ -97,7 +98,8 @@ namespace Combat.Data.Providers
                 Name = $"Unknown Enemy {enemyId}",
                 MaxHP = 30,
                 Abilities = new List<IAbilityInstance>(),
-                AIType = AIPersonality.SimpleRandom
+                AIType = AIPersonality.SimpleRandom,
+                LootSlots = System.Array.Empty<Loot.Core.LootSlotData>()
             };
         }
     }

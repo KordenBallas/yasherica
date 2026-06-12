@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Loot.Data.Definitions;
 
 namespace Combat.Data.Definitions
 {
@@ -38,6 +39,10 @@ namespace Combat.Data.Definitions
         [Tooltip("AI behavior profile for this enemy")]
         [SerializeField] private AIProfileDefinition _aiProfile;
 
+        [Header("Loot")]
+        [Tooltip("Independently-rolled artifact drops on defeat; empty falls back to the biome enemy drop table")]
+        [SerializeField] private List<ArtifactLootSlot> _lootSlots;
+
         // Public read-only accessors
         public int EnemyId => _enemyId;
         public string Name => _name;
@@ -46,5 +51,7 @@ namespace Combat.Data.Definitions
         public GameObject Prefab => _prefab;
         public IReadOnlyList<AbilityDefinition> Abilities => _abilities ?? new List<AbilityDefinition>();
         public AIProfileDefinition AIProfile => _aiProfile;
+        public IReadOnlyList<ArtifactLootSlot> LootSlots =>
+            _lootSlots ?? (IReadOnlyList<ArtifactLootSlot>)System.Array.Empty<ArtifactLootSlot>();
     }
 }

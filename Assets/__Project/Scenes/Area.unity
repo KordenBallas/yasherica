@@ -3093,6 +3093,7 @@ MonoBehaviour:
   - {fileID: 1154528041}
   - {fileID: 584990438}
   - {fileID: 900100021}
+  - {fileID: 1999000003}
   _installerPrefabs: []
   _autoRun: 1
   OnPreInstall:
@@ -7478,6 +7479,54 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 14305794847987e468d09fa18bab28a7, type: 3}
+--- !u!1 &1999000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1999000002}
+  - component: {fileID: 1999000003}
+  m_Layer: 0
+  m_Name: LootInstaller
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1999000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1999000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1999000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1999000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3dac881aa2484fefb0fad9890b91e705, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Yasherica::Core.DI.LootInstaller
+  _config: {fileID: 0}
+  _biomeLootDefinitions: []
+  _pickupPrefab: {fileID: 0}
+  _areaEntrypoint: {fileID: 749762319}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -7498,3 +7547,4 @@ SceneRoots:
   - {fileID: 900100031}
   - {fileID: 900100022}
   - {fileID: 900200000}
+  - {fileID: 1999000002}

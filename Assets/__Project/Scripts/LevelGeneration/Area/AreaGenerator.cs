@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Loot.Core;
 using Narrative.Generation;
 using Platform;
 using UnityEngine;
@@ -18,6 +19,8 @@ namespace LevelGeneration
         private readonly AreaGeneratorConfig _config;
         private readonly Platform.Platform.Factory _platformFactory;
         private readonly LevelNarrative _levelNarrative;
+        private readonly ILootRollService _lootRollService;
+        private readonly LevelTheme _theme;
 
         private readonly Dictionary<int, IPlatform> _platforms = new();
         private readonly Dictionary<int, PlatformView> _platformViews = new();
@@ -33,12 +36,16 @@ namespace LevelGeneration
             PerlinNoiseMap noiseMap,
             Platform.Platform.Factory platformFactory,
             LevelNarrative levelNarrative,
+            ILootRollService lootRollService,
+            LevelTheme theme,
             AreaGeneratorConfig config = null)
         {
             _graph = graph;
             _noiseMap = noiseMap;
             _platformFactory = platformFactory;
             _levelNarrative = levelNarrative;
+            _lootRollService = lootRollService;
+            _theme = theme;
             _config = config ?? new AreaGeneratorConfig();
         }
 
@@ -137,7 +144,7 @@ namespace LevelGeneration
             // Add content (determines which states activate)
             foreach (var contentType in node.ContentTypes)
             {
-                var content = CreateContent(contentType, node.StoryData);
+                var content = CreateContent(contentType, node.StoryData, node.Id);
                 if (content != null)
                 {
                     platform.AddContent(content);
@@ -204,7 +211,7 @@ namespace LevelGeneration
             return boundary;
         }
 
-        private IPlatformContent CreateContent(PlatformContentType contentType, StoryPlatformData storyData)
+        private IPlatformContent CreateContent(PlatformContentType contentType, StoryPlatformData storyData, int nodeId)
         {
             switch (contentType)
             {
@@ -215,7 +222,7 @@ namespace LevelGeneration
                     return CreateNpcContent(storyData);
 
                 case PlatformContentType.Loot:
-                    return new LootContent();
+                    return CreateLootContent(nodeId);
 
                 case PlatformContentType.Quest:
                     return new QuestContent();
@@ -223,6 +230,20 @@ namespace LevelGeneration
                 default:
                     return null;
             }
+        }
+
+        private LootContent CreateLootContent(int nodeId)
+        {
+            var context = new LootRollContext(_theme, $"platform:{nodeId}");
+            var items = _lootRollService.RollPlatformLoot(context);
+            if (items.Count == 0)
+            {
+                return null;
+            }
+
+            Debug.Log($"[AreaGenerator] Rolled {items.Count} loot item(s) for platform {nodeId} " +
+                      $"({string.Join(", ", items.Select(i => i.ArtifactId))})");
+            return new LootContent(items);
         }
 
         private NpcContent CreateNpcContent(StoryPlatformData storyData)
