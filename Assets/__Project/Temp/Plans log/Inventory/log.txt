@@ -1,0 +1,189 @@
+The magic pot inventory system is fully implemented — code, data assets, prefabs, scene wiring, tests (37/37 passing), and docs.
+
+⚠️ One thing first: your Unity editor was open while I worked, so the Area.unity it has in memory is older than my on-disk edits. When you switch back to Unity, do not save the currently open scene — reload it (File → Open Scene → Area) so my changes aren't overwritten. Hero.prefab and all other assets reimport automatically.
+
+What was built
+
+Domain (pure C#, no UnityEngine) — Scripts/Inventory/Core/: InventoryModel (container-based multiset, no slots), RecipeBook (order-independent multiset matching), CraftingSession (state machine implementing your rules: N items staged → auto-combine; success spawns result above the pot; failure returns only the last selected item, the rest stay staged), BubbleLayoutCalculator (sunflower-spiral packing — more artifacts → more, smaller, denser bubbles).
+
+Data-driven content — ArtifactDefinition/RecipeDefinition/InventoryConfig ScriptableObjects. I authored 7 artifact assets from your icons, 4 sample recipes (fire+water→snake, fire+rock→lizard, water+bacteria→virus, rock+bacteria→lizard — any other pair fails, showing the fail puff), and a config (combine count = 2, starting inventory: fire, water, rock, bacteria, fire). New artifacts/recipes need zero code — just Create → Inventory → Artifact/Recipe.
+
+Presentation (MVP + Zenject) — HUD pot button → camera zooms to a new BellyPotRig on the hero (placeholder cauldron + emissive liquid built from primitives, since the hero is still a capsule) via a third Cinemachine camera; movement input locks while open; Escape/X closes. Artifact sprites render on lit, shadow-casting quads inside transparent bubble shells so they read as 3D. Smoke puffs are two ParticleSystems (gold = success, dark red = fail). Crafting clicks work through PhysicsRaycaster + a new InventoryFocus layer.
+
+Combat rule (your choice): inventory is blocked during combat — CombatActiveState now flips a CombatActivityTracker; the button disables and an open inventory force-closes.
+
+Verification
+
+- All 37 domain tests pass (your editor held the project lock, so I compiled and ran them with Unity's own Roslyn/.NET runtime; please also run them once in Window → General → Test Runner).
+- Editor log shows the project compiles cleanly with all new code.
+
+Two small follow-ups for you in the editor
+
+1. Escape-to-close: on Resources/Prefabs/UI/InventoryHud.prefab, assign the UI/Cancel action to InventoryHudView → Cancel Action (action sub-asset references can't be authored by hand).
+2. I added the scene's first EventSystem (it had none — the existing CombatActionPanel buttons were dead). Worth a quick combat smoke test, since those buttons may now start responding.
+
+Design details and the full requirement list are in Assets/__Project/Docs/inventory-subsystem.md.
+
+
+Unable to parse file ProjectSettings/TagManager.asset: [Parser Failure at line 43: Expect ':' between key and value within mapping]
+Unable to parse file Assets/__Project/Resources/Artifacts/Materials/M_PotBody.mat: [Parser Failure at line 30: Expect ':' between key and value within mapping]
+
+
+
+I want you to perform major change of the Inventory User interface. The inventory itself is a UI layer. It is NOT a part of the game world, it is NOT on the character belly. When the player opens the inventory the following animations occurs: the character model turns its face to the camera, and the camera zooms in to the character belly. The Inventory UI opens in the middle of the screen, so the belly is on back view. 
+The inventory has a form of Magic Pot (the typical one for a witch). The Magic Pot displayed from the front side and is shown in cross-section. I want you to build a simple low poly model of the magic pot. The Magic pot is full of magic liquid - the liquid is boiling. I want you to reproduce this effect. Steam animation is playing. All the inventory artifacts are floating inside the magic pot in 3d transparent bubble. Bubbleas are almoust static. The more items in the inventory the smaller bubbles are. Max inventory size, bubles sizes let's be configurable. The artifact has sprite associated. I want you to make a 3d model from these sprites by applying some depths or shadows. 
+The player can click on bubbles with artifacts. Once the bubble is choosen - it gets moved to crafting slots on top of the pot. The number of slots is 2, but can be changed in configuration. Once 2 artifacts are in crafting slots - the craft animation starts. If crafting fails - second artifact returns to magic pot into its bubble, first one remains in crafting slot. If crafting succeeed the new  artifact is shown in some victory feeling cloud on top of the pot. It remains there until the user click on it to put it inside the pot. Upon crafting process completion I want some steam poof animation to play. New items apppear from the steam. Success and failure animations are different.
+When inventory closes the camera return to its common positoin and the character turns back to normal direction.
+Analyze these requirements, confirm if you can imeplement them as is. Let me know if anything is unclear or missing to succeed. Create an implemntation plan.
+
+
+Inventory UI Redesign Requirements
+
+Implement a complete redesign of the Inventory system.
+
+Core Concept
+
+The Inventory is a UI layer only. It is not physically attached to the character and is not part of the game world.
+
+When the player opens the inventory:
+
+The character rotates to face the camera.
+The camera smoothly zooms toward the character's torso area.
+The inventory UI appears centered on the screen, overlaying the character.
+The inventory remains a screen-space UI while the character stays visible in the background.
+
+When the inventory closes:
+
+The inventory UI disappears.
+The camera returns to its default position.
+The character returns to its normal orientation.
+Magic Pot Inventory Visualization
+
+Replace the current inventory grid with a magical cauldron ("witch pot") interface.
+
+Requirements:
+
+Create a simple low-poly 3D cauldron model.
+Display the cauldron from the front as a cross-section so its interior is visible.
+Fill the cauldron with animated magical liquid.
+The liquid should appear to boil continuously.
+Add steam particle effects above the liquid.
+
+All inventory items are represented as floating bubbles inside the cauldron.
+
+Bubble behavior:
+
+Each item occupies a single transparent 3D bubble.
+Bubbles float gently with minimal movement.
+Bubble size scales dynamically based on inventory occupancy.
+More inventory items result in smaller bubbles.
+Maximum inventory capacity and bubble size limits must be configurable.
+Item Representation
+
+Inventory items are currently sprite-based.
+
+For display inside bubbles:
+
+Generate a lightweight pseudo-3D representation from the item sprite.
+Use depth, extrusion, layered geometry, shading, or similar techniques to give the sprite volume.
+The solution should remain performant and suitable for many simultaneous items.
+Crafting Interaction
+
+Players can select item bubbles.
+
+When a bubble is selected:
+
+Remove it from the cauldron.
+Move it into a crafting slot displayed above the cauldron.
+
+Crafting slot requirements:
+
+Default slot count: 2.
+Slot count must be configurable.
+
+When all crafting slots are filled:
+
+Start the crafting sequence automatically.
+Execute the crafting recipe validation.
+Craft Failure
+
+If crafting fails:
+
+The first selected item remains in its crafting slot.
+The second selected item is returned to the cauldron in a bubble.
+Play a dedicated failure visual effect.
+Craft Success
+
+If crafting succeeds:
+
+Create the resulting item.
+Display it above the cauldron in a celebratory "victory cloud" presentation.
+The item remains there until clicked by the player.
+Clicking the item places it back into the cauldron inventory.
+Play a dedicated success visual effect.
+Crafting Effects
+
+Crafting completion should include magical feedback.
+
+Requirements:
+
+Trigger a steam-poof effect when crafting completes.
+Newly crafted items should emerge from the steam.
+Success and failure effects must be visually distinct.
+Effects should integrate with the existing steam and cauldron presentation.
+
+
+
+
+What was built
+
+Detached stage (the core "UI layer only" requirement). The pot no longer lives on the Hero. A new InventoryStage.prefab (parked at world y = −50, everything on layer 8 InventoryFocus) holds the cauldron, liquid, steam, bubble container, crafting slots, the success/fail puffs, a stage-only light, and its own perspective camera. That camera is a URP overlay camera stacked on the Main Camera, so the cauldron renders screen-centered over the world while the hero stays visible behind it via the base camera's belly zoom. The PhysicsRaycaster moved from the Main Camera to the stage camera — when the stage camera is disabled (inventory closed), bubble clicks are automatically inert.
+
+Character rotation. New ICharacterFacing + CharacterFacingController on the Hero root: smoothstep yaw toward ICameraService.OutputCameraPosition on open, restore on close. CameraService now glues the belly Cinemachine camera to the hero's BellyCameraAnchor every frame while the belly view is active, so the zoom lands correctly while the hero rotates underneath it.
+
+Cross-section cauldron. CauldronProfileCalculator (pure C#) computes paired outer/inner lathe polylines — sphere-slice belly, flat floor slab, rim lip — and CauldronMeshBuilder sweeps them 200° around Y with flat shading, capping the cut planes so the open front reads as solid wall. Generated at runtime by CauldronView, tunable in the inspector.
+
+Boiling liquid + steam. LiquidWaveCalculator (pure C#, two crossed traveling sine waves) drives per-vertex displacement of a generated pie-sector mesh in LiquidSurfaceView, with a pulsing emission glow (the _EMISSION keyword was already enabled on M_PotLiquid). A looping steam plume plays while the pot is focused, surface bubbles rise continuously, and the craft puffs were retuned as steam bursts (bright/warm for success, dark for failure).
+
+Pseudo-3D items. BubbleView now stacks N alpha-clipped quad layers per artifact (default 4), receding and darkening toward the back, sharing one material so SRP batching holds. Layer count/spacing/darkening live in InventoryConfig alongside the new liquid and facing tunables.
+
+Verification
+
+- 51/51 edit-mode tests pass (existing domain suite + 14 new tests for the cauldron profile and wave math), run via the dotnet/Roslyn workaround since your editor holds the project lock.
+- The entire game assembly (320 files) compiles with exit 0 using Unity's own Roslyn — this took some digging: InjectAttribute/IInitializable live in the precompiled Zenject-usage.dll plugin, not in ScriptAssemblies\Zenject.dll. I saved the working recipe to memory.
+- Prefab/scene references cross-checked: script GUIDs, material GUIDs, Bubble.prefab fileID 1003, layer 8 name, and the stripped-camera stack reference in Area.unity all line up. I also fixed a pre-existing malformed line in InventoryConfig.asset (two YAML keys merged on one line).
+
+What needs your eyes in the editor
+
+When you focus Unity it will import everything; then a Play-mode pass in Area.unity:
+
+1. Open the inventory — hero turns to face you, camera zooms, cauldron appears centered with the hero behind it. The two known risks to check first: the perspective overlay over your orthographic base camera renders correctly (URP 17 supports it; fallback is making StageCamera orthographic), and bubble clicks work through the overlay camera's raycaster.
+2. Craft — two bubbles → steam burst, result emerges, click drops it into the pot; a failed pair returns only the last item.
+3. Tuning — stage framing (StageCamera offset), _potInteriorHalfExtents (0side the new cauldron's liquid, and steam/light intensity are all inspector values on the stage prefab.
+
+
+####
+
+I want you to troubleshoot and fix the following issues with the Inventory system. 
+1. Bubbles click doesn't work
+2. Bubbles are not transparent. I want to see the artifact inside the bubble.
+3. Bubbles are positioned in a single plane and never overlap each other.
+4. We can zoom more to the character. And the magic pot can be bigger.
+
+###
+
+What changed
+
+1. Clicks — replaced the UGUI raycaster with an explicit one. Every part of the PhysicsRaycaster setup checked out statically (masks, EventSystem, colliders, presenter wiring, even the package source), which pins the failure on the known-fragile combination of UGUI raycasting through a URP overlay camera. The new StageClickRouter on the StageCamera raycasts from the stage camera itself on pointer press (Input System), skips clicks that land on HUD elements, and forwards hits via the new BubbleView.NotifyClicked() — so pot bubbles and the crafted result both work through the existing event chain. IPointerClickHandler and the PhysicsRaycaster are removed, leaving a single deterministic click path that's automatically inert while the stage camera is disabled.
+
+2. Transparency — a real bug. The shell material was already transparent (alpha 0.25), but BubbleView was writing the artifact tint — alpha 1 in all seven definitions — into the shell's _BaseColor property block, overriding the material. The shell now keeps the tint's hue but forces a serialized _shellAlpha (0.25, tunable on Bubble.prefab), so the artifact inside is visible.
+
+3. Depth — bubbles now spread in 3D. BubblePlacement gained a Z component and BubbleLayoutCalculator distributes depth deterministically with a plastic-ratio sequence (decorrelated from the golden-angle spiral), bounded by a new _potInteriorHalfDepth (0.12) on PotView. Under the perspective stage camera, near bubbles render larger and overlap far ones. Three new tests cover depth bounds, variation, and the flat-at-zero case.
+
+4. Framing. Belly zoom: the Main Camera is orthographic, so the only knob that matters is the BellyCamera Cinemachine lens — OrthographicSize 1 → 0.65 (~35% tighter on the character). Pot size: StageCamera moved from z −2 to −1.6 (~25% bigger on screen); I checked the crafting result anchor still fits in frame at the new distance.
+
+Docs (inventory-subsystem.md) are updated, including new requirement R11a documenting why the stage uses explicit raycasting.
+
+Check in the editor
+
+When you hit Play: bubble click stages the item (try it while bubbles bob); the Close button should not click through to bubbles behind it; shells translucent with artifacts visible; bubbles at varied depths overlapping; tighter zoom and larger pot. If the zoom/pot values aren't to taste they're one-field edits: BellyCamera lens OrthographicSize in the scene, and the StageCamera's local Z in InventoryStage.prefab.

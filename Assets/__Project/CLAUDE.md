@@ -1,287 +1,227 @@
 # AI Coding Rules for Unity Project (C#)
 
 This document defines **mandatory rules** for AI-assisted development in this Unity project.
-These rules represent the **architectural constitution** of the project and must be followed at all times.
+These rules are the **architectural constitution** of the project and must be followed at all times.
 
-If a user request conflicts with these rules, **the rules override the request** unless an explicit exception is approved.
+If a user request conflicts with these rules, **the rules override the request** unless an explicit
+exception is approved in that conversation.
+
+---
+
+## 0. How AI must work (read first)
+
+Before writing or changing any code, AI MUST produce a short plan:
+
+1. **Restate the goal** in one or two sentences.
+2. **Describe the proposed architecture** — which layer each new class lives in, its single
+   responsibility, and the dependency flow (always inward).
+3. **State the documentation impact**: which doc(s) in `Assets/__Project/Docs/` change, whether a
+   new ScriptableObject type or content recipe is introduced, and the CHANGELOG / ROADMAP edits the
+   change will carry. See §8 — this is not optional.
+
+Then, when delivering code, AI MUST:
+
+* Explain **why** this solution was chosen, not only what it does.
+* Point out trade-offs and any rule tension.
+* Suggest improvements, and add them to the ROADMAP per §8 rather than silently expanding scope.
+
+If a request violates SOLID, KISS, MVP, or any rule here: propose a compliant alternative and
+explain why the original is problematic — do not quietly comply.
+
+**Effort calibration.** For a single-class or single-system change, a brief plan is enough. For any
+change that crosses systems, alters a public contract, or introduces a new ScriptableObject type,
+think hard first (`ultrathink`) and write the plan into the relevant doc before coding.
+
+A change is **not complete** until its code, its tests, its system doc, the CHANGELOG, and (if
+scope changed) the ROADMAP are all updated **in the same change**. Stale docs are treated as bugs.
 
 ---
 
 ## 1. Absolute Rules (Non‑Negotiable)
 
-* MUST follow **SOLID** and **KISS** principles at all times
-* MUST use **Zenject** for dependency injection
-* MUST use **MVP (Model–View–Presenter)** as the default architectural pattern
-* MUST keep **MonoBehaviour classes thin** and logic‑free
-* MUST prioritize **readability, testability, and maintainability** over speed of writing
-* MUST use English in .md files and as the only language for comments
+* MUST follow **SOLID** and **KISS** at all times.
+* MUST use **Zenject** for dependency injection.
+* MUST use **MVP (Model–View–Presenter)** as the default architectural pattern.
+* MUST keep **MonoBehaviour classes thin** and logic‑free (adapters only).
+* MUST prioritize **readability, testability, and maintainability** over speed of writing.
+* MUST use **English** in all `.md` files and as the only language for code comments.
+* MUST keep content extension **data‑driven**: new game content (abilities, artifacts, biomes,
+  NPCs, stories, quests, body parts, …) is added by authoring ScriptableObjects + assets, **not**
+  by writing code. If new content cannot be added without code, that is a design gap — record it
+  in the ROADMAP (§8) and prefer fixing the data path over hard‑coding.
 
 ---
 
 ## 2. Architectural Overview
 
-The project follows **Clean Architecture** with **MVP**:
+The project follows **Clean Architecture** with **MVP**. Dependencies always point inward.
 
-### Layers
+* **Domain / Core** — pure C# logic, **no UnityEngine references**, business rules and domain models.
+* **Application** — use cases, presenters, application services.
+* **Infrastructure** — Unity-specific code: input, UI, audio, persistence, MonoBehaviour adapters.
 
-* **Domain / Core**
-
-  * Pure C# logic
-  * No UnityEngine references
-  * Business rules and domain models
-
-* **Application**
-
-  * Use cases
-  * Presenters
-  * Application services
-
-* **Infrastructure**
-
-  * Unity-specific code
-  * Input, UI, Audio, Persistence
-  * MonoBehaviour adapters
-
-> Dependencies must always point inward.
+Visual/gameplay-infrastructure systems where literal MVP does not apply (e.g. the character system)
+still keep the spirit: a testable pure-C# domain, thin MonoBehaviours, constructor-injected plain
+classes. The layering rule (Core has no UnityEngine reference; it is unit-testable) is never waived.
 
 ---
 
 ## 3. MVP Rules
 
-### Model
+**Model** — pure C# classes; domain state and rules; framework-agnostic; fully unit-testable.
 
-* Pure C# classes
-* Contains domain state and rules
-* Framework-agnostic
-* Fully unit-testable
+**View** — implements a View interface; inherits MonoBehaviour; **no business logic**; handles only
+Unity UI, visual updates, and forwarding user input to the Presenter.
 
-### View
+**Presenter** — pure C# class; **NEVER** inherits MonoBehaviour; contains application logic; depends
+only on interfaces; coordinates View and Model.
 
-* Implements a **View interface**
-* Inherits from MonoBehaviour
-* Contains **NO business logic**
-* Handles only:
-
-  * Unity UI
-  * Visual updates
-  * Forwarding user input to Presenter
-
-### Presenter
-
-* Pure C# class
-* NEVER inherits from MonoBehaviour
-* Contains application logic
-* Depends only on **interfaces**
-* Coordinates View and Model
-
-### Communication Rules
-
-* View → Presenter (events / method calls)
-* Presenter → View (interface methods)
-* Presenter → Model (interfaces)
-* View NEVER talks to Model directly
+**Communication:** View → Presenter (events / method calls); Presenter → View (interface methods);
+Presenter → Model (interfaces). **View never talks to Model directly.**
 
 ---
 
 ## 4. Dependency Injection (Zenject)
 
-* Zenject MUST be used for all dependency management
-* All bindings must be declared in **Installers**
-* Manual service locators are FORBIDDEN
-
-### Injection Rules
-
-* Prefer **constructor injection** for pure C# classes
-* Use field/property injection ONLY for MonoBehaviour adapters
-* Never resolve dependencies manually at runtime
-
-> If a class has many dependencies, reconsider its responsibilities (SRP violation).
+* Zenject MUST be used for all dependency management; all bindings live in **Installers**.
+* Manual service locators are **FORBIDDEN**.
+* Prefer **constructor injection** for pure C# classes; use field/property injection ONLY for
+  MonoBehaviour adapters; never resolve dependencies manually at runtime.
+* If a class has many dependencies, reconsider its responsibilities (likely an SRP violation).
 
 ---
 
 ## 5. Unity‑Specific Rules
 
-* MonoBehaviours act only as **adapters**
-* Business logic inside MonoBehaviours is FORBIDDEN
-
-### Update Usage
-
-* Avoid logic inside `Update()`
-* Prefer:
-
-  * Events
-  * Signals
-  * Coroutines
-  * State machines
-
-### Forbidden Unity APIs
-
-* FindObjectOfType
-* GameObject.Find
-* GetComponent inside Update
-
-All required references must be cached or injected.
+* MonoBehaviours act only as **adapters**; business logic inside them is **FORBIDDEN**.
+* Avoid logic inside `Update()`; prefer events, signals, coroutines, state machines.
+* **Forbidden APIs:** `FindObjectOfType`, `GameObject.Find`, `GetComponent` inside `Update`.
+  All references must be cached or injected.
 
 ---
 
 ## 6. Communication & Events
 
-* Prefer **event-driven architecture**
-
-* Use:
-
-  * C# events / Actions
-  * Zenject Signals
-
-* Avoid tight coupling between systems
-
-* Never reference concrete implementations across layers
-
-### Input Handling
-
-* MUST use **Unity Input System**
-* Input handling must be abstracted behind interfaces
-* Input events must be forwarded to **Presenters**, never handled directly in Views
+* Prefer **event-driven architecture**: C# events / `Action`s, or Zenject Signals.
+* Avoid tight coupling; never reference concrete implementations across layers.
+* **Input:** MUST use the Unity Input System, abstracted behind interfaces, forwarded to Presenters —
+  never handled directly in Views.
 
 ---
 
-## 7. ScriptableObject Usage
+## 7. ScriptableObject Usage (data-driven content)
 
-* ScriptableObject is allowed ONLY for:
-
-  * Configuration
-  * Static data
-
-* Logic inside ScriptableObject is FORBIDDEN
-
----
-
-## 8. Error Handling & Debugging
-
-* Implement error handling using `try-catch` blocks where appropriate
-
-  * Especially for file I/O, persistence, and network operations
-
-* Use a **custom Utils/Logger abstraction** for logging
-
-  * Logger may internally use `Debug.Log`, `Debug.LogWarning`, `Debug.LogError`
-  * Direct usage of `Debug.*` outside infrastructure layer is discouraged
-
-* Implement meaningful custom error messages
-
-* Use debug visualizations (e.g. Gizmos, debug overlays) where they improve development experience
+* ScriptableObject is allowed ONLY for **configuration and static data**. Logic inside a
+  ScriptableObject is **FORBIDDEN** (eligibility helpers may be pure predicates over their own data).
+* ScriptableObjects are the project's **content extension surface**. Every content type a designer
+  can add must be expressible as one SO asset (plus referenced assets such as an Ink JSON, icon,
+  prefab, or mesh).
+* SO → Core conversion happens through an explicit mapper at install/generation time (the only
+  bridge from the Data layer into Core). Core records never hold Unity types.
+* **Every SO type MUST be documented** in its system's doc (§8): asset-menu path, every field with
+  its meaning, the `Resources/` load path or installer wiring, and the step-by-step recipe to add a
+  new instance. A new SO type without doc coverage is an incomplete change.
 
 ---
 
-## 9. Testability Rules
+## 8. Documentation Discipline (Docs / CHANGELOG / ROADMAP)
 
-* All business logic MUST be testable without Unity
-* No static state in domain or application layers
-* No hidden dependencies
+All project documentation lives in **`Assets/__Project/Docs/`**. It is the maintained source of
+truth: **if code and a doc disagree, the doc is wrong and must be fixed in the same change.**
 
-> If logic is hard to test, it must be refactored.
+### 8.1 System docs
 
----
+* **One `.md` per system or subsystem.** New system → new doc, added to `Docs/README.md`.
+* Every system doc MUST follow `Docs/_TEMPLATE.md`, which mandates, in order:
+  requirements → architecture → **ScriptableObject Reference** → **Adding Content** → tests →
+  known limitations / open points.
+* The **ScriptableObject Reference** section lists every SO type the system owns: asset-menu path,
+  field-by-field table, load/wiring convention.
+* The **Adding Content** section is an **asset-only, step-by-step recipe** for each content type the
+  system exposes (e.g. "Add an ability", "Add an artifact", "Add a biome", "Add an NPC",
+  "Add a story / quest", "Add a body part"). A designer must be able to follow it without reading code.
+* Docs describe systems **as implemented**. Planned/unimplemented behavior appears ONLY under a
+  clearly marked "Known limitations / open points" or "Planned design (NOT implemented)" heading.
 
-## 9. Code Quality Standards
+### 8.2 CHANGELOG
 
-### Structure
+* Single file: `Assets/__Project/Docs/CHANGELOG.md`, reverse-chronological, "Keep a Changelog" style
+  (grouped Added / Changed / Fixed / Removed under a dated, system-tagged entry).
+* **Every functional change appends an entry in the same change as the code.** Reference the
+  affected system and, where useful, the requirement id (e.g. `Loot R7`).
 
-* One class per file
-* File name MUST match class name
-* Namespaces must reflect architectural layer and context
+### 8.3 ROADMAP
 
-### Methods & Classes
-
-* Each class has one responsibility
-* Methods must be small and focused
-
-### Naming
-
-* Use intention‑revealing names
-* Avoid abbreviations
-* Avoid vague names
-
-### Constants
-
-* Magic numbers are FORBIDDEN
-* Use constants or configuration objects
-
-### Comments
-
-* Comment **WHY**, not WHAT
-* Do not comment obvious code
+* Single file: `Assets/__Project/Docs/ROADMAP.md`, checkbox items grouped by system plus a backlog.
+* AI MUST update the ROADMAP whenever:
+  * the user states a **new requirement** → add it as an unchecked item under the right system;
+  * AI itself **proposes an enhancement, refactor, or notices a limitation** → add it (do not just
+    mention it in chat and forget it);
+  * an item is **implemented** → check it off and move the substance into the CHANGELOG.
+* A system doc's "Known limitations / open points" entries and the ROADMAP must stay consistent:
+  fixing a limitation removes it from both the doc and the roadmap and adds a CHANGELOG line.
 
 ---
 
-## 10. Performance Rules
+## 9. Error Handling & Debugging
 
-* Avoid runtime allocations in hot paths
-* Avoid LINQ in performance‑critical code
-* Optimize only after profiling confirms a problem
-
----
-
-## 11. Design Patterns
-
-Patterns are allowed ONLY if they reduce complexity.
-
-Preferred patterns:
-
-* MVP
-* State
-* Strategy
-* Observer
-* Factory
-
-Patterns used without justification are considered violations.
+* Use `try-catch` where appropriate, especially for file I/O, persistence, and network operations.
+* Log through the **custom Utils/Logger abstraction** (`IGameLogger`). Direct `Debug.*` outside the
+  infrastructure layer is discouraged; domain/application code using `Debug.*` is a rule violation
+  and belongs on the ROADMAP until fixed.
+* Write meaningful, custom error messages. Use debug visualizations (Gizmos, overlays) where they
+  improve the development experience.
 
 ---
 
-## 12. Explicit Anti‑Patterns (Forbidden)
+## 10. Testability
 
-* God MonoBehaviours
-* Static service managers
-* Global state
-* Hidden dependencies
-* Tight coupling between systems
-* Business logic in Views
+* All business logic MUST be testable without Unity (edit-mode NUnit in `Assets/__Project/Tests/`).
+* No static state and no hidden dependencies in domain or application layers.
+* If logic is hard to test, refactor it.
 
 ---
 
-## 13. AI Meta‑Rules
+## 11. Code Quality
 
-Before writing code, AI MUST:
-
-1. Briefly describe the proposed architecture
-2. Explain responsibilities of each class
-3. Describe dependency flow
-
-When providing code, AI MUST:
-
-* Explain WHY this solution was chosen
-* Point out trade‑offs
-* Suggest improvements if applicable
-
-If a request violates SOLID, KISS, MVP, or these rules:
-
-* Propose a compliant alternative
-* Explain why the original request is problematic
+* One class per file; file name matches class name; namespaces reflect architectural layer + context.
+* One responsibility per class; small, focused methods.
+* Intention-revealing names; no abbreviations or vague names.
+* **Magic numbers FORBIDDEN** — use constants or configuration objects.
+* Comment **WHY**, not WHAT; do not comment obvious code.
 
 ---
 
-## 15. Context7
+## 12. Performance
 
-Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+* Avoid runtime allocations in hot paths; avoid LINQ in performance-critical code.
+* Optimize only after profiling confirms a problem.
+
+---
+
+## 13. Design Patterns
+
+Patterns are allowed ONLY when they reduce complexity. Preferred: MVP, State, Strategy, Observer,
+Factory. A pattern used without justification is a violation.
+
+---
+
+## 14. Explicit Anti‑Patterns (Forbidden)
+
+God MonoBehaviours · static service managers · global state · hidden dependencies · tight coupling
+between systems · business logic in Views.
+
+---
+
+## 15. Tooling
+
+* Always use the **Context7 MCP** when library/API documentation, code generation, or setup/config
+  steps are needed — without being asked explicitly.
+
+---
 
 ## 16. Final Principle
 
-This is a **production‑quality Unity project**.
-
-All code must be written as if:
-
-* It will be maintained long‑term
-* It will be worked on by a team
-* It will require extension and testing
-
-Short‑term hacks are NOT acceptable.
+This is a **production-quality Unity project**. Write all code as if it will be maintained
+long-term, extended, and tested. Short-term hacks are not acceptable — and neither is undocumented
+work (§8).

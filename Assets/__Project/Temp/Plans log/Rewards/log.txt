@@ -1,0 +1,73 @@
+Plan implementing a data-driven rewards (loot) system that integrates with procedural level generation. Artifacts can be acquired through quest completion, enemy defeats, or discovery on level platforms. The system must support biome-specific artifact pools and be extensible for future player progression mechanics.
+
+Core Functionality
+
+Biome-to-artifact mappings with spawn probabilities per condition (quest/enemy drop/platform spawn)
+Integration with Procedural Level Generation
+
+ • Modify the procedural generation pipeline to include artifact placement:
+ • Platform spawns: Randomly place artifacts on generated platforms with biome-adjusted probability
+ • Quest rewards. loot rewards: Artifact rewards are procedurally determined. The same quest may result into different reawrds from game run to another game run. Still some logic in rewards determinism should exist. NPC/Quest tags may influence the reward, as well as player progression and biome settings. There could be bonus rewards system - when certains enemies or quests amy provide fixed extra rewards with low probability but high value.
+ • Loot tables: So for extra rewards obtained from an enemy we may maintain Enemy loot pools defined in enemy data, referencing artifact IDs and probabilities.
+
+Artifact Acquisition
+
+Quest Completion
+
+ • When a quest is completed, grant the specified artifact directly to player inventory (no pickup animation needed)
+
+Enemy Defeat
+
+ • When enemy dies spawn artifact entity at enemy death location
+ • Artifact waits on platform for player interaction
+
+Platform Discovery
+
+ • Artifacts placed on platforms during level generation are immediately interactable
+
+Artifact Pickup Interaction
+
+ • When player collides with or interacts with an artifact entity:
+ • Animation: Play placeholder pickup animation (e.g., fade + scale, or float towards player)
+ • Duration: ~0.5 seconds (configurable)
+ • Result: Artifact removed from world, added to player inventory
+ • If inventory is full: Use appropriate feedback/handling logic
+
+Visual Presentation
+
+World Artifacts (3D Depth)
+
+ • Artifacts displayed in the game world should have visual depth:
+ • Use drop shadows or offset shadows beneath the artifact icon
+ • Apply subtle gradient or shading to icon to suggest 3D form
+ • Optional: Layer/parallax effect if multiple shadow planes used
+ • Visual approach: Enhance flat sprite icons with shadow/depth cues (no full 3D model needed unless already in pipeline)
+
+Pickup Animation
+
+ • Play animation when player collides with artifact:
+ • Scale: Slightly grow then shrink into a “gathered” state
+ • Opacity/Fade: Optional fade-out to reinforce pickup
+ • Position: Optionally move slightly towards player during animation
+ • Use placeholder animation initially (can be replaced with more sophisticated visuals later)
+
+Data-Driven Design
+
+All content must be configurable without code changes:
+
+ • Biome mappings: Assign artifacts to biomes and set spawn probabilities in config
+ • Quest rewards. loot rewards: Artifact rewards are procedurally determined. The same quest may result into different reawrds from game run to another game run. Still some logic in rewards determinism should exist. NPC/Quest tags may influence the reward, as well as player progression and biome settings. There could be bonus rewards system - when certains enemies or quests amy provide fixed extra rewards with low probability but high value.
+ • Loot tables: So for extra rewards obtained from an enemy we may maintain Enemy loot pools defined in enemy data, referencing artifact IDs and probabilities.
+ • Animation timings: Pickup animation duration configurable
+
+Future Extensibility
+
+Design with the following future requirements in mind (do not implement now, but structure code to support):
+
+ • Player progression influence: Artifact pools should be filterable by player level, completed quests, and achievements
+ • Add optional fields to artifact config: min_player_level, required_achievements, required_past_quests
+ • Modify generation logic to accept player state as parameter (future expansion)
+ • Conditional artifact appearance: Support rules-based filtering of artifact pools based on player state
+ • Dynamic difficulty scaling: Artifact rarity/quality should potentially adjust based on player progression
+
+#####

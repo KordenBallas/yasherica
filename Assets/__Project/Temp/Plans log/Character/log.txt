@@ -1,0 +1,38 @@
+What was built
+
+Core domain (Scripts/CharacterSystem/Core/, pure C#, no UnityEngine) — SocketCatalog (the Tier-1 + Tier-2 socket union with diff events), CharacterAssemblyState, BoneMapResolver, and AssemblyValidator (missing bones, duplicate socket ids, skeleton mismatch, duplicate slots). All covered by four new EditMode test fixtures.
+
+Data layer (Scripts/CharacterSystem/Data/) — six ScriptableObject definitions (Skeleton, Slot, Socket, Part, Attachment, CharacterAssembly), part/attachment catalogs mirroring ArtifactCatalog, and DefinitionMapper as the only SO→Core bridge.
+
+Runtime (Scripts/CharacterSystem/Runtime/) — ModularCharacterFactory builds a character from an assembly definition; CharacterAssemblyController orchestrates PartSwapExecutor (Animator-safe bone remap by name — the Animator is never rebound, so swaps can't T-pose) and SocketMounter (socket transforms + attachment policy: re-parent if the socket id survives a swap, destroy with a log otherwise). Only two MonoBehaviours: CharacterRig and the ModularCharacter facade exposing SwapPart / AttachToSocket / DetachFromSocket / GetAvailableSockets. Zenject wiring in Scripts/Core/DI/CharacterSystemInstaller.cs.
+
+Editor tooling (Scripts/Editor/CharacterSystem/ under a new YashericaEditor.asmdef) — placeholder generators, an Assembly Preview window that builds through the real factory, socket gizmo drawing, and Part/Skeleton inspectors with validation plus "Bake Bone Names From Prefab" (the future FBX ingestion path). The new asmdef also fixes a latent build breaker: your two existing editor scripts were compiling into the runtime assembly.
+
+Docs — Assets/__Project/Docs/character-system.md in the established requirements-first format.
+
+To see it working (in Unity)
+
+1. Tools → Character System → Generate Placeholder Assets — creates the 27-bone rig (with tail/wings/ears), a looping idle animation, 13 part variants, sockets, and attachments under Resources/CharacterSystem/.
+2. Tools → Character System → Assembly Preview — assemble in-editor, toggle socket gizmos.
+3. For runtime: add CharacterSystemInstaller to the scene's SceneContext, then Tools → Character System → Place Demo Character In Scene and press Play. The bootstrap's context menu lets you swap to B-variant parts mid-animation (watch the tail keep wagging), attach the sword/hat/club, and log available sockets — swapping Torso A→B makes the wing sockets disappear and destroys wing attachments, demonstrating Tier-2 tracking.
+
+One note: no .meta files exist yet for the new files — Unity will generate them the next time the editor window gets focus and imports.
+
+###
+
+What I built
+
+ModularCharacterVisual (Scripts/CharacterSystem/Runtime/ModularCharacterVisual.cs) — a thin adapter you put on the Hero. On Start() it hides the capsule renderer, calls ModularCharacterFactory.Create(assembly, transform) to assemble the model as a child of the Hero, and positions it (defaults: localPosition (0,-1,0), scale 1.25 to fill the 2-unit capsule). Exposes the assembled IModularCharacter. Because the rig is parented under the Hero root, movement, facing, and the camera all keep working untouched.
+
+HeroModularVisualSetup (Scripts/Editor/CharacterSystem/HeroModularVisualSetup.cs) — menu item Tools/Character System/Attach Modular Visual To Hero that wires the Hero prefab (adds the component, assigns the placeholder assembly + capsule MeshRenderer) via LoadPrefabContents/SaveAsPrefabAsset, so no YAML is hand-edited.
+
+Your steps in Unity
+
+1. Run Tools → Character System → Attach Modular Visual To Hero.
+2. Delete the standalone CharacterSystemDemo object from the scene (otherwise you'll have two characters).
+3. Press Play — the capsule disappears, the model stands at the Hero's spawn point playing the idle, and moves/turns with your input while the camera follows.
+
+If the proportions look off, nudge _localPosition / _localScale on the Hero's ModularCharacterVisual component in the Inspector.
+
+Note: the model plays idle even while walking — walk/run locomotion was deferred per your choice, and it's a clean follow-up (read CharacterController.velocity into an Animator speed parameter + a walk clip) whenever you want it.
+
