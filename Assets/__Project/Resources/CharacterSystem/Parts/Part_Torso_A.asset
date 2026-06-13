@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25430177c8d611545a60df7399d5a0f6, type: 3}
+  m_Name: Part_Torso_A
+  m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
+  _id: part.torso.a
+  _slot: {fileID: 11400000, guid: 4732ab9c6da821046a9e68a88900260d, type: 2}
+  _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
+  _partPrefab: {fileID: 584835647109937751, guid: 742c1450670108b489b770f04be3e079, type: 3}
+  _boneNames:
+  - Spine
+  - Chest
+  - Wing.L
+  - Wing.R
+  _contributedSockets:
+  - {fileID: 11400000, guid: 5cfa1cf7487d42d49b61bf734e72755d, type: 2}
+  - {fileID: 11400000, guid: 42935f482af6fd04598e4fd5d4af7bbe, type: 2}

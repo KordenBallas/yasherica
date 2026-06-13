@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51714cd3b4b0a31478adc4c4a2eee452, type: 3}
+  m_Name: Attachment_Sword
+  m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.AttachmentDefinition
+  _id: attachment.sword
+  _prefab: {fileID: 2465479061165241283, guid: a5a8f9082c8e2fd47937863e38cff5f9, type: 3}
+  _socketId: socket.palm.r
+  _localPosition: {x: 0, y: 0, z: 0.2}
+  _localRotationEuler: {x: 0, y: 0, z: 0}
+  _localScale: {x: 1, y: 1, z: 1}

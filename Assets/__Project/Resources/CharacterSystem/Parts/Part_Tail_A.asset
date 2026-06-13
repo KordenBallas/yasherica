@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25430177c8d611545a60df7399d5a0f6, type: 3}
+  m_Name: Part_Tail_A
+  m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
+  _id: part.tail.a
+  _slot: {fileID: 11400000, guid: 0f4fc15c574ccbf418982851d15ae25a, type: 2}
+  _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
+  _partPrefab: {fileID: 4097689084767138645, guid: 7fe8420fcd31b12448cd85b7ff40ee3a, type: 3}
+  _boneNames:
+  - Tail.0
+  - Tail.1
+  - Tail.2
+  _contributedSockets:
+  - {fileID: 11400000, guid: 321e274d92bd2df4ab100ef1b58c2233, type: 2}
