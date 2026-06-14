@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CharacterSystem.Data.Definitions;
 using CharacterSystem.Runtime;
 using Core.DI;
@@ -30,26 +31,34 @@ namespace Editor.CharacterSystem
         {
             RecreateFolders();
 
-            var materials = CreateMaterials();
-            var rigContext = CreateRig();
-
+            RigContext rigContext = null;
             try
             {
+                var materials = CreateMaterials();
+                rigContext = CreateRig();
+
                 var slots = CreateSlotDefinitions();
                 var sockets = CreateSocketDefinitions();
                 var skeleton = CreateSkeletonDefinition(rigContext.RigPrefab, sockets);
                 var parts = CreatePartDefinitions(rigContext.SceneBones, materials, slots, sockets, skeleton);
                 CreateAttachmentDefinitions(materials);
                 CreateAssemblyDefinition(skeleton, parts);
+
+                Debug.Log($"[PlaceholderCharacterGenerator] Placeholder character assets generated under {RootFolder}.");
             }
             finally
             {
-                Object.DestroyImmediate(rigContext.SceneInstance);
-            }
+                // SaveAssets MUST run even if generation throws: definitions are configured via
+                // SerializedObject in memory and only persisted by SaveAssets. Skipping it (the old
+                // bug — SaveAssets sat after the try) left every definition as a blank shell on disk.
+                if (rigContext != null)
+                {
+                    Object.DestroyImmediate(rigContext.SceneInstance);
+                }
 
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            Debug.Log($"[PlaceholderCharacterGenerator] Placeholder character assets generated under {RootFolder}.");
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+            }
         }
 
         [MenuItem("Tools/Character System/Place Demo Character In Scene")]
@@ -107,12 +116,13 @@ namespace Editor.CharacterSystem
                 installer = sceneContext.gameObject.AddComponent<CharacterSystemInstaller>();
             }
 
-            var serializedContext = new SerializedObject(sceneContext);
-            var installersProperty = serializedContext.FindProperty("_installers");
-            var insertIndex = installersProperty.arraySize;
-            installersProperty.InsertArrayElementAtIndex(insertIndex);
-            installersProperty.GetArrayElementAtIndex(insertIndex).objectReferenceValue = installer;
-            serializedContext.ApplyModifiedPropertiesWithoutUndo();
+            // Register through the public Installers property (its setter writes _monoInstallers).
+            // FindProperty("_installers") returns null: the field is _monoInstallers with
+            // [FormerlySerializedAs("_installers")], which SerializedObject.FindProperty ignores.
+            var installers = sceneContext.Installers.ToList();
+            installers.Add(installer);
+            sceneContext.Installers = installers;
+            EditorUtility.SetDirty(sceneContext);
 
             Debug.Log("[PlaceholderCharacterGenerator] Registered CharacterSystemInstaller on the SceneContext.");
         }
@@ -131,7 +141,8 @@ namespace Editor.CharacterSystem
             var rigRoot = PlaceholderRigBuilder.BuildRigInScene("PlaceholderRig", out var bones);
 
             var idleClip = PlaceholderAnimationBuilder.BuildIdleClip($"{RootFolder}/Animation/PlaceholderIdle.anim");
-            var controller = PlaceholderAnimationBuilder.BuildController(idleClip, $"{RootFolder}/Animation/PlaceholderIdle.controller");
+            var runClip = PlaceholderAnimationBuilder.BuildRunClip($"{RootFolder}/Animation/PlaceholderRun.anim");
+            var controller = PlaceholderAnimationBuilder.BuildController(idleClip, runClip, $"{RootFolder}/Animation/PlaceholderLocomotion.controller");
             rigRoot.GetComponent<Animator>().runtimeAnimatorController = controller;
 
             var rigPrefab = PrefabUtility.SaveAsPrefabAsset(rigRoot, $"{RootFolder}/Skeletons/PlaceholderRig.prefab");

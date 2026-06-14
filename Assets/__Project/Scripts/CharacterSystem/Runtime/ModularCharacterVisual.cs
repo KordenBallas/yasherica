@@ -25,6 +25,9 @@ namespace CharacterSystem.Runtime
 
         public IModularCharacter Character { get; private set; }
 
+        /// <summary>The assembled rig's Animator, available after <see cref="Start"/> (null until then).</summary>
+        public Animator Animator { get; private set; }
+
         private void Start()
         {
             if (_placeholderRenderer != null)
@@ -44,6 +47,7 @@ namespace CharacterSystem.Runtime
             rigTransform.localScale = _localScale;
 
             Character = character;
+            Animator = character.GetComponent<ICharacterRig>()?.Animator;
         }
     }
 }

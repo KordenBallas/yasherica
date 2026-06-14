@@ -3069,6 +3069,7 @@ GameObject:
   m_Component:
   - component: {fileID: 751937880}
   - component: {fileID: 751937879}
+  - component: {fileID: 751937881}
   m_Layer: 0
   m_Name: SceneContext
   m_TagString: Untagged
@@ -3095,6 +3096,7 @@ MonoBehaviour:
   - {fileID: 900100021}
   - {fileID: 1999000003}
   - {fileID: 1953892005}
+  - {fileID: 751937881}
   _installerPrefabs: []
   _autoRun: 1
   OnPreInstall:
@@ -3127,6 +3129,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &751937881
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 751937875}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3f4021d74dcc174dbc5c56f9f1fe795, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Yasherica::Core.DI.CharacterLocomotionInstaller
+  _config: {fileID: 11400000, guid: bcbca9997b77acc41891fdafc6dba97e, type: 2}
 --- !u!1 &752897540
 GameObject:
   m_ObjectHideFlags: 0
@@ -5528,62 +5543,6 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!1 &1501761667
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1501761668}
-  - component: {fileID: 1501761669}
-  m_Layer: 0
-  m_Name: CharacterSystemDemo
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1501761668
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1501761667}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1501761669
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1501761667}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ce2c693485b54694ba2e83a833808c6c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Yasherica::CharacterSystem.Runtime.CharacterSystemDemoBootstrap
-  _assembly: {fileID: 11400000, guid: fc1ee46c28382e64381e6548974aa94f, type: 2}
-  _alternateParts:
-  - {fileID: 11400000, guid: 85012f2e469f6b441900f182094ca650, type: 2}
-  - {fileID: 11400000, guid: 99a713111d8eb9747882a313a20d4994, type: 2}
-  - {fileID: 11400000, guid: bd81d9e7eaf0e5547a88311a22b9d3f7, type: 2}
-  - {fileID: 11400000, guid: ecc3326cfee7aeb47af4c5b99bd044d8, type: 2}
-  - {fileID: 11400000, guid: ca6f89d73b654d640aee367b81343283, type: 2}
-  - {fileID: 11400000, guid: c68f29fc193de7846bce35e250c93bfa, type: 2}
-  _attachments:
-  - {fileID: 11400000, guid: 88fd000a1f3be344792d5b77e34b832f, type: 2}
-  - {fileID: 11400000, guid: a75d7471e79f15f4eb15c869d2a50854, type: 2}
-  - {fileID: 11400000, guid: 3b87286da2f256a4fae4e86b8c950dca, type: 2}
 --- !u!1 &1510387348
 GameObject:
   m_ObjectHideFlags: 0
@@ -7656,4 +7615,3 @@ SceneRoots:
   - {fileID: 900200000}
   - {fileID: 1999000002}
   - {fileID: 1953892006}
-  - {fileID: 1501761668}

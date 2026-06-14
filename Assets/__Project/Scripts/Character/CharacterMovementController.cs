@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Platform;
 using Core.Events;
+using Character.Locomotion;
 using Zenject;
 
 namespace Character
@@ -13,7 +14,7 @@ namespace Character
     /// Dash mechanic implemented exactly as in Demo CharacterDashController.
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
-    public class CharacterMovementController : MonoBehaviour, IMovementInputLock
+    public class CharacterMovementController : MonoBehaviour, IMovementInputLock, ICharacterVelocityProvider
     {
     [Header("Input")]
     [SerializeField] private InputActionReference moveAction;
@@ -30,8 +31,15 @@ namespace Character
 
     private CharacterController cc;
     private Vector3 velocity;
+    private Vector3 _planarVelocity;
 
     private IPlatform currentPlatform;
+
+    /// <summary>ICharacterVelocityProvider: world-space horizontal velocity intent this frame (zero when idle).</summary>
+    public Vector3 PlanarVelocity => _planarVelocity;
+
+    /// <summary>ICharacterVelocityProvider: top planar speed, used to normalize the run blend.</summary>
+    public float MaxPlanarSpeed => moveSpeed;
     
     [Inject] private ICharacterRegistry _characterRegistry;
 
@@ -179,6 +187,10 @@ namespace Character
         Vector3 moveDir = new Vector3(input.x, 0f, input.y);
 
         if (moveDir.sqrMagnitude > 1f) moveDir.Normalize();
+
+        // Expose the movement intent (direction * speed) for the locomotion presenter to
+        // drive the run blend and facing. Analog input under full deflection scales the blend.
+        _planarVelocity = moveDir.sqrMagnitude > 0.0001f ? moveDir * moveSpeed : Vector3.zero;
 
         if (moveDir.sqrMagnitude > 0.01f)
         {

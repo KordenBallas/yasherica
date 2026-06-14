@@ -1,3 +1,4 @@
+using Character.Locomotion;
 using CharacterSystem.Data.Definitions;
 using CharacterSystem.Runtime;
 using UnityEditor;
@@ -46,8 +47,20 @@ namespace Editor.CharacterSystem
                 serialized.FindProperty("_placeholderRenderer").objectReferenceValue = root.GetComponent<MeshRenderer>();
                 serialized.ApplyModifiedPropertiesWithoutUndo();
 
+                // The locomotion view drives the run blend + facing off the same rig; it belongs on
+                // the Hero root next to the movement controller and is wired to this visual.
+                var locomotionView = root.GetComponent<CharacterLocomotionView>();
+                if (locomotionView == null)
+                {
+                    locomotionView = root.AddComponent<CharacterLocomotionView>();
+                }
+
+                var viewSerialized = new SerializedObject(locomotionView);
+                viewSerialized.FindProperty("_characterVisual").objectReferenceValue = visual;
+                viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+
                 PrefabUtility.SaveAsPrefabAsset(root, HeroPrefabPath);
-                Debug.Log("[HeroModularVisualSetup] Hero prefab wired to the modular model. Delete the standalone CharacterSystemDemo object from the scene, then press Play.");
+                Debug.Log("[HeroModularVisualSetup] Hero prefab wired to the modular model + locomotion view. Use 'Place Moving Hero In Scene', then press Play.");
             }
             finally
             {

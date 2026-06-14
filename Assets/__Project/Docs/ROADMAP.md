@@ -69,6 +69,20 @@ Known points (from `character-system.md`):
 
 ---
 
+## Character Locomotion
+
+Known limitations (from `character-locomotion.md` §6):
+- [ ] `[content]` Run clip is a procedural placeholder; no walk tier (blend is idle↔run only).
+- [ ] `[arch]` `Speed` has no acceleration smoothing — it tracks input instantly; add damping if the
+  blend looks abrupt.
+- [ ] `[arch]` Velocity reflects movement intent (`moveDir * moveSpeed`), so the character runs in
+  place when pushing into a wall; consider deriving from actual displacement.
+- [ ] `[arch]` Idle does not resync the solver's yaw from forced facing, so a turn-to-camera pose is
+  not preserved as the new heading once movement resumes.
+- [ ] `[debt]` The Hero is composed by an editor menu (`Place Moving Hero In Scene`), not shipped as a prefab.
+
+---
+
 ## Ability Subsystem
 
 - [ ] _seed from `ability-subsystem.md` "Known limitations" on next pass._

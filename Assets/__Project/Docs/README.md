@@ -12,6 +12,8 @@ Older documentation elsewhere in the repository may be stale; prefer this folder
 | [Narrative Generation](narrative-generation.md) | Requirements and design of procedural level narrative: story/NPC pools and filtering, density config, combat-capability matching, rewards, dialogue composition, planned compatibility scoring |
 | [Inventory Subsystem](inventory-subsystem.md) | Requirements and design of the magic pot inventory: container model, bubble visualization, belly camera zoom, combine crafting with data-driven artifacts/recipes, combat guard |
 | [Loot Subsystem](loot-subsystem.md) | Requirements and design of data-driven artifact rewards: biome loot tables, deterministic per-run rolls, platform discovery pickups, enemy drops, quest grants, world pickup visuals |
+| [Character System](character-system.md) | Requirements and design of the modular character: shared skeleton, swappable skinned body parts, two-tier sockets, runtime API, placeholder asset generation and preview tooling |
+| [Character Locomotion](character-locomotion.md) | Requirements and design of movement-driven animation: run blend on a `Speed` parameter and shortest-arc facing toward the travel direction, wired between the movement controller and the assembled rig |
 
 ## Conventions
 
