@@ -39,16 +39,22 @@ namespace Editor.CharacterSystem
         {
             var clip = new AnimationClip { name = "PlaceholderRun" };
 
+            // Sign of the fore/aft gait. Negating it mirrors every X-axis swing angle front-to-back,
+            // flipping the apparent travel direction. -1 makes the cycle read forward for the
+            // placeholder model (which faces -Z and is oriented forward by ModularCharacterVisual's
+            // 180 yaw). If the run ever reads reversed again, flip this to +1f.
+            const float RunGaitSign = -1f;
+
             // Two strides over the 2 s loop (frequency * ClipLength is integral, so it loops
             // seamlessly). Left/right limbs are half a cycle out of phase; arms counter-swing
             // the opposite leg; knees flex around a bent center; the spine bobs twice per stride.
-            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.L", Vector3.right, 35f, 1f, 0f);
-            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.R", Vector3.right, 35f, 1f, 0.5f);
-            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.L/LowerLeg.L", Vector3.right, 30f, 1f, 0.25f, -30f);
-            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.R/LowerLeg.R", Vector3.right, 30f, 1f, 0.75f, -30f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Shoulder.L/UpperArm.L", Vector3.right, 30f, 1f, 0.5f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Shoulder.R/UpperArm.R", Vector3.right, 30f, 1f, 0f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine", Vector3.right, 5f, 2f, 0f);
+            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.L", Vector3.right, RunGaitSign * 35f, 1f, 0f);
+            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.R", Vector3.right, RunGaitSign * 35f, 1f, 0.5f);
+            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.L/LowerLeg.L", Vector3.right, RunGaitSign * 30f, 1f, 0.25f, RunGaitSign * -30f);
+            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.R/LowerLeg.R", Vector3.right, RunGaitSign * 30f, 1f, 0.75f, RunGaitSign * -30f);
+            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Shoulder.L/UpperArm.L", Vector3.right, RunGaitSign * 30f, 1f, 0.5f);
+            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Shoulder.R/UpperArm.R", Vector3.right, RunGaitSign * 30f, 1f, 0f);
+            AddSwayCurve(clip, "Root/Pelvis/Spine", Vector3.right, RunGaitSign * 5f, 2f, 0f);
 
             return FinalizeLoopingClip(clip, assetPath);
         }

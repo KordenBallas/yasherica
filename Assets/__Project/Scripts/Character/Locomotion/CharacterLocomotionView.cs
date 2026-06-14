@@ -23,6 +23,13 @@ namespace Character.Locomotion
                 return;
             }
 
+            // No controller bound yet → skip before touching parameters, else Unity spams
+            // "Animator is not playing an AnimatorController" every frame.
+            if (animator.runtimeAnimatorController == null)
+            {
+                return;
+            }
+
             // Only write Speed if the active controller actually exposes it (e.g. before the run
             // blend tree is applied the rig may carry an idle-only controller). Re-check while false
             // so a late-initialized animator is still picked up; stop once found.

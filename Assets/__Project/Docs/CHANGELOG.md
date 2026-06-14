@@ -35,6 +35,16 @@ Every functional change appends an entry **in the same change as the code** (CLA
   rule.
 
 ### Fixed
+- **Character Locomotion:** the run animation stopped playing because the assembled rig's Animator
+  came up with no controller bound at runtime ("Animator is not playing an AnimatorController"),
+  despite the rig prefab referencing a valid controller. `ModularCharacterVisual` now binds the
+  controller in code at startup (a serialized `_animatorController`, else the placeholder controller
+  from Resources), and `CharacterLocomotionView` skips writing `Speed` until a controller is bound (no
+  warning spam).
+- **Character Locomotion:** the run gait no longer reads as moving backward. `BuildRunClip` now has a
+  `RunGaitSign` (−1) that mirrors the fore/aft swing of the legs/knees/arms/spine so the cycle reads
+  forward for the −Z-forward placeholder once it is oriented forward; flip to +1 to reverse. Applied
+  via `Rebuild Locomotion Controller` (run-clip content only; no rig regeneration).
 - **Character Locomotion:** the character no longer moves backward. The placeholder model faces −Z
   (tail/back on +Z), but the solver aims the rig's +Z at the velocity, so the back led. Fixed by a
   data-driven `ModularCharacterVisual._localRotationEuler` (default `(0,180,0)`) that orients the

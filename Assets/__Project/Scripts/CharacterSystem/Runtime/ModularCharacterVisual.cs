@@ -12,10 +12,18 @@ namespace CharacterSystem.Runtime
     /// </summary>
     public class ModularCharacterVisual : MonoBehaviour
     {
+        // The placeholder locomotion controller lives under Resources; used when no controller is
+        // assigned in the inspector. Binding it in code is reliable, unlike the rig prefab's
+        // serialized controller reference, which can come up unbound at runtime.
+        private const string DefaultControllerResourcePath = "CharacterSystem/Animation/PlaceholderLocomotion";
+
         [SerializeField] private CharacterAssemblyDefinition _assembly;
 
         [Tooltip("Capsule/placeholder renderer to hide once the model is assembled.")]
         [SerializeField] private Renderer _placeholderRenderer;
+
+        [Tooltip("Animator controller bound to the assembled rig at runtime. Leave empty to load the placeholder locomotion controller from Resources.")]
+        [SerializeField] private RuntimeAnimatorController _animatorController;
 
         [Header("Model placement under the host (tweak to fit the collider)")]
         [SerializeField] private Vector3 _localPosition = new Vector3(0f, -1f, 0f);
@@ -50,6 +58,20 @@ namespace CharacterSystem.Runtime
 
             Character = character;
             Animator = character.GetComponent<ICharacterRig>()?.Animator;
+
+            if (Animator != null)
+            {
+                // Bind the controller directly: a freshly-resolved asset reference is reliable,
+                // whereas the rig prefab's serialized controller can come up unbound at runtime
+                // ("Animator is not playing an AnimatorController").
+                var controller = _animatorController != null
+                    ? _animatorController
+                    : Resources.Load<RuntimeAnimatorController>(DefaultControllerResourcePath);
+                if (controller != null)
+                {
+                    Animator.runtimeAnimatorController = controller;
+                }
+            }
         }
     }
 }

@@ -96,6 +96,12 @@ the `LocomotionConfig`) on the SceneContext. None of them create, delete, or mov
 `CharacterLocomotionView` writes `Speed` only when the active controller exposes that float parameter,
 so a rig still on an idle-only controller degrades to facing-only without log spam.
 
+`ModularCharacterVisual` binds the run controller to the assembled rig's Animator **in code** at
+startup — its serialized `_animatorController` if set, otherwise the placeholder controller loaded from
+`Resources/CharacterSystem/Animation/PlaceholderLocomotion`. This is deliberate: the rig prefab's
+serialized controller reference can come up unbound at runtime after the controller is rebuilt by
+editor scripting, so a direct code assignment is the reliable path.
+
 ---
 
 ## 3. ScriptableObject Reference
@@ -127,8 +133,12 @@ The max speed used to normalize the blend is **not** in this config — it comes
 
 The run/idle clips and the blend-tree controller are code-authored. Edit
 `PlaceholderAnimationBuilder.BuildRunClip` (bone curves) and re-run
-`Tools/Character System/Generate Placeholder Assets`. The controller is a 1D blend tree on `Speed`
-(idle @ 0, run @ 1) named `PlaceholderLocomotion.controller`.
+`Tools/Character System/Rebuild Locomotion Controller` (rebuilds the run clip + blend controller and
+reassigns it to the rig without touching the rig's structure; use this rather than a full regenerate).
+The controller is a 1D blend tree on `Speed` (idle @ 0, run @ 1) named `PlaceholderLocomotion.controller`.
+`BuildRunClip` has a `RunGaitSign` constant: negating it mirrors the gait front-to-back (apparent
+travel direction). It is `-1f` so the cycle reads forward for the placeholder model (which faces −Z
+and is oriented forward by the `_localRotationEuler` 180 yaw); flip to `+1f` if the run looks reversed.
 
 ### Retarget to real art
 
