@@ -24,7 +24,10 @@
   is not fought while idle.
 - **R4** Facing follows the **actual world-space velocity**. Movement maps input directly to world
   axes (`input.x→+X`, `input.y→+Z`), so this is correct under the isometric camera with no
-  camera-relative remapping.
+  camera-relative remapping. The solver aims the rig's **+Z** at the velocity (`atan2(vx, vz)`); since
+  the placeholder art faces **−Z** (tail/back on +Z, per `PlaceholderRigBuilder`), `ModularCharacterVisual`
+  applies a `_localRotationEuler` of `(0,180,0)` so the model's front leads. Real art that faces +Z
+  uses `(0,0,0)`.
 - **R5** The run blend is just an animator parameter — the Animator is **never rebound**, so part
   swaps stay seamless mid-run (see `character-system.md` R3).
 

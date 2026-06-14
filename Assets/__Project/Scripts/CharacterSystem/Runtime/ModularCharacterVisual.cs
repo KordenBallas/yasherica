@@ -19,6 +19,8 @@ namespace CharacterSystem.Runtime
 
         [Header("Model placement under the host (tweak to fit the collider)")]
         [SerializeField] private Vector3 _localPosition = new Vector3(0f, -1f, 0f);
+        [Tooltip("Yaw correction so the model's forward faces the host's +Z. The placeholder art faces -Z (tail/back on +Z), so 180. Real art that already faces +Z should use 0.")]
+        [SerializeField] private Vector3 _localRotationEuler = new Vector3(0f, 180f, 0f);
         [SerializeField] private Vector3 _localScale = new Vector3(1.25f, 1.25f, 1.25f);
 
         [Inject] private IModularCharacterFactory _factory;
@@ -43,7 +45,7 @@ namespace CharacterSystem.Runtime
 
             var rigTransform = character.transform;
             rigTransform.localPosition = _localPosition;
-            rigTransform.localRotation = Quaternion.identity;
+            rigTransform.localRotation = Quaternion.Euler(_localRotationEuler);
             rigTransform.localScale = _localScale;
 
             Character = character;

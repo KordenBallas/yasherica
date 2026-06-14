@@ -35,6 +35,11 @@ Every functional change appends an entry **in the same change as the code** (CLA
   rule.
 
 ### Fixed
+- **Character Locomotion:** the character no longer moves backward. The placeholder model faces −Z
+  (tail/back on +Z), but the solver aims the rig's +Z at the velocity, so the back led. Fixed by a
+  data-driven `ModularCharacterVisual._localRotationEuler` (default `(0,180,0)`) that orients the
+  model's front to the host's +Z — correcting both movement facing and forced turn-to-camera facing.
+  Runtime-only; no rig regeneration. Real art facing +Z sets it to `(0,0,0)`.
 - **Character Locomotion:** the run blend is now applied with a controller-only swap
   (`Tools/Character System/Rebuild Locomotion Controller`) that builds the run clip + blend-tree
   controller and assigns it onto the existing rig prefab via a `LoadPrefabContents`/`SaveAsPrefabAsset`
