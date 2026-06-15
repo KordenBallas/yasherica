@@ -19,7 +19,7 @@ namespace Inventory.Core
 
         /// <summary>
         /// Moves the inventory item with the given instance id into the feeding tray.
-        /// Returns false when the item is unknown.
+        /// Returns false when the item is unknown or the tray is already full.
         /// </summary>
         bool TrySelect(int instanceId);
 

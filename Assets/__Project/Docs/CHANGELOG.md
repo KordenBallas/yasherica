@@ -9,6 +9,19 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Inventory Subsystem:** feeding-mode presentation + one-click setup tool. Feeding now shows **3D
+  feeding slots below the pot** (mirroring the crafting slots above) with the cumulative-archetype /
+  digestion-progress / dominant-archetype readout and the **Feed** button on a screen-space
+  `FeedingReadoutCanvas` anchored to the right of the pot; entering feeding mode **drops the stage
+  camera** to reveal the slots below (Inventory R24a). Feeding-tray capacity is configurable
+  (`InventoryConfig.FeedingSlotCount`, default 3) and enforced by `FeedingSession`; new
+  `InventoryConfig` fields `FeedingSlotCount` / `FeedingCameraDrop` / `FeedingFramingDuration`;
+  `InventoryStageView.SetFeedingFraming` performs the camera move, driven by `InventoryPresenter` on
+  mode change. New editor tool **Tools → Inventory → Setup Feeding UI**
+  (`Scripts/Editor/Inventory/FeedingUISetup.cs`, idempotent) builds the `FeedingArea` (tray anchor +
+  readout canvas + wired `FeedingView`) on `InventoryStage.prefab` and the feed-mode toggle on
+  `InventoryHud.prefab`, so the prefab setup is a menu click instead of manual authoring. Tests:
+  `FeedingSessionTests` gains capacity coverage.
 - **Inventory + Mutation Subsystems:** feeding / digestion UI (M1, Inventory R24–R26) — the open
   cauldron now has a **feeding mode** alongside crafting, toggled by a HUD button (`IInventoryModeState`
   arbitrates which mode owns a pot-bubble click; switching modes returns the other mode's staged

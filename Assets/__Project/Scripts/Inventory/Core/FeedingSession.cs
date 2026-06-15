@@ -11,11 +11,21 @@ namespace Inventory.Core
     public sealed class FeedingSession : IFeedingSession
     {
         private readonly IInventoryModel _inventory;
+        private readonly int _capacity;
         private readonly List<ArtifactInstance> _tray = new List<ArtifactInstance>();
 
-        public FeedingSession(IInventoryModel inventory)
+        public FeedingSession(IInventoryModel inventory, int capacity)
         {
             _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
+
+            if (capacity < 1)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(capacity),
+                    $"Feeding tray needs room for at least 1 artifact, got {capacity}.");
+            }
+
+            _capacity = capacity;
         }
 
         public IReadOnlyList<ArtifactInstance> Tray => _tray;
@@ -24,6 +34,12 @@ namespace Inventory.Core
 
         public bool TrySelect(int instanceId)
         {
+            // The tray holds at most the configured number of feeding slots.
+            if (_tray.Count >= _capacity)
+            {
+                return false;
+            }
+
             if (!_inventory.TryGet(instanceId, out var instance))
             {
                 return false;

@@ -6,6 +6,8 @@ namespace Tests.EditMode
     [TestFixture]
     public class FeedingSessionTests
     {
+        private const int Capacity = 3;
+
         private InventoryModel _inventory;
         private FeedingSession _session;
 
@@ -13,13 +15,32 @@ namespace Tests.EditMode
         public void SetUp()
         {
             _inventory = new InventoryModel();
-            _session = new FeedingSession(_inventory);
+            _session = new FeedingSession(_inventory, Capacity);
         }
 
         [Test]
         public void Constructor_NullInventory_Throws()
         {
-            Assert.Throws<System.ArgumentNullException>(() => new FeedingSession(null));
+            Assert.Throws<System.ArgumentNullException>(() => new FeedingSession(null, Capacity));
+        }
+
+        [Test]
+        public void Constructor_CapacityBelowOne_Throws()
+        {
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => new FeedingSession(_inventory, 0));
+        }
+
+        [Test]
+        public void TrySelect_TrayFull_ReturnsFalseAndLeavesItemInInventory()
+        {
+            var small = new FeedingSession(_inventory, 1);
+            var first = _inventory.Add("fire");
+            var second = _inventory.Add("water");
+            small.TrySelect(first.InstanceId);
+
+            Assert.IsFalse(small.TrySelect(second.InstanceId));
+            Assert.AreEqual(1, small.Tray.Count);
+            Assert.AreSame(second, _inventory.Items[0]);
         }
 
         [Test]

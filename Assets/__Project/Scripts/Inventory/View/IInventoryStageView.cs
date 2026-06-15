@@ -11,5 +11,11 @@ namespace Inventory.View
         /// stage renders nothing and its raycaster ignores clicks.
         /// </summary>
         void SetStageActive(bool active);
+
+        /// <summary>
+        /// Smoothly drops the stage camera to reveal the feeding slots below the pot
+        /// (feeding mode), or raises it back to the default crafting framing.
+        /// </summary>
+        void SetFeedingFraming(bool feeding);
     }
 }

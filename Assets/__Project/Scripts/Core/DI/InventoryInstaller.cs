@@ -85,7 +85,10 @@ namespace Core.DI
                 .To<CraftingSession>()
                 .AsSingle()
                 .WithArguments(_config.ItemsToCombine);
-            Container.Bind<IFeedingSession>().To<FeedingSession>().AsSingle();
+            Container.Bind<IFeedingSession>()
+                .To<FeedingSession>()
+                .AsSingle()
+                .WithArguments(_config.FeedingSlotCount);
             Container.Bind<IInventoryModeState>().To<InventoryModeState>().AsSingle();
             Container.Bind<BubbleLayoutCalculator>().AsSingle();
         }

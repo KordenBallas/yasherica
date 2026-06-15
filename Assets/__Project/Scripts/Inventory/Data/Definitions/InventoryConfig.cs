@@ -14,6 +14,14 @@ namespace Inventory.Data.Definitions
         [Tooltip("How many staged artifacts trigger a combine attempt")]
         [SerializeField, Min(2)] private int _itemsToCombine = 2;
 
+        [Header("Feeding")]
+        [Tooltip("How many artifacts fit in the feeding tray below the pot before feeding")]
+        [SerializeField, Min(1)] private int _feedingSlotCount = 3;
+        [Tooltip("How far the stage camera drops (local units) to reveal the feeding slots below the pot")]
+        [SerializeField, Min(0f)] private float _feedingCameraDrop = 0.5f;
+        [Tooltip("Time the stage camera takes to move between crafting and feeding framing")]
+        [SerializeField, Min(0f)] private float _feedingFramingDuration = 0.4f;
+
         [Header("Starting Inventory (dev seed until a loot system exists)")]
         [SerializeField] private List<ArtifactDefinition> _startingInventory;
 
@@ -70,6 +78,9 @@ namespace Inventory.Data.Definitions
         [SerializeField, Min(0f)] private float _resultDropDuration = 0.4f;
 
         public int ItemsToCombine => _itemsToCombine;
+        public int FeedingSlotCount => _feedingSlotCount;
+        public float FeedingCameraDrop => _feedingCameraDrop;
+        public float FeedingFramingDuration => _feedingFramingDuration;
         public IReadOnlyList<ArtifactDefinition> StartingInventory => _startingInventory;
         public float MinBubbleRadius => _minBubbleRadius;
         public float MaxBubbleRadius => _maxBubbleRadius;

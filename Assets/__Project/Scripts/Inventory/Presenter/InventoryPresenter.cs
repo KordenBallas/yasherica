@@ -83,6 +83,7 @@ namespace Inventory.Presenter
             _hudView.OnOpenClicked += HandleOpenClicked;
             _hudView.OnCloseClicked += HandleCloseClicked;
             _hudView.OnFeedModeToggled += HandleFeedModeToggled;
+            _modeState.OnModeChanged += HandleModeChanged;
             _inventory.OnItemAdded += HandleInventoryChanged;
             _inventory.OnItemRemoved += HandleInventoryChanged;
             _combatActivityTracker.OnCombatActivityChanged += HandleCombatActivityChanged;
@@ -102,6 +103,7 @@ namespace Inventory.Presenter
             _hudView.OnOpenClicked -= HandleOpenClicked;
             _hudView.OnCloseClicked -= HandleCloseClicked;
             _hudView.OnFeedModeToggled -= HandleFeedModeToggled;
+            _modeState.OnModeChanged -= HandleModeChanged;
             _inventory.OnItemAdded -= HandleInventoryChanged;
             _inventory.OnItemRemoved -= HandleInventoryChanged;
             _combatActivityTracker.OnCombatActivityChanged -= HandleCombatActivityChanged;
@@ -181,6 +183,12 @@ namespace Inventory.Presenter
                 : InventoryMode.Feeding;
             _modeState.SetMode(nextMode);
             _hudView.SetFeedModeActive(nextMode == InventoryMode.Feeding);
+        }
+
+        private void HandleModeChanged(InventoryMode mode)
+        {
+            // Feeding drops the stage camera to reveal the slots below the pot.
+            _stageView.SetFeedingFraming(mode == InventoryMode.Feeding);
         }
 
         private void HandleCombatActivityChanged(bool isCombatActive)
