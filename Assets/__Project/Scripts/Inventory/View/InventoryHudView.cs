@@ -14,6 +14,10 @@ namespace Inventory.View
         [Header("Buttons")]
         [SerializeField] private Button _openButton;
         [SerializeField] private Button _closeButton;
+        [Tooltip("Toggles feeding mode while the inventory is open")]
+        [SerializeField] private Button _feedModeButton;
+        [Tooltip("Optional highlight shown while feeding mode is active")]
+        [SerializeField] private GameObject _feedModeActiveIndicator;
 
         [Header("Input")]
         [Tooltip("UI Cancel action (Escape) closing the inventory while it is open")]
@@ -21,11 +25,17 @@ namespace Inventory.View
 
         public event Action OnOpenClicked;
         public event Action OnCloseClicked;
+        public event Action OnFeedModeToggled;
 
         private void Awake()
         {
             _openButton.onClick.AddListener(HandleOpenButton);
             _closeButton.onClick.AddListener(HandleCloseButton);
+
+            if (_feedModeButton != null)
+            {
+                _feedModeButton.onClick.AddListener(HandleFeedModeButton);
+            }
         }
 
         private void OnEnable()
@@ -49,6 +59,11 @@ namespace Inventory.View
         {
             _openButton.onClick.RemoveListener(HandleOpenButton);
             _closeButton.onClick.RemoveListener(HandleCloseButton);
+
+            if (_feedModeButton != null)
+            {
+                _feedModeButton.onClick.RemoveListener(HandleFeedModeButton);
+            }
         }
 
         public void SetOpenButtonVisible(bool visible)
@@ -66,9 +81,30 @@ namespace Inventory.View
             _closeButton.gameObject.SetActive(visible);
         }
 
+        public void SetFeedModeToggleVisible(bool visible)
+        {
+            if (_feedModeButton != null)
+            {
+                _feedModeButton.gameObject.SetActive(visible);
+            }
+        }
+
+        public void SetFeedModeActive(bool active)
+        {
+            if (_feedModeActiveIndicator != null)
+            {
+                _feedModeActiveIndicator.SetActive(active);
+            }
+        }
+
         private void HandleOpenButton()
         {
             OnOpenClicked?.Invoke();
+        }
+
+        private void HandleFeedModeButton()
+        {
+            OnFeedModeToggled?.Invoke();
         }
 
         private void HandleCloseButton()

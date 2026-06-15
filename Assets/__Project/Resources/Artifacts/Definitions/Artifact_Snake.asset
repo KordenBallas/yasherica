@@ -17,3 +17,8 @@ MonoBehaviour:
   _description: A slippery snake brewed from fire and water.
   _icon: {fileID: 21300000, guid: 3f946a708d4f07e408a53655940235f3, type: 3}
   _bubbleTint: {r: 0.6, g: 0.9, b: 0.6, a: 1}
+  _archetypeWeights:
+  - _archetypeId: reptile
+    _weight: 1
+  - _archetypeId: aquatic
+    _weight: 0.3

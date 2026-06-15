@@ -17,3 +17,8 @@ MonoBehaviour:
   _description: A squirming culture of belly bacteria.
   _icon: {fileID: 21300000, guid: 0775f3b55e976ed4fb818358abd453c2, type: 3}
   _bubbleTint: {r: 0.55, g: 0.85, b: 0.45, a: 1}
+  _archetypeWeights:
+  - _archetypeId: aquatic
+    _weight: 0.6
+  - _archetypeId: insect
+    _weight: 0.4

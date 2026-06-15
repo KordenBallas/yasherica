@@ -9,6 +9,45 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Inventory + Mutation Subsystems:** feeding / digestion UI (M1, Inventory R24–R26) — the open
+  cauldron now has a **feeding mode** alongside crafting, toggled by a HUD button (`IInventoryModeState`
+  arbitrates which mode owns a pot-bubble click; switching modes returns the other mode's staged
+  items). In feeding mode, clicking pot bubbles fills a **feeding tray** (`IFeedingSession` /
+  `FeedingSession`, pure C#: `TrySelect`/`TryUnselect`/`Consume`/`ReturnAll`), a readout panel shows
+  the cumulative archetype weights of the tray plus this-stage digestion progress and the dominant
+  archetype(s), and the **Feed** button digests the tray: each artifact maps via
+  `ArtifactArchetypeMapper.ToProfile` into `IMutationTally.Add` and advances `IDigestionProgress`.
+  New `IDigestionProgress` / `DigestionProgress` (`Mutation.Core`) counts artifacts fed this stage vs.
+  the authored `MutationConfig.DigestionThreshold` (`IsReadyToMutate`, `Normalized`, `Reset`);
+  `ArtifactArchetypeProfile.Combine` sums several profiles for the cumulative readout. New
+  `MutationConfig` SO (*Create → Mutation → Mutation Config*, `Resources/Mutation/MutationConfig.asset`).
+  New `FeedingPresenter` and `FeedingView` (+ `ArchetypeReadoutEntry` DTO); `InventoryHudView` gains a
+  feed-mode toggle; `InventoryPresenter`/`CraftingPresenter` respect the mode and return their staged
+  items on mode switch/close. Wired in `InventoryInstaller` (sessions, mode state, view, presenter)
+  and `MutationInstaller` (config + digestion). Tests: `ArtifactArchetypeProfileCombineTests`,
+  `DigestionProgressTests`, `FeedingSessionTests`. **Not wired yet:** nothing calls `Reset` on the
+  tally/digestion and nothing acts on `IsReadyToMutate` — the stage-up mutation choice (next M1 step)
+  drives that; remains on the ROADMAP.
+- **Mutation Subsystem:** per-stage mutation tally (M1) — `IMutationTally` / `MutationTally`
+  (`Mutation.Core`, pure C#) aggregates the archetype weights of artifacts fed during the current
+  **mutation stage**: `Add(ArtifactArchetypeProfile)` sums per archetype, `TotalFor`,
+  `Dominant(count)` returns the top-N archetypes (weight desc, ordinal-id tie-break), `OnChanged`
+  notifies UI, and `Reset()` starts the next stage. Bound `AsSingle` in `MutationInstaller` (shared
+  by the future feeding UI and stage-up mutation choice). The live consumer path is
+  `ArtifactArchetypeMapper.ToProfile` → `MutationTally.Add`. Tests: `MutationTallyTests`. Not wired
+  yet: nothing calls `Add` (feeding UI) or `Reset` (stage-up choice) — both remain on the ROADMAP.
+- **Mutation Subsystem:** new subsystem and its first M1 step — the creature-archetype data surface
+  (`mutation-subsystem.md`, Mutation R1–R5). Archetypes are an authorable set of `ArchetypeDefinition`
+  ScriptableObjects (*Create → Mutation → Archetype*, auto-loaded from `Resources/Mutation/Archetypes`);
+  shipped: reptile, insect, aquatic, mammal, avian. `ArtifactDefinition` gains an `_archetypeWeights`
+  array (`ArchetypeWeight` = archetype id + weight) describing how strongly eating an artifact pushes
+  the character toward each archetype; the seven shipped artifacts are populated. Pure
+  `ArtifactArchetypeProfile` (aggregation: duplicate ids summed, empty/non-positive dropped, ids
+  trimmed) with `ArtifactArchetypeMapper` as the SO→Core bridge; `ArchetypeCatalog` (fail-fast on
+  empty/duplicate ids); `MutationContentValidator` warns at startup about unknown/empty archetype ids
+  on artifacts. New `MutationInstaller` registered on the Area `SceneContext`. Tests:
+  `ArtifactArchetypeMapperTests`, `ArchetypeCatalogTests`. The per-stage tally that consumes these
+  weights is the follow-up entry above; the feeding UI and mutation choice remain on the ROADMAP.
 - **Character Locomotion:** new subsystem driving movement-based animation and facing
   (`character-locomotion.md`). When the Hero moves it blends idle→run via a `Speed` float and yaws
   to face its travel direction along the shortest arc at a configured rate; idle holds the heading

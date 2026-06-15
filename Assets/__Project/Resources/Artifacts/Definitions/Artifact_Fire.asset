@@ -17,3 +17,4 @@ MonoBehaviour:
   _description: A flicker of stomach fire that never goes out.
   _icon: {fileID: 21300000, guid: 64a690640d3a5204399a966740b6edd4, type: 3}
   _bubbleTint: {r: 1, g: 0.55, b: 0.25, a: 1}
+  _archetypeWeights: []

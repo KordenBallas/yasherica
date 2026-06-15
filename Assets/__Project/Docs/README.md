@@ -14,6 +14,7 @@ Older documentation elsewhere in the repository may be stale; prefer this folder
 | [Loot Subsystem](loot-subsystem.md) | Requirements and design of data-driven artifact rewards: biome loot tables, deterministic per-run rolls, platform discovery pickups, enemy drops, quest grants, world pickup visuals |
 | [Character System](character-system.md) | Requirements and design of the modular character: shared skeleton, swappable skinned body parts, two-tier sockets, runtime API, placeholder asset generation and preview tooling |
 | [Character Locomotion](character-locomotion.md) | Requirements and design of movement-driven animation: run blend on a `Speed` parameter and shortest-arc facing toward the travel direction, wired between the movement controller and the assembled rig |
+| [Mutation Subsystem](mutation-subsystem.md) | Requirements and design of the M1 mutation data surface: authorable creature-archetype set and per-artifact archetype weights that feed the (planned) level-up mutation loop |
 
 ## Conventions
 

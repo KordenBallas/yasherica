@@ -30,6 +30,8 @@ namespace Inventory.Presenter
         private readonly IMovementInputLock _movementInputLock;
         private readonly IInventoryModel _inventory;
         private readonly ICraftingSession _craftingSession;
+        private readonly IFeedingSession _feedingSession;
+        private readonly IInventoryModeState _modeState;
         private readonly IArtifactCatalog _artifactCatalog;
         private readonly ICombatActivityTracker _combatActivityTracker;
         private readonly InventoryConfig _config;
@@ -50,6 +52,8 @@ namespace Inventory.Presenter
             IMovementInputLock movementInputLock,
             IInventoryModel inventory,
             ICraftingSession craftingSession,
+            IFeedingSession feedingSession,
+            IInventoryModeState modeState,
             IArtifactCatalog artifactCatalog,
             ICombatActivityTracker combatActivityTracker,
             InventoryConfig config,
@@ -65,6 +69,8 @@ namespace Inventory.Presenter
             _movementInputLock = movementInputLock;
             _inventory = inventory;
             _craftingSession = craftingSession;
+            _feedingSession = feedingSession;
+            _modeState = modeState;
             _artifactCatalog = artifactCatalog;
             _combatActivityTracker = combatActivityTracker;
             _config = config;
@@ -76,6 +82,7 @@ namespace Inventory.Presenter
         {
             _hudView.OnOpenClicked += HandleOpenClicked;
             _hudView.OnCloseClicked += HandleCloseClicked;
+            _hudView.OnFeedModeToggled += HandleFeedModeToggled;
             _inventory.OnItemAdded += HandleInventoryChanged;
             _inventory.OnItemRemoved += HandleInventoryChanged;
             _combatActivityTracker.OnCombatActivityChanged += HandleCombatActivityChanged;
@@ -83,6 +90,8 @@ namespace Inventory.Presenter
             _hudView.SetOpenButtonVisible(true);
             _hudView.SetOpenButtonInteractable(!_combatActivityTracker.IsCombatActive);
             _hudView.SetCloseButtonVisible(false);
+            _hudView.SetFeedModeToggleVisible(false);
+            _hudView.SetFeedModeActive(false);
             _potView.SetPotFocused(false);
 
             SeedStartingInventory();
@@ -92,6 +101,7 @@ namespace Inventory.Presenter
         {
             _hudView.OnOpenClicked -= HandleOpenClicked;
             _hudView.OnCloseClicked -= HandleCloseClicked;
+            _hudView.OnFeedModeToggled -= HandleFeedModeToggled;
             _inventory.OnItemAdded -= HandleInventoryChanged;
             _inventory.OnItemRemoved -= HandleInventoryChanged;
             _combatActivityTracker.OnCombatActivityChanged -= HandleCombatActivityChanged;
@@ -121,6 +131,10 @@ namespace Inventory.Presenter
             _potView.SetPotFocused(true);
             _hudView.SetOpenButtonVisible(false);
             _hudView.SetCloseButtonVisible(true);
+            // The pot opens in crafting mode; the feed toggle switches into feeding.
+            _modeState.SetMode(InventoryMode.Crafting);
+            _hudView.SetFeedModeToggleVisible(true);
+            _hudView.SetFeedModeActive(false);
         }
 
         private void HandleCloseClicked()
@@ -139,6 +153,9 @@ namespace Inventory.Presenter
 
             // Anything left above the pot falls back into it when the belly view closes.
             _craftingSession.ReturnAll();
+            _feedingSession.ReturnAll();
+            // Reset to crafting so the next open starts in the default mode.
+            _modeState.SetMode(InventoryMode.Crafting);
 
             _potView.SetPotFocused(false);
             _stageView.SetStageActive(false);
@@ -148,6 +165,22 @@ namespace Inventory.Presenter
             _hudView.SetOpenButtonVisible(true);
             _hudView.SetOpenButtonInteractable(!_combatActivityTracker.IsCombatActive);
             _hudView.SetCloseButtonVisible(false);
+            _hudView.SetFeedModeToggleVisible(false);
+            _hudView.SetFeedModeActive(false);
+        }
+
+        private void HandleFeedModeToggled()
+        {
+            if (!_isOpen)
+            {
+                return;
+            }
+
+            var nextMode = _modeState.Mode == InventoryMode.Feeding
+                ? InventoryMode.Crafting
+                : InventoryMode.Feeding;
+            _modeState.SetMode(nextMode);
+            _hudView.SetFeedModeActive(nextMode == InventoryMode.Feeding);
         }
 
         private void HandleCombatActivityChanged(bool isCombatActive)

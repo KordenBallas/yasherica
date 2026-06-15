@@ -85,6 +85,8 @@ namespace Core.DI
                 .To<CraftingSession>()
                 .AsSingle()
                 .WithArguments(_config.ItemsToCombine);
+            Container.Bind<IFeedingSession>().To<FeedingSession>().AsSingle();
+            Container.Bind<IInventoryModeState>().To<InventoryModeState>().AsSingle();
             Container.Bind<BubbleLayoutCalculator>().AsSingle();
         }
 
@@ -100,6 +102,11 @@ namespace Core.DI
 
             Container.Bind<ICraftingSlotsView>()
                 .To<CraftingSlotsView>()
+                .FromComponentInHierarchy()
+                .AsSingle();
+
+            Container.Bind<IFeedingView>()
+                .To<FeedingView>()
                 .FromComponentInHierarchy()
                 .AsSingle();
 
@@ -154,6 +161,7 @@ namespace Core.DI
             // BindInterfacesTo gives Zenject IInitializable/IDisposable lifecycle control.
             Container.BindInterfacesAndSelfTo<InventoryPresenter>().AsSingle().NonLazy();
             Container.BindInterfacesAndSelfTo<CraftingPresenter>().AsSingle().NonLazy();
+            Container.BindInterfacesAndSelfTo<FeedingPresenter>().AsSingle().NonLazy();
         }
 
         private List<TDefinition> LoadDefinitions<TDefinition>(List<TDefinition> assigned, string resourcePath)

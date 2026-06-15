@@ -21,6 +21,7 @@ namespace Inventory.Presenter
         private readonly ICraftingSlotsView _slotsView;
         private readonly IPotView _potView;
         private readonly IArtifactCatalog _artifactCatalog;
+        private readonly IInventoryModeState _modeState;
         private readonly IGameLogger _logger;
 
         public CraftingPresenter(
@@ -28,12 +29,14 @@ namespace Inventory.Presenter
             ICraftingSlotsView slotsView,
             IPotView potView,
             IArtifactCatalog artifactCatalog,
+            IInventoryModeState modeState,
             IGameLogger logger)
         {
             _session = session;
             _slotsView = slotsView;
             _potView = potView;
             _artifactCatalog = artifactCatalog;
+            _modeState = modeState;
             _logger = logger;
         }
 
@@ -50,6 +53,7 @@ namespace Inventory.Presenter
             _session.OnItemUnstaged += HandleItemUnstaged;
             _session.OnResultCollected += HandleResultCollected;
             _session.OnSessionCleared += HandleSessionCleared;
+            _modeState.OnModeChanged += HandleModeChanged;
         }
 
         public void Dispose()
@@ -65,10 +69,26 @@ namespace Inventory.Presenter
             _session.OnItemUnstaged -= HandleItemUnstaged;
             _session.OnResultCollected -= HandleResultCollected;
             _session.OnSessionCleared -= HandleSessionCleared;
+            _modeState.OnModeChanged -= HandleModeChanged;
+        }
+
+        private void HandleModeChanged(InventoryMode mode)
+        {
+            // Switching away from crafting drops any staged items back into the pot.
+            if (mode != InventoryMode.Crafting)
+            {
+                _session.ReturnAll();
+            }
         }
 
         private void HandleBubbleClicked(int instanceId)
         {
+            // Feeding owns clicks in feeding mode; this presenter only crafts.
+            if (_modeState.Mode != InventoryMode.Crafting)
+            {
+                return;
+            }
+
             if (!_session.TrySelect(instanceId))
             {
                 _logger.Info($"[CraftingPresenter] Selection of instance {instanceId} rejected.");

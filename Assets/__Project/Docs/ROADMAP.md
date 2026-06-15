@@ -16,8 +16,8 @@ Suggested tags: `[content]` data/authoring, `[arch]` structural, `[debt]` cleanu
 ## Milestones
 
 Suggested sequencing. Only M1 is firm; the rest is a recommended order, not a commitment.
-- **M1 — Mutation core loop.** Artifact archetype attributes → feeding/digestion UI → per-level
-  level-up mutation choices → body-part swap → part-granted abilities (active + passive).
+- **M1 — Mutation core loop.** Artifact archetype attributes → per-stage tally → feeding/digestion
+  UI → stage-up mutation choice → body-part swap → part-granted abilities (active + passive).
 - **M2 — Progression + Quests + progression-driven narrative.**
 - **M3 — Platform/hex rework + content-aware platform shape.**
 - **M4 — Combat readability (ability telegraphing) + smarter enemy AI.**
@@ -154,17 +154,27 @@ New work:
 
 ## Mutation Subsystem
 
-New work (no system doc yet — author `mutation-subsystem.md` when implemented). The M1 core loop:
-- [ ] `[content]` **M1 — Artifact archetype attributes.** Extend `ArtifactDefinition` with a
+The M1 core loop (see `mutation-subsystem.md` for the implemented data surface):
+- [x] `[content]` **M1 — Artifact archetype attributes.** Extend `ArtifactDefinition` with a
   creature-archetype weight map (e.g. Reptile, Insect, Aquatic, Mammal, Avian). Each eaten artifact
   contributes to one or more archetype axes. Archetypes are data-driven (an authorable set), not
-  hard-coded.
-- [ ] `[arch]` **M1 — Per-level mutation tally.** Accumulate archetype weights from artifacts fed
-  during the current level; the tally decides this level's mutation options and resets at level end.
-  Body-part swaps from prior level-ups persist (the character still evolves across the run).
-- [ ] `[arch]` **M1 — Level-up mutation choice.** On level-up, offer 2–3 mutation options derived
-  from the dominant archetype(s); the player picks one, which swaps a body part via
-  `ModularCharacter.SwapPart` and updates the part's active + passive abilities accordingly.
+  hard-coded. *(Done — see CHANGELOG; `mutation-subsystem.md`.)*
+- [x] `[arch]` **M1 — Per-stage mutation tally.** Accumulate archetype weights from artifacts fed
+  during the current mutation stage; the tally decides this stage's mutation options and resets when
+  the player mutates to the next stage. Body-part swaps from prior stages persist (the character
+  still evolves across the run). *(Done — `IMutationTally`/`MutationTally`, now filled by the feeding
+  UI; see CHANGELOG; `mutation-subsystem.md`. `Reset()` exists but is not auto-triggered yet — the
+  stage-up choice below drives it.)*
+- [x] `[arch]` **M1 — Digestion progress + ready-to-mutate signal.** Per-stage `IDigestionProgress`
+  counts artifacts fed vs. the authored `MutationConfig.DigestionThreshold` and exposes
+  `IsReadyToMutate`. *(Done via the feeding UI — see CHANGELOG. `IsReadyToMutate` is surfaced but not
+  yet consumed to trigger a mutation, and `Reset()` is not auto-triggered — the stage-up choice below
+  drives both.)*
+- [ ] `[arch]` **M1 — Stage-up mutation choice.** When `IDigestionProgress.IsReadyToMutate`, offer
+  2–3 mutation options derived from the dominant archetype(s); the player picks one, which swaps a
+  body part via `ModularCharacter.SwapPart`, updates the part's active + passive abilities
+  accordingly, and resets the tally **and** digestion progress (`IMutationTally.Reset` /
+  `IDigestionProgress.Reset`) for the new stage.
 - [ ] `[content]` **M1 — Archetype → body-part-set mapping.** Author which body parts/variants each
   archetype can offer at each slot, so a mutation choice resolves to concrete `PartDefinition`s.
 
@@ -209,11 +219,11 @@ Enhancements to the implemented combat (extend `ability-subsystem.md` / a new co
 
 ## Inventory Subsystem
 
-- [ ] `[arch]` **M1 — Feeding / digestion UI.** A mode where artifacts in the pot are fed to the
-  character (transported further down the digestion system). Supports multi-select with a cumulative
-  archetype-attribute readout, and shows current mutation progression and the dominant archetype(s)
-  this level. Builds on `InventoryModel` / `CraftingSession`; feeding consumes artifacts into the
-  Mutation Subsystem tally.
+- [x] `[arch]` **M1 — Feeding / digestion UI.** A feeding mode (toggled in the open cauldron) where
+  pot artifacts are selected into a feeding tray with a cumulative archetype-attribute readout, the
+  current digestion progress, and the dominant archetype(s) this stage; the Feed button maps each
+  artifact via `ArtifactArchetypeMapper.ToProfile` into `IMutationTally.Add` and advances
+  `IDigestionProgress`. *(Done — see CHANGELOG; `inventory-subsystem.md` R24–R26; `mutation-subsystem.md`.)*
 - [ ] _seed remaining items from `inventory-subsystem.md` "Known limitations" on next pass._
 
 ---
