@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd7a6917204e410478de8998e6a385f1, type: 3}
+  m_Name: Archetype_Insect_PartSet
+  m_EditorClassIdentifier:
+  _archetypeId: insect
+  _options:
+  - _slotId: slot.arm.l
+    _partId: part.arm.l.b
+    _displayName: Left Mandible Arm
+    _icon: {fileID: 0}
+  - _slotId: slot.arm.r
+    _partId: part.arm.r.b
+    _displayName: Right Mandible Arm
+    _icon: {fileID: 0}
+  - _slotId: slot.head
+    _partId: part.head.b
+    _displayName: Chitinous Head
+    _icon: {fileID: 0}

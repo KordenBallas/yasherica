@@ -8,7 +8,43 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Fixed
+- **Mutation Subsystem:** the stage-up choice no longer crashes the Area scene at Play. The
+  `MutationChoiceView` was bound `FromComponentInHierarchy`, which **asserts** when the choice panel
+  isn't present (and cascaded into a `ModularCharacterVisual` `NullReferenceException` because the
+  failed `SceneContext` resolve left `_factory` un-injected). The view is now **instantiated from a
+  prefab** (`FromComponentInNewPrefab`, panel auto-loaded from `Resources/Prefabs/UI/MutationChoicePanel`,
+  mirroring `InventoryInstaller`'s HUD view); when the prefab is absent the installer logs a warning and
+  skips the view + presenter instead of throwing. **Tools → Mutation → Setup Stage-Up Choice UI** now
+  builds the panel as a standalone prefab (plus the button prefab) and clears any panel a prior version
+  embedded in `InventoryStage`. Shipped default `ArchetypePartSetDefinition` assets for all five
+  archetypes under `Resources/Mutation/PartSets/` (placeholder `.a → .b` swaps) so the loop works out
+  of the box.
+
 ### Added
+- **Mutation Subsystem:** stage-up mutation choice + archetype→body-part-set mapping (M1) — closes the
+  mutation core loop. When `IDigestionProgress.IsReadyToMutate` flips true, the new
+  `MutationChoicePresenter` (NonLazy, on `IDigestionProgress.OnChanged`) offers up to
+  `MutationConfig.MaxMutationOptions` (default 3) body-part options derived from the dominant
+  archetype(s); picking one swaps the part on the live character via `IModularCharacter.SwapPart` and
+  resets **both** `IMutationTally` and `IDigestionProgress` for the next stage. A failed swap (e.g. the
+  rig is not yet assembled) or an empty option set leaves the stage untouched so the player keeps
+  feeding. New pure-C# Core: `MutationOption`, `IMutationOptionProvider`,
+  `IMutationOptionBuilder`/`MutationOptionBuilder` (deterministic across-dominant gather, dedupe by
+  part, exclude equipped, cap at max), and the `IMutationCharacter` swap port. New data surface:
+  `ArchetypePartSetDefinition` SO (*Create → Mutation → Archetype Part Set*,
+  `Resources/Mutation/PartSets/`, one per archetype, inline `MutationOptionEntry` with slot/part id +
+  label + icon), `IMutationOptionCatalog`/`MutationOptionCatalog` (fail-fast, `TryGetIcon`), and
+  `MutationOptionMapper`. New `ModularCharacterMutationAdapter` (Infrastructure) bridges to the scene's
+  `ModularCharacterVisual.Character` lazily and caches swapped-in parts so they are not re-offered. New
+  `MutationChoiceView`/`MutationChoiceButton` (+ `MutationChoiceViewData`) thin views. `MutationConfig`
+  gains `MaxMutationOptions`; `MutationContentValidator` now also warns on part-set options that
+  reference an unknown archetype, part, or mismatched slot. New editor tool **Tools → Mutation → Setup
+  Stage-Up Choice UI** (`Scripts/Editor/Mutation/MutationChoiceUISetup.cs`, idempotent) builds the
+  choice panel on `InventoryStage.prefab` and the `MutationChoiceButton` prefab. Wired in
+  `MutationInstaller`. Tests: `MutationOptionBuilderTests` (10), `MutationChoicePresenterTests` (7).
+  **Deferred:** part-derived ability grants (the swapped part does not yet update abilities — Ability
+  Subsystem M1); starting parts are not excluded from stage-1 options.
 - **Inventory Subsystem:** feeding-mode presentation + one-click setup tool. Feeding now shows **3D
   feeding slots below the pot** (mirroring the crafting slots above) with the cumulative-archetype /
   digestion-progress / dominant-archetype readout and the **Feed** button on a screen-space

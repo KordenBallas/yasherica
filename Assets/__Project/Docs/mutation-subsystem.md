@@ -2,12 +2,14 @@
 
 > The mutation subsystem is the M1 core loop: artifacts the player eats accumulate toward creature
 > archetypes (Reptile, Insect, Aquatic, …), and those archetypes drive stage-up body-part mutations.
-> This document describes the **implemented surface so far** — the authorable archetype set, the
-> per-artifact archetype weights that feed it, the per-stage `MutationTally` that aggregates fed
-> profiles, and the `DigestionProgress` that tracks how close the stage is to a mutation. Feeding the
-> tally/digestion is wired through the Inventory feeding UI (see `inventory-subsystem.md`); the
-> remaining consumption step (the stage-up mutation choice that resets both) is planned and lives in §6.
-> Status: current as of 2026-06-15.
+> The loop is now closed end-to-end: the authorable archetype set, the per-artifact archetype weights
+> that feed it, the per-stage `MutationTally` that aggregates fed profiles, the `DigestionProgress`
+> that tracks how close the stage is to a mutation, and the **stage-up mutation choice** that consumes
+> the ready signal — offering body-part options derived from the dominant archetype(s), swapping the
+> chosen part on the live character, and resetting the tally + digestion for the next stage. Feeding
+> the tally/digestion is wired through the Inventory feeding UI (see `inventory-subsystem.md`).
+> The one M1 piece still deferred is **part-derived ability grants** (the swapped part does not yet
+> update abilities) — see §6 and the Ability Subsystem roadmap. Status: current as of 2026-06-16.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -51,16 +53,31 @@ Scripts/Mutation/
     MutationTally.cs            — live aggregate of fed profiles for the current mutation stage
     IDigestionProgress.cs       — per-stage "how close to mutating" contract
     DigestionProgress.cs        — count of artifacts fed this stage vs. the threshold
+    MutationOption.cs           — one offered swap (slotId, partId, archetypeId, displayName)
+    IMutationOptionProvider.cs  — archetypeId -> candidate options contract
+    IMutationOptionBuilder.cs / MutationOptionBuilder.cs — picks 2-3 options from the dominant archetypes
+    IMutationCharacter.cs       — port to swap a body part on the live character (no MonoBehaviour in Core)
   Data/                         — ScriptableObject definitions + the only SO -> Core bridge
     Definitions/
       ArchetypeDefinition.cs    — one creature archetype axis (SO)
       ArchetypeWeight.cs        — one authored (archetypeId, weight) pair (serializable)
-      MutationConfig.cs         — subsystem tunables (digestion threshold) (SO)
+      MutationConfig.cs         — subsystem tunables (digestion threshold, max options) (SO)
+      ArchetypePartSetDefinition.cs — one archetype's body-part options (SO; inline MutationOptionEntry)
     IArchetypeCatalog.cs / ArchetypeCatalog.cs — id -> definition lookup, fail-fast
+    IMutationOptionCatalog.cs / MutationOptionCatalog.cs — archetypeId -> options + part icon, fail-fast
     ArtifactArchetypeMapper.cs  — ArchetypeWeight[] -> ArtifactArchetypeProfile
+    MutationOptionMapper.cs     — ArchetypePartSetDefinition -> MutationOption[]
+  Infrastructure/
+    ModularCharacterMutationAdapter.cs — IMutationCharacter over the scene's ModularCharacterVisual
+  Presenter/
+    MutationChoicePresenter.cs  — shows the choice when ready, applies the swap, resets the stage
+  View/
+    IMutationChoiceView.cs / MutationChoiceView.cs — thin choice-panel adapter
+    MutationChoiceButton.cs / MutationChoiceViewData.cs — one choice button + its view DTO
   Application/
     MutationContentValidator.cs — startup authoring check (IInitializable)
 Scripts/Core/DI/MutationInstaller.cs
+Scripts/Editor/Mutation/MutationChoiceUISetup.cs — one-click in-scene choice panel + button prefab
 ```
 
 `ArtifactDefinition` (Inventory) owns the authored `ArchetypeWeight[]`; it references archetypes only
@@ -75,8 +92,13 @@ by string id, so Inventory does not depend on the archetype *catalog*, only on t
 | `IMutationTally` / `MutationTally` | Mutable live aggregate of the profiles fed during the **current mutation stage**; `Add(profile)` sums weights, `TotalFor`, `Dominant(count)` (top-N by weight, ordinal-id tie-break), `Reset()`, `OnChanged`. |
 | `IDigestionProgress` / `DigestionProgress` | Per-stage count of digested artifacts vs. the `MutationConfig.DigestionThreshold`; `AddArtifact()` (+1), `Fed`, `Threshold`, `Normalized` (0..1), `IsReadyToMutate`, `Reset()`, `OnChanged`. Decides **when** a mutation is available; the tally decides **which** archetype it leans toward. |
 | `ArchetypeWeight` | One authored contribution: `ArchetypeId`, `Weight`. Serialized on `ArtifactDefinition`. |
+| `MutationOption` | Immutable offered swap: `SlotId`, `PartId`, `ArchetypeId`, `DisplayName`. UnityEngine-free; the presenter resolves icon/tint at the view boundary. |
+| `IMutationOptionProvider` / `IMutationOptionCatalog` | `archetypeId → MutationOption[]` (authored order); the catalog adds `TryGetIcon(partId)` and throws on empty/duplicate archetype ids. |
+| `IMutationOptionBuilder` / `MutationOptionBuilder` | Picks ≤`maxOptions` options across the dominant archetypes in weight order, deduping shared parts (first archetype wins) and excluding already-equipped parts. Deterministic, no LINQ. |
+| `IMutationCharacter` | Port the choice uses to `SwapPart(slotId, partId)` and query the equipped part; keeps MonoBehaviours out of Core. |
 | `IArchetypeCatalog` / `ArchetypeCatalog` | `archetypeId → ArchetypeDefinition` lookup; throws on empty/duplicate ids at construction. |
 | `ArtifactArchetypeMapper` | Pure adapter from `ArchetypeWeight[]` to `ArtifactArchetypeProfile`. |
+| `MutationOptionMapper` | Pure adapter from `ArchetypePartSetDefinition` to `MutationOption[]` (the SO→Core bridge for options; icons stay in Data). |
 
 ### 2.3 Runtime flow
 
@@ -90,11 +112,34 @@ The live consumer path runs through the Inventory **feeding UI** (see `inventory
 each artifact the player digests, the feeding presenter calls
 `ArtifactArchetypeMapper.ToProfile(artifact.ArchetypeWeights)` → `IMutationTally.Add(profile)` and
 `IDigestionProgress.AddArtifact()`. The tally is the model the feeding readout and the stage-up
-mutation choice consult; the digestion progress is the "ready to mutate?" signal. **What is not
-wired yet:** nothing *calls* `Reset` on either — the stage-up mutation choice drives that, and
-`IsReadyToMutate` is surfaced but not yet consumed to trigger a mutation. See §6.
+mutation choice consult; the digestion progress is the "ready to mutate?" signal.
 
-### 2.4 DI wiring
+### 2.4 Stage-up mutation choice
+
+`MutationChoicePresenter` (NonLazy, subscribed to `IDigestionProgress.OnChanged`) closes the loop:
+
+1. **Trigger.** When `IsReadyToMutate` flips true (and a choice is not already showing), the presenter
+   takes the dominant archetypes (`IMutationTally.Dominant(MutationConfig.MaxMutationOptions)`).
+2. **Build options.** `MutationOptionBuilder.Build` walks those archetypes in weight order and each
+   one's authored options in order, deduping a part shared by two archetypes (first wins) and
+   excluding parts already swapped in this run (`IMutationCharacter.TryGetEquippedPartId`), up to
+   `MaxMutationOptions`. If the result is **empty** (the dominant archetypes have no new parts), the
+   presenter logs and returns **without** resetting — the player keeps feeding.
+3. **Present.** Each `MutationOption` becomes a `MutationChoiceViewData` (label from the option, tint
+   from `ArchetypeDefinition.Tint`, icon from `IMutationOptionCatalog.TryGetIcon`); the view shows the
+   panel.
+4. **Apply.** On the player's pick, `IMutationCharacter.SwapPart(slotId, partId)` swaps the body part
+   on the live character. A **failed** swap (e.g. the rig is not yet assembled) keeps the panel up and
+   resets nothing. A **successful** swap hides the panel and then resets **both** the tally and the
+   digestion (`Reset()`), starting the next stage.
+
+The live character is reached through `ModularCharacterMutationAdapter`, which resolves the assembled
+character from `ModularCharacterVisual.Character` lazily at swap time and caches parts it swapped in
+(so they are not re-offered). The character's *starting* parts are unknown to that cache, so a
+stage-1 choice may re-offer a starting part — accepted for M1 (see §6). **Deferred:** the swap does
+not yet update the part's active/passive abilities — that lands with the Ability Subsystem M1 work.
+
+### 2.5 DI wiring
 
 `Scripts/Core/DI/MutationInstaller.cs` (a `MonoInstaller` added to the Area scene's `SceneContext`):
 
@@ -107,8 +152,22 @@ wired yet:** nothing *calls* `Reset` on either — the stage-up mutation choice 
   created when its first consumer resolves.
 - `IDigestionProgress` → `DigestionProgress` via `BindInterfacesAndSelfTo` + `AsSingle`, constructed
   with `MutationConfig.DigestionThreshold`.
-- `MutationContentValidator` via `BindInterfacesAndSelfTo` + `NonLazy` (so validation always runs).
-- `IGameLogger` → `UnityGameLogger` with `IfNotBound` (shared with the other installers).
+- `IMutationOptionCatalog` → `MutationOptionCatalog` via `BindInterfacesAndSelfTo` + `AsSingle`;
+  part-set definitions auto-load from `Resources/Mutation/PartSets` when the inspector list is empty.
+- `IMutationOptionBuilder` → `MutationOptionBuilder` (`AsSingle`).
+- `ModularCharacterVisual` resolved `FromComponentInHierarchy`; `IMutationCharacter` →
+  `ModularCharacterMutationAdapter` (`AsSingle`).
+- `IMutationChoiceView` → `MutationChoiceView` **instantiated from a prefab** via
+  `FromComponentInNewPrefab`; the panel prefab auto-loads from `Resources/Prefabs/UI/MutationChoicePanel`
+  (or an inspector override). This mirrors `InventoryInstaller`'s HUD-view binding and needs **no scene
+  authoring**. If the prefab is missing the installer **logs a warning and skips** the view + presenter
+  (the rest of the scene runs) — it never crashes the `SceneContext` over an unbuilt panel.
+- `MutationChoicePresenter` via `BindInterfacesAndSelfTo` + `NonLazy` (so it subscribes to the ready
+  signal at startup) — bound only when the panel prefab exists.
+- `MutationContentValidator` via `BindInterfacesAndSelfTo` + `NonLazy`; it now also receives the raw
+  part-set list and `IPartCatalog` (CharacterSystem) to validate options.
+- `IGameLogger` is **not** bound here — `InventoryInstaller` provides the single `UnityGameLogger`
+  for the shared `SceneContext` (re-binding `AsSingle` for the same concrete type trips Zenject 6).
 
 ---
 
@@ -142,6 +201,27 @@ Single asset loaded from `Resources/Mutation/MutationConfig.asset` (or wired int
 | Field | Type | Meaning | Default / notes |
 |---|---|---|---|
 | `DigestionThreshold` | int | Artifacts that must be fed in a stage before `IDigestionProgress.IsReadyToMutate` is true. | `5`; `[Min(1)]` |
+| `MaxMutationOptions` | int | How many mutation options to offer at a stage-up (fewer if the dominant archetypes lack parts). | `3`; `[Min(1)]` |
+
+### `ArchetypePartSetDefinition`  (asset menu: `Create → Mutation → Archetype Part Set`)
+
+One asset per archetype, loaded from `Resources/Mutation/PartSets/` (or wired into the
+`MutationInstaller` `_partSetDefinitions` list). Empty/duplicate archetype ids fail fast in
+`MutationOptionCatalog`.
+
+| Field | Type | Meaning | Default / notes |
+|---|---|---|---|
+| `ArchetypeId` | string | Which `ArchetypeDefinition.Id`'s dominance offers these parts. | empty → fails fast |
+| `Options` | `MutationOptionEntry[]` | Body-part options, tried in authored order. | — |
+
+`MutationOptionEntry` (inline):
+
+| Field | Type | Meaning | Default / notes |
+|---|---|---|---|
+| `SlotId` | string | `SlotDefinition.Id` the part fills (e.g. `slot.head`). | validated against the part's slot |
+| `PartId` | string | `PartDefinition.Id` swapped in when chosen (e.g. `part.head.b`). | resolved via `IPartCatalog`; unknown → warning |
+| `DisplayName` | string | Label on the choice button. | — |
+| `Icon` | Sprite | Optional icon on the choice button. | none |
 
 ---
 
@@ -154,11 +234,32 @@ Single asset loaded from `Resources/Mutation/MutationConfig.asset` (or wired int
 2. Set a unique `Id` (lower-case, stable), `DisplayName`, `Description`, and `Tint`.
 3. That's it — the `MutationInstaller` auto-loads it. Duplicate or empty ids fail fast at startup.
 
-### Tune digestion
+### Tune digestion / choice count
 
 1. Select `Resources/Mutation/MutationConfig.asset`.
 2. Set **Digestion Threshold** — how many artifacts the player must feed in one stage before the
-   feeding UI reports "ready to mutate". That's it; the `MutationInstaller` loads it automatically.
+   feeding UI reports "ready to mutate" — and **Max Mutation Options** (how many choices a stage-up
+   offers). That's it; the `MutationInstaller` loads it automatically.
+
+### Add a body-part option set for an archetype
+
+1. `Create → Mutation → Archetype Part Set` to make an `ArchetypePartSetDefinition` under
+   `Resources/Mutation/PartSets/`. One asset per archetype.
+2. Set `Archetype Id` to an existing `ArchetypeDefinition.Id`.
+3. Under **Options**, add an entry per body part this archetype can grant: `Slot Id` and `Part Id`
+   must match an existing `PartDefinition` (`Part Id`) and its slot (see `character-system.md`),
+   plus a `Display Name` and optional `Icon`. Order matters — earlier entries are offered first.
+4. The `MutationInstaller` auto-loads it. `MutationContentValidator` warns at startup if the
+   archetype, part, or slot does not resolve.
+
+### Wire the stage-up choice panel into the scene
+
+Run **Tools → Mutation → Setup Stage-Up Choice UI** once: it builds two standalone prefabs under
+`Resources/Prefabs/UI/` — `MutationChoicePanel.prefab` (a screen-space overlay canvas with the
+`MutationChoiceView`) and the `MutationChoiceButton.prefab` it instantiates. The installer loads the
+panel from `Resources` and instantiates it at runtime, so **no scene wiring is needed**. Until the
+prefab exists the stage-up choice is simply disabled (one startup warning, no crash). Idempotent —
+rerun to rebuild.
 
 ### Set an artifact's archetype weights
 
@@ -189,24 +290,35 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
   profiles are no-ops that don't raise `OnChanged`; `TotalFor` of unknown/empty/null id → 0;
   `Dominant` orders by weight desc with ordinal-id tie-break and clamps `count`; `Reset` clears and
   raises `OnChanged` only when it was non-empty.
+- `MutationOptionBuilderTests` — gathers across dominant archetypes in weight then authored order;
+  caps at `maxOptions`; excludes equipped parts; dedupes a part shared by two archetypes (first wins);
+  skips empty part ids; empty on no data / non-positive max / null args; deterministic across runs.
+- `MutationChoicePresenterTests` — not-ready shows nothing; ready flips → shows choices + visible;
+  selection swaps then resets tally + digestion and hides; a failed swap resets nothing and stays
+  visible; ready-but-no-options shows/resets nothing; already-equipped parts are excluded; further
+  feeding while shown does not re-show.
 
 ---
 
 ## 6. Known limitations / open points
 
-> **Planned design (NOT implemented).** The archetype data surface, the per-stage `MutationTally`,
-> the `DigestionProgress`, and the feeding UI that fills them exist today; the stage-up mutation
-> choice that consumes them does not.
-
 **Terminology:** the character's mutation progression advances in discrete **stages** (Stage 1 →
 mutate → Stage 2 → …). "Stage" is used here instead of "level" to avoid confusion with character
 XP / combat / area-scene levels. The `MutationTally` and `DigestionProgress` accumulate within the
-current stage; `Reset()` on each starts the next stage.
+current stage; the stage-up choice resets both to start the next stage.
 
-- The feeding UI now fills the tally (`Add`) and the digestion progress (`AddArtifact`), but nothing
-  **resets** them yet and nothing acts on `IsReadyToMutate`: there is **no stage-up mutation choice**
-  calling `Reset` or turning the ready signal into an actual body-part mutation. See ROADMAP
-  "Mutation Subsystem" for the next M1 step.
-- `ArchetypeDefinition.Tint` now tints the feeding readout entries, but no other mutation UI uses it.
+- **Part-derived abilities are not granted yet** (deferred M1). The stage-up choice swaps the body
+  part only; the part's active + passive abilities are not updated. This lands with the Ability
+  Subsystem M1 work (abilities granted by parts) — see ROADMAP.
+- **Starting parts are not excluded at stage 1.** `IMutationCharacter` exposes no equipped-part query,
+  so the adapter only knows parts *it* swapped in this run; a part the character started with (from
+  its `CharacterAssemblyDefinition`) could be offered again on the first stage-up. Accepted for M1.
+- The stage-up choice panel prefab must be built once (run **Tools → Mutation → Setup Stage-Up Choice
+  UI**); until then the choice is disabled (a startup warning, no crash). Default
+  `ArchetypePartSetDefinition` assets now ship for all five archetypes under `Resources/Mutation/PartSets/`
+  (placeholder `.a → .b` swaps); only `reptile`/`insect`/`aquatic` are reachable today since no shipped
+  artifact pushes `mammal`/`avian`.
+- `ArchetypeDefinition.Tint` now tints the feeding readout and the choice buttons, but no other
+  mutation UI uses it.
 - No archetype currently has a `mammal`/`avian` artifact source in the shipped content; both are
   authorable and ready, just unused until more artifacts are added.

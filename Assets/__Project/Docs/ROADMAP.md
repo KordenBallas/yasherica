@@ -167,16 +167,23 @@ The M1 core loop (see `mutation-subsystem.md` for the implemented data surface):
   stage-up choice below drives it.)*
 - [x] `[arch]` **M1 — Digestion progress + ready-to-mutate signal.** Per-stage `IDigestionProgress`
   counts artifacts fed vs. the authored `MutationConfig.DigestionThreshold` and exposes
-  `IsReadyToMutate`. *(Done via the feeding UI — see CHANGELOG. `IsReadyToMutate` is surfaced but not
-  yet consumed to trigger a mutation, and `Reset()` is not auto-triggered — the stage-up choice below
-  drives both.)*
-- [ ] `[arch]` **M1 — Stage-up mutation choice.** When `IDigestionProgress.IsReadyToMutate`, offer
-  2–3 mutation options derived from the dominant archetype(s); the player picks one, which swaps a
-  body part via `ModularCharacter.SwapPart`, updates the part's active + passive abilities
-  accordingly, and resets the tally **and** digestion progress (`IMutationTally.Reset` /
-  `IDigestionProgress.Reset`) for the new stage.
-- [ ] `[content]` **M1 — Archetype → body-part-set mapping.** Author which body parts/variants each
+  `IsReadyToMutate`. *(Done via the feeding UI; now consumed by the stage-up choice below.)*
+- [x] `[arch]` **M1 — Stage-up mutation choice.** When `IDigestionProgress.IsReadyToMutate`, offer
+  up to `MutationConfig.MaxMutationOptions` options derived from the dominant archetype(s); the player
+  picks one, which swaps a body part via `IModularCharacter.SwapPart` and resets the tally **and**
+  digestion progress for the new stage. *(Done — `MutationChoicePresenter` + `MutationOptionBuilder`;
+  see CHANGELOG; `mutation-subsystem.md`. **Ability update on swap is deferred** — see the Ability
+  Subsystem M1 item below.)*
+- [x] `[content]` **M1 — Archetype → body-part-set mapping.** Author which body parts/variants each
   archetype can offer at each slot, so a mutation choice resolves to concrete `PartDefinition`s.
+  *(Done — `ArchetypePartSetDefinition` SO; `Resources/Mutation/PartSets/`. Shipped content has no
+  part-set assets yet — designer authors them.)*
+- [ ] `[arch]` **M1 — Mutation swap updates abilities.** When the stage-up choice swaps a part, also
+  update the part's active + passive abilities. Blocked on the Ability Subsystem M1 items (abilities
+  granted by parts); the swap path is ready to call it.
+- [ ] `[arch]` Exclude the character's *starting* parts from stage-1 options. `IMutationCharacter`'s
+  adapter only knows parts it swapped in this run, so a starting part can be re-offered once; add an
+  equipped-part query to `IModularCharacter` to make exclusion exact.
 
 ---
 

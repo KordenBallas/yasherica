@@ -14,6 +14,12 @@ namespace Mutation.Data.Definitions
         [Min(1)]
         [SerializeField] private int _digestionThreshold = 5;
 
+        [Header("Stage-up choice")]
+        [Tooltip("How many mutation options to offer at a stage-up (fewer if the dominant archetypes lack parts)")]
+        [Min(1)]
+        [SerializeField] private int _maxMutationOptions = 3;
+
         public int DigestionThreshold => _digestionThreshold;
+        public int MaxMutationOptions => _maxMutationOptions;
     }
 }
