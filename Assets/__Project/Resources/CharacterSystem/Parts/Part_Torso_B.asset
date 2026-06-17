@@ -20,3 +20,6 @@ MonoBehaviour:
   - Spine
   - Chest
   _contributedSockets: []
+  _activeAbilities:
+  - {fileID: 11400000, guid: 967f900deb3eb854e9b83b5886c91075, type: 2}
+  _passiveAbilities: []

@@ -16,6 +16,18 @@ namespace CharacterSystem.Core
 
         public IReadOnlyCollection<PartData> EquippedParts => _equippedBySlot.Values;
 
+        /// <summary>Snapshot of currently equipped parts as a slotId -&gt; partId map.</summary>
+        public IReadOnlyDictionary<string, string> EquippedPartIdsBySlot()
+        {
+            var map = new Dictionary<string, string>(_equippedBySlot.Count, StringComparer.Ordinal);
+            foreach (var entry in _equippedBySlot)
+            {
+                map[entry.Key] = entry.Value.PartId;
+            }
+
+            return map;
+        }
+
         public bool TryGetEquipped(string slotId, out PartData part)
         {
             if (slotId == null)

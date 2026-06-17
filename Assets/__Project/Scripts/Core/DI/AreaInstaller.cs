@@ -206,6 +206,12 @@ namespace Core.DI
                 .To<AbilityFactory>()
                 .AsSingle();
 
+            // Resolves part-granted abilities (active + passive) from the player's equipped
+            // parts. Depends on IPartCatalog, bound by CharacterSystemInstaller in the same context.
+            Container.Bind<Combat.Integration.IPartAbilityResolver>()
+                .To<Combat.Integration.PartAbilityResolver>()
+                .AsSingle();
+
             // Status Effect Trigger Processor
             Container.Bind<StatusEffectTriggerProcessor>()
                 .AsSingle();

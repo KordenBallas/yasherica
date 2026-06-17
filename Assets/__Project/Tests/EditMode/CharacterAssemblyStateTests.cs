@@ -91,5 +91,30 @@ namespace Tests.EditMode
             Assert.IsNull(removed);
             Assert.IsFalse(removedEventFired);
         }
+
+        [Test]
+        public void EquippedPartIdsBySlot_ReturnsSlotToPartIdSnapshot()
+        {
+            _state.Equip(Part("part.head.a", "slot.head"));
+            _state.Equip(Part("part.tail.b", "slot.tail"));
+
+            var map = _state.EquippedPartIdsBySlot();
+
+            Assert.AreEqual(2, map.Count);
+            Assert.AreEqual("part.head.a", map["slot.head"]);
+            Assert.AreEqual("part.tail.b", map["slot.tail"]);
+        }
+
+        [Test]
+        public void EquippedPartIdsBySlot_ReflectsReplacement()
+        {
+            _state.Equip(Part("part.head.a", "slot.head"));
+            _state.Equip(Part("part.head.b", "slot.head"));
+
+            var map = _state.EquippedPartIdsBySlot();
+
+            Assert.AreEqual(1, map.Count);
+            Assert.AreEqual("part.head.b", map["slot.head"]);
+        }
     }
 }

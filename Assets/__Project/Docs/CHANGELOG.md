@@ -8,6 +8,30 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Added
+- **Ability Subsystem / Character System / Mutation (M1):** body parts now grant combat abilities,
+  closing the mutation core loop end-to-end. `PartDefinition` gains `_activeAbilities`
+  (`AbilityDefinition[]`) and `_passiveAbilities` (`PassiveAbilityDefinition[]`). New
+  `PassiveAbilityDefinition` SO (*Create → Combat → Abilities → Passive Ability*) references a
+  Buff/Debuff `StatusEffectDefinition` applied as a standing modifier for the whole combat. New
+  pure-C# bridge in `Combat/Integration`: `IPartAbilityResolver`/`PartAbilityResolver` resolves a
+  `PartAbilitySet` (active + passive, deduped) from a character's equipped parts via `IPartCatalog`
+  (bound in `AreaInstaller`). `CharacterCombatInitializer` now builds the player `Unit`'s ability set
+  from the live equipped parts at combat start (`IModularCharacter.EquippedParts`), applying passives
+  as infinite-duration status effects; `HeroDefinition.Abilities` remains a logged fallback when no
+  part grants an active ability. `IModularCharacter` gains an `EquippedParts` (slotId→partId) query
+  (Ability R23–R26; mutation "swap updates abilities" satisfied by pull-at-combat-init).
+  Tests: `PartAbilityResolverTests`, `DamageSystemModifierTests`, `StatusEffectDurationsTests`, and
+  `CharacterAssemblyStateTests` (equipped-parts query).
+
+### Changed
+- **Combat:** standing Buff/Debuff modifiers now affect outgoing damage. `DamageSystem.CalculateFinalDamage`
+  (previously a stub returning base damage, and never called) is implemented to scale damage by the
+  attacker's net `StatModifier` × stack count, and `AbilityExecutor` now routes damage through it.
+  Status-effect duration ticking moved into the pure, unit-tested `StatusEffectDurations.Tick`, which
+  treats a **negative duration as infinite** (never decremented/removed) so part passives persist for
+  the whole combat. (Ability R25–R26.)
+
 ### Fixed
 - **Mutation Subsystem:** the stage-up choice no longer crashes the Area scene at Play. The
   `MutationChoiceView` was bound `FromComponentInHierarchy`, which **asserts** when the choice panel

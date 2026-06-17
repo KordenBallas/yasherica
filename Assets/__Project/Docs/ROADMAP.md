@@ -179,12 +179,14 @@ The M1 core loop (see `mutation-subsystem.md` for the implemented data surface):
   *(Done — `ArchetypePartSetDefinition` SO; `Resources/Mutation/PartSets/`. Shipped content has no
   part-set assets yet — designer authors them. **Superseded by the M2 part-driven affinity item
   below** once that lands — `ArchetypePartSetDefinition` is removed then.)*
-- [ ] `[arch]` **M1 — Mutation swap updates abilities.** When the stage-up choice swaps a part, also
-  update the part's active + passive abilities. Blocked on the Ability Subsystem M1 items (abilities
-  granted by parts); the swap path is ready to call it.
-- [ ] `[arch]` Exclude the character's *starting* parts from stage-1 options. `IMutationCharacter`'s
-  adapter only knows parts it swapped in this run, so a starting part can be re-offered once; add an
-  equipped-part query to `IModularCharacter` to make exclusion exact.
+- [x] `[arch]` **M1 — Mutation swap updates abilities.** *(Done — combat rebuilds the unit's active +
+  passive ability set from the live equipped parts at combat start (`PartAbilityResolver`,
+  `CharacterCombatInitializer`), so a stage-up swap changes the next combat's abilities without the
+  swap path pushing anything. See CHANGELOG; `ability-subsystem.md` §2.6.)*
+- [ ] `[arch]` Exclude the character's *starting* parts from stage-1 options. **Unblocked:**
+  `IModularCharacter` now exposes an `EquippedParts` (slotId→partId) query; switch
+  `MutationOptionBuilder`'s exclusion set from the adapter's swap cache to that query for exact
+  exclusion (`ModularCharacterMutationAdapter`).
 
 New work:
 - [ ] `[arch]` **M2 — Part-driven archetype affinity + scored mutation selection.** Move archetype
@@ -222,13 +224,21 @@ Known limitations (from `character-locomotion.md` §6):
 
 ## Ability Subsystem
 
-- [ ] `[arch]` **M1 — Abilities granted by body parts.** Associate an ability (and passive
-  modifiers) with each `PartDefinition`. Equipping a part makes its active ability available in
-  combat and applies its passive buffs; swapping the part out removes both. Wire into the existing
-  `HeroDefinition` / `Unit.Abilities` path so combat consumes a part-derived ability set.
-- [ ] `[arch]` **M1 — Passive (always-on) abilities.** Add a passive ability/buff kind alongside the
-  active Line/Ring abilities: not queued or aimed, applied as standing modifiers for the duration of
-  combat. Gives the `Ability` reward type a home (see Cross-cutting).
+- [x] `[arch]` **M1 — Abilities granted by body parts.** *(Done — `PartDefinition._activeAbilities` /
+  `_passiveAbilities`; `PartAbilityResolver` composes the combat ability set from the equipped parts;
+  `CharacterCombatInitializer` consumes it (HeroDefinition is now a fallback only). See CHANGELOG;
+  `ability-subsystem.md` R23–R26, §2.6.)*
+- [x] `[arch]` **M1 — Passive (always-on) abilities.** *(Done — `PassiveAbilityDefinition` SO applies a
+  Buff/Debuff `StatusEffectDefinition` as a standing modifier for the whole combat (infinite duration
+  via `StatusEffectDurations.Tick`); `DamageSystem.CalculateFinalDamage` consumes Buff/Debuff modifiers
+  for outgoing damage. Gives the `Ability` reward type a home. See CHANGELOG.)*
+- [ ] `[debt]` **Part ability data couples CharacterSystem → Combat.** `PartDefinition`
+  (`CharacterSystem.Data`) references `Combat.Data.Definitions` ability SOs, breaking the inward-only
+  layering rule (CLAUDE.md §2). Accepted for M1 by user decision; revisit in the M2 part-driven-affinity
+  item (which reconsiders where part ability/affinity/rarity data lives).
+- [ ] `[arch]` **Passive modifiers affect only outgoing damage.** `StatModifier` has no stat-target
+  dimension, so max-HP / defence / healing passives are not yet consumed. Extend the modifier model
+  (stat target) and `DamageSystem` / unit-stat resolution to honour them.
 - [ ] _seed remaining items from `ability-subsystem.md` "Known limitations" on next pass._
 
 ## Combat Experience

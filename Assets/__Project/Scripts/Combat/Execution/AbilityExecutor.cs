@@ -48,7 +48,11 @@ namespace Combat.Execution
                 int previousHp = unitAtCell.CurrentHP;
 
                 if (isDamageAbility)
-                    newState = _damageSystem.ApplyDamage(newState, unitAtCell, ((IDamageAbility)ability).Damage);
+                {
+                    int finalDamage = _damageSystem.CalculateFinalDamage(
+                        caster, unitAtCell, ((IDamageAbility)ability).Damage);
+                    newState = _damageSystem.ApplyDamage(newState, unitAtCell, finalDamage);
+                }
 
                 if (isHealAbility)
                     newState = _damageSystem.ApplyHealing(newState, unitAtCell, ((IHealAbility)ability).HealAmount);

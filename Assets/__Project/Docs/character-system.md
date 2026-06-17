@@ -32,6 +32,7 @@ Status: current as of 2026-06-13.
 - R12. `AttachToSocket(socketId, prefab)` / `AttachToSocket(AttachmentDefinition)` — instantiates and parents under the socket; returns an `AttachmentHandle`.
 - R13. `DetachFromSocket(handle)` / `DetachFromSocket(socketId)` — removes one attachment or everything on a socket.
 - R14. `GetAvailableSockets()` / `GetSocketTransform(socketId)`.
+- R14b. `EquippedParts` — a snapshot `slotId → partId` map of the currently equipped parts. Backs combat's part-derived ability set (see ability-subsystem.md §2.6) and exact starting-part exclusion in the mutation choice.
 
 ### 1.2 Non-functional requirements
 
@@ -92,11 +93,13 @@ The Animator is never rebound: parts never add or remove bones (the rig prefab a
 | `SlotDefinition` | id, display name |
 | `SocketDefinition` | id, parent bone name, local position/rotation/scale |
 | `SkeletonDefinition` | id, rig prefab (bones + Animator + `CharacterRig`), authoritative bone-name list, Tier-1 sockets |
-| `PartDefinition` | id, slot, target skeleton, part prefab (one SkinnedMeshRenderer), bone names in mesh-index order, contributed Tier-2 sockets |
+| `PartDefinition` | id, slot, target skeleton, part prefab (one SkinnedMeshRenderer), bone names in mesh-index order, contributed Tier-2 sockets, **granted active abilities + passive abilities** (Combat SOs — see note) |
 | `AttachmentDefinition` | id, prefab, target socket id, extra local TRS offset |
 | `CharacterAssemblyDefinition` | id, skeleton, one part per slot, optional default attachments |
 
-`DefinitionMapper` converts definitions to Core records; TRS values never enter Core (they are consumed directly by `SocketMounter`).
+`DefinitionMapper` converts definitions to Core records; TRS values never enter Core (they are consumed directly by `SocketMounter`). The part's granted abilities are **not** mapped into Core — `PartData` stays ability-agnostic; combat reads the ability SOs off `PartDefinition` directly (ability-subsystem.md §2.6).
+
+> **Layering note (debt):** `PartDefinition`'s ability fields reference the `Combat.Data.Definitions` layer, so the CharacterSystem data layer depends on Combat. This is a deliberate, user-approved M1 coupling that breaks the inward-only layering rule (CLAUDE.md §2); it is tracked in the ROADMAP for the M2 part-driven-affinity rework, which will reconsider where this data lives.
 
 ### 2.5 Zenject wiring
 

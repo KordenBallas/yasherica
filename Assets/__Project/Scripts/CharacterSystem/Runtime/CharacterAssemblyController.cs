@@ -139,6 +139,8 @@ namespace CharacterSystem.Runtime
             return _socketMounter.DetachAll(socketId);
         }
 
+        public IReadOnlyDictionary<string, string> EquippedParts => _state.EquippedPartIdsBySlot();
+
         public IReadOnlyList<SocketInfo> GetAvailableSockets()
         {
             return _socketCatalog.AvailableSockets;

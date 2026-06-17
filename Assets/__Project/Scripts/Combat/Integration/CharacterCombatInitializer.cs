@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Character;
+using CharacterSystem.Runtime;
 using Combat.Animation;
 using Combat.Battlefield;
 using Combat.Config;
@@ -27,8 +28,14 @@ namespace Combat.Integration
         private readonly DiContainer _container;
         private readonly IInputController _inputController;
         private readonly IAbilityFactory _abilityFactory;
+        private readonly IStatusEffectFactory _statusEffectFactory;
+        private readonly IPartAbilityResolver _partAbilityResolver;
         private readonly HeroDefinition _heroDefinition;
         private List<AbilityDefinition> _characterAbilityDefinitions;
+
+        // Passives are standing modifiers that last the whole combat: applied with an
+        // infinite (negative) duration so the turn loop never decrements them away.
+        private const int PermanentEffectDuration = -1;
 
         public CharacterCombatInitializer(
             ICharacterRegistry characterRegistry,
@@ -37,6 +44,8 @@ namespace Combat.Integration
             DiContainer container,
             IInputController inputController,
             IAbilityFactory abilityFactory,
+            IStatusEffectFactory statusEffectFactory,
+            IPartAbilityResolver partAbilityResolver,
             HeroDefinition heroDefinition)
         {
             _characterRegistry = characterRegistry;
@@ -45,6 +54,8 @@ namespace Combat.Integration
             _container = container;
             _inputController = inputController;
             _abilityFactory = abilityFactory;
+            _statusEffectFactory = statusEffectFactory;
+            _partAbilityResolver = partAbilityResolver;
             _heroDefinition = heroDefinition;
         }
         
@@ -81,24 +92,55 @@ namespace Combat.Integration
                 Debug.Log("[CharacterCombatInitializer] Added CharacterCombatComponent");
             }
             
-            // Create ability instances from hero definition
+            // Build the combat ability set from the player's equipped body parts: parts are the
+            // source of truth for what the player can do in combat, so mutating the body changes
+            // the ability set on the next combat. HeroDefinition abilities are a temporary
+            // workaround used only as a fallback when no equipped part grants an active ability.
             var abilityInstances = new List<IAbilityInstance>();
+            var passiveEffects = new List<IStatusEffect>();
             _characterAbilityDefinitions = new List<AbilityDefinition>();
-            if (_heroDefinition != null && _heroDefinition.Abilities != null)
+
+            var modular = character.GetComponentInChildren<ModularCharacterVisual>()?.Character;
+            var partAbilities = modular != null
+                ? _partAbilityResolver.Resolve(modular.EquippedParts.Values)
+                : PartAbilitySet.Empty;
+
+            foreach (var abilityDef in partAbilities.ActiveAbilities)
             {
-                foreach (var abilityDef in _heroDefinition.Abilities)
-                {
-                    var abilityInstance = _abilityFactory.CreateAbilityInstance(abilityDef);
-                    abilityInstances.Add(abilityInstance);
-                    _characterAbilityDefinitions.Add(abilityDef);
-                }
-                Debug.Log($"[CharacterCombatInitializer] Created {abilityInstances.Count} ability instances from hero definition");
+                abilityInstances.Add(_abilityFactory.CreateAbilityInstance(abilityDef));
+                _characterAbilityDefinitions.Add(abilityDef);
             }
 
-            // Initialize component with abilities
+            if (abilityInstances.Count == 0)
+            {
+                Debug.LogWarning("[CharacterCombatInitializer] No part-granted active abilities found; falling back to HeroDefinition abilities.");
+                if (_heroDefinition != null && _heroDefinition.Abilities != null)
+                {
+                    foreach (var abilityDef in _heroDefinition.Abilities)
+                    {
+                        abilityInstances.Add(_abilityFactory.CreateAbilityInstance(abilityDef));
+                        _characterAbilityDefinitions.Add(abilityDef);
+                    }
+                }
+            }
+
+            // Part-granted passives become standing modifiers applied for the whole combat.
+            foreach (var passive in partAbilities.PassiveAbilities)
+            {
+                if (passive == null || passive.Modifier == null)
+                {
+                    continue;
+                }
+
+                passiveEffects.Add(_statusEffectFactory.CreateStatusEffect(passive.Modifier, PermanentEffectDuration));
+            }
+
+            Debug.Log($"[CharacterCombatInitializer] Combat ability set: {abilityInstances.Count} active, {passiveEffects.Count} passive");
+
+            // Initialize component with abilities and standing passive modifiers
             int unitId = GenerateUnitId();
             int maxHP = _heroDefinition?.MaxHP ?? 100;
-            combatComponent.InitializeForCombat(unitId, player, startCell, combatController, maxHP, abilityInstances);
+            combatComponent.InitializeForCombat(unitId, player, startCell, combatController, maxHP, abilityInstances, passiveEffects);
 
             Debug.Log($"[CharacterCombatInitializer] Character initialized: ID={unitId}, Cell={startCell}, MaxHP={maxHP}");
 

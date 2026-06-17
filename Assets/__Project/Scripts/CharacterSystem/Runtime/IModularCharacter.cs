@@ -25,6 +25,9 @@ namespace CharacterSystem.Runtime
         /// <summary>Detaches everything currently attached to the socket.</summary>
         bool DetachFromSocket(string socketId);
 
+        /// <summary>Currently equipped parts as a slotId -&gt; partId map (snapshot).</summary>
+        IReadOnlyDictionary<string, string> EquippedParts { get; }
+
         /// <summary>Tier-1 skeleton sockets plus Tier-2 sockets contributed by currently equipped parts.</summary>
         IReadOnlyList<SocketInfo> GetAvailableSockets();
 

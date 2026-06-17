@@ -8,8 +8,9 @@
 > the ready signal — offering body-part options derived from the dominant archetype(s), swapping the
 > chosen part on the live character, and resetting the tally + digestion for the next stage. Feeding
 > the tally/digestion is wired through the Inventory feeding UI (see `inventory-subsystem.md`).
-> The one M1 piece still deferred is **part-derived ability grants** (the swapped part does not yet
-> update abilities) — see §6 and the Ability Subsystem roadmap. Status: current as of 2026-06-16.
+> Part-derived ability grants are now wired: a swapped part changes the character's combat ability
+> set, because combat rebuilds that set from the live equipped parts at combat start (see
+> ability-subsystem.md §2.6). Status: current as of 2026-06-17.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -136,8 +137,9 @@ mutation choice consult; the digestion progress is the "ready to mutate?" signal
 The live character is reached through `ModularCharacterMutationAdapter`, which resolves the assembled
 character from `ModularCharacterVisual.Character` lazily at swap time and caches parts it swapped in
 (so they are not re-offered). The character's *starting* parts are unknown to that cache, so a
-stage-1 choice may re-offer a starting part — accepted for M1 (see §6). **Deferred:** the swap does
-not yet update the part's active/passive abilities — that lands with the Ability Subsystem M1 work.
+stage-1 choice may re-offer a starting part — accepted for M1 (see §6). The swap's effect on combat
+abilities is handled by combat re-reading the equipped parts at combat start, not by the swap path
+(ability-subsystem.md §2.6); the swap itself only changes the body.
 
 ### 2.5 DI wiring
 
@@ -307,12 +309,13 @@ mutate → Stage 2 → …). "Stage" is used here instead of "level" to avoid co
 XP / combat / area-scene levels. The `MutationTally` and `DigestionProgress` accumulate within the
 current stage; the stage-up choice resets both to start the next stage.
 
-- **Part-derived abilities are not granted yet** (deferred M1). The stage-up choice swaps the body
-  part only; the part's active + passive abilities are not updated. This lands with the Ability
-  Subsystem M1 work (abilities granted by parts) — see ROADMAP.
-- **Starting parts are not excluded at stage 1.** `IMutationCharacter` exposes no equipped-part query,
-  so the adapter only knows parts *it* swapped in this run; a part the character started with (from
-  its `CharacterAssemblyDefinition`) could be offered again on the first stage-up. Accepted for M1.
+- **Part-derived abilities are granted via combat re-reading equipped parts** (M1, done). The stage-up
+  choice swaps the body part; combat then rebuilds the unit's active + passive ability set from the
+  live equipped parts at the next combat start (`PartAbilityResolver`; ability-subsystem.md §2.6).
+  The swap path itself pushes nothing into combat — it is a pull-at-init.
+- **Starting parts are not excluded at stage 1** (in the mutation choice). `IModularCharacter` now
+  exposes an `EquippedParts` query, so exact exclusion is possible; the mutation choice still uses the
+  adapter's swap cache and has not been switched over yet. Accepted for M1 — see ROADMAP.
 - The stage-up choice panel prefab must be built once (run **Tools → Mutation → Setup Stage-Up Choice
   UI**); until then the choice is disabled (a startup warning, no crash). Default
   `ArchetypePartSetDefinition` assets now ship for all five archetypes under `Resources/Mutation/PartSets/`

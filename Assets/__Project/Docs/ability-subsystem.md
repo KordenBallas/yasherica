@@ -50,6 +50,13 @@ Status: current as of 2026-06-10.
 - R21. New abilities are defined as **ScriptableObject assets** — no code changes required for a new ability of an existing effect kind.
 - R22. ScriptableObject definitions contain **data only**; all runtime logic lives in pure C# classes created by a factory.
 
+**Part-granted abilities & passives (M1)**
+
+- R23. A body part declares the combat abilities equipping it grants: **active** abilities (usable in combat) and **passive** abilities (standing modifiers). Authored directly on `PartDefinition` (`_activeAbilities`, `_passiveAbilities`).
+- R24. The player unit's combat ability set is composed from its **currently equipped parts** at combat start, deduplicated. Equipped parts are the source of truth, so mutating the body changes the next combat's abilities. `HeroDefinition.Abilities` is a temporary fallback used only when no equipped part grants an active ability.
+- R25. A **passive** ability is never queued or aimed: it references a Buff/Debuff `StatusEffectDefinition` that is applied to the unit as a standing modifier for the **whole combat** (infinite duration), and removed when combat ends.
+- R26. A standing Buff/Debuff modifier affects **outgoing damage**: `IDamageSystem.CalculateFinalDamage` scales an ability's base damage by the attacker's net `StatModifier` (sum over Buff/Debuff effects × stack count). Other stat targets (max-HP, defence) are not wired yet.
+
 ### 1.2 Non-functional requirements
 
 - N1. Cell calculation, validation, and execution are pure C# and unit-testable without Unity play mode (edit-mode tests exist for the shape calculator).
@@ -66,7 +73,9 @@ Status: current as of 2026-06-10.
 |---|---|---|
 | Domain (pure C#) | Ability model, shapes, cell math, queue entries | `Core/IAbility.cs`, `Core/Ability.cs`, `Core/AbilityShapeType.cs`, `Core/AbilityShapeData.cs`, `Core/AbilityTarget.cs`, `Core/AbilityInstance.cs`, `Core/ScheduledAbility.cs`, `Core/AbilityShapeCalculator.cs`, `Core/DataDrivenAbilities.cs` |
 | Data (ScriptableObjects) | Authoring-time configuration | `Data/Definitions/AbilityDefinition.cs` + subclasses, `Data/Factories/AbilityFactory.cs` |
-| Execution (pure C#) | Validation and state transitions | `Execution/ActionValidator.cs`, `Execution/ActionExecutor.cs`, `Execution/AbilityExecutor.cs` |
+| Execution (pure C#) | Validation and state transitions | `Execution/ActionValidator.cs`, `Execution/ActionExecutor.cs`, `Execution/AbilityExecutor.cs`, `Execution/DamageSystem.cs`, `Core/StatusEffects/StatusEffectDurations.cs` |
+| Data (ScriptableObjects) | Passive ability authoring | `Data/Definitions/PassiveAbilityDefinition.cs` |
+| Integration (pure C#) | Bridge from equipped parts → combat ability set | `Integration/IPartAbilityResolver.cs`, `Integration/PartAbilityResolver.cs`, `Integration/PartAbilitySet.cs`, `Integration/CharacterCombatInitializer.cs` |
 | Application | Aiming presenter, input translation | `Player/CombatAbilityPresenter.cs`, `Input/AbilityInputHandler.cs` |
 | Infrastructure | Raw input, highlight rendering, UI | `Input/PCInputController.cs`, `Battlefield/Controller/HexCellController.cs`, `View/AbilityPreview.cs` |
 
@@ -131,7 +140,35 @@ Actions flow through `ICombatController` → `ActionValidator` → `ActionExecut
 3. Fire `OnHit` and HP-threshold triggers per affected target; fire `OnAttack` once for the caster of a damage ability (R16).
 4. No units in the area → state returned unchanged (the queue execution still resets the cooldown).
 
-Cooldown decrement happens at round start in `CombatController` (all ability instances decremented by 1 each round).
+Cooldown decrement happens at round start in `CombatController` (all ability instances decremented by 1 each round). Status-effect durations are advanced once per turn by `StatusEffectDurations.Tick`: a duration `> 0` ticks down and is removed at 0; a **negative duration means infinite** and is never decremented or removed (used by part passives).
+
+### 2.6 Part-granted ability set & passives (M1)
+
+The bridge from the modular character to combat lives in `Combat/Integration`:
+
+```
+CharacterCombatInitializer (combat start)
+  │ reads the player's IModularCharacter.EquippedParts (slotId → partId)
+  ▼
+IPartAbilityResolver.Resolve(partIds)            (PartAbilityResolver, pure C#)
+  │ looks each part up in IPartCatalog, collects PartDefinition.ActiveAbilities
+  │ + PassiveAbilities, deduped by asset reference
+  ▼
+PartAbilitySet { ActiveAbilities, PassiveAbilities }
+  │ active  → AbilityFactory.CreateAbilityInstance  → Unit.Abilities
+  │ passive → StatusEffectFactory.CreateStatusEffect(modifier, duration: -1) → Unit.StatusEffects
+  ▼
+CharacterCombatComponent.InitializeForCombat(..., abilities, passiveEffects)
+```
+
+Because the set is resolved from the **live** equipped parts each time combat starts, an
+overworld mutation swap automatically changes the next combat's ability set — the mutation
+system does not push anything into combat (pull-at-init).
+
+> **Layering note (debt):** `PartDefinition` lives in `CharacterSystem.Data` yet references
+> `Combat.Data.Definitions` ability SOs. This is a deliberate, user-approved M1 coupling that
+> violates the inward-only layering rule (CLAUDE.md §2); it is tracked in the ROADMAP and is
+> expected to be revisited by the M2 part-driven-affinity item.
 
 ---
 
@@ -163,6 +200,12 @@ Subclasses add the effect payload (each has its own `CreateAssetMenu` entry unde
 
 `AbilityFactory` (`Data/Factories/AbilityFactory.cs`) pattern-matches the definition type and constructs the runtime ability, building `AbilityShapeData` from the shape fields. A `StatusEffectAbilityDefinition`/`HybridAbilityDefinition` with no status effect assigned logs a warning and degrades gracefully (base/damage-only ability).
 
+**Passive abilities** are a separate asset type (they are not aimed/queued):
+
+| Asset type | Menu entry | Fields | Applied as |
+|---|---|---|---|
+| `PassiveAbilityDefinition` | Combat → Abilities → Passive Ability | `_id`, `_name`, `_description`, `_modifier` (a Buff/Debuff `StatusEffectDefinition`), `_icon` | The referenced status effect, applied to the unit at combat start with infinite duration (its authored duration is ignored). |
+
 ### 3.2 Steps to add a new ability
 
 1. **Create the asset**: right-click in the Project window → **Create → Combat → Abilities → (Damage | Heal | Status Effect | Hybrid) Ability**. Existing examples live in `Assets/__Project/Resources/Abilities/Data/` (`TestLineAbility.asset`, `TestRingAbility.asset`).
@@ -172,6 +215,17 @@ Subclasses add the effect payload (each has its own `CreateAssetMenu` entry unde
 5. Hotkey mapping for the player is **positional**: ability at index *i* in the hero's list binds to `InputConfig.abilityKeys[i]` (Q/W/E/R/T/Y by default).
 
 No script changes, no installer changes (beyond the inspector list), no recompile of logic.
+
+### 3.3 Steps to add a passive ability
+
+1. **Create a Buff/Debuff status effect**: **Create → Combat → Status Effects → Status Effect**; set `Type` to `Buff` or `Debuff` and `Stat Modifier` to the percentage (e.g. `0.2` for +20% outgoing damage; debuffs are negated automatically).
+2. **Create the passive**: **Create → Combat → Abilities → Passive Ability**; assign the status effect to `Modifier`. (The status effect's authored duration is ignored — passives last the whole combat.)
+
+### 3.4 Steps to grant abilities via a body part
+
+1. Open a `PartDefinition` asset (**Character System → Part**).
+2. Add active ability assets to **Active Abilities** and/or passive ability assets to **Passive Abilities**.
+3. Equip the part on the character (via the mutation choice or the assembly's default parts). On the next combat the unit's ability set is rebuilt from its equipped parts — no `HeroDefinition` edit needed.
 
 ---
 
@@ -212,3 +266,6 @@ These describe current behavior honestly; they are not requirements.
 - **Queue reorder/retarget actions exist in the domain but have no UI.**
 - **`MaxAbilityQueueSize` (3) and other `CombatConfig` values are hardcoded** in `AreaInstaller.InstallCombatConfigurations` rather than asset-driven.
 - **Friendly fire is by design** (R12): a heal Line pointed at an enemy heals the enemy; a damage Ring hits adjacent allies. There is no ownership filtering anywhere in execution.
+- **Passive standing modifiers affect only outgoing damage** (R26). `StatModifier` has no stat-target dimension, so max-HP, defence, healing, etc. are not yet modified by passives. (ROADMAP)
+- **`PartDefinition` references the Combat ability layer** — a deliberate M1 coupling that violates the inward-only layering rule (CLAUDE.md §2); tracked in the ROADMAP for the M2 part-driven-affinity rework.
+- **`HeroDefinition.Abilities` is a temporary fallback**: used only when no equipped part grants an active ability (so the demo still runs before part-grants are authored). The long-term source of truth is the equipped parts.

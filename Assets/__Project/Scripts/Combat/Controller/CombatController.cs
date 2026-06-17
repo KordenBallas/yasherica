@@ -325,13 +325,10 @@ namespace Combat.Controller
         private ICombatState DecrementStatusEffects(ICombatState gameState, IUnit unit)
         {
             var updatedUnit = gameState.GetUnit(unit.Id) as Unit;
-            
-            // Decrement durations and remove expired effects
-            var newEffects = updatedUnit.StatusEffects
-                .Select(e => (e as StatusEffect).DecrementDuration())
-                .Where(e => e.Duration > 0)
-                .ToList<IStatusEffect>();
-            
+
+            // Decrement durations and remove expired effects (infinite/negative durations persist).
+            var newEffects = StatusEffectDurations.Tick(updatedUnit.StatusEffects);
+
             updatedUnit = updatedUnit.WithStatusEffects(newEffects);
             return (gameState as CombatState).WithUpdatedUnit(updatedUnit);
         }

@@ -31,6 +31,8 @@ namespace CharacterSystem.Runtime
 
         public bool DetachFromSocket(string socketId) => _controller.DetachFromSocket(socketId);
 
+        public IReadOnlyDictionary<string, string> EquippedParts => _controller.EquippedParts;
+
         public IReadOnlyList<SocketInfo> GetAvailableSockets() => _controller.GetAvailableSockets();
 
         public Transform GetSocketTransform(string socketId) => _controller.GetSocketTransform(socketId);

@@ -20,3 +20,6 @@ MonoBehaviour:
   - Head
   _contributedSockets:
   - {fileID: 11400000, guid: c675cd362fc96fc4ca282f7e59d3a9c2, type: 2}
+  _activeAbilities:
+  - {fileID: 11400000, guid: 304de35687ec0e24b9605534d6569c62, type: 2}
+  _passiveAbilities: []

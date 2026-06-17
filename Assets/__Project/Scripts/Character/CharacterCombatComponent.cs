@@ -65,23 +65,26 @@ namespace Character
             HexCoordinates startPosition,
             ICombatController combatController,
             int maxHP,
-            IReadOnlyList<IAbilityInstance> abilities)
+            IReadOnlyList<IAbilityInstance> abilities,
+            IReadOnlyList<IStatusEffect> passiveEffects = null)
         {
             _combatController = combatController;
 
-            // Create internal unit with combat stats and abilities
+            // Create internal unit with combat stats, abilities, and any standing passive
+            // modifiers granted by equipped parts (applied for the whole combat).
             _internalUnit = new Unit(
                 id: unitId,
                 owner: owner,
                 position: startPosition,
                 currentHP: maxHP,
                 maxHP: maxHP,
-                abilities: abilities);
+                abilities: abilities,
+                statusEffects: passiveEffects);
 
             // Subscribe to state changes for synchronization
             _combatController.OnStateChanged += OnCombatStateChanged;
 
-            Debug.Log($"[CharacterCombatComponent] Initialized for combat: ID={unitId}, Position={startPosition}, Owner={owner.Name}, Abilities={abilities.Count}");
+            Debug.Log($"[CharacterCombatComponent] Initialized for combat: ID={unitId}, Position={startPosition}, Owner={owner.Name}, Abilities={abilities.Count}, Passives={passiveEffects?.Count ?? 0}");
             Debug.Log($"[CharacterCombatComponent] Subscribed to OnStateChanged");
         }
         
