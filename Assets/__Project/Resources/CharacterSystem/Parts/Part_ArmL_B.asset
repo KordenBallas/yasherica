@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Part_ArmL_B
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
   _id: part.arm.l.b
+  _displayName: Winged Arm
   _slot: {fileID: 11400000, guid: ae0f0b6118f59bb43b799c24a0922a7d, type: 2}
   _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
   _partPrefab: {fileID: 4708148949013703166, guid: 3948969280f089a4e81fb00748a56288, type: 3}
@@ -21,3 +22,10 @@ MonoBehaviour:
   - LowerArm.L
   - Hand.L
   _contributedSockets: []
+  _archetypeAffinities:
+  - _archetypeId: avian
+    _weight: 0.7
+  - _archetypeId: insect
+    _weight: 0.6
+  _rarity: 1
+  _choiceIcon: {fileID: 0}

@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Part_Head_B
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
   _id: part.head.b
+  _displayName: Reptilian Head
   _slot: {fileID: 11400000, guid: a3a3f4209385bed4491ef0157ca3c0b3, type: 2}
   _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
   _partPrefab: {fileID: 5494672509587843517, guid: 2fb725f45742f1c4aa909f8818ff21d8, type: 3}
@@ -23,3 +24,14 @@ MonoBehaviour:
   _activeAbilities:
   - {fileID: 11400000, guid: 304de35687ec0e24b9605534d6569c62, type: 2}
   _passiveAbilities: []
+  _archetypeAffinities:
+  - _archetypeId: reptile
+    _weight: 0.8
+  - _archetypeId: insect
+    _weight: 0.6
+  - _archetypeId: avian
+    _weight: 0.5
+  - _archetypeId: mammal
+    _weight: 0.5
+  _rarity: 2
+  _choiceIcon: {fileID: 21300000, guid: cb97c2fe68cf51849a36258bb004f45b, type: 3}

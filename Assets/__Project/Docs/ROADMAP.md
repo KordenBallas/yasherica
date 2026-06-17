@@ -174,11 +174,9 @@ The M1 core loop (see `mutation-subsystem.md` for the implemented data surface):
   digestion progress for the new stage. *(Done — `MutationChoicePresenter` + `MutationOptionBuilder`;
   see CHANGELOG; `mutation-subsystem.md`. **Ability update on swap is deferred** — see the Ability
   Subsystem M1 item below.)*
-- [x] `[content]` **M1 — Archetype → body-part-set mapping.** Author which body parts/variants each
-  archetype can offer at each slot, so a mutation choice resolves to concrete `PartDefinition`s.
-  *(Done — `ArchetypePartSetDefinition` SO; `Resources/Mutation/PartSets/`. Shipped content has no
-  part-set assets yet — designer authors them. **Superseded by the M2 part-driven affinity item
-  below** once that lands — `ArchetypePartSetDefinition` is removed then.)*
+- [x] `[content]` **M1 — Archetype → body-part-set mapping.** *(Done in M1, then **superseded and
+  removed** by the M2 part-driven-affinity item below. `ArchetypePartSetDefinition` and the part sets
+  are deleted; archetype affinity now lives on `PartDefinition` and selection is scored. See CHANGELOG.)*
 - [x] `[arch]` **M1 — Mutation swap updates abilities.** *(Done — combat rebuilds the unit's active +
   passive ability set from the live equipped parts at combat start (`PartAbilityResolver`,
   `CharacterCombatInitializer`), so a stage-up swap changes the next combat's abilities without the
@@ -188,22 +186,14 @@ The M1 core loop (see `mutation-subsystem.md` for the implemented data surface):
   part is excluded; the redundant swap cache was removed. See CHANGELOG; `mutation-subsystem.md` §2.4.)*
 
 New work:
-- [ ] `[arch]` **M2 — Part-driven archetype affinity + scored mutation selection.** Move archetype
-  association from per-archetype set assets onto the body parts themselves. Each part declares an
-  archetype-affinity vector (e.g. aquatic 20% / reptile 80%), its choice icon, references to its
-  granted ability SO(s), and a rarity tier (new Mutation-layer rarity enum, e.g. Common…Legendary,
-  Mythical). Replace `ArchetypePartSetDefinition` + the dominant-archetype walk in
-  `MutationOptionBuilder` with a single scoring function that ranks **all** candidate parts against
-  the cumulative feed tally (`IMutationTally`): score = affinity·tally match, weighted so that more
-  accumulated archetype points unlock better/rarer parts, then take the top-N (`MaxMutationOptions`).
-  Balance is tuned via the scoring function's parameters (rarity weighting, points→rarity gating)
-  rather than by re-authoring set assets. *(Supersedes the shipped "Archetype → body-part-set
-  mapping" item above; remove `ArchetypePartSetDefinition` once this lands.)*
-  - Open design point: host the new mutation data on the CharacterSystem `PartDefinition` (simplest
-    for authoring) vs. a Mutation-layer companion SO referencing a `PartDefinition` by id (keeps
-    ability/rarity/archetype coupling out of the character layer per Clean Architecture §2). Resolve
-    when scheduled.
-  - Depends on the Ability Subsystem M1 items (parts granting abilities) for the ability references.
+- [x] `[arch]` **M2 — Part-driven archetype affinity + scored mutation selection.** *(Done — archetype
+  affinity, rarity (`MutationRarity`), and choice icon now live on `PartDefinition`; `MutationPartCatalog`
+  builds `MutationCandidatePart`s from the part catalog; `MutationOptionBuilder` scores all candidates
+  against the feed tally — `(affinity·tally) × (1 + RarityWeight·tier·unlock)` — and takes the top-N.
+  `ArchetypePartSetDefinition` + the option catalog/mapper/provider are removed; balance is tuned via
+  `MutationConfig.RarityWeight` / `RarityUnlockPointsPerTier`. Hosting decision: on `PartDefinition`
+  (single-asset authoring) — the layering trade-off is recorded as a known limitation in
+  `mutation-subsystem.md` §6 rather than being eliminated. See CHANGELOG.)*
 - [ ] `[arch]` **M4 — Ability-aware mutation choice panels.** Weight the stage-up choice
   by ability, not just part name/icon/archetype. For the slot being mutated, show a
   before→after comparison per option: the **old** body part with its currently granted
@@ -249,10 +239,13 @@ Known limitations (from `character-locomotion.md` §6):
   Buff/Debuff `StatusEffectDefinition` as a standing modifier for the whole combat (infinite duration
   via `StatusEffectDurations.Tick`); `DamageSystem.CalculateFinalDamage` consumes Buff/Debuff modifiers
   for outgoing damage. Gives the `Ability` reward type a home. See CHANGELOG.)*
-- [ ] `[debt]` **Part ability data couples CharacterSystem → Combat.** `PartDefinition`
-  (`CharacterSystem.Data`) references `Combat.Data.Definitions` ability SOs, breaking the inward-only
-  layering rule (CLAUDE.md §2). Accepted for M1 by user decision; revisit in the M2 part-driven-affinity
-  item (which reconsiders where part ability/affinity/rarity data lives).
+- [ ] `[debt]` **Part ability/mutation data couples CharacterSystem → Combat (and hosts Mutation
+  concepts).** `PartDefinition` (`CharacterSystem.Data`) references `Combat.Data.Definitions` ability
+  SOs and now also carries the Mutation affinity/rarity/icon, breaking the inward-only layering rule
+  (CLAUDE.md §2). The M2 part-driven-affinity item revisited this and **kept the data on
+  `PartDefinition`** by user decision (single-asset authoring over strict layering); affinity/rarity
+  add no *type* dependency on Mutation (id strings + plain enum). A future cleanup could move it to a
+  Mutation-layer companion SO keyed by part id.
 - [ ] `[arch]` **Passive modifiers affect only outgoing damage.** `StatModifier` has no stat-target
   dimension, so max-HP / defence / healing passives are not yet consumed. Extend the modifier model
   (stat target) and `DamageSystem` / unit-stat resolution to honour them.

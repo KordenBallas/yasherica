@@ -13,3 +13,6 @@ MonoBehaviour:
   m_Name: MutationConfig
   m_EditorClassIdentifier:
   _digestionThreshold: 5
+  _maxMutationOptions: 3
+  _rarityWeight: 0.5
+  _rarityUnlockPointsPerTier: 10

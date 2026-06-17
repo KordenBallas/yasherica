@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Part_LegL_B
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
   _id: part.leg.l.b
+  _displayName: Clawed Leg
   _slot: {fileID: 11400000, guid: 9dccc0ffa92c2d14eb095ff019dd0f9a, type: 2}
   _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
   _partPrefab: {fileID: 6495667197884151810, guid: 56953fea7df23f34aa9cbf0183019147, type: 3}
@@ -21,3 +22,10 @@ MonoBehaviour:
   - LowerLeg.L
   - Foot.L
   _contributedSockets: []
+  _archetypeAffinities:
+  - _archetypeId: reptile
+    _weight: 0.7
+  - _archetypeId: aquatic
+    _weight: 0.6
+  _rarity: 0
+  _choiceIcon: {fileID: 21300000, guid: 55374e0e9f1696241af4de5aa4a3ab72, type: 3}

@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Part_Torso_B
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
   _id: part.torso.b
+  _displayName: Finned Torso
   _slot: {fileID: 11400000, guid: 4732ab9c6da821046a9e68a88900260d, type: 2}
   _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
   _partPrefab: {fileID: 2000570253315268160, guid: f1b3a620a0059124fa993afb58c7ad4b, type: 3}
@@ -23,3 +24,12 @@ MonoBehaviour:
   _activeAbilities:
   - {fileID: 11400000, guid: 967f900deb3eb854e9b83b5886c91075, type: 2}
   _passiveAbilities: []
+  _archetypeAffinities:
+  - _archetypeId: aquatic
+    _weight: 0.8
+  - _archetypeId: reptile
+    _weight: 0.6
+  - _archetypeId: avian
+    _weight: 0.5
+  _rarity: 1
+  _choiceIcon: {fileID: 21300000, guid: 280d26cdc412f4c4795e41f8b873186b, type: 3}

@@ -5,11 +5,14 @@
 > The loop is now closed end-to-end: the authorable archetype set, the per-artifact archetype weights
 > that feed it, the per-stage `MutationTally` that aggregates fed profiles, the `DigestionProgress`
 > that tracks how close the stage is to a mutation, and the **stage-up mutation choice** that consumes
-> the ready signal — offering body-part options derived from the dominant archetype(s), swapping the
-> chosen part on the live character, and resetting the tally + digestion for the next stage. Feeding
-> the tally/digestion is wired through the Inventory feeding UI (see `inventory-subsystem.md`).
-> Part-derived ability grants are now wired: a swapped part changes the character's combat ability
-> set, because combat rebuilds that set from the live equipped parts at combat start (see
+> the ready signal — scoring every candidate body part against the cumulative feed tally and offering
+> the top-scoring options, swapping the chosen part on the live character, and resetting the tally +
+> digestion for the next stage. Feeding the tally/digestion is wired through the Inventory feeding UI
+> (see `inventory-subsystem.md`). Each body part carries its own archetype-affinity vector, rarity
+> tier, and choice icon (on the CharacterSystem `PartDefinition`); the scoring ranks parts by how well
+> their affinity matches what was fed, with a rarity bonus that ramps up as the player accumulates
+> points (M2). Part-derived ability grants are wired: a swapped part changes the character's combat
+> ability set, because combat rebuilds that set from the live equipped parts at combat start (see
 > ability-subsystem.md §2.6). Status: current as of 2026-06-17.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
@@ -55,19 +58,18 @@ Scripts/Mutation/
     IDigestionProgress.cs       — per-stage "how close to mutating" contract
     DigestionProgress.cs        — count of artifacts fed this stage vs. the threshold
     MutationOption.cs           — one offered swap (slotId, partId, archetypeId, displayName)
-    IMutationOptionProvider.cs  — archetypeId -> candidate options contract
-    IMutationOptionBuilder.cs / MutationOptionBuilder.cs — picks 2-3 options from the dominant archetypes
+    MutationCandidatePart.cs    — a scorable part (slot/part ids, affinity map, rarity tier, dominant id)
+    MutationScoringParameters.cs— scoring tunables struct (rarity weight, unlock points/tier)
+    IMutationOptionBuilder.cs / MutationOptionBuilder.cs — scores all candidate parts, returns the top-N
     IMutationCharacter.cs       — port to swap a body part on the live character (no MonoBehaviour in Core)
   Data/                         — ScriptableObject definitions + the only SO -> Core bridge
     Definitions/
       ArchetypeDefinition.cs    — one creature archetype axis (SO)
       ArchetypeWeight.cs        — one authored (archetypeId, weight) pair (serializable)
-      MutationConfig.cs         — subsystem tunables (digestion threshold, max options) (SO)
-      ArchetypePartSetDefinition.cs — one archetype's body-part options (SO; inline MutationOptionEntry)
+      MutationConfig.cs         — subsystem tunables (digestion threshold, max options, scoring) (SO)
     IArchetypeCatalog.cs / ArchetypeCatalog.cs — id -> definition lookup, fail-fast
-    IMutationOptionCatalog.cs / MutationOptionCatalog.cs — archetypeId -> options + part icon, fail-fast
+    IMutationPartCatalog.cs / MutationPartCatalog.cs — builds candidate parts from the character part catalog + part icon
     ArtifactArchetypeMapper.cs  — ArchetypeWeight[] -> ArtifactArchetypeProfile
-    MutationOptionMapper.cs     — ArchetypePartSetDefinition -> MutationOption[]
   Infrastructure/
     ModularCharacterMutationAdapter.cs — IMutationCharacter over the scene's ModularCharacterVisual
   Presenter/
@@ -85,6 +87,13 @@ Scripts/Editor/Mutation/MutationChoiceUISetup.cs — one-click in-scene choice p
 by string id, so Inventory does not depend on the archetype *catalog*, only on the small
 `ArchetypeWeight` data type.
 
+`PartDefinition` (CharacterSystem) owns the per-part mutation data — the `ArchetypeAffinity[]` vector,
+the `MutationRarity` tier, and the `ChoiceIcon` — alongside its body/ability data. Hosting these
+Mutation concepts on the character layer is a user-approved authoring convenience (M2); affinity and
+rarity reference no Mutation type (id strings + a plain enum), so the Mutation Core stays decoupled.
+The layering trade-off is recorded in §6 and the ROADMAP. `MutationPartCatalog` is the only bridge
+from these authored parts into the UnityEngine-free `MutationCandidatePart` records.
+
 ### 2.2 Core domain types
 
 | Type | Responsibility |
@@ -93,13 +102,14 @@ by string id, so Inventory does not depend on the archetype *catalog*, only on t
 | `IMutationTally` / `MutationTally` | Mutable live aggregate of the profiles fed during the **current mutation stage**; `Add(profile)` sums weights, `TotalFor`, `Dominant(count)` (top-N by weight, ordinal-id tie-break), `Reset()`, `OnChanged`. |
 | `IDigestionProgress` / `DigestionProgress` | Per-stage count of digested artifacts vs. the `MutationConfig.DigestionThreshold`; `AddArtifact()` (+1), `Fed`, `Threshold`, `Normalized` (0..1), `IsReadyToMutate`, `Reset()`, `OnChanged`. Decides **when** a mutation is available; the tally decides **which** archetype it leans toward. |
 | `ArchetypeWeight` | One authored contribution: `ArchetypeId`, `Weight`. Serialized on `ArtifactDefinition`. |
-| `MutationOption` | Immutable offered swap: `SlotId`, `PartId`, `ArchetypeId`, `DisplayName`. UnityEngine-free; the presenter resolves icon/tint at the view boundary. |
-| `IMutationOptionProvider` / `IMutationOptionCatalog` | `archetypeId → MutationOption[]` (authored order); the catalog adds `TryGetIcon(partId)` and throws on empty/duplicate archetype ids. |
-| `IMutationOptionBuilder` / `MutationOptionBuilder` | Picks ≤`maxOptions` options across the dominant archetypes in weight order, deduping shared parts (first archetype wins) and excluding already-equipped parts. Deterministic, no LINQ. |
+| `MutationOption` | Immutable offered swap: `SlotId`, `PartId`, `ArchetypeId` (the part's dominant-affinity archetype, for tint only), `DisplayName`. UnityEngine-free; the presenter resolves icon/tint at the view boundary. |
+| `MutationCandidatePart` | A scorable part in UnityEngine-free terms: `SlotId`, `PartId`, `DisplayName`, `Affinity` (archetype id → weight), `RarityTier` (int; Common = 0), `DominantArchetypeId`. Built by the Data layer from a `PartDefinition`. |
+| `MutationScoringParameters` | Scoring tunables struct (from `MutationConfig`): `RarityWeight`, `RarityUnlockPointsPerTier`. |
+| `IMutationOptionBuilder` / `MutationOptionBuilder` | Scores every candidate part against the feed tally — `score = (affinity·tally) × (1 + RarityWeight·tier·unlock)` — excludes equipped parts and parts with no affinity to anything fed (score 0), and returns the top ≤`maxOptions` by descending score with an ordinal part-id tie-break. Deterministic, no LINQ. |
 | `IMutationCharacter` | Port the choice uses to `SwapPart(slotId, partId)` and query the equipped part; keeps MonoBehaviours out of Core. |
 | `IArchetypeCatalog` / `ArchetypeCatalog` | `archetypeId → ArchetypeDefinition` lookup; throws on empty/duplicate ids at construction. |
+| `IMutationPartCatalog` / `MutationPartCatalog` | Builds `MutationCandidatePart[]` from the CharacterSystem `IPartCatalog` (summing duplicate affinity ids, dropping empty ids / non-positive weights, computing the dominant archetype), and serves the per-part `ChoiceIcon` via `TryGetIcon`. The only SO→Core bridge for candidate parts. |
 | `ArtifactArchetypeMapper` | Pure adapter from `ArchetypeWeight[]` to `ArtifactArchetypeProfile`. |
-| `MutationOptionMapper` | Pure adapter from `ArchetypePartSetDefinition` to `MutationOption[]` (the SO→Core bridge for options; icons stay in Data). |
 
 ### 2.3 Runtime flow
 
@@ -107,7 +117,8 @@ At install the `MutationInstaller` loads every `ArchetypeDefinition`, binds an `
 loads `MutationConfig`, and binds the `MutationTally` and `DigestionProgress` (one each per
 container). After all installers run, `MutationContentValidator` (NonLazy `IInitializable`) iterates
 the artifact catalog and warns about any archetype weight whose id is empty or absent from the
-archetype catalog.
+archetype catalog, and iterates the character part catalog warning about any part affinity whose
+archetype id is empty or unknown.
 
 The live consumer path runs through the Inventory **feeding UI** (see `inventory-subsystem.md`): for
 each artifact the player digests, the feeding presenter calls
@@ -120,15 +131,18 @@ mutation choice consult; the digestion progress is the "ready to mutate?" signal
 `MutationChoicePresenter` (NonLazy, subscribed to `IDigestionProgress.OnChanged`) closes the loop:
 
 1. **Trigger.** When `IsReadyToMutate` flips true (and a choice is not already showing), the presenter
-   takes the dominant archetypes (`IMutationTally.Dominant(MutationConfig.MaxMutationOptions)`).
-2. **Build options.** `MutationOptionBuilder.Build` walks those archetypes in weight order and each
-   one's authored options in order, deduping a part shared by two archetypes (first wins) and
-   excluding parts already equipped (`IMutationCharacter.TryGetEquippedPartId`), up to
-   `MaxMutationOptions`. If the result is **empty** (the dominant archetypes have no new parts), the
+   reads the cumulative feed tally (`IMutationTally.Totals`) and the full candidate-part set
+   (`IMutationPartCatalog.AllCandidates`).
+2. **Build options.** `MutationOptionBuilder.Build` scores every candidate against the tally —
+   `score = (affinity·tally) × (1 + RarityWeight·tier·unlock)`, where `unlock` ramps from 0 to 1 as
+   accumulated points approach `tier × RarityUnlockPointsPerTier` — excludes parts already equipped
+   (`IMutationCharacter.TryGetEquippedPartId`, gathered once per candidate slot) and parts that score
+   zero (no affinity to anything fed), then returns the top `MaxMutationOptions` by descending score
+   with an ordinal part-id tie-break. If the result is **empty** (no unequipped part scores), the
    presenter logs and returns **without** resetting — the player keeps feeding.
 3. **Present.** Each `MutationOption` becomes a `MutationChoiceViewData` (label from the option, tint
-   from `ArchetypeDefinition.Tint`, icon from `IMutationOptionCatalog.TryGetIcon`); the view shows the
-   panel.
+   from the part's dominant-affinity `ArchetypeDefinition.Tint`, icon from
+   `IMutationPartCatalog.TryGetIcon`); the view shows the panel.
 4. **Apply.** On the player's pick, `IMutationCharacter.SwapPart(slotId, partId)` swaps the body part
    on the live character. A **failed** swap (e.g. the rig is not yet assembled) keeps the panel up and
    resets nothing. A **successful** swap hides the panel and then resets **both** the tally and the
@@ -155,8 +169,9 @@ combat re-reading the equipped parts at combat start, not by the swap path (abil
   created when its first consumer resolves.
 - `IDigestionProgress` → `DigestionProgress` via `BindInterfacesAndSelfTo` + `AsSingle`, constructed
   with `MutationConfig.DigestionThreshold`.
-- `IMutationOptionCatalog` → `MutationOptionCatalog` via `BindInterfacesAndSelfTo` + `AsSingle`;
-  part-set definitions auto-load from `Resources/Mutation/PartSets` when the inspector list is empty.
+- `IMutationPartCatalog` → `MutationPartCatalog` via `BindInterfacesAndSelfTo` + `AsSingle`;
+  constructor-injects the CharacterSystem `IPartCatalog` (bound by `CharacterSystemInstaller` in the
+  same `SceneContext`) and builds its candidate parts from it. No part-set assets to load.
 - `IMutationOptionBuilder` → `MutationOptionBuilder` (`AsSingle`).
 - `ModularCharacterVisual` resolved `FromComponentInHierarchy`; `IMutationCharacter` →
   `ModularCharacterMutationAdapter` (`AsSingle`).
@@ -167,8 +182,9 @@ combat re-reading the equipped parts at combat start, not by the swap path (abil
   (the rest of the scene runs) — it never crashes the `SceneContext` over an unbuilt panel.
 - `MutationChoicePresenter` via `BindInterfacesAndSelfTo` + `NonLazy` (so it subscribes to the ready
   signal at startup) — bound only when the panel prefab exists.
-- `MutationContentValidator` via `BindInterfacesAndSelfTo` + `NonLazy`; it now also receives the raw
-  part-set list and `IPartCatalog` (CharacterSystem) to validate options.
+- `MutationContentValidator` via `BindInterfacesAndSelfTo` + `NonLazy`; it receives `IArtifactCatalog`,
+  `IArchetypeCatalog`, and the CharacterSystem `IPartCatalog` to validate artifact weights and part
+  affinities.
 - `IGameLogger` is **not** bound here — `InventoryInstaller` provides the single `UnityGameLogger`
   for the shared `SceneContext` (re-binding `AsSingle` for the same concrete type trips Zenject 6).
 
@@ -204,27 +220,24 @@ Single asset loaded from `Resources/Mutation/MutationConfig.asset` (or wired int
 | Field | Type | Meaning | Default / notes |
 |---|---|---|---|
 | `DigestionThreshold` | int | Artifacts that must be fed in a stage before `IDigestionProgress.IsReadyToMutate` is true. | `5`; `[Min(1)]` |
-| `MaxMutationOptions` | int | How many mutation options to offer at a stage-up (fewer if the dominant archetypes lack parts). | `3`; `[Min(1)]` |
+| `MaxMutationOptions` | int | How many mutation options to offer at a stage-up (fewer if too few parts score). | `3`; `[Min(1)]` |
+| `RarityWeight` | float | How strongly a part's rarity tier multiplies its score once unlocked. | `0.5`; `[Min(0)]` |
+| `RarityUnlockPointsPerTier` | float | Accumulated archetype points required per rarity tier before that tier is favoured. | `10`; `[Min(0)]` |
 
-### `ArchetypePartSetDefinition`  (asset menu: `Create → Mutation → Archetype Part Set`)
+### Per-part mutation data on `PartDefinition`  (CharacterSystem — `Create → Character System/Part`)
 
-One asset per archetype, loaded from `Resources/Mutation/PartSets/` (or wired into the
-`MutationInstaller` `_partSetDefinitions` list). Empty/duplicate archetype ids fail fast in
-`MutationOptionCatalog`.
-
-| Field | Type | Meaning | Default / notes |
-|---|---|---|---|
-| `ArchetypeId` | string | Which `ArchetypeDefinition.Id`'s dominance offers these parts. | empty → fails fast |
-| `Options` | `MutationOptionEntry[]` | Body-part options, tried in authored order. | — |
-
-`MutationOptionEntry` (inline):
+The mutation affinity/rarity/icon live on the body part itself (see `character-system.md` for the
+full `PartDefinition` reference). `MutationPartCatalog` reads every part from the CharacterSystem
+`IPartCatalog`; no per-archetype part-set assets exist.
 
 | Field | Type | Meaning | Default / notes |
 |---|---|---|---|
-| `SlotId` | string | `SlotDefinition.Id` the part fills (e.g. `slot.head`). | validated against the part's slot |
-| `PartId` | string | `PartDefinition.Id` swapped in when chosen (e.g. `part.head.b`). | resolved via `IPartCatalog`; unknown → warning |
-| `DisplayName` | string | Label on the choice button. | — |
-| `Icon` | Sprite | Optional icon on the choice button. | none |
+| `ArchetypeAffinities` | `ArchetypeAffinity[]` | Per-archetype affinity (`ArchetypeId` + `Weight` 0..1) scored against the feed tally. Duplicate ids summed; empty ids / weights ≤ 0 dropped. | empty → part never offered (no affinity) |
+| `Rarity` | `MutationRarity` | Rarity tier (`Common`…`Mythical`, ordinal 0..5); higher tiers are favoured once enough points accumulate. | `Common` |
+| `ChoiceIcon` | Sprite | Icon shown on the choice button when this part is offered. | none |
+| `DisplayName` | string | Friendly label on the choice button (general `PartDefinition` field). | empty → falls back to the asset name |
+
+`MutationContentValidator` warns at startup if a part affinity's archetype id is empty or unknown.
 
 ---
 
@@ -241,19 +254,27 @@ One asset per archetype, loaded from `Resources/Mutation/PartSets/` (or wired in
 
 1. Select `Resources/Mutation/MutationConfig.asset`.
 2. Set **Digestion Threshold** — how many artifacts the player must feed in one stage before the
-   feeding UI reports "ready to mutate" — and **Max Mutation Options** (how many choices a stage-up
-   offers). That's it; the `MutationInstaller` loads it automatically.
+   feeding UI reports "ready to mutate" — **Max Mutation Options** (how many choices a stage-up
+   offers), and the scoring tunables **Rarity Weight** / **Rarity Unlock Points Per Tier** (how much
+   rarity boosts a part's score, and how many accumulated archetype points unlock each tier). That's
+   it; the `MutationInstaller` loads it automatically.
 
-### Add a body-part option set for an archetype
+### Make a body part a mutation option (author its affinity, rarity & icon)
 
-1. `Create → Mutation → Archetype Part Set` to make an `ArchetypePartSetDefinition` under
-   `Resources/Mutation/PartSets/`. One asset per archetype.
-2. Set `Archetype Id` to an existing `ArchetypeDefinition.Id`.
-3. Under **Options**, add an entry per body part this archetype can grant: `Slot Id` and `Part Id`
-   must match an existing `PartDefinition` (`Part Id`) and its slot (see `character-system.md`),
-   plus a `Display Name` and optional `Icon`. Order matters — earlier entries are offered first.
-4. The `MutationInstaller` auto-loads it. `MutationContentValidator` warns at startup if the
-   archetype, part, or slot does not resolve.
+A part becomes a stage-up option purely by its own mutation data — there are no per-archetype set
+assets. On the `PartDefinition` asset (see `character-system.md` for creating one):
+
+1. Under **Mutation (part-driven affinity)** → **Archetype Affinities**, add an entry per archetype
+   the part leans toward: `Archetype Id` (an existing `ArchetypeDefinition.Id`) and `Weight` (0..1).
+   A part is only ever offered when something it has affinity for has been fed; mixed affinities are
+   fine (e.g. reptile 0.8 / aquatic 0.2). Duplicate ids are summed; empty ids / weights ≤ 0 dropped.
+2. Set **Rarity** — rarer tiers score higher, but only once the player has accumulated enough points
+   (tuned by `MutationConfig.RarityUnlockPointsPerTier`).
+3. Optionally set **Choice Icon** (shown on the choice button) and **Display Name** (the button's
+   label; falls back to the asset name when blank).
+4. No registration step: `MutationPartCatalog` reads every part from the part catalog automatically.
+   `MutationContentValidator` warns at startup if an affinity's archetype id is empty or unknown.
+   The choice-button tint comes from the part's highest-weight (dominant) archetype's `Tint`.
 
 ### Wire the stage-up choice panel into the scene
 
@@ -293,13 +314,17 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
   profiles are no-ops that don't raise `OnChanged`; `TotalFor` of unknown/empty/null id → 0;
   `Dominant` orders by weight desc with ordinal-id tie-break and clamps `count`; `Reset` clears and
   raises `OnChanged` only when it was non-empty.
-- `MutationOptionBuilderTests` — gathers across dominant archetypes in weight then authored order;
-  caps at `maxOptions`; excludes equipped parts; dedupes a part shared by two archetypes (first wins);
-  skips empty part ids; empty on no data / non-positive max / null args; deterministic across runs.
+- `MutationOptionBuilderTests` — orders by affinity match against the tally; a rarer part wins with
+  equal affinity; a lower-affinity rare part overtakes a common one as points accumulate; caps at
+  `maxOptions`; excludes equipped parts; drops parts with no affinity to anything fed (score 0);
+  ordinal part-id tie-break; deterministic; empty on null/empty tally, non-positive max, or null args.
+- `MutationPartCatalogTests` — maps slot/part/rarity/affinity from a `PartDefinition`; dominant
+  archetype is the highest weight; sums duplicate ids and drops empty ids / non-positive weights;
+  `TryGetIcon` returns the authored icon; throws on a null part catalog.
 - `MutationChoicePresenterTests` — not-ready shows nothing; ready flips → shows choices + visible;
   selection swaps then resets tally + digestion and hides; a failed swap resets nothing and stays
-  visible; ready-but-no-options shows/resets nothing; already-equipped parts are excluded; further
-  feeding while shown does not re-show.
+  visible; ready-but-no-scoring-options shows/resets nothing; already-equipped parts are excluded;
+  further feeding while shown does not re-show.
 
 ---
 
@@ -315,11 +340,17 @@ current stage; the stage-up choice resets both to start the next stage.
   live equipped parts at the next combat start (`PartAbilityResolver`; ability-subsystem.md §2.6).
   The swap path itself pushes nothing into combat — it is a pull-at-init.
 - The stage-up choice panel prefab must be built once (run **Tools → Mutation → Setup Stage-Up Choice
-  UI**); until then the choice is disabled (a startup warning, no crash). Default
-  `ArchetypePartSetDefinition` assets now ship for all five archetypes under `Resources/Mutation/PartSets/`
-  (placeholder `.a → .b` swaps); only `reptile`/`insect`/`aquatic` are reachable today since no shipped
-  artifact pushes `mammal`/`avian`.
-- `ArchetypeDefinition.Tint` now tints the feeding readout and the choice buttons, but no other
-  mutation UI uses it.
+  UI**); until then the choice is disabled (a startup warning, no crash). The shipped `*_B` body parts
+  now carry placeholder affinity/rarity/icon data (migrated from the removed per-archetype part sets),
+  so the `*_A → *_B` swaps remain reachable for `reptile`/`insect`/`aquatic`; `mammal`/`avian`
+  affinities exist on parts but stay unreachable since no shipped artifact pushes them.
+- **Layering trade-off (M2, accepted):** the per-part mutation data (`ArchetypeAffinity`,
+  `MutationRarity`, `ChoiceIcon`) lives on the CharacterSystem `PartDefinition` for single-asset
+  authoring, so Mutation concepts sit in the character layer (a §2 inward-only deviation, mirroring
+  the accepted `PartDefinition → Combat` ability coupling). The Mutation Core stays decoupled
+  (affinity is an id-string map, rarity an int tier). A future cleanup could host this on a
+  Mutation-layer companion SO keyed by part id; deferred by user decision.
+- `ArchetypeDefinition.Tint` tints the feeding readout and the choice buttons (the latter from each
+  option's dominant-affinity archetype), but no other mutation UI uses it.
 - No archetype currently has a `mammal`/`avian` artifact source in the shipped content; both are
   authorable and ready, just unused until more artifacts are added.

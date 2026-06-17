@@ -167,8 +167,10 @@ system does not push anything into combat (pull-at-init).
 
 > **Layering note (debt):** `PartDefinition` lives in `CharacterSystem.Data` yet references
 > `Combat.Data.Definitions` ability SOs. This is a deliberate, user-approved M1 coupling that
-> violates the inward-only layering rule (CLAUDE.md §2); it is tracked in the ROADMAP and is
-> expected to be revisited by the M2 part-driven-affinity item.
+> violates the inward-only layering rule (CLAUDE.md §2); it is tracked in the ROADMAP. The M2
+> part-driven-affinity rework revisited where this data lives and **kept the ability references on
+> `PartDefinition`** (alongside the new mutation affinity/rarity) by user decision — single-asset
+> authoring over strict layering — so this debt stands rather than being relocated.
 
 ---
 
@@ -267,5 +269,5 @@ These describe current behavior honestly; they are not requirements.
 - **`MaxAbilityQueueSize` (3) and other `CombatConfig` values are hardcoded** in `AreaInstaller.InstallCombatConfigurations` rather than asset-driven.
 - **Friendly fire is by design** (R12): a heal Line pointed at an enemy heals the enemy; a damage Ring hits adjacent allies. There is no ownership filtering anywhere in execution.
 - **Passive standing modifiers affect only outgoing damage** (R26). `StatModifier` has no stat-target dimension, so max-HP, defence, healing, etc. are not yet modified by passives. (ROADMAP)
-- **`PartDefinition` references the Combat ability layer** — a deliberate M1 coupling that violates the inward-only layering rule (CLAUDE.md §2); tracked in the ROADMAP for the M2 part-driven-affinity rework.
+- **`PartDefinition` references the Combat ability layer** — a deliberate M1 coupling that violates the inward-only layering rule (CLAUDE.md §2); the M2 part-driven-affinity rework kept it on `PartDefinition` by user decision, so it remains tracked in the ROADMAP.
 - **`HeroDefinition.Abilities` is a temporary fallback**: used only when no equipped part grants an active ability (so the demo still runs before part-grants are authored). The long-term source of truth is the equipped parts.

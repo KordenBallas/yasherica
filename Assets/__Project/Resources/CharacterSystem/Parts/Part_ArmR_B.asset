@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Part_ArmR_B
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
   _id: part.arm.r.b
+  _displayName: Mandible Arm
   _slot: {fileID: 11400000, guid: caed2d9552e42d14c941e393ce1db477, type: 2}
   _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
   _partPrefab: {fileID: 1674222801888112170, guid: ef88852332e4c1c41bf4aacdb918c6ce, type: 3}
@@ -21,3 +22,10 @@ MonoBehaviour:
   - LowerArm.R
   - Hand.R
   _contributedSockets: []
+  _archetypeAffinities:
+  - _archetypeId: insect
+    _weight: 0.8
+  - _archetypeId: mammal
+    _weight: 0.6
+  _rarity: 2
+  _choiceIcon: {fileID: 0}

@@ -12,18 +12,19 @@ namespace Mutation.Presenter
 {
     /// <summary>
     /// Drives the stage-up mutation choice: when digestion reports the character is ready to mutate,
-    /// it builds 2-3 options from this stage's dominant archetypes and shows them. The player's pick
-    /// swaps a body part on the live character; on success the tally and digestion reset so the next
-    /// stage starts from zero. A failed swap (e.g. the rig is not yet assembled) or an empty option
-    /// set leaves the stage untouched so the player can keep feeding. Holds no domain state beyond
-    /// the currently-offered options. Ability grants from the swapped part are deferred (ROADMAP M1).
+    /// it scores every candidate part against this stage's feed tally and shows the top options. The
+    /// player's pick swaps a body part on the live character; on success the tally and digestion reset
+    /// so the next stage starts from zero. A failed swap (e.g. the rig is not yet assembled) or an
+    /// empty option set leaves the stage untouched so the player can keep feeding. Holds no domain
+    /// state beyond the currently-offered options. The swapped part's abilities are picked up by combat
+    /// re-reading the equipped parts at combat start (ability-subsystem.md §2.6).
     /// </summary>
     public class MutationChoicePresenter : IInitializable, IDisposable
     {
         private readonly IDigestionProgress _digestion;
         private readonly IMutationTally _tally;
         private readonly IMutationOptionBuilder _builder;
-        private readonly IMutationOptionCatalog _optionCatalog;
+        private readonly IMutationPartCatalog _partCatalog;
         private readonly IArchetypeCatalog _archetypeCatalog;
         private readonly IMutationCharacter _character;
         private readonly MutationConfig _config;
@@ -37,7 +38,7 @@ namespace Mutation.Presenter
             IDigestionProgress digestion,
             IMutationTally tally,
             IMutationOptionBuilder builder,
-            IMutationOptionCatalog optionCatalog,
+            IMutationPartCatalog partCatalog,
             IArchetypeCatalog archetypeCatalog,
             IMutationCharacter character,
             MutationConfig config,
@@ -47,7 +48,7 @@ namespace Mutation.Presenter
             _digestion = digestion;
             _tally = tally;
             _builder = builder;
-            _optionCatalog = optionCatalog;
+            _partCatalog = partCatalog;
             _archetypeCatalog = archetypeCatalog;
             _character = character;
             _config = config;
@@ -76,15 +77,19 @@ namespace Mutation.Presenter
                 return;
             }
 
-            var dominant = _tally.Dominant(_config.MaxMutationOptions);
-            var equipped = CollectEquippedParts(dominant);
-            var options = _builder.Build(dominant, _optionCatalog, equipped, _config.MaxMutationOptions);
+            var candidates = _partCatalog.AllCandidates;
+            var equipped = CollectEquippedParts(candidates);
+            var scoring = new MutationScoringParameters(
+                _config.RarityWeight, _config.RarityUnlockPointsPerTier);
+            var options = _builder.Build(
+                _tally.Totals, candidates, equipped, _config.MaxMutationOptions, scoring);
             if (options.Count == 0)
             {
-                // Ready, but the dominant archetypes offer no (new) parts. Keep feeding; do not reset.
+                // Ready, but no unequipped part scores positively against the feed tally. Keep
+                // feeding; do not reset.
                 _logger.Info(
-                    "[MutationChoicePresenter] Ready to mutate but no mutation options are available " +
-                    "for the dominant archetype(s).");
+                    "[MutationChoicePresenter] Ready to mutate but no mutation options score against " +
+                    "the current feed tally.");
                 return;
             }
 
@@ -129,23 +134,24 @@ namespace Mutation.Presenter
             _digestion.Reset();
         }
 
-        private ISet<string> CollectEquippedParts(IReadOnlyList<string> dominantArchetypeIds)
+        private ISet<string> CollectEquippedParts(IReadOnlyList<MutationCandidatePart> candidates)
         {
+            // Exclude every part currently worn in a slot a candidate could fill, so a choice never
+            // re-offers an equipped part (including the character's starting parts). Slots are visited
+            // once even when several candidates share one.
             var equipped = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var archetypeId in dominantArchetypeIds)
+            var seenSlots = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var candidate in candidates)
             {
-                foreach (var option in _optionCatalog.OptionsFor(archetypeId))
+                if (candidate == null || string.IsNullOrEmpty(candidate.SlotId) || !seenSlots.Add(candidate.SlotId))
                 {
-                    if (option == null || string.IsNullOrEmpty(option.SlotId))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    if (_character.TryGetEquippedPartId(option.SlotId, out var partId)
-                        && !string.IsNullOrEmpty(partId))
-                    {
-                        equipped.Add(partId);
-                    }
+                if (_character.TryGetEquippedPartId(candidate.SlotId, out var partId)
+                    && !string.IsNullOrEmpty(partId))
+                {
+                    equipped.Add(partId);
                 }
             }
 
@@ -160,7 +166,7 @@ namespace Mutation.Presenter
                 tint = archetype.Tint;
             }
 
-            _optionCatalog.TryGetIcon(option.PartId, out var icon);
+            _partCatalog.TryGetIcon(option.PartId, out var icon);
             return new MutationChoiceViewData(option.DisplayName, icon, tint);
         }
     }

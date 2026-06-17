@@ -3,22 +3,25 @@ using System.Collections.Generic;
 namespace Mutation.Core
 {
     /// <summary>
-    /// Builds the 2-3 stage-up mutation options offered to the player from this stage's dominant
-    /// archetypes. Pure C#, deterministic, and unit-testable (CLAUDE.md §10).
+    /// Builds the stage-up mutation options offered to the player by scoring every candidate part
+    /// against this stage's cumulative feed tally and taking the best ones. Pure C#, deterministic,
+    /// and unit-testable (CLAUDE.md §10).
     /// </summary>
     public interface IMutationOptionBuilder
     {
         /// <summary>
-        /// Gathers candidate options across <paramref name="dominantArchetypeIds"/> (already ordered
-        /// strongest-first by the tally), in each archetype's authored option order. Skips any option
-        /// whose part is already equipped (<paramref name="equippedPartIds"/>) or whose part was
-        /// already chosen by a stronger archetype, and stops at <paramref name="maxOptions"/>.
-        /// Returns 0..<paramref name="maxOptions"/> options.
+        /// Scores each part in <paramref name="candidates"/> against <paramref name="tallyTotals"/>
+        /// (archetype id -> accumulated weight this stage) plus a rarity bonus governed by
+        /// <paramref name="scoring"/>, skips parts already equipped (<paramref name="equippedPartIds"/>)
+        /// and parts scoring at or below zero, then returns the top <paramref name="maxOptions"/> in
+        /// descending score with a deterministic ordinal part-id tie-break. Returns
+        /// 0..<paramref name="maxOptions"/> options.
         /// </summary>
         IReadOnlyList<MutationOption> Build(
-            IReadOnlyList<string> dominantArchetypeIds,
-            IMutationOptionProvider options,
+            IReadOnlyDictionary<string, float> tallyTotals,
+            IReadOnlyList<MutationCandidatePart> candidates,
             ISet<string> equippedPartIds,
-            int maxOptions);
+            int maxOptions,
+            MutationScoringParameters scoring);
     }
 }

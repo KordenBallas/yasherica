@@ -79,21 +79,28 @@ namespace Tests.EditMode
             }
         }
 
-        private sealed class FakeOptionCatalog : IMutationOptionCatalog
+        private sealed class FakePartCatalog : IMutationPartCatalog
         {
-            private readonly Dictionary<string, IReadOnlyList<MutationOption>> _byArchetype =
-                new Dictionary<string, IReadOnlyList<MutationOption>>();
+            private readonly List<MutationCandidatePart> _candidates = new List<MutationCandidatePart>();
 
-            public void Set(string archetypeId, params MutationOption[] options)
-            {
-                _byArchetype[archetypeId] = options;
-            }
+            public IReadOnlyList<MutationCandidatePart> AllCandidates => _candidates;
 
-            public IReadOnlyList<MutationOption> OptionsFor(string archetypeId)
+            public void Add(string slot, string part, params (string archetype, float weight)[] affinity)
             {
-                return _byArchetype.TryGetValue(archetypeId, out var options)
-                    ? options
-                    : Array.Empty<MutationOption>();
+                var map = new Dictionary<string, float>();
+                string dominant = null;
+                var best = float.NegativeInfinity;
+                foreach (var (archetype, weight) in affinity)
+                {
+                    map[archetype] = weight;
+                    if (weight > best)
+                    {
+                        best = weight;
+                        dominant = archetype;
+                    }
+                }
+
+                _candidates.Add(new MutationCandidatePart(slot, part, part, map, 0, dominant));
             }
 
             public bool TryGetIcon(string partId, out Sprite icon)
@@ -116,7 +123,7 @@ namespace Tests.EditMode
 
         private MutationTally _tally;
         private DigestionProgress _digestion;
-        private FakeOptionCatalog _optionCatalog;
+        private FakePartCatalog _partCatalog;
         private FakeChoiceView _view;
         private FakeMutationCharacter _character;
         private MutationConfig _config;
@@ -127,21 +134,12 @@ namespace Tests.EditMode
         {
             _tally = new MutationTally();
             _digestion = new DigestionProgress(1);
-            _optionCatalog = new FakeOptionCatalog();
+            _partCatalog = new FakePartCatalog();
             _view = new FakeChoiceView();
             _character = new FakeMutationCharacter();
             _config = ScriptableObject.CreateInstance<MutationConfig>();
 
-            _presenter = new MutationChoicePresenter(
-                _digestion,
-                _tally,
-                new MutationOptionBuilder(),
-                _optionCatalog,
-                new FakeArchetypeCatalog(),
-                _character,
-                _config,
-                _view,
-                new SilentLogger());
+            _presenter = NewPresenter(_digestion);
             _presenter.Initialize();
         }
 
@@ -152,27 +150,34 @@ namespace Tests.EditMode
             UnityEngine.Object.DestroyImmediate(_config);
         }
 
-        private void GiveDominant(string archetypeId)
+        private MutationChoicePresenter NewPresenter(DigestionProgress digestion)
         {
-            _tally.Add(ArtifactArchetypeProfile.Create(
-                new[] { new KeyValuePair<string, float>(archetypeId, 1f) }));
+            return new MutationChoicePresenter(
+                digestion,
+                _tally,
+                new MutationOptionBuilder(),
+                _partCatalog,
+                new FakeArchetypeCatalog(),
+                _character,
+                _config,
+                _view,
+                new SilentLogger());
         }
 
-        private static MutationOption Option(string slot, string part, string archetype)
+        private void Feed(string archetypeId, float weight = 1f)
         {
-            return new MutationOption(slot, part, archetype, part);
+            _tally.Add(ArtifactArchetypeProfile.Create(
+                new[] { new KeyValuePair<string, float>(archetypeId, weight) }));
         }
 
         [Test]
         public void NotReady_DoesNotShow()
         {
             var digestion = new DigestionProgress(2);
-            var presenter = new MutationChoicePresenter(
-                digestion, _tally, new MutationOptionBuilder(), _optionCatalog,
-                new FakeArchetypeCatalog(), _character, _config, _view, new SilentLogger());
+            var presenter = NewPresenter(digestion);
             presenter.Initialize();
-            GiveDominant("reptile");
-            _optionCatalog.Set("reptile", Option("slot.head", "part.head.r", "reptile"));
+            _partCatalog.Add("slot.head", "part.head.r", ("reptile", 1f));
+            Feed("reptile");
 
             digestion.AddArtifact(); // 1 of 2 -> not ready
 
@@ -184,10 +189,9 @@ namespace Tests.EditMode
         [Test]
         public void ReadyFlips_ShowsChoicesAndVisible()
         {
-            GiveDominant("reptile");
-            _optionCatalog.Set("reptile",
-                Option("slot.head", "part.head.r", "reptile"),
-                Option("slot.tail", "part.tail.r", "reptile"));
+            _partCatalog.Add("slot.head", "part.head.r", ("reptile", 1f));
+            _partCatalog.Add("slot.tail", "part.tail.r", ("reptile", 1f));
+            Feed("reptile");
 
             _digestion.AddArtifact(); // ready
 
@@ -199,8 +203,8 @@ namespace Tests.EditMode
         [Test]
         public void Selection_SwapsThenResetsAndHides()
         {
-            GiveDominant("reptile");
-            _optionCatalog.Set("reptile", Option("slot.head", "part.head.r", "reptile"));
+            _partCatalog.Add("slot.head", "part.head.r", ("reptile", 1f));
+            Feed("reptile");
             _digestion.AddArtifact();
 
             _view.RaiseSelected(0);
@@ -218,8 +222,8 @@ namespace Tests.EditMode
         public void Selection_SwapFails_NoResetStaysVisible()
         {
             _character.SwapResult = false;
-            GiveDominant("reptile");
-            _optionCatalog.Set("reptile", Option("slot.head", "part.head.r", "reptile"));
+            _partCatalog.Add("slot.head", "part.head.r", ("reptile", 1f));
+            Feed("reptile");
             _digestion.AddArtifact();
 
             _view.RaiseSelected(0);
@@ -231,9 +235,11 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void Ready_NoOptions_DoesNotShowOrReset()
+        public void Ready_NoScoringOptions_DoesNotShowOrReset()
         {
-            GiveDominant("reptile"); // dominant exists, but no part set authored for it
+            // A candidate exists, but it has no affinity to what was fed, so it scores zero.
+            _partCatalog.Add("slot.head", "part.head.a", ("aquatic", 1f));
+            Feed("reptile");
 
             _digestion.AddArtifact(); // ready
 
@@ -248,10 +254,9 @@ namespace Tests.EditMode
         {
             // Equip (never swapped) stands in for a starting part: it must not be re-offered.
             _character.Equip("slot.head", "part.head.r");
-            GiveDominant("reptile");
-            _optionCatalog.Set("reptile",
-                Option("slot.head", "part.head.r", "reptile"),
-                Option("slot.tail", "part.tail.r", "reptile"));
+            _partCatalog.Add("slot.head", "part.head.r", ("reptile", 1f));
+            _partCatalog.Add("slot.tail", "part.tail.r", ("reptile", 1f));
+            Feed("reptile");
 
             _digestion.AddArtifact();
 
@@ -262,12 +267,10 @@ namespace Tests.EditMode
         public void FurtherFeedingWhileShown_DoesNotReshow()
         {
             var digestion = new DigestionProgress(1);
-            var presenter = new MutationChoicePresenter(
-                digestion, _tally, new MutationOptionBuilder(), _optionCatalog,
-                new FakeArchetypeCatalog(), _character, _config, _view, new SilentLogger());
+            var presenter = NewPresenter(digestion);
             presenter.Initialize();
-            GiveDominant("reptile");
-            _optionCatalog.Set("reptile", Option("slot.head", "part.head.r", "reptile"));
+            _partCatalog.Add("slot.head", "part.head.r", ("reptile", 1f));
+            Feed("reptile");
 
             digestion.AddArtifact(); // ready -> shows
             digestion.AddArtifact(); // still ready, already showing

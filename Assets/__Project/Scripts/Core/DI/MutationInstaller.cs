@@ -15,15 +15,15 @@ namespace Core.DI
     /// <summary>
     /// Zenject installer for the mutation subsystem. Binds the archetype catalog (the authorable set
     /// of creature archetypes), the per-stage mutation tally and digestion progress, the stage-up
-    /// mutation choice (option catalog + builder + presenter + view, with an adapter onto the live
-    /// modular character), and a startup validator that warns about bad authoring. The feeding UI
+    /// mutation choice (part catalog + scoring builder + presenter + view, with an adapter onto the
+    /// live modular character), and a startup validator that warns about bad authoring. The feeding UI
     /// (InventoryInstaller) fills the tally; the stage-up choice consumes the ready signal and resets
-    /// it. Part-derived ability grants are deferred - see ROADMAP "M1".
+    /// it. Mutation options are scored from the body parts' archetype-affinity/rarity data
+    /// (CharacterSystem PartDefinition), so this installer no longer loads per-archetype part sets.
     /// </summary>
     public class MutationInstaller : MonoInstaller
     {
         private const string ArchetypeDefinitionsResourcePath = "Mutation/Archetypes";
-        private const string PartSetDefinitionsResourcePath = "Mutation/PartSets";
         private const string MutationConfigResourcePath = "Mutation/MutationConfig";
         private const string ChoicePanelResourcePath = "Prefabs/UI/MutationChoicePanel";
 
@@ -32,7 +32,6 @@ namespace Core.DI
 
         [Header("Data Definitions (auto-loaded from Resources when empty)")]
         [SerializeField] private List<ArchetypeDefinition> _archetypeDefinitions;
-        [SerializeField] private List<ArchetypePartSetDefinition> _partSetDefinitions;
 
         [Header("Stage-up choice UI (auto-loaded from Resources when empty)")]
         [Tooltip("MutationChoicePanel prefab (built by Tools → Mutation → Setup Stage-Up Choice UI)")]
@@ -62,23 +61,20 @@ namespace Core.DI
                 .AsSingle()
                 .WithArguments(config.DigestionThreshold);
 
-            var partSets = LoadPartSetDefinitions();
-            InstallStageUpChoice(partSets);
+            InstallStageUpChoice();
 
-            // NonLazy so the authoring validation always runs at startup. Also validates the part
-            // sets, so it needs the raw definitions and the character part catalog (CharacterSystem).
+            // NonLazy so the authoring validation always runs at startup. Validates the parts'
+            // mutation affinities against the archetype catalog (CharacterSystem part catalog).
             Container.BindInterfacesAndSelfTo<MutationContentValidator>()
                 .AsSingle()
-                .WithArguments(partSets as IReadOnlyList<ArchetypePartSetDefinition>)
                 .NonLazy();
         }
 
-        private void InstallStageUpChoice(List<ArchetypePartSetDefinition> partSets)
+        private void InstallStageUpChoice()
         {
-            // Archetype -> body-part options, plus the deterministic builder that picks 2-3 of them.
-            Container.BindInterfacesAndSelfTo<MutationOptionCatalog>()
-                .AsSingle()
-                .WithArguments(partSets as IReadOnlyList<ArchetypePartSetDefinition>);
+            // Every candidate part (built from the CharacterSystem part catalog), plus the
+            // deterministic scoring builder that ranks them against the feed tally.
+            Container.BindInterfacesAndSelfTo<MutationPartCatalog>().AsSingle();
             Container.Bind<IMutationOptionBuilder>().To<MutationOptionBuilder>().AsSingle();
 
             // The live character is a scene/prefab component; the adapter resolves its assembled
@@ -148,30 +144,6 @@ namespace Core.DI
             {
                 Debug.LogWarning("[MutationInstaller] No ArchetypeDefinition assets found in Inspector " +
                                  $"or Resources/{ArchetypeDefinitionsResourcePath}");
-            }
-
-            return loaded;
-        }
-
-        private List<ArchetypePartSetDefinition> LoadPartSetDefinitions()
-        {
-            if (_partSetDefinitions != null && _partSetDefinitions.Count > 0)
-            {
-                return _partSetDefinitions;
-            }
-
-            var loaded = new List<ArchetypePartSetDefinition>(
-                Resources.LoadAll<ArchetypePartSetDefinition>(PartSetDefinitionsResourcePath));
-            if (loaded.Count > 0)
-            {
-                Debug.Log($"[MutationInstaller] Auto-loaded {loaded.Count} ArchetypePartSetDefinition " +
-                          $"assets from Resources/{PartSetDefinitionsResourcePath}");
-            }
-            else
-            {
-                Debug.LogWarning("[MutationInstaller] No ArchetypePartSetDefinition assets found in " +
-                                 $"Inspector or Resources/{PartSetDefinitionsResourcePath}; the stage-up " +
-                                 "mutation choice will have no options to offer.");
             }
 
             return loaded;

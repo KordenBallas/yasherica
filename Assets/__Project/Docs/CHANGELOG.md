@@ -9,6 +9,23 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Mutation Subsystem / Character System (M2 — part-driven affinity + scored selection):** stage-up
+  mutation options are now chosen by scoring **every** candidate body part against the cumulative feed
+  tally instead of walking per-archetype option lists. `PartDefinition` (CharacterSystem) gains the
+  mutation data `_archetypeAffinities` (`ArchetypeAffinity[]`: archetype id + 0..1 weight), `_rarity`
+  (`MutationRarity` enum, `Common`…`Mythical`), and `_choiceIcon` (Sprite). New pure-C# Core:
+  `MutationCandidatePart`, `MutationScoringParameters`, and a rewritten `MutationOptionBuilder` whose
+  score is `(affinity·tally) × (1 + RarityWeight·tier·unlock)` — `unlock` ramping with accumulated
+  points so a lower-affinity rare part can overtake a common one over a stage; parts with no affinity
+  to anything fed (score 0) and equipped parts are excluded; top-N by descending score, ordinal
+  part-id tie-break. New `IMutationPartCatalog`/`MutationPartCatalog` builds the candidate set from the
+  CharacterSystem `IPartCatalog` and serves the per-part choice icon. `MutationConfig` gains
+  `_rarityWeight` (0.5) and `_rarityUnlockPointsPerTier` (10). Shipped `*_B` parts authored with
+  placeholder affinity/rarity/icon (migrated from the removed part sets). Tests:
+  `MutationOptionBuilderTests` (rewritten as scoring tests), new `MutationPartCatalogTests`, updated
+  `MutationChoicePresenterTests`. `PartDefinition` also gains a `_displayName` (friendly UI label,
+  authored on the shipped `*_B` parts) used as the mutation choice-button label, falling back to the
+  asset name when blank. *(Supersedes the M1 "Archetype → body-part-set mapping" item.)*
 - **Ability Subsystem / Character System / Mutation (M1):** body parts now grant combat abilities,
   closing the mutation core loop end-to-end. `PartDefinition` gains `_activeAbilities`
   (`AbilityDefinition[]`) and `_passiveAbilities` (`PassiveAbilityDefinition[]`). New
@@ -50,6 +67,13 @@ Every functional change appends an entry **in the same change as the code** (CLA
   embedded in `InventoryStage`. Shipped default `ArchetypePartSetDefinition` assets for all five
   archetypes under `Resources/Mutation/PartSets/` (placeholder `.a → .b` swaps) so the loop works out
   of the box.
+
+### Removed
+- **Mutation Subsystem (M2):** the per-archetype option model is gone now that affinity/rarity/icon
+  live on the parts and selection is scored. Deleted `ArchetypePartSetDefinition` (+ inline
+  `MutationOptionEntry`), `MutationOptionMapper`, `IMutationOptionProvider`, `IMutationOptionCatalog`/
+  `MutationOptionCatalog`, the five `Resources/Mutation/PartSets/*` assets, and the
+  `MutationInstaller._partSetDefinitions` field / `PartSets` load path.
 
 ### Added
 - **Mutation Subsystem:** stage-up mutation choice + archetype→body-part-set mapping (M1) — closes the
