@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CharacterProgression.Core;
 using Narrative;
 using Narrative.Data.Definitions;
 using Narrative.Dialogue;
@@ -65,9 +66,13 @@ namespace Core.DI
                 .WithArguments(npcs);
 
             // Seeded from the run seed so reward slot rolls are reproducible per run.
+            // The run progression record + evaluator gate slots by RewardSlot.Condition.
             Container.Bind<IRewardResolver>()
                 .To<RewardResolver>()
-                .FromMethod(ctx => new RewardResolver(CreateSeededRandom(ctx.Container, "narrative-rewards")))
+                .FromMethod(ctx => new RewardResolver(
+                    CreateSeededRandom(ctx.Container, "narrative-rewards"),
+                    ctx.Container.Resolve<IRunProgressionRecord>(),
+                    ctx.Container.Resolve<RunConditionEvaluator>()))
                 .AsSingle();
 
             // Always bind LevelNarrativeConfig - create default if not assigned

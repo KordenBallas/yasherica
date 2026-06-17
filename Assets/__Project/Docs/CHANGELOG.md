@@ -9,6 +9,19 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Character Progression / Narrative (M2 — run progression record):** new per-run state service that
+  systems can query for what the player has done this run. New pure-C# `CharacterProgression/Core`:
+  `QuestStatus` (`Active`/`Completed`/`Failed`), split read/write surfaces `IRunProgressionRecord` /
+  `IRunProgressionRecorder` implemented by `RunProgressionRecord` (terminal status wins over active;
+  idempotent; null/empty-id safe), and `RunConditionEvaluator` — a single-predicate condition parser
+  (`quest_completed:` / `quest_active:` / `quest_failed:` / `npc_encountered:`; empty passes;
+  unknown/malformed fails closed and warns). `AreaInstaller` binds the record (both interfaces) +
+  evaluator `AsSingle`. Recording hooks added to `DialogueActiveState`: an NPC dialogue start records
+  the NPC encounter, and an Ink `start_quest` signal marks the quest active (replacing a bare log).
+  Consumer wired: `RewardResolver` now **evaluates `RewardSlot.Condition`** (previously stored but
+  ignored), skipping slots whose condition does not hold against the run record before the probability
+  roll; `NarrativeInstaller` injects the record + evaluator. New doc `character-progression.md`. Tests:
+  `RunProgressionRecordTests`, `RunConditionEvaluatorTests`, `RewardResolverConditionTests`.
 - **Mutation Subsystem / Character System (M2 — part-driven affinity + scored selection):** stage-up
   mutation options are now chosen by scoring **every** candidate body part against the cumulative feed
   tally instead of walking per-archetype option lists. `PartDefinition` (CharacterSystem) gains the

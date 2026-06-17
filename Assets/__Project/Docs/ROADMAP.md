@@ -54,7 +54,10 @@ Planned design (from `narrative-generation.md` §4):
 Known limitations (§5):
 - [ ] `[arch]` Skipped story (no candidate NPC) is not backfilled, so a level may fall below `MinStories`.
 - [ ] `[arch]` `GameContext` not consulted by `LevelNarrativeGenerator`; `ScenarioGenerator` hardcodes difficulty to 10.
-- [ ] `[content]` `RewardSlot.Condition` is stored but never evaluated.
+- [x] `[content]` `RewardSlot.Condition` is stored but never evaluated. *(Done — `RewardResolver`
+  evaluates it against the run progression record via `RunConditionEvaluator`; see CHANGELOG,
+  `character-progression.md`. Only single-predicate conditions are supported — composition is a
+  Character Progression follow-up.)*
 - [ ] `[rule]` Generator logs via `Debug.Log/LogWarning` directly — violates the logger-abstraction rule (§9).
 
 ---
@@ -62,10 +65,20 @@ Known limitations (§5):
 ## Character Progression
 
 New work (no system doc yet — author `character-progression.md` when implemented):
-- [ ] `[arch]` **M2 — Run progression record.** A per-run record of quests completed / failed /
-  in-progress and other run-meaningful state (NPCs encountered, key choices), queryable by the
-  narrative system. Backs the existing-but-unused fields `StoryNodeRequirement.RequiredActiveQuests`
-  / `RequiredEncounteredNpcs` and unblocks `RewardSlot.Condition` evaluation (Narrative §5).
+- [x] `[arch]` **M2 — Run progression record.** *(Done — pure-C# `CharacterProgression/Core`:
+  `IRunProgressionRecord` (read) / `IRunProgressionRecorder` (write) / `RunProgressionRecord`
+  tracking quests (active/completed/failed), NPCs encountered, and key choices, plus
+  `RunConditionEvaluator`. Recorded from the dialogue flow (NPC encounter + Ink `start_quest`);
+  consumed by `RewardResolver` to evaluate `RewardSlot.Condition`. See CHANGELOG;
+  `character-progression.md`. Quest **completion/failure** recording and `StoryNodeRequirement`
+  gating remain open — see follow-ups below.)*
+- [ ] `[arch]` **M2 — Condition AND/OR composition.** `RunConditionEvaluator` supports a single
+  predicate only; add boolean composition so a reward/node can require multiple run-state facts.
+- [ ] `[arch]` **M2 — Wire `StoryNodeRequirement` gating.** `RequiredActiveQuests` /
+  `RequiredEncounteredNpcs` are still unused; consume them in story selection (reusing
+  `RunConditionEvaluator`) once the Quests slice adds the required-progression authoring surface.
+- [ ] `[content]` **M2 — Generic Ink choice recording.** Add a `record_choice` Ink external function
+  feeding `IRunProgressionRecorder.RecordChoice` so key choices are captured data-drivenly.
 - [ ] `[arch]` **M2 — Experience as a first-class reward sink.** Give the `Experience` reward type a
   receiving system here, resolving part of the Cross-cutting reward gap.
 

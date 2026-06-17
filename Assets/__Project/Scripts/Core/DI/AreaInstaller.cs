@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Character;
+using CharacterProgression.Core;
 using Combat.Animation;
 using Combat.Battlefield;
 using Combat.Config;
@@ -63,6 +64,14 @@ namespace Core.DI
                 Container.Bind<IScenarioGenerator>().To<ScenarioGenerator>().AsSingle();
             }
             Container.Bind<IPlatformGraphGenerator>().To<PlatformGraphGenerator>().AsSingle();
+
+            // Per-run progression record: read + write surfaces share one instance.
+            // Same lifetime as the run seed (scene singleton); cross-scene/session
+            // persistence is the backlog "Run-state persistence/save-load" item.
+            Container.Bind(typeof(IRunProgressionRecord), typeof(IRunProgressionRecorder))
+                .To<RunProgressionRecord>()
+                .AsSingle();
+            Container.Bind<RunConditionEvaluator>().AsSingle();
 
             // Factory Registry (legacy - kept for backwards compatibility)
             Container.Bind<IPlatformFactoryRegistry>().To<PlatformFactory>().AsSingle();

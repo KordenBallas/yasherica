@@ -122,7 +122,7 @@ AreaSceneEntrypoint.GenerateArea()
 
 ### 2.5 Rewards
 
-`RewardResolver.Resolve(story)` rolls each `RewardSlot` independently against its probability and rolls a quantity within `RewardDefinition.QuantityRange`, producing `ResolvedReward` entries stored on the `NpcAssignment`. The `RewardSlot.Condition` string is currently carried but not evaluated.
+`RewardResolver.Resolve(story)` first gates each `RewardSlot` by its `Condition` string against the current run progression (`RunConditionEvaluator` + `IRunProgressionRecord`; see `character-progression.md`), then rolls the surviving slots against their probability and rolls a quantity within `RewardDefinition.QuantityRange`, producing `ResolvedReward` entries stored on the `NpcAssignment`. An empty condition always passes; a malformed/unknown condition fails closed. When the resolver is constructed without a record (the seeded-`Random`-only constructor used by some tests), condition gating is disabled.
 
 ### 2.6 Scenario integration
 
@@ -168,5 +168,5 @@ Adding narrative content requires **no code changes**:
 - The two-pass allocation is correct only for the single combat/non-combat constraint; it does not generalize to multiple competing constraints (that requires the P1 scoring/matching model).
 - A skipped story (no candidate NPC) is not backfilled with another eligible story, so a level may end up below `MinStories`.
 - `GameContext` is not consulted by `LevelNarrativeGenerator`; `ScenarioGenerator` uses it only for theme rotation and platform count, with difficulty hardcoded to 10.
-- `RewardSlot.Condition` is stored but never evaluated.
+- `RewardSlot.Condition` supports only a single predicate (`quest_completed:` / `quest_active:` / `quest_failed:` / `npc_encountered:`); boolean AND/OR composition is not yet supported (see `character-progression.md`).
 - The generator logs via `Debug.Log`/`Debug.LogWarning` directly, which violates the project rule that domain code should use the logger abstraction (pre-existing).

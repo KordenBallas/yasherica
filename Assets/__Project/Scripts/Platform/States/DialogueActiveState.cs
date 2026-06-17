@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using CharacterProgression.Core;
 using Narrative;
 using Narrative.Dialogue;
 using UnityEngine;
@@ -24,6 +25,9 @@ namespace Platform
 
         [Inject(Id = "npc")]
         private IStoryManager _npcManager;
+
+        [Inject]
+        private IRunProgressionRecorder _progressionRecorder;
 
         private IPlatform _currentPlatform;
         private NpcContent _npcContent;
@@ -53,6 +57,7 @@ namespace Platform
 
             if (_npcContent?.Assignment != null)
             {
+                _progressionRecorder.RecordNpcEncounter(_npcContent.Definition?.NpcId);
                 _dialoguePresenter.StartDialogue(_npcContent.Assignment);
             }
             else if (_dialogueContent != null)
@@ -122,8 +127,12 @@ namespace Platform
 
         private void HandleQuestTriggered(string questId)
         {
-            if (!string.IsNullOrEmpty(questId))
-                Debug.Log($"[DialogueActiveState] Quest triggered: {questId}");
+            if (string.IsNullOrEmpty(questId))
+                return;
+
+            // An Ink start_quest signal marks the quest active in the run record.
+            _progressionRecorder.StartQuest(questId);
+            Debug.Log($"[DialogueActiveState] Quest triggered: {questId}");
         }
 
         private void HandleCombatOutcome()
