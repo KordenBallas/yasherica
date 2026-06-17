@@ -246,6 +246,7 @@ namespace Tests.EditMode
         [Test]
         public void Ready_ExcludesAlreadyEquippedPart()
         {
+            // Equip (never swapped) stands in for a starting part: it must not be re-offered.
             _character.Equip("slot.head", "part.head.r");
             GiveDominant("reptile");
             _optionCatalog.Set("reptile",

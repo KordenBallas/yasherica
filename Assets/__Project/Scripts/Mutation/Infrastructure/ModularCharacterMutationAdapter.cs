@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using CharacterSystem.Runtime;
 using Core.Logging;
 using Mutation.Core;
@@ -10,16 +8,15 @@ namespace Mutation.Infrastructure
     /// Adapts the scene's <see cref="ModularCharacterVisual"/> to the UnityEngine-free
     /// <see cref="IMutationCharacter"/> port so the stage-up mutation choice can swap a body part
     /// without the presenter touching a MonoBehaviour. The live character is assembled lazily
-    /// (after <c>Start</c>), so the swap is resolved at call time: an unassembled rig logs and
-    /// returns false rather than throwing. A write-through cache remembers parts swapped in this run
-    /// so the option builder will not re-offer them (starting parts are unknown - accepted for M1).
+    /// (after <c>Start</c>), so both the swap and the equipped-part query are resolved at call time:
+    /// an unassembled rig logs/returns false rather than throwing. The equipped-part query reads the
+    /// character's live <see cref="IModularCharacter.EquippedParts"/> snapshot, so the option builder
+    /// excludes every currently equipped part - including the character's starting parts.
     /// </summary>
     public sealed class ModularCharacterMutationAdapter : IMutationCharacter
     {
         private readonly ModularCharacterVisual _visual;
         private readonly IGameLogger _logger;
-        private readonly Dictionary<string, string> _equippedBySlot =
-            new Dictionary<string, string>(StringComparer.Ordinal);
 
         public ModularCharacterMutationAdapter(ModularCharacterVisual visual, IGameLogger logger)
         {
@@ -38,24 +35,21 @@ namespace Mutation.Infrastructure
                 return false;
             }
 
-            if (!character.SwapPart(slotId, partId))
-            {
-                return false;
-            }
-
-            _equippedBySlot[slotId] = partId;
-            return true;
+            return character.SwapPart(slotId, partId);
         }
 
         public bool TryGetEquippedPartId(string slotId, out string partId)
         {
-            if (!string.IsNullOrEmpty(slotId))
+            partId = null;
+            if (string.IsNullOrEmpty(slotId))
             {
-                return _equippedBySlot.TryGetValue(slotId, out partId);
+                return false;
             }
 
-            partId = null;
-            return false;
+            // Read the live equipped-parts snapshot so starting parts (never swapped this run) are
+            // excluded too. An unassembled rig has no equipped parts yet -> unknown (false).
+            var character = _visual != null ? _visual.Character : null;
+            return character != null && character.EquippedParts.TryGetValue(slotId, out partId);
         }
     }
 }

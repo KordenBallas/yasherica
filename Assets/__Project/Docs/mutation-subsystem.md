@@ -123,7 +123,7 @@ mutation choice consult; the digestion progress is the "ready to mutate?" signal
    takes the dominant archetypes (`IMutationTally.Dominant(MutationConfig.MaxMutationOptions)`).
 2. **Build options.** `MutationOptionBuilder.Build` walks those archetypes in weight order and each
    one's authored options in order, deduping a part shared by two archetypes (first wins) and
-   excluding parts already swapped in this run (`IMutationCharacter.TryGetEquippedPartId`), up to
+   excluding parts already equipped (`IMutationCharacter.TryGetEquippedPartId`), up to
    `MaxMutationOptions`. If the result is **empty** (the dominant archetypes have no new parts), the
    presenter logs and returns **without** resetting — the player keeps feeding.
 3. **Present.** Each `MutationOption` becomes a `MutationChoiceViewData` (label from the option, tint
@@ -135,11 +135,12 @@ mutation choice consult; the digestion progress is the "ready to mutate?" signal
    digestion (`Reset()`), starting the next stage.
 
 The live character is reached through `ModularCharacterMutationAdapter`, which resolves the assembled
-character from `ModularCharacterVisual.Character` lazily at swap time and caches parts it swapped in
-(so they are not re-offered). The character's *starting* parts are unknown to that cache, so a
-stage-1 choice may re-offer a starting part — accepted for M1 (see §6). The swap's effect on combat
-abilities is handled by combat re-reading the equipped parts at combat start, not by the swap path
-(ability-subsystem.md §2.6); the swap itself only changes the body.
+character from `ModularCharacterVisual.Character` lazily at call time. The equipped-part query reads
+the character's live `IModularCharacter.EquippedParts` snapshot, so the choice excludes **every**
+currently equipped part — including the character's *starting* parts, so a stage-1 choice never
+re-offers a part the character already wears. The swap's effect on combat abilities is handled by
+combat re-reading the equipped parts at combat start, not by the swap path (ability-subsystem.md
+§2.6); the swap itself only changes the body.
 
 ### 2.5 DI wiring
 
@@ -313,9 +314,6 @@ current stage; the stage-up choice resets both to start the next stage.
   choice swaps the body part; combat then rebuilds the unit's active + passive ability set from the
   live equipped parts at the next combat start (`PartAbilityResolver`; ability-subsystem.md §2.6).
   The swap path itself pushes nothing into combat — it is a pull-at-init.
-- **Starting parts are not excluded at stage 1** (in the mutation choice). `IModularCharacter` now
-  exposes an `EquippedParts` query, so exact exclusion is possible; the mutation choice still uses the
-  adapter's swap cache and has not been switched over yet. Accepted for M1 — see ROADMAP.
 - The stage-up choice panel prefab must be built once (run **Tools → Mutation → Setup Stage-Up Choice
   UI**); until then the choice is disabled (a startup warning, no crash). Default
   `ArchetypePartSetDefinition` assets now ship for all five archetypes under `Resources/Mutation/PartSets/`

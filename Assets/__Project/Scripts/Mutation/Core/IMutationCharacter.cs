@@ -16,9 +16,10 @@ namespace Mutation.Core
         bool SwapPart(string slotId, string partId);
 
         /// <summary>
-        /// The part currently equipped in <paramref name="slotId"/> as far as this port knows.
-        /// Used to keep an already-equipped part from being offered again. Starting parts the
-        /// player never mutated into may be unknown (returns false), which is acceptable for M1.
+        /// The part currently equipped in <paramref name="slotId"/> on the live character. Used to
+        /// keep an already-equipped part from being offered again - this reflects the true equipped
+        /// state, including the character's starting parts. Returns false only when the slot is
+        /// empty/unknown or the rig is not yet assembled.
         /// </summary>
         bool TryGetEquippedPartId(string slotId, out string partId);
     }

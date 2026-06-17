@@ -183,10 +183,9 @@ The M1 core loop (see `mutation-subsystem.md` for the implemented data surface):
   passive ability set from the live equipped parts at combat start (`PartAbilityResolver`,
   `CharacterCombatInitializer`), so a stage-up swap changes the next combat's abilities without the
   swap path pushing anything. See CHANGELOG; `ability-subsystem.md` §2.6.)*
-- [ ] `[arch]` Exclude the character's *starting* parts from stage-1 options. **Unblocked:**
-  `IModularCharacter` now exposes an `EquippedParts` (slotId→partId) query; switch
-  `MutationOptionBuilder`'s exclusion set from the adapter's swap cache to that query for exact
-  exclusion (`ModularCharacterMutationAdapter`).
+- [x] `[arch]` Exclude the character's *starting* parts from stage-1 options. *(Done — the adapter's
+  equipped-part query reads the live `IModularCharacter.EquippedParts` snapshot, so every equipped
+  part is excluded; the redundant swap cache was removed. See CHANGELOG; `mutation-subsystem.md` §2.4.)*
 
 New work:
 - [ ] `[arch]` **M2 — Part-driven archetype affinity + scored mutation selection.** Move archetype
@@ -205,6 +204,24 @@ New work:
     ability/rarity/archetype coupling out of the character layer per Clean Architecture §2). Resolve
     when scheduled.
   - Depends on the Ability Subsystem M1 items (parts granting abilities) for the ability references.
+- [ ] `[arch]` **M4 — Ability-aware mutation choice panels.** Weight the stage-up choice
+  by ability, not just part name/icon/archetype. For the slot being mutated, show a
+  before→after comparison per option: the **old** body part with its currently granted
+  active + passive abilities vs. the **new** body part with the abilities it would grant,
+  highlighting the contrast (added / removed / changed) so the swap's combat consequence
+  is legible at choice time.
+  - Extend `MutationChoiceViewData` (today `DisplayName`/`Icon`/`Tint`) and the
+    `MutationOption → ToViewData` mapping in `MutationChoicePresenter` to carry per-option
+    ability info. Resolve the **old** part via `IMutationCharacter.TryGetEquippedPartId(slotId)`
+    and the **new** part via the option's `PartId`; read `PartDefinition.ActiveAbilities` /
+    `PassiveAbilities`, surfacing each ability's `Name`/`Description`/`Icon` (both
+    `AbilityDefinition` and `PassiveAbilityDefinition` expose these).
+  - Reuse the `PartAbilityResolver` / `PartAbilitySet` gather+dedupe shape so the panel
+    reflects exactly the ability set combat will compose. Keep the presenter pure-C# and
+    the view thin (MVP §3); ability metadata is read-only display data.
+  - Depends on the **M2 part-driven archetype affinity** item (which moves ability
+    references + choice icon onto parts). Complements the backlog "Mutation preview on the
+    live character model" item (model preview vs. ability readout).
 
 ---
 

@@ -33,6 +33,12 @@ Every functional change appends an entry **in the same change as the code** (CLA
   the whole combat. (Ability R25–R26.)
 
 ### Fixed
+- **Mutation Subsystem:** the stage-up choice now excludes the character's *starting* parts, so a
+  stage-1 mutation never re-offers a part the character already wears (a no-op swap).
+  `ModularCharacterMutationAdapter.TryGetEquippedPartId` now reads the live
+  `IModularCharacter.EquippedParts` snapshot instead of a private write-through cache that only knew
+  parts swapped *this run*; the redundant `_equippedBySlot` cache is removed (the swap already
+  writes through to the real character). Closes the last M1 Mutation item.
 - **Mutation Subsystem:** the stage-up choice no longer crashes the Area scene at Play. The
   `MutationChoiceView` was bound `FromComponentInHierarchy`, which **asserts** when the choice panel
   isn't present (and cascaded into a `ModularCharacterVisual` `NullReferenceException` because the
