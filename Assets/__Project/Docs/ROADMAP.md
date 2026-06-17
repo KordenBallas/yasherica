@@ -177,13 +177,32 @@ The M1 core loop (see `mutation-subsystem.md` for the implemented data surface):
 - [x] `[content]` **M1 — Archetype → body-part-set mapping.** Author which body parts/variants each
   archetype can offer at each slot, so a mutation choice resolves to concrete `PartDefinition`s.
   *(Done — `ArchetypePartSetDefinition` SO; `Resources/Mutation/PartSets/`. Shipped content has no
-  part-set assets yet — designer authors them.)*
+  part-set assets yet — designer authors them. **Superseded by the M2 part-driven affinity item
+  below** once that lands — `ArchetypePartSetDefinition` is removed then.)*
 - [ ] `[arch]` **M1 — Mutation swap updates abilities.** When the stage-up choice swaps a part, also
   update the part's active + passive abilities. Blocked on the Ability Subsystem M1 items (abilities
   granted by parts); the swap path is ready to call it.
 - [ ] `[arch]` Exclude the character's *starting* parts from stage-1 options. `IMutationCharacter`'s
   adapter only knows parts it swapped in this run, so a starting part can be re-offered once; add an
   equipped-part query to `IModularCharacter` to make exclusion exact.
+
+New work:
+- [ ] `[arch]` **M2 — Part-driven archetype affinity + scored mutation selection.** Move archetype
+  association from per-archetype set assets onto the body parts themselves. Each part declares an
+  archetype-affinity vector (e.g. aquatic 20% / reptile 80%), its choice icon, references to its
+  granted ability SO(s), and a rarity tier (new Mutation-layer rarity enum, e.g. Common…Legendary,
+  Mythical). Replace `ArchetypePartSetDefinition` + the dominant-archetype walk in
+  `MutationOptionBuilder` with a single scoring function that ranks **all** candidate parts against
+  the cumulative feed tally (`IMutationTally`): score = affinity·tally match, weighted so that more
+  accumulated archetype points unlock better/rarer parts, then take the top-N (`MaxMutationOptions`).
+  Balance is tuned via the scoring function's parameters (rarity weighting, points→rarity gating)
+  rather than by re-authoring set assets. *(Supersedes the shipped "Archetype → body-part-set
+  mapping" item above; remove `ArchetypePartSetDefinition` once this lands.)*
+  - Open design point: host the new mutation data on the CharacterSystem `PartDefinition` (simplest
+    for authoring) vs. a Mutation-layer companion SO referencing a `PartDefinition` by id (keeps
+    ability/rarity/archetype coupling out of the character layer per Clean Architecture §2). Resolve
+    when scheduled.
+  - Depends on the Ability Subsystem M1 items (parts granting abilities) for the ability references.
 
 ---
 
