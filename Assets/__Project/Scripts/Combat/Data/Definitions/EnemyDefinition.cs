@@ -43,6 +43,10 @@ namespace Combat.Data.Definitions
         [Tooltip("Independently-rolled artifact drops on defeat; empty falls back to the biome enemy drop table")]
         [SerializeField] private List<ArtifactLootSlot> _lootSlots;
 
+        [Header("Narrative Matching")]
+        [Tooltip("Semantic tags used to match this enemy into a story's combat slot (e.g. 'bandit')")]
+        [SerializeField] private List<string> _enemyTags = new List<string>();
+
         // Public read-only accessors
         public int EnemyId => _enemyId;
         public string Name => _name;
@@ -53,5 +57,7 @@ namespace Combat.Data.Definitions
         public AIProfileDefinition AIProfile => _aiProfile;
         public IReadOnlyList<ArtifactLootSlot> LootSlots =>
             _lootSlots ?? (IReadOnlyList<ArtifactLootSlot>)System.Array.Empty<ArtifactLootSlot>();
+        public IReadOnlyList<string> EnemyTags =>
+            _enemyTags ?? (IReadOnlyList<string>)System.Array.Empty<string>();
     }
 }

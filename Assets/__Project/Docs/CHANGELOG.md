@@ -9,6 +9,31 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Data-Driven Procedural Narrative (vertical slice — R1–R14):** new recombinable narrative system in
+  which actor identity, dialogue, quest, enemy, and story are orthogonal fragments matched into typed
+  story slots by semantic tags, composed at runtime by a casting layer, and coupled **only** through one
+  unified namespaced fact store. New pure-C# `Narrative.Facts.Core` (`FactStore`/`IFactStore` with the
+  B4 presence-vs-default contract and stable-ordered snapshot; `FactKey`/`FactValue`; typed
+  `FactKeyRegistry`; `PreconditionEvaluator`; `FactEffectApplier` — a footprint-gated write chokepoint
+  comparing by namespace+key+unresolved subject token; `SubjectResolver` with open `$<contextKey>`
+  tokens; typed accessors `WorldFacts`/`ActorFacts`/`FactionFacts` + drift check). Fragment Core +
+  SO + static mapper for each of `NpcArchetype`, `DialogueDefinition`, `QuestDefinition`(+objectives),
+  `StoryTemplate`(+slots); authoring structs `FactPredicateSerial`/`FactEffectSerial`/`FactKeyShape`
+  and SO vocabulary `FactKeyDefinition`/`FactKeyRegistry`. Runtime: `NpcInstance`, `DialogueSession`
+  (fresh-start-vs-restore variable injection), `QuestInstance` (lifecycle + legacy
+  `IRunProgressionRecorder` bridge), `Casting`/`ContextBag` (role/hostility derived, not stored),
+  `FragmentLibrary` + `CastingFactory` (tag-match fill, deterministic tie-break, derived advisory
+  footprint), `RunDirector` + serializable `DeterministicRandom` PRNG, and `DialogueRunner` — the Ink
+  tag bridge with an explicit `Running/AwaitingExternal/Ended` suspension state machine for async
+  combat, empty-optional-slot fail-closed handling, and write-back into Ink variables. Save boundary
+  (`INarrativeSaveService` + snapshot DTOs incl. PRNG state; suspended dialogues are non-savepoints).
+  Zenject wiring `NarrativeSliceInstaller` + `NarrativeSliceBootstrap` (footprint derivation + ref
+  validation); `EnemyDefinition` gains `_enemyTags` for combat-slot matching. Slice content: Ink
+  `RazorPassToll.ink` + `CaravanThanks.ink`. New doc `narrative-procedural.md`. 84 edit-mode tests,
+  including `CrossStorylet_ChoiceInOneThreadChangesEligibilityInAnother_ViaFacts` — the executable R7
+  proof that clearing the pass (thread `road`) makes the caravan storylet (thread `trade`) eligible
+  purely through `world.pass_cleared`. Legacy `NarrativeInstaller`/`CompositeDialoguePresenter` and the
+  old `Story`/`NPC` SOs remain alongside, untouched, pending a later cutover.
 - **Character Progression / Narrative (M2 — run progression record):** new per-run state service that
   systems can query for what the player has done this run. New pure-C# `CharacterProgression/Core`:
   `QuestStatus` (`Active`/`Completed`/`Failed`), split read/write surfaces `IRunProgressionRecord` /

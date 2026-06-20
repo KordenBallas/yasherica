@@ -62,6 +62,33 @@ Known limitations (§5):
 
 ---
 
+## Data-Driven Procedural Narrative
+
+Deferred design (from `narrative-procedural.md` §6):
+- [ ] `[arch]` **R8 — First-class threads.** Promote `_threadId` from a string label to a `Thread`
+  entity (id + stage) the director balances and the player can read; express "a choice in thread A
+  affects thread C" as A's effect read by C's precondition (already the mechanism — this adds the
+  first-class entity + balancing).
+- [ ] `[arch]` **Director pacing.** Add pacing/quotas/thread-balancing to `RunDirector.SelectNext`
+  (currently eligibility filter + seeded pick only).
+- [ ] `[arch]` **R11 — Reactive-rule cascade layer.** Optional central layer that derives cross-category
+  cascades from fact reads/writes; cascades are explicit authored effects until then.
+- [ ] `[arch]` **OR/boolean precondition composition.** Preconditions are AND-only; add OR/grouping.
+- [ ] `[arch]` **R14 — Save/load file IO.** The serializable boundary (`INarrativeSaveService`, snapshot
+  DTOs incl. PRNG state) and the W3-1 suspended-non-savepoint rule exist and are tested; add the file
+  writer/reader and the full run-state aggregate (assemble quests/castings/sessions). Optional W3-1
+  option-b: persist a suspended dialogue + pending-external descriptor for mid-excursion saves.
+- [ ] `[arch]` **Dialogue view adapter.** Wire a Unity `IDialogueView` adapter to `DialogueRunner`'s
+  events in the slice installer (runner currently exposes events but no view is bound).
+- [ ] `[content]` **PerLocation-scope content.** Data shape supports per-location world facts (A1);
+  author content that uses it (e.g. `world.<locationId>.burned` cascades).
+- [ ] `[content]` **Optional ambient/bark channel.** The legacy dual-Ink bark channel was dropped; if
+  ambient lines are wanted, add a separate non-narrative system rather than overloading the session.
+- [ ] `[debt]` **Legacy cutover.** Migrate `DialogueActiveState`/`NpcContent` to castings; delete the
+  old `NpcDefinition`/`StoryDefinition`/`CompositeDialoguePresenter`/`NpcAssignment` path and assets.
+
+---
+
 ## Character Progression
 
 New work (no system doc yet — author `character-progression.md` when implemented):
