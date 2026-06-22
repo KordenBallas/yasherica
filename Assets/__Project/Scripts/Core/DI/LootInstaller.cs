@@ -65,10 +65,10 @@ namespace Core.DI
             }
         }
 
-        // IGameLogger is intentionally NOT bound here: InventoryInstaller provides
-        // it, and Zenject 6 asserts on a second creation binding for the same
-        // concrete type (the singleton mark is registered before IfNotBound is
-        // evaluated). This installer requires InventoryInstaller in the scene.
+        // IGameLogger is intentionally NOT bound here: LoggingInstaller (installed by AreaInstaller)
+        // is its single home. Zenject 6 asserts on a second creation binding for the same concrete
+        // type (the singleton mark is registered before IfNotBound is evaluated), so feature
+        // installers only resolve IGameLogger.
 
         private void InstallRunContext()
         {

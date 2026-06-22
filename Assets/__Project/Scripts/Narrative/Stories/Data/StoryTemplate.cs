@@ -32,6 +32,12 @@ namespace Narrative.Stories.Data
         [Tooltip("Optional authored backbone beat (R13)")]
         [SerializeField] private bool _isSpine;
 
+        [Header("Pacing")]
+        [Tooltip("Narrative cost/size: how much of a window's narrative budget this story consumes. " +
+                 "Larger = rarer alongside others. Not difficulty or platform span (a story is one platform).")]
+        [Min(0)]
+        [SerializeField] private int _weight = 10;
+
         public string StoryId => _storyId;
         public IReadOnlyList<StorySlotDefinition> Slots => _slots;
         public IReadOnlyList<FactPredicateSerial> Preconditions => _preconditions;
@@ -39,5 +45,6 @@ namespace Narrative.Stories.Data
         public IReadOnlyList<string> StoryTags => _storyTags;
         public string ThreadId => _threadId;
         public bool IsSpine => _isSpine;
+        public int Weight => _weight;
     }
 }

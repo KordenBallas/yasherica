@@ -7,6 +7,7 @@ using Combat.Integration;
 using Combat.Input;
 using Combat.Player;
 using Core.Camera;
+using Narrative.Dialogue;
 using System.Collections.Generic;
 using UnityEngine;
 using Zenject;
@@ -35,6 +36,7 @@ namespace Platform
         private readonly IEnemyDataProvider _enemyDataProvider;
         private readonly CombatActivityTracker _combatActivityTracker;
         private readonly Loot.Application.IEnemyLootDropper _enemyLootDropper;
+        private readonly DialogueRunner _dialogueRunner;
 
         private IPlatform _platform;
         private ICombatController _controller;
@@ -51,7 +53,8 @@ namespace Platform
             AITurnController aiTurnController,
             IEnemyDataProvider enemyDataProvider,
             CombatActivityTracker combatActivityTracker,
-            Loot.Application.IEnemyLootDropper enemyLootDropper)
+            Loot.Application.IEnemyLootDropper enemyLootDropper,
+            DialogueRunner dialogueRunner)
         {
             _controllerFactory = controllerFactory;
             _cameraService = cameraService;
@@ -64,6 +67,7 @@ namespace Platform
             _enemyDataProvider = enemyDataProvider;
             _combatActivityTracker = combatActivityTracker;
             _enemyLootDropper = enemyLootDropper;
+            _dialogueRunner = dialogueRunner;
         }
 
         public override void OnEnter(IPlatform platform)
@@ -257,6 +261,14 @@ namespace Platform
             // GameObjects, losing their death positions.
             bool playerWon = winner != null && winner.Id == _playerRegistry.GetLocalPlayer()?.Id;
             _enemyLootDropper.DropFor(_platform, playerWon);
+
+            // If this combat was triggered mid-dialogue, the runner is suspended waiting for the result;
+            // feed it back so post-combat lines/facts (e.g. a win clearing a path) replay (R7) before the
+            // platform completes.
+            if (_dialogueRunner != null && _dialogueRunner.State == DialogueRunnerState.AwaitingExternal)
+            {
+                _dialogueRunner.ReportCombatResult(playerWon);
+            }
 
             // Use platform's state factory to create completed state
             var completedState = _platform.StateFactory.CreateCompletedState();

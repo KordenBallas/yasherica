@@ -1,7 +1,5 @@
-using System;
 using System.Linq;
-using CharacterProgression.Core;
-using Narrative;
+using Narrative.Director.Core;
 using Narrative.Dialogue;
 using UnityEngine;
 using Zenject;
@@ -9,153 +7,108 @@ using Zenject;
 namespace Platform
 {
     /// <summary>
-    /// Active state for dialogue interactions.
-    /// Uses NpcAssignment from NpcContent for composite dialogue.
-    /// Handles outcomes including combat transitions.
+    /// Entry adapter for a narrative platform: runs the planner's committed encounter through the
+    /// data-driven engine. On enter it reads the platform's <see cref="NpcContent"/> (its minted actor +
+    /// planned story) and asks <see cref="EncounterDirector.BeginPlanned"/> to cast and start the
+    /// <see cref="DialogueRunner"/>; the bound <c>DialogueRunnerViewPresenter</c> drives the view. Routes
+    /// the runner's outcomes back to the platform: combat → spawn enemy + CombatActiveState; a normal
+    /// dialogue end (no combat) → completed. The post-combat resume + completion is owned by
+    /// CombatActiveState (the runner is a singleton suspended across the combat state).
     /// </summary>
     public class DialogueActiveState : PlatformStateBase
     {
         public class Factory : PlaceholderFactory<DialogueActiveState> { }
 
-        private readonly IDialoguePresenter _dialoguePresenter;
+        private readonly EncounterDirector _encounterDirector;
+        private readonly DialogueRunner _runner;
+        private readonly IDialogueView _view;
         private readonly IPlatformStateFactory _stateFactory;
 
-        [Inject(Id = "story")]
-        private IStoryManager _storyManager;
-
-        [Inject(Id = "npc")]
-        private IStoryManager _npcManager;
-
-        [Inject]
-        private IRunProgressionRecorder _progressionRecorder;
-
-        private IPlatform _currentPlatform;
-        private NpcContent _npcContent;
-        private DialogueContent _dialogueContent;
+        private IPlatform _platform;
+        private NpcContent _npc;
         private bool _combatTriggered;
 
         [Inject]
         public DialogueActiveState(
-            IDialoguePresenter dialoguePresenter,
+            EncounterDirector encounterDirector,
+            DialogueRunner runner,
+            IDialogueView view,
             IPlatformStateFactory stateFactory)
         {
-            _dialoguePresenter = dialoguePresenter;
+            _encounterDirector = encounterDirector;
+            _runner = runner;
+            _view = view;
             _stateFactory = stateFactory;
         }
 
         public override void OnEnter(IPlatform platform)
         {
-            _currentPlatform = platform;
+            _platform = platform;
             _combatTriggered = false;
+            _npc = platform.Contents.OfType<NpcContent>().FirstOrDefault();
 
-            _dialoguePresenter.OnDialogueEnded += HandleDialogueEnded;
-            _dialoguePresenter.OnCombatTriggered += HandleCombatTriggered;
-            _dialoguePresenter.OnQuestTriggered += HandleQuestTriggered;
-
-            _npcContent = platform.Contents.OfType<NpcContent>().FirstOrDefault();
-            _dialogueContent = platform.Contents.OfType<DialogueContent>().FirstOrDefault();
-
-            if (_npcContent?.Assignment != null)
+            if (_npc?.Actor == null || _npc.PlannedStory == null)
             {
-                _progressionRecorder.RecordNpcEncounter(_npcContent.Definition?.NpcId);
-                _dialoguePresenter.StartDialogue(_npcContent.Assignment);
+                Debug.LogWarning($"[DialogueActiveState] No planned encounter on platform {platform.Id}");
+                TransitionToCompleted();
+                return;
             }
-            else if (_dialogueContent != null)
+
+            _runner.OnCombatTriggered += HandleCombatTriggered;
+            _runner.OnDialogueEnded += HandleDialogueEnded;
+
+            if (_npc.Portrait != null)
             {
-                StartPureDialogue();
+                _view.SetPortrait(_npc.Portrait);
             }
             else
             {
-                Debug.LogWarning($"[DialogueActiveState] No dialogue content on platform {platform.Id}");
+                _view.ClearPortrait();
+            }
+
+            if (!_encounterDirector.BeginPlanned(_npc.PlannedStory, _npc.Actor))
+            {
+                Debug.LogWarning($"[DialogueActiveState] Encounter could not start (story '{_npc.PlannedStory.StoryId}') on platform {platform.Id}");
+                Unsubscribe();
                 TransitionToCompleted();
             }
         }
 
         public override void OnExit(IPlatform platform)
         {
-            _dialoguePresenter.OnDialogueEnded -= HandleDialogueEnded;
-            _dialoguePresenter.OnCombatTriggered -= HandleCombatTriggered;
-            _dialoguePresenter.OnQuestTriggered -= HandleQuestTriggered;
-
-            // Reset story managers to prevent state pollution between dialogues
-            _storyManager?.Reset();
-            _npcManager?.Reset();
-
-            _npcContent?.NotifyDialogueEnded();
-            _dialogueContent?.NotifyDialogueCompleted();
-
-            _currentPlatform = null;
-            _npcContent = null;
-            _dialogueContent = null;
+            Unsubscribe();
+            _platform = null;
+            _npc = null;
         }
 
-        private void StartPureDialogue()
+        private void Unsubscribe()
         {
-            if (_dialogueContent == null || !_dialogueContent.HasDialogue)
-            {
-                TransitionToCompleted();
-                return;
-            }
-
-            _dialoguePresenter.StartDialogue(
-                _dialogueContent.DialogueKnot,
-                _dialogueContent.SpeakerName);
-        }
-
-        private void HandleDialogueEnded(DialogueOutcomeType outcome)
-        {
-            switch (outcome)
-            {
-                case DialogueOutcomeType.Combat:
-                    HandleCombatOutcome();
-                    break;
-                default:
-                    // trigger_combat() Ink function may have fired without an # outcome: Combat tag
-                    // (e.g., combat triggered from character ink which was previously tag-processing-blind).
-                    if (_combatTriggered)
-                        HandleCombatOutcome();
-                    else
-                        TransitionToCompleted();
-                    break;
-            }
+            _runner.OnCombatTriggered -= HandleCombatTriggered;
+            _runner.OnDialogueEnded -= HandleDialogueEnded;
         }
 
         private void HandleCombatTriggered(string enemyId)
         {
             _combatTriggered = true;
-        }
 
-        private void HandleQuestTriggered(string questId)
-        {
-            if (string.IsNullOrEmpty(questId))
+            if (!int.TryParse(enemyId, out int parsedId))
+            {
+                Debug.LogError($"[DialogueActiveState] Combat triggered with non-numeric enemy id '{enemyId}' - completing.");
+                TransitionToCompleted();
                 return;
+            }
 
-            // An Ink start_quest signal marks the quest active in the run record.
-            _progressionRecorder.StartQuest(questId);
-            Debug.Log($"[DialogueActiveState] Quest triggered: {questId}");
+            var enemyContent = new EnemyContent { EnemyId = parsedId };
+            _platform.AddContent(enemyContent);
+            _npc?.DestroyNpcVisual();
+            TransitionToCombat();
         }
 
-        private void HandleCombatOutcome()
+        private void HandleDialogueEnded(string outcome)
         {
-            Debug.Log($"[DialogueActiveState] HandleCombatOutcome: NPC={_npcContent?.Definition?.NpcId}, CanBecomeEnemy={_npcContent?.CanBecomeEnemy}");
-
-            if (_npcContent != null && _npcContent.CanBecomeEnemy)
+            if (_combatTriggered)
             {
-                var enemyContent = _npcContent.TransitionToEnemy();
-                if (enemyContent != null)
-                {
-                    _currentPlatform.AddContent(enemyContent);
-                    _npcContent.DestroyNpcVisual();
-                    TransitionToCombat();
-                    return;
-                }
-                Debug.LogError($"[DialogueActiveState] NPC '{_npcContent.Definition?.NpcId}' CanBecomeEnemy=true but TransitionToEnemy() returned null.");
-            }
-            else
-            {
-                Debug.LogError($"[DialogueActiveState] Combat signaled but NPC cannot become enemy. " +
-                               $"NPC='{_npcContent?.Definition?.NpcId}', CanBecomeEnemy={_npcContent?.CanBecomeEnemy}. " +
-                               $"Verify NPC definition and story-NPC pairing via the compatibility filter.");
+                return; // CombatActiveState resumes the runner and completes the platform after combat.
             }
 
             TransitionToCompleted();
@@ -163,29 +116,24 @@ namespace Platform
 
         private void TransitionToCombat()
         {
-            if (_currentPlatform == null)
+            if (_platform == null)
             {
-                Debug.LogError("[DialogueActiveState] Cannot transition to combat: platform is null");
                 return;
             }
 
-            try
-            {
-                var combatState = _stateFactory.CreateActiveState(_currentPlatform, ContentType.Enemy);
-                _currentPlatform.TransitionToState(combatState);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[DialogueActiveState] Failed to transition to combat: {ex.Message}\n{ex.StackTrace}");
-                TransitionToCompleted();
-            }
+            var combatState = _stateFactory.CreateActiveState(_platform, ContentType.Enemy);
+            _platform.TransitionToState(combatState);
         }
 
         private void TransitionToCompleted()
         {
-            if (_currentPlatform == null) return;
+            if (_platform == null)
+            {
+                return;
+            }
+
             var completedState = _stateFactory.CreateCompletedState();
-            _currentPlatform.TransitionToState(completedState);
+            _platform.TransitionToState(completedState);
         }
     }
 }

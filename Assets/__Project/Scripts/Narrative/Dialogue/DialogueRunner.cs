@@ -84,6 +84,21 @@ namespace Narrative.Dialogue
             Pump();
         }
 
+        /// <summary>
+        /// Advances past a gated line (the player pressed continue). No-op unless the runner is parked in
+        /// <see cref="DialogueRunnerState.AwaitingContinue"/>; the line-gate counterpart of <see cref="Resume"/>.
+        /// </summary>
+        public void Continue()
+        {
+            if (State != DialogueRunnerState.AwaitingContinue)
+            {
+                return; // not gated on a line; ignore
+            }
+
+            State = DialogueRunnerState.Running;
+            Pump();
+        }
+
         /// <summary>Reports the combat outcome, sets the write-back var, and resumes (B1).</summary>
         public void ReportCombatResult(bool won)
         {
@@ -121,6 +136,8 @@ namespace Narrative.Dialogue
                 if (!string.IsNullOrEmpty(_session.CurrentText))
                 {
                     OnLine?.Invoke(_session.CurrentText);
+                    State = DialogueRunnerState.AwaitingContinue; // gate: one readable line at a time
+                    return;
                 }
             }
 

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Loot.Core;
-using Narrative.Generation;
 using Platform;
 using UnityEngine;
 using Zenject;
@@ -18,13 +17,13 @@ namespace LevelGeneration
         private readonly PerlinNoiseMap _noiseMap;
         private readonly AreaGeneratorConfig _config;
         private readonly Platform.Platform.Factory _platformFactory;
-        private readonly LevelNarrative _levelNarrative;
         private readonly ILootRollService _lootRollService;
         private readonly LevelTheme _theme;
 
         private readonly Dictionary<int, IPlatform> _platforms = new();
         private readonly Dictionary<int, PlatformView> _platformViews = new();
         private IPlatform _entryPlatform;
+        private IPlatform _lastAppended;
         private GameObject _areaGameObject;
         private float _cursorX = 0f;
         private float _baselineY = 0f;
@@ -35,7 +34,6 @@ namespace LevelGeneration
             PlatformGraphData graph,
             PerlinNoiseMap noiseMap,
             Platform.Platform.Factory platformFactory,
-            LevelNarrative levelNarrative,
             ILootRollService lootRollService,
             LevelTheme theme,
             AreaGeneratorConfig config = null)
@@ -43,40 +41,80 @@ namespace LevelGeneration
             _graph = graph;
             _noiseMap = noiseMap;
             _platformFactory = platformFactory;
-            _levelNarrative = levelNarrative;
             _lootRollService = lootRollService;
             _theme = theme;
             _config = config ?? new AreaGeneratorConfig();
         }
 
+        /// <summary>
+        /// One-shot generation of the whole graph (legacy path). Equivalent to
+        /// <see cref="Initialize"/> followed by <see cref="AppendPlatforms"/> over every graph node — the
+        /// same seam the streaming director drives window-by-window.
+        /// </summary>
         public void Generate()
         {
-            Clear();
-
-            // Reset cursor for positioning
-            _cursorX = 0f;
-            _baselineY = 0f;
-
-            // Create Area GameObject as parent
-            CreateAreaGameObject();
-
-            // Create all platform instances from graph
-            CreatePlatformsFromGraph();
-
-            // Connect platforms based on graph edges
-            ConnectPlatforms();
-
-            // Find and set entry platform
-            FindEntryPlatform();
-
-            // Create GameObjects for all platforms (all active)
-            CreatePlatformGameObjects();
+            Initialize();
+            AppendPlatforms(_graph.Nodes);
 
             Debug.Log($"[AreaGenerator] Created {_platformViews.Count} platform GameObjects");
 
             if (_entryPlatform == null)
             {
                 Debug.LogWarning("[AreaGenerator] No entry platform found!");
+            }
+        }
+
+        /// <summary>
+        /// Prepares an empty area: clears any existing platforms and resets the layout cursor. Platforms
+        /// are added afterwards via <see cref="AppendPlatforms"/> (one window at a time when streaming).
+        /// </summary>
+        public void Initialize()
+        {
+            Clear();
+            _cursorX = 0f;
+            _baselineY = 0f;
+            _lastAppended = null;
+            CreateAreaGameObject();
+        }
+
+        /// <summary>
+        /// Appends platforms for the given nodes onto the running layout, linking each to the previously
+        /// appended platform (a linear chain — branch edges are not used; the brancher is disabled). The
+        /// layout cursor persists across calls so successive windows lay out end to end. The first platform
+        /// ever appended becomes the entry platform.
+        /// </summary>
+        public void AppendPlatforms(IReadOnlyList<GraphNode> nodes)
+        {
+            if (nodes == null)
+            {
+                return;
+            }
+
+            if (_areaGameObject == null)
+            {
+                Initialize();
+            }
+
+            foreach (var node in nodes)
+            {
+                IPlatform platform = CreatePlatformFromNode(node);
+                if (platform == null)
+                {
+                    continue;
+                }
+
+                _platforms[node.Id] = platform;
+
+                if (_lastAppended != null)
+                {
+                    _lastAppended.AddNeighbor(platform);
+                    platform.AddNeighbor(_lastAppended);
+                }
+
+                _lastAppended = platform;
+                _entryPlatform ??= platform;
+
+                CreatePlatformGameObject(platform);
             }
         }
 
@@ -118,18 +156,6 @@ namespace LevelGeneration
             _areaGameObject = new GameObject("Area");
         }
 
-        private void CreatePlatformsFromGraph()
-        {
-            foreach (var node in _graph.Nodes)
-            {
-                IPlatform platform = CreatePlatformFromNode(node);
-                if (platform != null)
-                {
-                    _platforms[node.Id] = platform;
-                }
-            }
-        }
-
         private IPlatform CreatePlatformFromNode(GraphNode node)
         {
             // Create unified platform - state factory handles the rest based on content
@@ -141,13 +167,27 @@ namespace LevelGeneration
                 platform.SetStoryData(node.StoryData);
             }
 
-            // Add content (determines which states activate)
-            foreach (var contentType in node.ContentTypes)
+            // Add content (determines which states activate). Planner-built content (the streaming
+            // narrative path) takes precedence over creating content from the node's content types.
+            if (node.PrebuiltContent != null && node.PrebuiltContent.Count > 0)
             {
-                var content = CreateContent(contentType, node.StoryData, node.Id);
-                if (content != null)
+                foreach (var content in node.PrebuiltContent)
                 {
-                    platform.AddContent(content);
+                    if (content != null)
+                    {
+                        platform.AddContent(content);
+                    }
+                }
+            }
+            else
+            {
+                foreach (var contentType in node.ContentTypes)
+                {
+                    var content = CreateContent(contentType, node.StoryData, node.Id);
+                    if (content != null)
+                    {
+                        platform.AddContent(content);
+                    }
                 }
             }
 
@@ -218,8 +258,8 @@ namespace LevelGeneration
                 case PlatformContentType.Enemy:
                     return CreateEnemyContent(storyData);
 
-                case PlatformContentType.Npc:
-                    return CreateNpcContent(storyData);
+                // NPC platforms are produced by the streaming planner as prebuilt NpcContent
+                // (with a minted actor + story), never created here from content types.
 
                 case PlatformContentType.Loot:
                     return CreateLootContent(nodeId);
@@ -246,41 +286,6 @@ namespace LevelGeneration
             return new LootContent(items);
         }
 
-        private NpcContent CreateNpcContent(StoryPlatformData storyData)
-        {
-            if (storyData == null || string.IsNullOrEmpty(storyData.NpcId))
-            {
-                Debug.LogWarning("[AreaGenerator] NPC platform has no NpcId in StoryData - skipping NpcContent creation");
-                return null;
-            }
-
-            // Find matching NpcAssignment from level narrative
-            NpcAssignment assignment = FindAssignmentForNpc(storyData.NpcId);
-
-            if (assignment == null)
-            {
-                Debug.LogWarning($"[AreaGenerator] No NpcAssignment found for NPC '{storyData.NpcId}' - skipping NpcContent creation");
-                return null;
-            }
-
-            var npcContent = new NpcContent(assignment);
-            Debug.Log($"[AreaGenerator] Created NpcContent for '{assignment.Npc.DisplayName}' (ID: {storyData.NpcId})");
-            return npcContent;
-        }
-
-        private NpcAssignment FindAssignmentForNpc(string npcId)
-        {
-            if (_levelNarrative?.Assignments == null)
-                return null;
-
-            for (int i = 0; i < _levelNarrative.Assignments.Count; i++)
-            {
-                if (_levelNarrative.Assignments[i].Npc.NpcId == npcId)
-                    return _levelNarrative.Assignments[i];
-            }
-            return null;
-        }
-
         private EnemyContent CreateEnemyContent(StoryPlatformData storyData)
         {
             var enemyContent = new EnemyContent();
@@ -299,43 +304,6 @@ namespace LevelGeneration
             }
 
             return enemyContent;
-        }
-
-        private void ConnectPlatforms()
-        {
-            foreach (var edge in _graph.Edges)
-            {
-                if (_platforms.TryGetValue(edge.FromNodeId, out var fromPlatform) &&
-                    _platforms.TryGetValue(edge.ToNodeId, out var toPlatform))
-                {
-                    fromPlatform.AddNeighbor(toPlatform);
-                    toPlatform.AddNeighbor(fromPlatform);
-                }
-            }
-        }
-
-        private void FindEntryPlatform()
-        {
-            int entryNodeId = _graph.EntryNodeId;
-            foreach (var platform in _platforms.Values)
-            {
-                if (platform.Id == entryNodeId)
-                {
-                    _entryPlatform = platform;
-                    Debug.Log("Found entry platform : " + _entryPlatform.Id);
-                    return;
-                }
-            }
-            _entryPlatform = _platforms.Values.First();
-            Debug.Log("Found entry platform (fallback logic) : " + _entryPlatform.Id);
-        }
-
-        private void CreatePlatformGameObjects()
-        {
-            foreach (var platform in _platforms.Values)
-            {
-                CreatePlatformGameObject(platform);
-            }
         }
 
         private void CreatePlatformGameObject(IPlatform platform)

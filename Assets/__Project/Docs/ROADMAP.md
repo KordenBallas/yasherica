@@ -69,8 +69,38 @@ Deferred design (from `narrative-procedural.md` §6):
   entity (id + stage) the director balances and the player can read; express "a choice in thread A
   affects thread C" as A's effect read by C's precondition (already the mechanism — this adds the
   first-class entity + balancing).
-- [ ] `[arch]` **Director pacing.** Add pacing/quotas/thread-balancing to `RunDirector.SelectNext`
-  (currently eligibility filter + seeded pick only).
+- [~] `[arch]` **Story-first streaming director (cutover).** Replace actor-first per-encounter selection
+  with a budgeted, windowed planner that generates platforms window-by-window as the player advances;
+  entering a window locks it, the next is planned from live facts (R7). Phases:
+  - [x] **Planner core (Phase 0).** `RunWindowPlanner` selects a budgeted story set per window
+    (narrative weight budget + separate combat-count budget), matches actors to stories, deterministic.
+    `StoryTemplate.Weight` + `RunPacingConfig` SO added. Tested; not yet wired. *(See CHANGELOG;
+    `narrative-procedural.md` §2.6.)*
+  - [x] **Incremental generation (Phase 1).** `AreaGenerator.Generate()` split into `Initialize()` +
+    `AppendPlatforms(nodes)` with a persistent layout cursor; one-shot path preserved, behavior-identical.
+    *(See CHANGELOG. The `PlannedPlatform`→`GraphNode` mapping moves to the Phase 2 coordinator.)*
+  - [x] **Streaming coordinator + cutover (Phase 2).** `RunStreamingCoordinator` plans/generates platforms
+    window-by-window on `PlatformEvents.OnPlatformEntered`; `AreaSceneEntrypoint` drops the legacy narrative
+    generator; `DialogueActiveState` runs the new engine via `EncounterDirector.BeginPlanned`; combat-end
+    feeds `DialogueRunner.ReportCombatResult`. Legacy `NarrativeInstaller` left dormant. *(See CHANGELOG;
+    `narrative-procedural.md` §2.6.)*
+  - [x] **Delete legacy (Phase 3).** Removed `NarrativeInstaller` (file + Area SceneContext),
+    `Narrative/Generation/*`, `CompositeDialoguePresenter`/`IDialoguePresenter`, `InkExternalFunctionBinder`,
+    the legacy `StoryDefinition`/`NpcDefinition`/`RewardDefinition`/`LevelNarrativeConfig` SOs + assets +
+    legacy Ink, and the obsolete tests; decoupled `AreaGenerator`/`ScenarioGenerator`/`CutsceneActiveState`;
+    moved `IDialogueView` ownership to `NarrativeSliceInstaller`; deleted the now-unused
+    `ScenarioGenerator`/`IScenarioGenerator`/`PlatformGraphGenerator`/`IPlatformGraphGenerator`/`GameContext`
+    one-shot pipeline + their bindings. *(See CHANGELOG.)* `DialogueContent` kept (unused, not
+    narrative-coupled); `StoryPlatformData`/`ScenarioData` data classes kept (`GraphNode.StoryData`).
+- [ ] `[content]` **Streaming-path loot + biome.** The streaming generator places empty fillers (no loot)
+    and a fixed biome (Forest); fold loot platforms and progression/biome selection into the planner.
+- [ ] `[arch]` **Director pacing — thread balancing.** Cross-window thread continuity/quotas beyond the
+  planner's within-window thread preference (ties into R8 first-class threads).
+- [ ] `[content]` **Quest-carried item rewards.** The legacy `RewardResolver`/`RewardSlot` granted item
+  rewards from stories; the new engine has no item-reward sink (quests carry fact effects). Add item
+  rewards on the quest so the cutover doesn't drop them.
+- [ ] `[arch]` **Window/horizon save-state.** `RunNarrativeSnapshot` does not yet capture the streaming
+  planner's window/committed-horizon state; add it (ties to R14 file IO).
 - [ ] `[arch]` **R11 — Reactive-rule cascade layer.** Optional central layer that derives cross-category
   cascades from fact reads/writes; cascades are explicit authored effects until then.
 - [ ] `[arch]` **OR/boolean precondition composition.** Preconditions are AND-only; add OR/grouping.
@@ -78,14 +108,19 @@ Deferred design (from `narrative-procedural.md` §6):
   DTOs incl. PRNG state) and the W3-1 suspended-non-savepoint rule exist and are tested; add the file
   writer/reader and the full run-state aggregate (assemble quests/castings/sessions). Optional W3-1
   option-b: persist a suspended dialogue + pending-external descriptor for mid-excursion saves.
-- [ ] `[arch]` **Dialogue view adapter.** Wire a Unity `IDialogueView` adapter to `DialogueRunner`'s
-  events in the slice installer (runner currently exposes events but no view is bound).
+- [x] `[arch]` **Dialogue view adapter.** *(Done — `DialogueRunnerViewPresenter` (MVP) drives the
+  existing `IDialogueView` from the runner's events and is wired in `NarrativeSliceInstaller`; the runner
+  gained continue-gated pumping (`AwaitingContinue` + `Continue()`) so multi-line knots are read one line
+  at a time. See CHANGELOG; `narrative-procedural.md`. A whole-dialogue skip/abort path remains open.)*
+- [ ] `[arch]` **Whole-dialogue skip/abort.** The view's continue and skip inputs both advance one gated
+  line (`DialogueRunner.Continue`); add a runner path to skip-to-end / abort the whole conversation.
 - [ ] `[content]` **PerLocation-scope content.** Data shape supports per-location world facts (A1);
   author content that uses it (e.g. `world.<locationId>.burned` cascades).
 - [ ] `[content]` **Optional ambient/bark channel.** The legacy dual-Ink bark channel was dropped; if
   ambient lines are wanted, add a separate non-narrative system rather than overloading the session.
-- [ ] `[debt]` **Legacy cutover.** Migrate `DialogueActiveState`/`NpcContent` to castings; delete the
-  old `NpcDefinition`/`StoryDefinition`/`CompositeDialoguePresenter`/`NpcAssignment` path and assets.
+- [x] `[debt]` **Legacy cutover.** *(Done — `DialogueActiveState`/`NpcContent` run the casting/streaming
+  engine; the old `NpcDefinition`/`StoryDefinition`/`CompositeDialoguePresenter`/`NpcAssignment` path,
+  `NarrativeInstaller`, and assets are deleted. See CHANGELOG; "Story-first streaming director" above.)*
 
 ---
 

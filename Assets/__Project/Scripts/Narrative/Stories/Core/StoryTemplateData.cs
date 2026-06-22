@@ -21,10 +21,18 @@ namespace Narrative.Stories.Core
         public string ThreadId { get; }
         public bool IsSpine { get; }
 
+        /// <summary>
+        /// Pacing cost/size used by the windowed director to fill a window's narrative budget. A larger
+        /// weight consumes more of the per-window budget, so it appears less often alongside other stories.
+        /// Not a difficulty or platform-span measure — a single story is always one platform.
+        /// </summary>
+        public int Weight { get; }
+
         private IReadOnlyList<FactKeyShapeCore> _derivedFootprint;
 
         public StoryTemplateData(string storyId, IReadOnlyList<StorySlot> slots, IReadOnlyList<FactPredicate> preconditions,
-            IReadOnlyList<FactEffectCore> ownEffects, IReadOnlyList<string> storyTags, string threadId, bool isSpine)
+            IReadOnlyList<FactEffectCore> ownEffects, IReadOnlyList<string> storyTags, string threadId, bool isSpine,
+            int weight = 0)
         {
             StoryId = storyId ?? string.Empty;
             Slots = slots ?? System.Array.Empty<StorySlot>();
@@ -33,6 +41,7 @@ namespace Narrative.Stories.Core
             StoryTags = storyTags ?? System.Array.Empty<string>();
             ThreadId = threadId ?? string.Empty;
             IsSpine = isSpine;
+            Weight = weight;
         }
 
         /// <summary>

@@ -1,13 +1,17 @@
+using System;
 using UnityEngine;
 using LevelGeneration;
-using Narrative.Data.Definitions;
-using Narrative.Generation;
 using Platform;
 using Combat.Core;
 using Combat.Player;
+using CharacterSystem.Runtime;
+using Core.Logging;
+using Narrative.Actors.Data;
+using Narrative.Director.Core;
+using Narrative.Facts.Core;
 using Zenject;
 
-public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
+public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
 {
     [Header("Graph Parameters")]
     [Tooltip("Number of platforms (nodes) in the route graph")]
@@ -42,7 +46,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     [Header("Character Settings")]
     public Transform characterTransform;
 
-    private IAreaGenerator areaGenerator;
+    private AreaGenerator areaGenerator;
+    private RunStreamingCoordinator coordinator;
     private AreaView areaView;
     private IPlatform currentPlatform;
 
@@ -53,17 +58,21 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
     [Inject]
     private DiContainer _container;
     [Inject]
-    private ILevelNarrativeGenerator _narrativeGenerator;
-    [Inject]
-    private LevelNarrativeConfig _levelConfig;
-    [Inject]
-    private IScenarioGenerator _scenarioGenerator;
-    [Inject]
     private Loot.Core.IRunSeedProvider _runSeedProvider;
     [Inject]
     private Loot.Core.ILootRollService _lootRollService;
     [Inject]
     private Loot.Core.ICurrentThemeProvider _currentThemeProvider;
+    [Inject]
+    private IRunWindowPlanner _windowPlanner;
+    [Inject]
+    private INpcArchetypeCatalog _archetypeCatalog;
+    [Inject]
+    private IModularCharacterFactory _modularFactory;
+    [Inject]
+    private IFactStore _factStore;
+    [Inject]
+    private IGameLogger _logger;
 
     private IPlayer _localPlayer;
 
@@ -78,43 +87,16 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
 
     public void GenerateArea()
     {
-        // Effective seed is computed once at install time (LootInstaller) so loot
-        // rolls and narrative randoms share the same run seed as the layout.
-        Random.InitState(_runSeedProvider.RunSeed);
+        // Effective seed is computed once at install time (LootInstaller) so loot rolls, the windowed
+        // planner, and the layout share the same run seed.
+        UnityEngine.Random.InitState(_runSeedProvider.RunSeed);
 
-        // 1. Generate narrative content (NPC assignments)
-        var levelNarrative = _narrativeGenerator.Generate(_levelConfig);
+        // Biome selection from progression is a follow-up; default for now so loot/theme have a value.
+        LevelTheme theme = LevelTheme.Forest;
+        _currentThemeProvider.SetTheme(theme);
 
-        // 2. Generate scenario (platform layout)
-        var gameContext = new GameContext
-        {
-            CharacterLevel = 5,
-            Progress = 100,
-            StoryState = 1
-        };
-        var scenario = _scenarioGenerator.GenerateScenario(gameContext, levelNarrative);
-        if (scenario == null)
-        {
-            Debug.LogError("[AreaSceneEntrypoint] Failed to generate scenario");
-            return;
-        }
-
-        // Runtime loot rolls (enemy drops, quest rewards) need the biome theme.
-        _currentThemeProvider.SetTheme(scenario.Theme);
-
-        if (platformCount > 0)
-        {
-            scenario.EstimatedPlatformCount = platformCount;
-        }
-
-        // 3. Generate platform graph
-        var graphGenerator = new PlatformGraphGenerator();
-        var graph = graphGenerator.GenerateGraph(scenario);
-
-        // 4. Create noise map
         var noiseMap = new PerlinNoiseMap(seed, noiseScale, noiseOctaves);
 
-        // 5. Create configuration
         var config = new AreaGeneratorConfig
         {
             platformSizeMin = platformSizeMin,
@@ -128,23 +110,26 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             colorVariation = colorVariation
         };
 
-        // 6. Create area generator with narrative data
+        // The streaming director plans/generates platforms window-by-window; the area generator no longer
+        // needs a pre-built graph or pre-assigned narrative (levelNarrative is null on this path).
         areaGenerator = new AreaGenerator(
-            graph, noiseMap, _platformFactory, levelNarrative, _lootRollService, scenario.Theme, config);
-        areaGenerator.Generate();
+            new PlatformGraphData(), noiseMap, _platformFactory, _lootRollService, theme, config);
 
-        // 7. Set up AreaView
+        coordinator = new RunStreamingCoordinator(
+            _windowPlanner, _archetypeCatalog, _modularFactory, _factStore, areaGenerator, _logger);
+
+        IPlatform entry = coordinator.Begin();
+
         if (areaView == null)
         {
             areaView = gameObject.AddComponent<AreaView>();
         }
         areaView.Initialize(areaGenerator);
 
-        // 8. Place character at entry platform
-        if (areaGenerator.EntryPlatform != null && characterTransform != null)
+        if (entry != null && characterTransform != null)
         {
-            currentPlatform = areaGenerator.EntryPlatform;
-            characterTransform.position = currentPlatform.Visual.Position + Vector3.up * 2f;
+            currentPlatform = entry;
+            characterTransform.position = entry.Visual.Position + Vector3.up * 2f;
 
             var characterController = characterTransform.GetComponent<Character.CharacterMovementController>();
             if (characterController == null)
@@ -158,8 +143,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
             }
         }
 
-        // 9. Set up content spawner (instantiated through the container so its
-        // injected dependencies resolve)
+        // Content spawner (instantiated through the container so its injected dependencies resolve).
         var contentSpawner = gameObject.GetComponent<Platform.ContentSpawner>();
         if (contentSpawner == null)
         {
@@ -186,5 +170,10 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable
                 areaView.OnCharacterPlatformChanged(newPlatform);
             }
         }
+    }
+
+    public void Dispose()
+    {
+        coordinator?.Dispose();
     }
 }

@@ -1,0 +1,170 @@
+﻿ан: полный переход на Data-Driven Procedural Narrative                                                                                                                                                      ↑
+
+ntext (зачем)                                                                                                                                                                                               ↑
+
+   Новая narrative-система (narrative-procedural.md) архитектурно готова, покрыта 84 edit-mode тестами,                                                                                                          ↑
+   установлена в Area.unity и имеет демо-контент (Resources/Narrative/* + скомпилированный Ink
+   RazorPassToll/CaravanThanks). Но она не подключена к геймплею: ни один production-код не вызывает                                                                                                             ↑
+   RunDirector.SelectNext → CastingFactory.Cast → DialogueRunner.Begin. Весь рантайм-диалог по-прежнему
+   ведёт легаси-путь (NarrativeInstaller → LevelNarrativeGenerator → NpcAssignment →                                                                                                                             ↑
+   DialogueActiveState → CompositeDialoguePresenter).
+                                                                                                                                                                                                                 ↑
+   Цель: полный cutover — заменить легаси новой системой, точка входа встроена в DialogueActiveState,
+   легаси удалить. Игра остаётся запускаемой между этапами.                                                                                                                                                      ↑
+
+   Ключевое архитектурное решение. Новый RunDirector выбирает сюжет в рантайме по текущим фактам                                                                                                                 ↑
+   на момент входа (R6/R7), а не заранее на этапе генерации. Поэтому генерация уровня перестаёт назначать
+   истории NPC и начинает размещать акторов (NpcArchetype), а оркестрация выбора сюжета —                                                                                                                        ↑
+   per-encounter, при входе на платформу. Логика оркестрации живёт в новом чистом C#-классе
+   EncounterDirector, а DialogueActiveState остаётся тонким адаптером стейта (CLAUDE.md §3/§10).                                                                                                                 ↑
+
+   Поток одного энкаунтера (целевой)                                                                                                                                                                             ↑
+
+   1. DialogueActiveState.OnEnter → читает NpcContent платформы → его постоянный NpcInstance + NpcArchetype.                                                                                                     ↑
+   2. EncounterDirector.BeginEncounter(actor): строит ContextBag ($self/$faction → актор) →
+   RunDirector.SelectNext(storylets, factStore, context) → если есть подходящий сюжет,                                                                                                                           ↑
+   CastingFactory.Cast(chosen, actor, library) → DialogueRunner.Begin(casting). Возвращает
+   false, если подходящего сюжета нет (платформа корректно завершается).                                                                                                                                         ↑
+   3. DialogueRunnerViewPresenter (уже забинден, NonLazy) сам ведёт IDialogueView по событиям раннера.
+   4. DialogueActiveState подписан на исходы раннера: OnCombatTriggered(enemyId) → переход в бой;                                                                                                                ↑
+   конец боя → DialogueRunner.ReportCombatResult(won) возобновляет диалог; OnQuestStarted →
+   уже записан раннером через IRunProgressionRecorder (passthrough); OnDialogueEnded → TransitionToCompleted.                                                                                                    ↑
+
+   ---                                                                                                                                                                                                           ↑
+   Этапы
+                                                                                                                                                                                                                 ↑
+   Stage 0 — Pre-flight (read-only)
+                                                                                                                                                                                                                 ↑
+   - Прогнать 84 slice-теста (workaround: bundled Roslyn + dotnet — см. memory).
+   - Убедиться, что Resources/Narrative/{Facts,Actors,Dialogue,Quests,Enemies,Stories} заполнены и                                                                                                               ↑
+   DialogueDefinition._inkJsonAsset ссылается на скомпилированный JSON (Ink→JSON — редакторный шаг;
+   не перекомпилировать, если уже есть).                                                                                                                                                                         ↑
+   - Подтвердить, что NarrativeSliceInstaller и NarrativeInstaller оба в списке инсталлеров
+   Area SceneContext. Легаси-путь запускается без изменений.                                                                                                                                                     ↑
+
+   Stage 1 — Чистое C#-ядро оркестрации + тесты + биндинги (легаси не трогаем)                                                                                                                                   ↑
+
+   Новые файлы (Core, без UnityEngine):                                                                                                                                                                          ↑
+   - Scripts/Narrative/Actors/Core/ActorInstanceFactory.cs — IActorInstanceFactory.Create(NpcArchetypeData) → NpcInstance:
+   стабильный id, выбор имени из DisplayNamePool через сидированный IRandomSource, проброс FactionId. Детерминированно.                                                                                          ↑
+   - Scripts/Narrative/Director/Core/EncounterDirector.cs (application) — зависимости: IRunDirector,
+   ICastingFactory, IFragmentLibrary, IReadOnlyList<StoryTemplateData>, IFactStore, DialogueRunner.                                                                                                              ↑
+   BeginEncounter(NpcInstance) → bool: строит ContextBag, SelectNext, при наличии сюжета Cast + runner.Begin.
+                                                                                                                                                                                                                 ↑
+   DI: забиндить оба в NarrativeSliceInstaller (фабрика — через IRandomSource; director — через уже
+   забинденные зависимости). Геймплей пока не вызывает.                                                                                                                                                          ↑
+
+   Тесты (чистый C#, переиспользовать FakeStoryManager/FakeLogger из DialogueRunnerTests):                                                                                                                       ↑
+   - ActorInstanceFactoryTests — детерминированный выбор имени, проброс фракции, уникальность id.
+   - EncounterDirectorTests — есть сюжет → casting → begin; нет сюжета → false; R7-доказательство                                                                                                                ↑
+   end-to-end (оплата пошлины пишет world.pass_cleared → сюжет каравана становится eligible на следующем BeginEncounter).
+                                                                                                                                                                                                                 ↑
+   Docs (в том же изменении): подраздел «Encounter integration» в narrative-procedural.md; запись в CHANGELOG Added.
+                                                                                                                                                                                                                 ↑
+   Verify: тесты зелёные; сцена работает на легаси.
+                                                                                                                                                                                                                 ↑
+   Stage 2 — Двойной режим размещения актора + спавн (легаси всё ещё драйвер по умолчанию)
+                                                                                                                                                                                                                 ↑
+   - StoryPlatformData (Scripts/LevelGeneration/Scenario/ScenarioData.cs): добавить string ArchetypeId.
+   Поля пред-назначения (DialogueKnot/NpcCanBecomeEnemy/EnemyId/NpcId) больше не авторитетны для                                                                                                                 ↑
+   narrative-платформ (бой решает casting) — оставить, но новый путь их не использует.
+   - NpcContent.cs: добавить NpcArchetype Archetype, NpcInstance Actor, Sprite Portrait, string ArchetypeId;                                                                                                     ↑
+   конструктор NpcContent(NpcArchetype, NpcInstance, IModularCharacterFactory). SpawnNpcVisual →
+   IModularCharacterFactory.Create(Archetype.Assembly, parent) вместо Instantiate(Definition.Prefab).                                                                                                            ↑
+   CanBecomeEnemy/TransitionToEnemy/Definition убрать, когда на них не останется ссылок (Stage 3).
+   - Новый INpcArchetypeCatalog (id → NpcArchetype SO; Portrait/Assembly), забинден в                                                                                                                            ↑
+   NarrativeSliceInstaller из его списка _archetypes (visuals — мост через SO, т.к. NpcArchetypeData их не несёт).
+   - AreaGenerator.cs: получает IModularCharacterFactory, IActorInstanceFactory, INpcArchetypeCatalog,                                                                                                           ↑
+   IReadOnlyList<NpcArchetypeData> (через AreaSceneEntrypoint, который уже инжектит сервисы и new-ит генератор).
+   CreateNpcContent резолвит актора по ArchetypeId, минтит NpcInstance один раз, строит новый NpcContent.                                                                                                        ↑
+   - DialogueActiveState.cs: ветка — если NpcContent.Actor != null, новый путь (EncounterDirector.BeginEncounter,
+   подписка на исходы раннера, портрет из NpcContent.Portrait); иначе легаси-презентер. Добавить инъекции                                                                                                        ↑
+   EncounterDirector + раннер, легаси-инъекции пока сохранить.
+                                                                                                                                                                                                                 ↑
+   Verify: компилируется; сцена идёт по легаси (новых платформ-акторов ещё не генерится).
+                                                                                                                                                                                                                 ↑
+   Stage 3 — Переключение генератора и DI на новый путь (сам cutover)
+                                                                                                                                                                                                                 ↑
+   - Генерация размещения акторов: репёрпоз ScenarioGenerator.GeneratePlatformRequirements (или новый класс) —
+   эмитит NPC-платформы с ArchetypeId из доступных NpcArchetypeData, а не из LevelNarrative.Assignments.                                                                                                         ↑
+   Для слайса минимально (разместить доступный архетип); политика размещения (кол-во/веса) — в ROADMAP.
+   - AreaSceneEntrypoint.cs: убрать ILevelNarrativeGenerator/LevelNarrativeConfig/LevelNarrative;                                                                                                                ↑
+   инжектить список акторов + каталог + фабрики, передать в AreaGenerator.
+   - NarrativeSliceInstaller.cs: забрать владение IDialogueView — перенести сюда сериализованное поле                                                                                                            ↑
+   DialogueView + биндинг из NarrativeInstaller (ровно один AsSingle). IGameLogger по-прежнему только
+   резолвить (инвариант LoggingInstaller).                                                                                                                                                                       ↑
+   - AreaInstaller.cs: fallback-биндинг IScenarioGenerator становится единственным (комментарий про
+   NarrativeInstaller/StoryAwareScenarioGenerator устарел — NarrativeInstaller его не биндил;                                                                                                                    ↑
+   базовый ScenarioGenerator и так работал). Поправить комментарий.
+   - Убрать NarrativeInstaller из списка инсталлеров Area SceneContext (файл пока не удалять).                                                                                                                   ↑
+   - DialogueActiveState: убрать легаси-ветку и инъекции IDialoguePresenter/id'd IStoryManager.
+   Бой: OnCombatTriggered(string enemyId) → int.TryParse → new EnemyContent { EnemyId = parsed } →                                                                                                               ↑
+   AddContent + уничтожить визуал актора → CombatActiveState.
+                                                                                                                                                                                                                 ↑
+   Combat resume (риск): новый раннер приостанавливается на start-combat и ждёт
+   ReportCombatResult. Найти хук конца боя (CombatActiveState/ICombatController/CombatActivityTracker)                                                                                                           ↑
+   и пробросить ReportCombatResult(won), чтобы пост-боевые строки/факты доиграли. Если хук окажется сложным —
+   отгрузить Stage 3 с легаси-паритетом (бой запускается, диалог не возобновляется) и доделать в Stage 3b;                                                                                                       ↑
+   тогда pass_cleared пишется только веткой оплаты — эмерджентный анлок каравана демонстрируется через оплату.
+                                                                                                                                                                                                                 ↑
+   Docs (в том же изменении): narrative-generation.md устаревает — описание размещения акторов перенести в
+   narrative-procedural.md, убрать из Docs/README.md; CHANGELOG Changed + Removed.                                                                                                                               ↑
+
+   Verify (end-to-end): вход в Area.unity → платформа бандита → диалог играет через новый раннер;                                                                                                                ↑
+   ветка оплаты пишет world.pass_cleared; повторный вход / вторая платформа → story_grateful_caravan
+   теперь eligible (R7); ветка боя → бой → resume → завершение; квест → запись в IRunProgressionRecorder.                                                                                                        ↑
+
+   Stage 4 — Удаление легаси (сначала код, ассеты последними)                                                                                                                                                    ↑
+
+   Только после того, как Stage 3 компилируется и сцена работает. Порядок: код → ассеты → тесты.                                                                                                                 ↑
+
+   Код: NarrativeInstaller.cs; CompositeDialoguePresenter/IDialoguePresenter/InkExternalFunctionBinder/                                                                                                          ↑
+   IInkExternalFunctionBinder; LevelNarrativeGenerator/StoryPool/NpcPool/RewardResolver/LevelNarrative/
+   NpcAssignment + их интерфейсы; StoryDefinition/NpcDefinition/RewardDefinition/LevelNarrativeConfig                                                                                                            ↑
+RewardSlot); StoryNodeRequirement если без ссылок.                                                                                                                                                          ↑
+
+ Сохранить (переиспользует новый раннер/вью): IStoryManager/InkStoryManager, DialogueSession,
+   IDialogueView/DialogueView, DialogueChoice/StoryChoice, IRunProgressionRecorder.
+
+alogueContent («чистый диалог» без NPC): явно решить — мигрировать на casting-less Begin или удалить
+е ронять молча).
+
+сеты (последними): легаси .asset+.meta (StoryDefinition/NpcDefinition/RewardDefinition/
+velNarrativeConfig) и легаси-only Ink JSON без ссылок. Все Demo* оставить.
+
+   Тесты: удалить LevelNarrativeGeneratorTests + тесты пулов/резолвера; оставить 84 slice + новые из Stage 1.
+
+   Docs: отметить [debt] Legacy cutover в ROADMAP; убрать пункт «Legacy cutover» из §6 narrative-procedural.md;
+   CHANGELOG Removed.
+
+ Verify: полная компиляция, все тесты зелёные, сцена работает end-to-end.                                                                                                                                  
+ ---
+ Critical files
+
+   - Scripts/Platform/States/DialogueActiveState.cs — точка входа per-encounter.
+Scripts/Platform/Content/NpcContent.cs — несёт актора/архетип/визуал.
+Scripts/Core/DI/NarrativeSliceInstaller.cs — биндит EncounterDirector/фабрику/каталог/IDialogueView.
+   - Scripts/LevelGeneration/Area/AreaGenerator.cs + Scripts/Area/AreaSceneEntrypoint.cs — размещение акторов.
+ - Scripts/LevelGeneration/Scenario/ScenarioGenerator.cs + ScenarioData.cs (ArchetypeId).                                                                                                                       - Новые: EncounterDirector.cs, ActorInstanceFactory.cs, INpcArchetypeCatalog.
+
+ Риски
+
+   - Идентичность актора (R12): минтить NpcInstance один раз при размещении и хранить на NpcContent;
+   $self биндить на этот id, иначе per-actor preconditions (actor.$self.hostile) fail-closed. Новый инстанс
+ на каждый вход молча теряет перенос hostility.                                                                                                                                                                    - Combat resume: старый путь завершал диалог, новый — приостанавливается и ждёт ReportCombatResult.
+   Без проводки хука конца боя пост-боевые факты (toll pass_cleared при победе) не сохраняются. Самый рискованный шов.
+   - Тип enemy id: Casting.OptionalEnemyId — string; EnemyContent.EnemyId — int. Парсить на переходе, fail-closed на мусоре.
+Устаревший комментарий AreaInstaller про IScenarioGenerator fallback — проверить, что базовый ScenarioGenerator живой биндинг.
+   - Item-награды: легаси RewardResolver/RewardSlot выдавал предметные награды от историй; у новой системы нет
+   аналога (квесты несут fact-эффекты, не предметы). Не ронять молча — пункт в ROADMAP (награды на квесте).
+ - Портрет: DialogueRunnerViewPresenter не зовёт SetPortrait; NpcArchetypeData без Sprite. Портрет ставить
+   из SO-каталога в инфра-адаптере (DialogueActiveState). Презентер и стейт трогают разные методы вью — без гонок.
+   - Ink JSON: проверить в Stage 0; пустой _inkJsonAsset роняет энкаунтер молча.
+.meta/encoding: любые правки .asset/.meta — BOM-less UTF-8 (memory).
+
+ Verification (общая)
+
+ Поэтапно: после Stage 1 — тесты; после Stage 2 — компиляция + легаси-сцена; после Stage 3 — end-to-end в                                                                                                     Area.unity (бандит → новый раннер → оплата пишет pass_cleared → караван eligible → бой/resume → квест записан);
+ после Stage 4 — полная сборка + все тесты зелёные.
+
+ Каждый этап несёт свои правки doc/CHANGELOG/ROADMAP в том же изменении (CLAUDE.md §8 — не отдельным doc-этапом).

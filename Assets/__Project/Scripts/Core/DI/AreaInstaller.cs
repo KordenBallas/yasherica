@@ -49,6 +49,11 @@ namespace Core.DI
 
         public override void InstallBindings()
         {
+            // Single logging home for the scene; feature installers only resolve IGameLogger and must
+            // never bind it (re-binding UnityGameLogger AsSingle trips Zenject 6's "AsSingle multiple
+            // times" assert, even with IfNotBound).
+            LoggingInstaller.Install(Container);
+
             InstallGameCoreBindings();
             InstallPlatformBindings();
             InstallCombatBindings();
@@ -56,14 +61,8 @@ namespace Core.DI
 
         private void InstallGameCoreBindings()
         {
-            // Core systems
-            // Note: IScenarioGenerator is bound by NarrativeInstaller (StoryAwareScenarioGenerator)
-            // Fallback binding if NarrativeInstaller is not present
-            if (!Container.HasBinding<IScenarioGenerator>())
-            {
-                Container.Bind<IScenarioGenerator>().To<ScenarioGenerator>().AsSingle();
-            }
-            Container.Bind<IPlatformGraphGenerator>().To<PlatformGraphGenerator>().AsSingle();
+            // (The legacy one-shot scenario/graph generators were removed; the streaming director
+            // builds platforms per window via RunStreamingCoordinator.)
 
             // Per-run progression record: read + write surfaces share one instance.
             // Same lifetime as the run seed (scene singleton); cross-scene/session

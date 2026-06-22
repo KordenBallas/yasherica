@@ -39,8 +39,8 @@ namespace Core.DI
 
         public override void InstallBindings()
         {
-            // IGameLogger is provided by InventoryInstaller (same SceneContext, runs earlier).
-            // Re-binding UnityGameLogger here would trip Zenject 6's "AsSingle multiple times for
+            // IGameLogger is provided by LoggingInstaller (installed by AreaInstaller); we only resolve
+            // it. Re-binding UnityGameLogger here would trip Zenject 6's "AsSingle multiple times for
             // the same concrete type" assert, even with IfNotBound.
             var archetypes = LoadArchetypeDefinitions();
             Container.Bind<IArchetypeCatalog>()

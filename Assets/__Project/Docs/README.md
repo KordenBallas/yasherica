@@ -9,7 +9,7 @@ Older documentation elsewhere in the repository may be stale; prefer this folder
 | Document | Scope |
 |---|---|
 | [Ability Subsystem](ability-subsystem.md) | Requirements and design of combat abilities: shapes, targeting, scheduling queue, execution, data-driven authoring, extension guide |
-| [Narrative Generation](narrative-generation.md) | Requirements and design of procedural level narrative: story/NPC pools and filtering, density config, combat-capability matching, rewards, dialogue composition, planned compatibility scoring |
+| [Narrative Generation](narrative-generation.md) | **Superseded** by *Data-Driven Procedural Narrative*. Describes the deleted legacy generation path (story/NPC pools, density config, dialogue composition); kept for historical reference only |
 | [Data-Driven Procedural Narrative](narrative-procedural.md) | Requirements and design of the recombinable narrative system: orthogonal fragments (archetype/dialogue/quest/enemy/story), casting layer, one unified namespaced fact store, precondition/effect machinery, run director, dialogue tag bridge, save boundary; vertical slice "The Toll at Razor Pass" |
 | [Inventory Subsystem](inventory-subsystem.md) | Requirements and design of the magic pot inventory: container model, bubble visualization, belly camera zoom, combine crafting with data-driven artifacts/recipes, combat guard |
 | [Loot Subsystem](loot-subsystem.md) | Requirements and design of data-driven artifact rewards: biome loot tables, deterministic per-run rolls, platform discovery pickups, enemy drops, quest grants, world pickup visuals |

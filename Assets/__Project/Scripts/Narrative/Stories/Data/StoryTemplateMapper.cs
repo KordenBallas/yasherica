@@ -55,7 +55,8 @@ namespace Narrative.Stories.Data
                 ownEffects,
                 new List<string>(template.StoryTags),
                 template.ThreadId,
-                template.IsSpine);
+                template.IsSpine,
+                template.Weight);
         }
     }
 }

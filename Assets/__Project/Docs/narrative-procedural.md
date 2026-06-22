@@ -80,7 +80,8 @@ Scripts/Core/DI/NarrativeSliceInstaller.cs
 | `SubjectResolver` | Resolves `$self`/`$target`/`$faction`/`$<contextKey>` against the casting context (R10); fail-closed on unknown token. |
 | `CastingFactory` / `Casting` | Fills typed slots by tag (R5) into a casting (R3); derives a story's advisory footprint over the library (W3-2). |
 | `RunDirector` | Selects eligible storylets by fact preconditions (R7) with a seeded, save-replayable PRNG (B2). |
-| `DialogueRunner` | Drives one `DialogueSession`; dispatches Ink tags to facts/quest/combat (R4); explicit suspension state machine for async combat. |
+| `DialogueRunner` | Drives one `DialogueSession`; dispatches Ink tags to facts/quest/combat (R4); explicit suspension state machine — `AwaitingExternal` for async combat, `AwaitingContinue` to gate one readable line at a time (`Continue()` advances). |
+| `DialogueRunnerViewPresenter` | MVP presenter (pure-C#): turns the runner's events into `IDialogueView` calls and forwards the view's choice/continue/skip input back into the runner; re-exposes combat/quest signals. |
 | `QuestInstance` | Quest lifecycle; returns effects to apply; bridges legacy `IRunProgressionRecorder`. |
 
 ### 2.3 Runtime flow
@@ -95,17 +96,80 @@ Scripts/Core/DI/NarrativeSliceInstaller.cs
    the `quest_available`/`combat_available` flags).
 4. `DialogueRunner.Begin(casting)` starts a fresh `DialogueSession`, pumps Ink, and dispatches tags:
    `fact:` writes (footprint-gated), `offer-quest:` starts the quest, `start-combat:` suspends until
-   `ReportCombatResult` resumes it; `speaker:`/`outcome:` drive presentation/termination.
+   `ReportCombatResult` resumes it; `speaker:`/`outcome:` drive presentation/termination. Each readable
+   line parks the runner in `AwaitingContinue`; `DialogueRunnerViewPresenter` drives the `IDialogueView`
+   and calls `Continue()` on the view's continue/skip input, so multi-line knots are read one line at a
+   time (no-text tag steps flow without gating).
 5. Facts written by one story change the eligibility of another at the next `SelectNext` — the only
    coupling between stories (R7).
 
 ### 2.4 DI wiring
 
-`Core.DI.NarrativeSliceInstaller` (slice scene only; legacy `NarrativeInstaller` untouched) binds the
-fact store/evaluator/applier/resolver, the fragment library + storylets (mapped from inspector SO
-lists), the casting factory + director + serializable PRNG (seeded from the run seed via
-`LootSeed.Derive`), the dialogue session/runner/tag-parser, and `INarrativeSaveService`. A
-`NarrativeSliceBootstrap` `IInitializable` runs footprint derivation + typed-ref validation after build.
+`Core.DI.NarrativeSliceInstaller` (the only narrative installer in the Area scene since the legacy
+cutover) binds the fact store/evaluator/applier/resolver, the fragment library + storylets (mapped from
+inspector SO lists or auto-loaded from `Resources/Narrative/*`), the casting factory + director +
+windowed planner + serializable PRNG (seeded from the run seed via `LootSeed.Derive`), the actor-instance
+factory + encounter orchestrator (§2.5), the dialogue session/runner/tag-parser, the `IDialogueView`
+(instantiated from the `Resources` prefab), and `INarrativeSaveService`. A `NarrativeSliceBootstrap`
+`IInitializable` runs footprint derivation + typed-ref validation after build.
+
+### 2.5 Encounter entry (runtime orchestration)
+
+The runtime flow in §2.3 is driven by two small pure-C# pieces, so the chain that the slice's tests
+exercised has a single production entry point:
+
+- `ActorInstanceFactory` (`IActorInstanceFactory`) mints a per-run `NpcInstance` from an
+  `NpcArchetypeData` when an actor is placed: a run-unique, deterministic instance id (a monotonic
+  ordinal per factory), a display name drawn from the archetype's pool via the seeded PRNG, and the
+  archetype's faction. The caller keeps the instance for the actor's lifetime so per-actor facts
+  (`actor.<InstanceId>.*`) carry across its encounters (R12).
+- `EncounterDirector.BeginEncounter(NpcInstance)` is the orchestrator: it binds the actor's
+  `$self`/`$faction` subject tokens, asks `RunDirector.SelectNext` for an eligible storylet against the
+  live store (R6/R7), `CastingFactory.Cast`s the chosen storylet onto the actor (R3/R5), and calls
+  `DialogueRunner.Begin`. It returns `false` (runner untouched) when the actor is null, no storylet is
+  eligible, or the storylet cannot be cast — the caller then completes the encounter without a dialogue.
+
+`EncounterDirector` only resolves-and-begins; the platform-state adapter that triggers it and routes the
+runner's combat/quest/ended signals back into gameplay is `DialogueActiveState` (the legacy cutover is done).
+
+### 2.6 Windowed director (planner core — selection is story-first)
+
+Story selection is **story-first and budgeted**, planned a window at a time (a window = the next
+`WindowSize` platforms ahead of the player). `RunWindowPlanner` (`IRunWindowPlanner`,
+`Narrative.Director.Core`) is pure C# and deterministic:
+
+`PlanWindow(windowIndex, IFactStore) → WindowPlan`
+1. **Eligibility** — keep stories whose preconditions pass over the live store (R6/R7), evaluated with an
+   actor-less context (world/global facts only; actor/faction-scoped gating is a follow-up). Actor
+   compatibility does **not** gate eligibility (see below); a story is pruned for actor reasons only when
+   no archetype exists at all.
+2. **Combat minimum** — place combat-bearing stories (those with a `Combat` slot) until
+   `MinCombatPerWindow` is met.
+3. **Narrative fill** — add eligible stories while the summed `StoryTemplate.Weight` stays within
+   `NarrativeBudgetPerWindow` and combat stays under `MaxCombatPerWindow`. Combat is a **separate budget
+   dimension** from narrative weight.
+4. **Pad** — fill the rest of the window with empty fillers.
+
+Selection prefers continuing a thread already chosen this window (coherence), then a seeded pick among
+ties so plans are save-replayable (B2). Each placed story gets an actor minted **once** via
+`IActorInstanceFactory` (R12). Actor↔story matching is a **soft preference**, not a hard filter (P1: hard
+requirements prune, preferences only weight): the planner prefers an `NpcArchetype` whose tags overlap the
+story's tags, but falls back to any archetype when none overlap. Output `WindowPlan` is an ordered list of
+`PlannedPlatform` (`Story`/`Combat`/`Loot`/`Empty`) the level generator maps to platforms.
+
+**Streaming & entry (now wired).** `RunStreamingCoordinator` (`LevelGeneration`) drives generation:
+`Begin()` generates window 0; on each `PlatformEvents.OnPlatformEntered` into the current frontier it
+locks that window and plans + generates the next against the live store. Each planned story platform is
+realised as an `NpcContent` carrying the minted actor + committed story (its visual spawns from the
+archetype assembly via `IModularCharacterFactory`; `INpcArchetypeCatalog` resolves id → archetype SO).
+On entry, `DialogueActiveState` calls `EncounterDirector.BeginPlanned(story, actor)` (cast + begin, no
+re-selection) and routes outcomes: combat → `EnemyContent` + `CombatActiveState`, then
+`CombatActiveState` feeds `DialogueRunner.ReportCombatResult` so post-combat lines/facts replay before
+the platform completes; a normal end completes the platform. `AreaSceneEntrypoint` drives the coordinator
+instead of the legacy generator.
+
+Open points this stage: loot is not placed on the streaming path (fillers are empty), biome is fixed
+(Forest). An archetype with no `_assembly` runs its dialogue but spawns no visible NPC body (logged warning).
 
 ---
 
@@ -151,10 +215,19 @@ visuals), `_portrait`, `_factionId` (id only), `_baseDisposition` (personality s
 
 `_storyId`, `_slots` (`_slotId`, `_kind` Dialogue/Quest/Combat, `_requiredTags`, `_optional`),
 `_preconditions` (`FactPredicateSerial[]`), `_ownEffects` (optional story-level writes), `_storyTags`,
-`_threadId` (label only), `_isSpine`. References no other template (R7). The effect footprint is
-**derived** by `CastingFactory` over the library (W3-2), not authored here.
+`_threadId` (label only), `_isSpine`, `_weight` (pacing cost — how much of a window's narrative budget
+this story consumes; a story is still one platform, NOT a difficulty or span measure). References no other
+template (R7). The effect footprint is **derived** by `CastingFactory` over the library (W3-2), not
+authored here.
 
 `EnemyDefinition` (Combat) gains `_enemyTags` so an enemy matches a story combat slot by tag (W2-6).
+
+### `RunPacingConfig`  (asset menu: `Create → Narrative → Director → Run Pacing Config`)
+
+The windowed director's pacing budget (consumed as the Core `RunPacingSettings` via
+`RunPacingConfigMapper`, never directly). `_windowSize` (platforms per planning window),
+`_lookAheadWindows`, `_narrativeBudgetPerWindow` (max summed story weight), `_minCombatPerWindow` /
+`_maxCombatPerWindow` (combat is a separate budget dimension).
 
 **Authoring structs:** `FactPredicateSerial` (`namespace`, `subjectToken`, `key`, `op` `ComparisonOp`,
 typed value), `FactEffectSerial` (same with `op` `FactEffectOp`), `FactKeyShape` (namespace, subject
@@ -192,16 +265,33 @@ A designer assembles the vertical slice (or new narrative content) entirely from
 2. Add the archetype, dialogue, quest, enemy, and story to the `NarrativeSliceInstaller` lists in the
    scene; assign the `FactKeyRegistry`.
 
-### The shipped slice ("The Toll at Razor Pass")
-- Facts: `world.pass_blocked` (Bool, Global, default true), `world.pass_cleared` (Bool, Global),
-  `actor.hostile` (Bool, PerActor), `faction.reputation` (Int, PerFaction).
-- `arch_road_bandit` (tags `bandit`, `can-fight`); `dlg_toll_shakedown` → `RazorPassToll.ink`
-  (`_declaredFactWrites`: `world.pass_cleared`, `actor.$self.hostile`); `qst_clear_pass`
-  (`_onCompleteEffects`: `world.pass_cleared = true`); `enemy_bandit_brute` (tag `bandit`).
-- `story_razor_pass_toll` (slots Dialogue[`shakedown`], Quest[`errand`,opt], Combat[`bandit`,opt];
-  precondition `world.pass_blocked == true`; thread `road`).
-- `story_grateful_caravan` (precondition `world.pass_cleared == true`; dialogue `dlg_caravan_thanks`
-  → `CaravanThanks.ink`; thread `trade`) — ineligible until the toll story clears the pass.
+### Ready-made Demo content
+
+A complete `Demo*` asset set ships under `Resources/Narrative/` (`Facts/`, `Actors/`, `Dialogue/`,
+`Quests/`, `Enemies/`, `Stories/`) and the four `FactKeyDefinition`s + `DemoFactKeyRegistry`. When the
+`NarrativeSliceInstaller` inspector lists are left empty it **auto-loads** these from those Resources
+paths (`ResolveAssetsFromResources`), so the slice works without per-scene wiring; assigning assets in
+the inspector overrides the fallback.
+
+### The shipped slice — two branches ("Razor Pass" + "Gorge Toll")
+Two independent starting encounters, each writing its own fact and opening its own follow-up; the actor is
+chosen by tag overlap (P1 soft preference). All archetypes use `PlaceholderAssembly_A` for a visible body.
+- Facts: `world.pass_cleared` (Bool, Global, default false — **bandit** branch gate), `world.gorge_cleared`
+  (Bool, Global, default false — **sellsword** branch gate), plus `world.pass_blocked`, `actor.hostile`,
+  `faction.reputation` (legacy/unused by the current preconditions). All registered in `DemoFactKeyRegistry`.
+- Archetypes: `arch_road_bandit` (`bandit`,`can-fight`), `arch_sellsword` (`mercenary`,`can-fight`),
+  `arch_caravan_merchant` (`merchant`,`trader`).
+- Dialogues: `dlg_toll_shakedown`/`RazorPassToll.ink` (writes `pass_cleared`), `dlg_gorge_toll`/
+  `DemoDlg_GorgeToll.ink` (writes `gorge_cleared`), `dlg_caravan_thanks`/`CaravanThanks.ink`,
+  `dlg_road_reward`/`DemoDlg_RoadReward.ink`. Reuses `qst_clear_pass` (tag `errand`) and `enemy_bandit_brute`
+  (tag `bandit`).
+- **Bandit branch:** `story_razor_pass_toll` (precond `pass_cleared == false`; tags `road`,`bandit` → bandit)
+  → on clear, `story_grateful_caravan` (precond `pass_cleared == true`; tags `trade`,`merchant` → merchant).
+- **Sellsword branch:** `story_gorge_toll` (precond `gorge_cleared == false`; tags `gorge`,`mercenary` →
+  sellsword) → on clear, `story_rewarded_warden` (precond `gorge_cleared == true`; tags `trade`,`mercenary`).
+- *Ink compile:* `DemoDlg_GorgeToll`/`DemoDlg_RoadReward` ship with placeholder compiled JSON (copies of the
+  toll/thanks `.json`); compile their `.ink` and paste into the matching `.json` (filename → GUID preserved)
+  for the authored text. Until then the sellsword branch plays placeholder text and does not set `gorge_cleared`.
 
 **Authoring constraints / gotchas:** every fact key used by a fragment/story must be in the registry
 (else fail-closed + warn); an Ink `fact:` tag may only write a shape declared in its dialogue's
@@ -212,7 +302,7 @@ slots are optional but a slot-dependent tag firing against an empty slot fails c
 
 ## 5. Tests
 
-Edit-mode suites in `Assets/__Project/Tests/EditMode/` (84 pure-C# tests, runnable without the editor):
+Edit-mode suites in `Assets/__Project/Tests/EditMode/` (95 pure-C# tests, runnable without the editor):
 
 - `FactStoreTests` — store ops + B4 presence/default + namespace isolation + stable snapshot + validation.
 - `FactVocabularyTests`, `TypedFactsTests` — conversion, Core registry, typed accessors, drift check (D3).
@@ -222,8 +312,11 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/` (84 pure-C# tests, runnab
 - `FragmentDataTests`, `QuestInstanceTests`, `DialogueSessionAndCastingTests` — Core records + lifecycle + W2-4.
 - `DeterministicRandomTests` — serializable PRNG replay (B2).
 - `CastingFactoryTests` — tag-match fill, optional omission, deterministic tie-break (D1), derived footprint (W3-2).
+- `ActorInstanceFactoryTests` — seeded name pick, faction/archetype propagation, unique instance ids, null fail-closed.
+- `EncounterDirectorTests` — eligible→cast→begin, none-eligible/uncastable/null→false, and the R7
+  fact-coupling proof **through the orchestrator** (one encounter's fact write changes the next's eligibility).
 - `RunDirectorTests` — eligibility filtering and **`CrossStorylet_ChoiceInOneThreadChangesEligibilityInAnother_ViaFacts`** (the executable R7 proof).
-- `DialogueTagParserTests`, `DialogueRunnerTests` — tag grammar, suspension/resume (B1), empty-slot fail-closed (W2-2).
+- `DialogueTagParserTests`, `DialogueRunnerTests` — tag grammar, suspension/resume (B1), empty-slot fail-closed (W2-2), continue-gated multi-line pumping.
 - `NarrativeSnapshotTests` — fact store round-trip, stable order, PRNG capture (B2), suspended-save refusal (W3-1).
 
 Unity-side classes (SOs, mappers from SO, `NarrativeSliceInstaller`, Ink) are compile-checked and
@@ -247,9 +340,10 @@ verified by entering the slice scene; the Ink→JSON compile and `.asset` wiring
   sessions assembly) are deferred. Suspended dialogues are non-savepoints (W3-1 option a).
 - **Ambient/character dialogue channel.** The legacy dual-Ink bark channel is intentionally dropped;
   if needed, it belongs in a separate non-narrative system.
-- **Dialogue view adapter.** `DialogueRunner` exposes events; a Unity `IDialogueView` adapter that
-  subscribes to them is not yet wired into the slice installer.
+- **Whole-dialogue skip/abort.** The view's continue and skip inputs both advance one gated line
+  (`DialogueRunner.Continue`); a true skip-to-end / abort of the whole conversation has no runner path yet.
 - **PerLocation-scope content.** The data shape supports it (A1); no slice content uses it yet.
-- **Legacy cutover.** The old `NpcDefinition`/`StoryDefinition`/`CompositeDialoguePresenter` path
-  remains alongside the new system; migration of `DialogueActiveState`/`NpcContent` and deletion of
-  legacy assets is a later, separate step.
+- **Legacy cutover — done.** The old `NpcDefinition`/`StoryDefinition`/`CompositeDialoguePresenter`/
+  `LevelNarrativeGenerator` path, `NarrativeInstaller`, and assets are deleted; `DialogueActiveState`/
+  `NpcContent` run the streaming engine. (`narrative-generation.md` is superseded.) The unused one-shot
+  `ScenarioGenerator`/`PlatformGraphGenerator` pipeline was deleted too.

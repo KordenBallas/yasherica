@@ -1,114 +1,74 @@
-using System;
-using Narrative.Data.Definitions;
-using Narrative.Generation;
+using CharacterSystem.Runtime;
+using Narrative.Actors.Core;
+using Narrative.Actors.Data;
+using Narrative.Stories.Core;
 using UnityEngine;
 
 namespace Platform
 {
     /// <summary>
-    /// Platform content representing an NPC with dialogue capabilities.
-    /// Holds an NpcAssignment that pairs the NPC with an optional story.
+    /// Platform content for a planner-placed NPC: carries the run-stable <see cref="NpcInstance"/>, its
+    /// archetype (the visual source), and the committed story the entry adapter runs. Spawns the modular
+    /// character body on initialize.
     /// </summary>
     public class NpcContent : PlatformContentBase
     {
         public override ContentType Type => ContentType.Npc;
 
-        /// <summary>
-        /// The runtime assignment binding this NPC to a story and rewards.
-        /// </summary>
-        public NpcAssignment Assignment { get; private set; }
+        /// <summary>The run-stable actor minted by the planner for this platform (R12).</summary>
+        public NpcInstance Actor { get; }
 
-        /// <summary>
-        /// Shortcut to the NPC definition.
-        /// </summary>
-        public NpcDefinition Definition => Assignment?.Npc;
+        /// <summary>The archetype SO backing the actor — source of the visual assembly and portrait.</summary>
+        public NpcArchetype Archetype { get; }
 
-        /// <summary>
-        /// Whether this NPC has transitioned to an enemy.
-        /// </summary>
-        public bool HasTransitionedToEnemy { get; private set; }
+        /// <summary>The story the planner committed for this encounter; run by the entry adapter.</summary>
+        public StoryTemplateData PlannedStory { get; }
 
-        /// <summary>
-        /// The spawned NPC GameObject instance.
-        /// </summary>
+        /// <summary>Portrait for the dialogue view, from the archetype.</summary>
+        public Sprite Portrait => Archetype != null ? Archetype.Portrait : null;
+
+        /// <summary>The spawned NPC GameObject (modular character), if any.</summary>
         public GameObject NpcVisual { get; private set; }
 
-        public event Action<NpcContent, EnemyContent> OnTransitionedToEnemy;
-        public event Action<NpcContent> OnDialogueStarted;
-        public event Action<NpcContent> OnDialogueEnded;
+        private readonly IModularCharacterFactory _modularFactory;
 
-        public NpcContent() { }
-
-        public NpcContent(NpcAssignment assignment)
+        public NpcContent(NpcArchetype archetype, NpcInstance actor, StoryTemplateData plannedStory,
+            IModularCharacterFactory modularFactory)
         {
-            Assignment = assignment;
+            Archetype = archetype;
+            Actor = actor;
+            PlannedStory = plannedStory;
+            _modularFactory = modularFactory;
         }
-
-        /// <summary>
-        /// Checks if this NPC can transition to an enemy.
-        /// </summary>
-        public bool CanBecomeEnemy =>
-            Definition?.CanBecomeEnemy == true
-            && Definition.EnemyDefinition != null
-            && !HasTransitionedToEnemy;
 
         public override void Initialize(IPlatform platform)
         {
-            if (Assignment == null)
+            if (Actor == null)
             {
-                Debug.LogWarning($"[NpcContent] No assignment on platform {platform.Id}");
+                Debug.LogWarning($"[NpcContent] No actor on platform {platform.Id}");
                 return;
             }
 
-            SpawnNpcVisual(platform);
+            SpawnModularVisual(platform);
         }
 
-        public override void OnPlatformEntered(IPlatform platform)
+        private void SpawnModularVisual(IPlatform platform)
         {
-            if (Definition == null || HasTransitionedToEnemy)
-                return;
-
-            OnDialogueStarted?.Invoke(this);
-        }
-
-        public override void OnPlatformExited(IPlatform platform)
-        {
-            OnDialogueEnded?.Invoke(this);
-        }
-
-        /// <summary>
-        /// Transitions this NPC to an enemy, creating EnemyContent.
-        /// </summary>
-        public EnemyContent TransitionToEnemy()
-        {
-            if (!CanBecomeEnemy)
+            if (_modularFactory == null || Archetype?.Assembly == null)
             {
-                Debug.LogWarning($"[NpcContent] Cannot transition NPC '{Definition?.NpcId}' to enemy");
-                return null;
+                Debug.LogWarning($"[NpcContent] Actor '{Actor?.InstanceId}' has no modular factory/assembly - no visual.");
+                return;
             }
 
-            HasTransitionedToEnemy = true;
+            var character = _modularFactory.Create(Archetype.Assembly, null);
+            if (character == null)
+            {
+                return;
+            }
 
-            var enemyContent = new EnemyContent();
-            enemyContent.EnemyId = Definition.EnemyDefinition.EnemyId;
-
-            OnTransitionedToEnemy?.Invoke(this, enemyContent);
-            return enemyContent;
-        }
-
-        public void NotifyDialogueEnded()
-        {
-            OnDialogueEnded?.Invoke(this);
-        }
-
-        /// <summary>
-        /// Resets the NPC's combat transition state.
-        /// Call this when restarting dialogue or resetting platform state.
-        /// </summary>
-        public void ResetCombatState()
-        {
-            HasTransitionedToEnemy = false;
-            Debug.Log($"[NpcContent] Combat state reset for NPC '{Definition?.NpcId}'");
+            NpcVisual = character.gameObject;
+            NpcVisual.transform.position = platform.Visual?.Position ?? Vector3.zero;
+            NpcVisual.name = $"NPC_{Actor.InstanceId}";
         }
 
         public void DestroyNpcVisual()
@@ -118,19 +78,6 @@ namespace Platform
                 UnityEngine.Object.Destroy(NpcVisual);
                 NpcVisual = null;
             }
-        }
-
-        private void SpawnNpcVisual(IPlatform platform)
-        {
-            if (Definition?.Prefab == null)
-            {
-                Debug.LogWarning($"[NpcContent] No prefab for NPC '{Definition?.NpcId}'");
-                return;
-            }
-
-            var spawnPosition = platform.Visual?.Position ?? Vector3.zero;
-            NpcVisual = UnityEngine.Object.Instantiate(Definition.Prefab, spawnPosition, Quaternion.identity);
-            NpcVisual.name = $"NPC_{Definition.NpcId}";
         }
     }
 }

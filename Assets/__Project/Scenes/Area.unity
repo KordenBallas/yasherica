@@ -2652,6 +2652,56 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &7711000010
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7711000012}
+  - component: {fileID: 7711000011}
+  m_Layer: 0
+  m_Name: NarrativeSliceInstaller
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &7711000011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7711000010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 375d20b38fda3804aae89c8edd648734, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _factKeyRegistry: {fileID: 0}
+  _archetypes: []
+  _dialogues: []
+  _quests: []
+  _enemies: []
+  _storyTemplates: []
+--- !u!4 &7711000012
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7711000010}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &696631862
 GameObject:
   m_ObjectHideFlags: 0
@@ -3091,13 +3141,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _scriptableObjectInstallers: []
   _monoInstallers:
-  - {fileID: 1154528041}
   - {fileID: 584990438}
   - {fileID: 900100021}
   - {fileID: 920100042}
   - {fileID: 1999000003}
   - {fileID: 1953892005}
   - {fileID: 751937881}
+  - {fileID: 7711000011}
   _installerPrefabs: []
   _autoRun: 1
   OnPreInstall:
@@ -4831,60 +4881,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 84d53de877b921840a3617ab7d0f581f, type: 3}
---- !u!1 &1154528040
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1154528042}
-  - component: {fileID: 1154528041}
-  m_Layer: 0
-  m_Name: NarrativeInstaller
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1154528041
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1154528040}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b6146366b21385b449d42a87aa5c1661, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Core.DI.NarrativeInstaller
-  _storyDefinitions:
-  - {fileID: 11400000, guid: cd952e075889eb841933d354a7e87da5, type: 2}
-  - {fileID: 11400000, guid: 2d84a732e3d8fb74d9eb1b1bba4a4480, type: 2}
-  _npcDefinitions:
-  - {fileID: 11400000, guid: 6f1df950e2282204b8eeecee75d323bc, type: 2}
-  - {fileID: 11400000, guid: f5df8e262bba393448baa3ec7d576da4, type: 2}
-  _rewardDefinitions: []
-  _levelConfig: {fileID: 11400000, guid: ba64644a076a24c41bc07ad4f8d62918, type: 2}
-  _dialogueView: {fileID: 0}
-  _dialogueViewPrefab: {fileID: 2000000000000000006, guid: a8b9c1d2e3f4567890abcdef12345678, type: 3}
---- !u!4 &1154528042
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1154528040}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1167232447
 GameObject:
   m_ObjectHideFlags: 0
@@ -7650,7 +7646,6 @@ SceneRoots:
   - {fileID: 6234441192302723342}
   - {fileID: 465012898}
   - {fileID: 751937880}
-  - {fileID: 1154528042}
   - {fileID: 584990439}
   - {fileID: 749762320}
   - {fileID: 481522918}

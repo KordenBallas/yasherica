@@ -9,6 +9,83 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Data-Driven Procedural Narrative (Demo slice expanded — two branches, tag-based actors):** the
+  `Resources/Narrative/*` Demo set now drives two independent starting encounters that each write a
+  different fact and open a different follow-up, exercising eligibility, fact-gating, and tag-based actor
+  selection. New facts `world.gorge_cleared` (added to `DemoFactKeyRegistry`); archetypes
+  `DemoArch_Sellsword` (`mercenary`,`can-fight`) and `DemoArch_CaravanMerchant` (`merchant`,`trader`)
+  (all archetypes incl. `DemoArch_RoadBandit` now use `PlaceholderAssembly_A` for a visible body);
+  dialogues `DemoDlg_GorgeToll` (writes `gorge_cleared`) and `DemoDlg_RoadReward`; stories
+  `DemoStory_GorgeToll` (→ sellsword) and `DemoStory_RewardedWarden`. `DemoStory_RazorPassToll`
+  precondition changed to `pass_cleared == false` (was `pass_blocked == true`, which never flipped → the
+  story repeated) and tagged `road`/`bandit`; `DemoStory_GratefulCaravan` tagged `trade`/`merchant`. The
+  two new dialogues carry placeholder compiled JSON (copies of the toll/thanks `.json`); their `.ink` must
+  be compiled and pasted into the matching `.json` for the authored text. Data-only; no code changes.
+  See `narrative-procedural.md` §4.
+- **Data-Driven Procedural Narrative (streaming cutover — the new engine now drives gameplay):** platform
+  encounters now run through the fact-driven engine instead of the legacy dialogue path. New
+  `RunStreamingCoordinator` (`LevelGeneration`) plans + generates platforms **window-by-window** as the
+  player advances: it generates window 0 at start and, on each `PlatformEvents.OnPlatformEntered` into the
+  current frontier, locks that window and plans the next against the **live** fact store (R7). Each planned
+  story platform is realised as an `NpcContent` carrying the planner's minted `NpcInstance` + committed
+  `StoryTemplateData` (new ctor; spawns its visual via `IModularCharacterFactory` from the archetype's
+  assembly). `AreaGenerator` gains a `PrebuiltContent` path (and `GraphNode.PrebuiltContent`) so the
+  coordinator attaches narrative content directly. `EncounterDirector.BeginPlanned(story, actor)` casts +
+  begins a pre-selected encounter (selection happened at plan time). `DialogueActiveState` is rewritten as
+  a thin entry adapter: it calls `BeginPlanned`, sets the portrait from the archetype, and routes runner
+  outcomes — combat → spawn `EnemyContent` + `CombatActiveState`; normal end → completed. `CombatActiveState`
+  feeds the suspended runner `ReportCombatResult(playerWon)` so post-combat lines/facts replay before the
+  platform completes. New `INpcArchetypeCatalog`/`NpcArchetypeCatalog` (id → archetype SO for visuals).
+  `AreaSceneEntrypoint` drops the legacy `LevelNarrativeGenerator`/`ScenarioGenerator` narrative path and
+  drives the coordinator; `NarrativeSliceInstaller` binds the planner/pacing/catalog (it was already in the
+  Area SceneContext). The legacy `NarrativeInstaller` stays installed but **dormant** (its `IDialogueView`
+  is reused; its presenter/generator bindings are unused) and is removed in the next stage. *Known gaps
+  this stage:* loot is not placed on the streaming path (fillers are empty), biome is fixed (Forest), and
+  encounters require new-engine content whose archetype tags overlap story tags. See
+  `narrative-procedural.md` §2.6.
+- **Data-Driven Procedural Narrative (story-first windowed director — planner core):** first slice of the
+  streaming, budgeted director that replaces actor-first per-encounter selection. New pure-C#
+  `RunWindowPlanner` (`IRunWindowPlanner`, `Narrative.Director.Core`): `PlanWindow(windowIndex, facts)`
+  selects a budgeted set of stories for a window against the **live** fact store (R6/R7), then matches an
+  actor archetype to each. It (1) filters stories whose preconditions pass and that have a matching
+  archetype, (2) places combat-bearing stories until `MinCombatPerWindow` is met, (3) fills the rest
+  within the narrative weight budget while combat stays under `MaxCombatPerWindow`, (4) pads to
+  `WindowSize` with empty fillers. Combat is its own budget dimension, separate from narrative weight;
+  selection prefers continuing a thread already chosen this window, then a seeded pick (B2 determinism).
+  New Core types `WindowPlan`/`PlannedPlatform`/`RunPacingSettings`; new `RunPacingConfig` SO
+  (`Create → Narrative → Director → Run Pacing Config`) + `RunPacingConfigMapper`. `StoryTemplate`/
+  `StoryTemplateData` gain a `Weight` (pacing cost; a story is still one platform). Not yet wired into
+  generation (the streaming coordinator + cutover is the next stage). Tests: `RunWindowPlannerTests`
+  (budget cap, combat min/max, determinism, R7 eligibility shift across windows, archetype match/skip,
+  actor assignment). See `narrative-procedural.md` §2.6.
+- **Data-Driven Procedural Narrative (encounter orchestration core):** the production entry point that
+  turns a placed actor into a running dialogue — the `SelectNext → Cast → Begin` chain the slice tests
+  proved but no gameplay code drove yet. New pure-C# `EncounterDirector` (`Narrative.Director.Core`):
+  `BeginEncounter(NpcInstance)` binds the actor's `$self`/`$faction`, asks `RunDirector.SelectNext` for an
+  eligible storylet against the live fact store (R6/R7), `CastingFactory.Cast`s it onto the actor
+  (R3/R5), and starts the `DialogueRunner`; returns `false` (runner untouched) when the actor is null, no
+  storylet is eligible, or the storylet can't be cast. New `IActorInstanceFactory`/`ActorInstanceFactory`
+  (`Narrative.Actors.Core`) mints a per-run `NpcInstance` from an `NpcArchetypeData` — run-unique
+  deterministic instance id + seeded name-pool draw + faction (R12). Both bound `AsSingle` in
+  `NarrativeSliceInstaller`. Still no gameplay trigger (the platform-state adapter that calls
+  `BeginEncounter` and routes combat/quest/ended signals is the next cutover stage); documented in
+  `narrative-procedural.md` §2.5. Tests: `ActorInstanceFactoryTests`, `EncounterDirectorTests` (incl. the
+  R7 fact-coupling proof end-to-end through the orchestrator).
+- **Data-Driven Procedural Narrative (dialogue view adapter + continue-gated pumping):** the fact-driven
+  `DialogueRunner` is now bound to the game UI. New MVP presenter `DialogueRunnerViewPresenter` (pure-C#)
+  subscribes to the runner's events and drives the existing `IDialogueView` (speaker, line text, choices,
+  hide/show), forwards the view's choice/continue input back into the runner, and re-exposes the
+  combat/quest signals for the later encounter integration; wired in `NarrativeSliceInstaller`
+  (`BindInterfacesTo<DialogueRunnerViewPresenter>().AsSingle().NonLazy()`), reusing the view bound by the
+  Area-scene `NarrativeInstaller`. `LoggingInstaller` (installed by `AreaInstaller`) now owns the single
+  `IGameLogger` binding so the additive slice installer can resolve it without a duplicate `AsSingle`.
+  `DialogueRunner` gains **continue-gated pumping**: it emits one readable line then parks in the new
+  `DialogueRunnerState.AwaitingContinue` until `Continue()` (driven by the view's continue/skip input)
+  advances it — so a multi-line knot is read one line at a time instead of collapsing to the last line.
+  No-text tag steps (`speaker:`/`fact:`) still flow without gating; combat suspension (`AwaitingExternal`)
+  is unchanged and remains the only non-savepoint. `DialogueRunnerTests` updated for the gate + new
+  `MultiLineKnot_EmitsOneLineAtATime_GatedByContinue`, `NoTextTagSteps_DoNotGate_OnlyTheTextLineGates`,
+  and `Continue_WhenNotGated_IsNoOp`.
 - **Data-Driven Procedural Narrative (vertical slice — R1–R14):** new recombinable narrative system in
   which actor identity, dialogue, quest, enemy, and story are orthogonal fragments matched into typed
   story slots by semantic tags, composed at runtime by a casting layer, and coupled **only** through one
@@ -34,6 +111,13 @@ Every functional change appends an entry **in the same change as the code** (CLA
   proof that clearing the pass (thread `road`) makes the caravan storylet (thread `trade`) eligible
   purely through `world.pass_cleared`. Legacy `NarrativeInstaller`/`CompositeDialoguePresenter` and the
   old `Story`/`NPC` SOs remain alongside, untouched, pending a later cutover.
+- **Data-Driven Procedural Narrative (Demo content + auto-load):** ready-made `Demo*` asset set under
+  `Resources/Narrative/` — four `FactKeyDefinition`s (`pass_blocked`/`pass_cleared`/`actor.hostile`/
+  `faction.reputation`) + `DemoFactKeyRegistry`, `DemoArch_RoadBandit`, `DemoDlg_TollShakedown` +
+  `DemoDlg_CaravanThanks` (wired to the compiled Ink JSON), `DemoQst_ClearPass`, `DemoEnemy_BanditBrute`
+  (tag `bandit`), and `DemoStory_RazorPassToll` + `DemoStory_GratefulCaravan`. `NarrativeSliceInstaller`
+  now auto-loads these from `Resources/Narrative/*` when its inspector lists are empty
+  (`ResolveAssetsFromResources`), so the slice runs without per-scene wiring.
 - **Character Progression / Narrative (M2 — run progression record):** new per-run state service that
   systems can query for what the player has done this run. New pure-C# `CharacterProgression/Core`:
   `QuestStatus` (`Active`/`Completed`/`Failed`), split read/write surfaces `IRunProgressionRecord` /
@@ -80,6 +164,12 @@ Every functional change appends an entry **in the same change as the code** (CLA
   `CharacterAssemblyStateTests` (equipped-parts query).
 
 ### Changed
+- **Platform & Area Generation (incremental groundwork):** `AreaGenerator` is split into `Initialize()`
+  (prepare an empty area + reset the layout cursor) and `AppendPlatforms(nodes)` (lay out and instantiate
+  a batch of platforms, linking each to the previous one and keeping the cursor across calls). The legacy
+  one-shot `Generate()` is now `Initialize()` + `AppendPlatforms(all graph nodes)` — behavior-identical
+  (linear chain; the disabled branch-edge path is unchanged) — so the upcoming streaming director can add
+  platforms one window at a time. No gameplay change.
 - **Combat:** standing Buff/Debuff modifiers now affect outgoing damage. `DamageSystem.CalculateFinalDamage`
   (previously a stub returning base damage, and never called) is implemented to scale damage by the
   attacker's net `StatModifier` × stack count, and `AbilityExecutor` now routes damage through it.
@@ -88,6 +178,22 @@ Every functional change appends an entry **in the same change as the code** (CLA
   the whole combat. (Ability R25–R26.)
 
 ### Fixed
+- **Data-Driven Procedural Narrative (dialogue ended instantly — Ink never entered its start knot):**
+  `DialogueSession.StartFresh` skipped `GoToKnot` whenever the declared start knot was literally `"start"`,
+  on the false assumption that a fresh Ink story auto-begins there. Ink begins at top-level flow, and the
+  slice dialogues are knot-only (no top-level content), so `canContinue` was false and the runner ended
+  immediately (`OnDialogueEnded` on enter) — no lines shown. It now always navigates to the declared start
+  knot when one is set. (Surfaced only once the real `InkStoryManager` drove gameplay; the slice tests use
+  a fake story manager.)
+- **Data-Driven Procedural Narrative (streaming director placed no encounters):** `RunWindowPlanner`
+  pruned every story whose `StoryTags` didn't overlap an archetype's `ArchetypeTags`, so with the demo
+  content (`story_razor_pass_toll` tagged `road` vs. `arch_road_bandit` tagged `bandit`/`can-fight`) no
+  story was ever placed and all platforms were empty. Actor↔story matching is now a **soft preference**,
+  not a hard filter (P1: hard requirements prune, preferences only weight): a story is eligible regardless
+  of archetype tags, and `MatchArchetype` prefers a tag-overlapping archetype but falls back to any (a
+  story is only pruned for actor reasons when no archetype exists at all). Tests updated
+  (`StoryWithoutTagOverlap_IsStillPlaced`, `NoArchetypesAtAll_PlacesNothing`,
+  `OverlappingArchetypePreferredOverNonMatching`). See `narrative-procedural.md` §2.6.
 - **Mutation Subsystem:** the stage-up choice now excludes the character's *starting* parts, so a
   stage-1 mutation never re-offers a part the character already wears (a no-op swap).
   `ModularCharacterMutationAdapter.TryGetEquippedPartId` now reads the live
@@ -107,6 +213,24 @@ Every functional change appends an entry **in the same change as the code** (CLA
   of the box.
 
 ### Removed
+- **Data-Driven Procedural Narrative (legacy narrative engine deleted — Phase 3):** the old generation +
+  dual-Ink dialogue path is gone now that the streaming engine drives gameplay. Deleted the whole
+  `Narrative/Generation/` (`LevelNarrativeGenerator`/`StoryPool`/`NpcPool`/`RewardResolver`/`LevelNarrative`/
+  `NpcAssignment`/`ResolvedReward` + interfaces), the legacy SOs `StoryDefinition`/`NpcDefinition`/
+  `RewardDefinition`/`LevelNarrativeConfig` (+ `RewardSlot`/`RewardType`), `CompositeDialoguePresenter`/
+  `IDialoguePresenter`, `InkExternalFunctionBinder`/`IInkExternalFunctionBinder`, the `NarrativeInstaller`
+  (also removed from the `Area` SceneContext), the `NarrativeSetupEditor` tool, the legacy `Resources`
+  assets (NPC/Story definitions, `DefaultLevelNarrativeConfig`) and the legacy-only Ink under
+  `Resources/Stories/` (kept `Slice/`). Obsolete tests removed (`LevelNarrativeGeneratorTests`,
+  `StoryPoolTests`, `RewardResolverConditionTests`, `CompositeDialoguePresenterTests`,
+  `QuestRewardGranterTests`). Kept and decoupled: `NpcContent` (actor/archetype only), `AreaGenerator`
+  and `ScenarioGenerator`/`IScenarioGenerator` (dropped the `LevelNarrative` coupling), `CutsceneActiveState`
+  (dropped the dialogue-presenter dependency). `IDialogueView` ownership moved to `NarrativeSliceInstaller`
+  (instantiated from the `Resources` prefab). `QuestRewardGranter` is now a no-op completion hook
+  (item-reward re-homing is a ROADMAP item). Also deleted the now-dead one-shot level-generation pipeline
+  (`ScenarioGenerator`/`IScenarioGenerator`, `PlatformGraphGenerator`/`IPlatformGraphGenerator`,
+  `GameContext`) and its `AreaInstaller` bindings — the streaming `RunStreamingCoordinator` builds
+  platforms per window. `narrative-generation.md` is superseded.
 - **Mutation Subsystem (M2):** the per-archetype option model is gone now that affinity/rarity/icon
   live on the parts and selection is scored. Deleted `ArchetypePartSetDefinition` (+ inline
   `MutationOptionEntry`), `MutationOptionMapper`, `IMutationOptionProvider`, `IMutationOptionCatalog`/

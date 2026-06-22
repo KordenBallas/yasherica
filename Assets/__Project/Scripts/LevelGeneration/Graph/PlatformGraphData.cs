@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Platform;
 
 namespace LevelGeneration
 {
@@ -16,6 +17,13 @@ namespace LevelGeneration
         public List<PlatformContentType> ContentTypes { get; set; } = new();  // Multiple content types
         public bool IsKeyPlatform { get; set; }  // vs filler
         public StoryPlatformData StoryData { get; set; }
+
+        /// <summary>
+        /// Content instances the planner already built (e.g. a narrative <c>NpcContent</c> carrying a
+        /// minted actor + planned story). When present, the area generator adds these instead of creating
+        /// content from <see cref="ContentTypes"/>.
+        /// </summary>
+        public List<IPlatformContent> PrebuiltContent { get; set; }
     }
 
     public class GraphEdge

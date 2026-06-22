@@ -10,6 +10,7 @@ using Narrative.Dialogue;
 using Narrative.Dialogue.Core;
 using Narrative.Dialogue.Data;
 using Narrative.Director.Core;
+using Narrative.Director.Data;
 using Narrative.Facts.Core;
 using Narrative.Facts.Data;
 using Narrative.Quests.Core;
@@ -18,6 +19,7 @@ using Narrative.Runtime.Core;
 using Narrative.Runtime.Snapshots;
 using Narrative.Stories.Core;
 using Narrative.Stories.Data;
+using Narrative.View;
 using UnityEngine;
 using Zenject;
 using DataFactRegistry = Narrative.Facts.Data.FactKeyRegistry;
@@ -25,14 +27,15 @@ using DataFactRegistry = Narrative.Facts.Data.FactKeyRegistry;
 namespace Core.DI
 {
     /// <summary>
-    /// Zenject installer for the data-driven procedural narrative system (vertical slice). Wires the
-    /// unified fact store, precondition/effect machinery, casting factory, run director, dialogue
-    /// runner, and save boundary from authored ScriptableObjects. Additive: the legacy
-    /// <see cref="NarrativeInstaller"/> is untouched; this installer is placed in the slice scene only.
+    /// Zenject installer for the data-driven procedural narrative system (now the only narrative path).
+    /// Wires the unified fact store, precondition/effect machinery, casting factory, run director,
+    /// windowed planner, dialogue runner + view, and save boundary from authored ScriptableObjects.
+    /// Auto-loads the Demo content from <c>Resources/Narrative/*</c> when the inspector lists are empty.
     /// </summary>
     public class NarrativeSliceInstaller : MonoInstaller
     {
         private const string SeedContextKey = "narrative-slice";
+        private const string StoryManagerId = "narrative-slice";
 
         [Header("Fact Vocabulary")]
         [SerializeField] private DataFactRegistry _factKeyRegistry;
@@ -46,13 +49,21 @@ namespace Core.DI
         [Header("Storylets")]
         [SerializeField] private List<StoryTemplate> _storyTemplates = new List<StoryTemplate>();
 
+        [Header("Director Pacing")]
+        [SerializeField] private RunPacingConfig _runPacingConfig;
+
         public override void InstallBindings()
         {
-            Container.Bind<IGameLogger>().To<UnityGameLogger>().AsSingle().IfNotBound();
+            // IGameLogger is provided by LoggingInstaller (installed by AreaInstaller); we only resolve
+            // it. Re-binding UnityGameLogger AsSingle here would trip Zenject 6's "AsSingle multiple
+            // times for the same concrete type" assert (IfNotBound does NOT prevent it).
 
+            ResolveAssetsFromResources();
             InstallFacts();
             InstallFragmentsAndStorylets();
             InstallDirectorAndCasting();
+            InstallPlanner();
+            InstallView();
             InstallDialogue();
             InstallSave();
 
@@ -97,12 +108,71 @@ namespace Core.DI
                 .To<RunDirector>()
                 .FromMethod(ctx => new RunDirector(ctx.Container.Resolve<IPreconditionEvaluator>(), ctx.Container.Resolve<IRandomSource>()))
                 .AsSingle();
+
+            // Mints a run-stable NpcInstance per placed actor (R12); draws names from the same seeded
+            // stream as the director/casting so the whole run is replay-deterministic.
+            Container.Bind<IActorInstanceFactory>()
+                .To<ActorInstanceFactory>()
+                .FromMethod(ctx => new ActorInstanceFactory(ctx.Container.Resolve<IRandomSource>()))
+                .AsSingle();
+
+            // The production orchestration (SelectNext -> Cast -> DialogueRunner.Begin). Bound lazily;
+            // the gameplay trigger that calls BeginEncounter lands in a later cutover stage.
+            Container.Bind<EncounterDirector>()
+                .FromMethod(ctx => new EncounterDirector(
+                    ctx.Container.Resolve<IRunDirector>(),
+                    ctx.Container.Resolve<ICastingFactory>(),
+                    ctx.Container.Resolve<IFragmentLibrary>(),
+                    ctx.Container.Resolve<IReadOnlyList<StoryTemplateData>>(),
+                    ctx.Container.Resolve<IFactStore>(),
+                    ctx.Container.Resolve<DialogueRunner>()))
+                .AsSingle();
+        }
+
+        private void InstallPlanner()
+        {
+            // Pacing budget (story-first windowed director). Falls back to defaults if no config wired.
+            Container.Bind<RunPacingSettings>()
+                .FromInstance(RunPacingConfigMapper.ToSettings(_runPacingConfig))
+                .AsSingle();
+
+            // id -> archetype SO, so the spawn layer can read the visual assembly/portrait.
+            Container.Bind<INpcArchetypeCatalog>()
+                .FromInstance(new NpcArchetypeCatalog(_archetypes))
+                .AsSingle();
+
+            Container.Bind<IRunWindowPlanner>()
+                .To<RunWindowPlanner>()
+                .FromMethod(ctx => new RunWindowPlanner(
+                    ctx.Container.Resolve<IReadOnlyList<StoryTemplateData>>(),
+                    ctx.Container.Resolve<IReadOnlyList<NpcArchetypeData>>(),
+                    ctx.Container.Resolve<IPreconditionEvaluator>(),
+                    ctx.Container.Resolve<IActorInstanceFactory>(),
+                    ctx.Container.Resolve<IRandomSource>(),
+                    ctx.Container.Resolve<RunPacingSettings>(),
+                    ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
+        }
+
+        private void InstallView()
+        {
+            // The dialogue view (ownership moved here from the retired NarrativeInstaller). Instantiated
+            // from the Resources prefab; the DialogueRunnerViewPresenter drives it from the runner's events.
+            Container.Bind<IDialogueView>()
+                .To<DialogueView>()
+                .FromComponentInNewPrefabResource("Prefabs/UI/Dialogue/DialogueView")
+                .AsSingle()
+                .NonLazy();
         }
 
         private void InstallDialogue()
         {
-            Container.Bind<IStoryManager>().To<InkStoryManager>().AsSingle();
-            Container.Bind<DialogueSession>().AsSingle();
+            // The runner's Ink story manager, id'd for clarity.
+            Container.Bind<IStoryManager>().WithId(StoryManagerId).To<InkStoryManager>().AsCached();
+
+            Container.Bind<DialogueSession>()
+                .FromMethod(ctx => new DialogueSession(ctx.Container.ResolveId<IStoryManager>(StoryManagerId)))
+                .AsSingle();
 
             Container.Bind<DialogueTagParser>()
                 .FromMethod(ctx => new DialogueTagParser(ctx.Container.Resolve<IFactKeyRegistry>(), ctx.Container.Resolve<IGameLogger>()))
@@ -117,6 +187,10 @@ namespace Core.DI
                     ctx.Container.Resolve<IRunProgressionRecorder>(),
                     ctx.Container.Resolve<IGameLogger>()))
                 .AsSingle();
+
+            // View adapter: drives the existing IDialogueView (bound by the legacy NarrativeInstaller
+            // in the Area scene) from the runner's events. Reuses that view; does not bind a new one.
+            Container.BindInterfacesTo<DialogueRunnerViewPresenter>().AsSingle().NonLazy();
         }
 
         private void InstallSave()
@@ -199,5 +273,49 @@ namespace Core.DI
             var seedProvider = container.Resolve<Loot.Core.IRunSeedProvider>();
             return Loot.Core.LootSeed.Derive(seedProvider.RunSeed, SeedContextKey);
         }
+
+        /// <summary>
+        /// Falls back to loading the Demo content from <c>Resources/Narrative/*</c> when the inspector
+        /// lists are empty, mirroring the project's auto-load convention so the slice works without
+        /// per-scene wiring.
+        /// </summary>
+        private void ResolveAssetsFromResources()
+        {
+            if (_factKeyRegistry == null)
+            {
+                var registries = Resources.LoadAll<DataFactRegistry>("Narrative/Facts");
+                if (registries.Length > 0)
+                {
+                    _factKeyRegistry = registries[0];
+                }
+            }
+
+            if (IsEmpty(_archetypes))
+            {
+                _archetypes = new List<NpcArchetype>(Resources.LoadAll<NpcArchetype>("Narrative/Actors"));
+            }
+
+            if (IsEmpty(_dialogues))
+            {
+                _dialogues = new List<DialogueDefinition>(Resources.LoadAll<DialogueDefinition>("Narrative/Dialogue"));
+            }
+
+            if (IsEmpty(_quests))
+            {
+                _quests = new List<QuestDefinition>(Resources.LoadAll<QuestDefinition>("Narrative/Quests"));
+            }
+
+            if (IsEmpty(_enemies))
+            {
+                _enemies = new List<EnemyDefinition>(Resources.LoadAll<EnemyDefinition>("Narrative/Enemies"));
+            }
+
+            if (IsEmpty(_storyTemplates))
+            {
+                _storyTemplates = new List<StoryTemplate>(Resources.LoadAll<StoryTemplate>("Narrative/Stories"));
+            }
+        }
+
+        private static bool IsEmpty<T>(List<T> list) => list == null || list.Count == 0;
     }
 }

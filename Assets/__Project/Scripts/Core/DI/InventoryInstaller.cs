@@ -36,7 +36,7 @@ namespace Core.DI
         {
             ValidateConfiguration();
 
-            InstallLogging();
+            // IGameLogger is provided by LoggingInstaller (installed by AreaInstaller); we only resolve it.
             InstallData();
             InstallDomain();
             InstallViews();
@@ -52,12 +52,6 @@ namespace Core.DI
                     "Assign the config asset in the scene's InventoryInstaller component. " +
                     "The asset should be located in Resources/Configs/InventoryConfig.asset");
             }
-        }
-
-        private void InstallLogging()
-        {
-            // IfNotBound so another installer may provide a different logger later.
-            Container.Bind<IGameLogger>().To<UnityGameLogger>().AsSingle().IfNotBound();
         }
 
         private void InstallData()

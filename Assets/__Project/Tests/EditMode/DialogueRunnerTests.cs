@@ -82,9 +82,14 @@ namespace Tests.EditMode
 
             _runner.Begin(Cast("enemy_brute", null));
             Assert.AreEqual("Razor", speaker);
+            Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State); // gated on the prompt line
 
-            _runner.SelectChoice(0); // Pay
+            _runner.Continue(); // advance past the prompt to the choices
+            _runner.SelectChoice(0); // Pay -> branch line applies the fact, then gates on the line
             Assert.IsTrue(_store.GetOrDefault(FactKey.Global(FactNamespace.World, "pass_cleared"), FactValue.FromBool(false)).AsBool());
+            Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State);
+
+            _runner.Continue(); // advance past the branch line to the end
             Assert.AreEqual(DialogueRunnerState.Ended, _runner.State);
             Assert.AreEqual("exit", ended);
         }
@@ -108,6 +113,8 @@ namespace Tests.EditMode
             _runner.OnCombatTriggered += e => combatEnemy = e;
 
             _runner.Begin(Cast("enemy_brute", null));
+            Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State); // gated on the prompt line
+            _runner.Continue(); // advance past the prompt to the choices
             _runner.SelectChoice(1); // Draw steel -> start-combat
 
             // B1: suspended, no further Ink consumed, pass_cleared not yet written.
@@ -118,6 +125,9 @@ namespace Tests.EditMode
             _runner.ReportCombatResult(true);
             Assert.AreEqual(true, _fake.GetVariable("combat_won"));
             Assert.IsTrue(_store.GetOrDefault(FactKey.Global(FactNamespace.World, "pass_cleared"), FactValue.FromBool(false)).AsBool());
+            Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State); // gates on the post-combat line
+
+            _runner.Continue(); // advance past the post-combat line to the end
             Assert.AreEqual(DialogueRunnerState.Ended, _runner.State);
         }
 
@@ -144,6 +154,9 @@ namespace Tests.EditMode
             _runner.Begin(Cast(enemyId: null, quest: null)); // combat slot unfilled
             Assert.IsFalse(combatRaised);
             Assert.AreEqual(false, _fake.GetVariable("combat_won"));
+            Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State); // failed closed, gates on the line
+
+            _runner.Continue();
             Assert.AreEqual(DialogueRunnerState.Ended, _runner.State); // continued past, then ended
         }
 
@@ -171,6 +184,66 @@ namespace Tests.EditMode
             _runner.Begin(Cast(enemyId: null, quest: null));
             Assert.AreEqual(false, _fake.GetVariable("quest_accepted"));
             Assert.IsNull(_runner.ActiveQuest);
+        }
+
+        [Test]
+        public void MultiLineKnot_EmitsOneLineAtATime_GatedByContinue()
+        {
+            _fake.Script(
+                FakeStoryManager.Frame.Line("Line one."),
+                FakeStoryManager.Frame.Line("Line two."));
+
+            var lines = new List<string>();
+            _runner.OnLine += l => lines.Add(l);
+
+            _runner.Begin(Cast(enemyId: null, quest: null));
+            Assert.AreEqual(new[] { "Line one." }, lines);
+            Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State);
+
+            _runner.Continue();
+            Assert.AreEqual(new[] { "Line one.", "Line two." }, lines);
+            Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State);
+
+            _runner.Continue();
+            Assert.AreEqual(2, lines.Count); // no more lines emitted
+            Assert.AreEqual(DialogueRunnerState.Ended, _runner.State);
+        }
+
+        [Test]
+        public void NoTextTagSteps_DoNotGate_OnlyTheTextLineGates()
+        {
+            // A speaker-only step carries no visible text, so it must flow into the next line, not gate.
+            _fake.Script(
+                FakeStoryManager.Frame.Line("", "speaker: Razor"),
+                FakeStoryManager.Frame.Line("Razor speaks."));
+
+            string speaker = null;
+            var lines = new List<string>();
+            _runner.OnSpeakerChanged += s => speaker = s;
+            _runner.OnLine += l => lines.Add(l);
+
+            _runner.Begin(Cast(enemyId: null, quest: null));
+            Assert.AreEqual("Razor", speaker);
+            Assert.AreEqual(new[] { "Razor speaks." }, lines);
+            Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State);
+        }
+
+        [Test]
+        public void Continue_WhenNotGated_IsNoOp()
+        {
+            // Before any conversation the runner is Ended; Continue must do nothing.
+            Assert.AreEqual(DialogueRunnerState.Ended, _runner.State);
+            _runner.Continue();
+            Assert.AreEqual(DialogueRunnerState.Ended, _runner.State);
+
+            _fake.Script(FakeStoryManager.Frame.Line("only line"));
+            _runner.Begin(Cast(enemyId: null, quest: null)); // gates on the line
+            _runner.Continue(); // advance to the end
+            Assert.AreEqual(DialogueRunnerState.Ended, _runner.State);
+
+            // Continue while Ended is a no-op (no throw, stays Ended).
+            _runner.Continue();
+            Assert.AreEqual(DialogueRunnerState.Ended, _runner.State);
         }
     }
 }

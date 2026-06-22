@@ -41,7 +41,10 @@ namespace Narrative.Dialogue.Core
                 }
             }
 
-            if (!string.IsNullOrEmpty(data.StartKnot) && data.StartKnot != "start")
+            // Navigate to the declared start knot. Ink does NOT auto-enter a knot named "start" — a
+            // fresh story begins at top-level flow, and these dialogue files are knot-only (no top-level
+            // content), so without this the runner finds nothing to continue and ends immediately.
+            if (!string.IsNullOrEmpty(data.StartKnot))
             {
                 _story.GoToKnot(data.StartKnot);
             }

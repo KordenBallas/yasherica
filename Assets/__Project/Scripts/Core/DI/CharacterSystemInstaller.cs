@@ -28,10 +28,10 @@ namespace Core.DI
             InstallFactory();
         }
 
-        // IGameLogger is intentionally NOT bound here: InventoryInstaller provides the
-        // single UnityGameLogger AsSingle binding for the whole scene. Zenject 6 forbids
-        // AsSingle on the same concrete type across multiple bindings, so binding it again
-        // here (even with IfNotBound) throws during finalization. This mirrors LootInstaller.
+        // IGameLogger is intentionally NOT bound here: LoggingInstaller (installed by AreaInstaller)
+        // is the single UnityGameLogger AsSingle binding for the scene. Zenject 6 forbids AsSingle on
+        // the same concrete type across multiple bindings, so binding it again here (even with
+        // IfNotBound) throws during finalization. Feature installers only resolve IGameLogger.
 
         private void InstallData()
         {
