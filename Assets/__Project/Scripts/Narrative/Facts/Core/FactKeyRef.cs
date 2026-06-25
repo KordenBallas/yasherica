@@ -2,7 +2,7 @@ namespace Narrative.Facts.Core
 {
     /// <summary>
     /// Compile-safe handle to a declared fact key (the typed-accessor hybrid layer, R13). Curated
-    /// constants in <c>WorldFacts</c>/<c>ActorFacts</c>/<c>FactionFacts</c> mirror a subset of the SO
+    /// constants in <c>WorldFacts</c>/<c>ActorFacts</c> mirror a subset of the SO
     /// registry, which stays authoritative; a startup check (<see cref="FactKeyRefRegistryCheck"/>)
     /// asserts every ref exists. Holds the namespace, scope, bare key, and value type so the typed
     /// store extensions can build a <see cref="FactKey"/> and pick the right default.

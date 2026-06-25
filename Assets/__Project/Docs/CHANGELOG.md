@@ -8,7 +8,72 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Removed
+- **Data-Driven Procedural Narrative (Demo slice — old branches pruned to barn-only):** removed the
+  "Razor Pass" (bandit) and "Gorge Toll" (sellsword) demo branches so the slice ships only the latest barn
+  arc. Deleted stories `DemoStory_RazorPassToll`, `DemoStory_GratefulCaravan`, `DemoStory_GorgeToll`,
+  `DemoStory_RewardedWarden`; dialogues `DemoDlg_TollShakedown`, `DemoDlg_CaravanThanks`, `DemoDlg_GorgeToll`,
+  `DemoDlg_RoadReward` (+ `RazorPassToll`/`CaravanThanks`/`DemoDlg_GorgeToll`/`DemoDlg_RoadReward` ink/json);
+  archetypes `DemoArch_RoadBandit`, `DemoArch_CaravanMerchant`, `DemoArch_Sellsword`; the quest
+  `DemoQst_ClearPass` (the barn-victim story's optional Quest slot + `BarnVictim.ink`'s `offer-quest:` were
+  dropped with it); and fact keys `world.pass_cleared`, `world.pass_blocked`, `world.gorge_cleared`,
+  `actor.hostile`, `faction.reputation` (deregistered from `DemoFactKeyRegistry`). Re-pointed the curated
+  `TypedFacts` vocabulary (and `TypedFactsTests`) from the retired pass/hostile/reputation keys to the
+  surviving barn facts (`world.barn_raided`, `world.grain_recovered`, `actor.looted_barn`) so the startup
+  D3 drift check stays green. `DemoEnemy_BanditBrute` is kept (barn-raid combat slot). See
+  `narrative-procedural.md` §4.
+
 ### Added
+- **Data-Driven Procedural Narrative (Demo slice — barn two-window reactive demo, exercises D5/D15 +
+  D11/D16):** expanded the single-beat barn slice into a two-window partition demo that makes fact-based
+  window-2 selection legible end-to-end. Window 1 places two world-gated openers: `DemoStory_BarnVictim`
+  (`story_barn_victim`, archetype `arch_villager`/`DemoArch_Villager`, dialogue `DemoDlg_BarnVictim`/
+  `BarnVictim.ink`, optional `errand` quest slot) whose choice writes `world.barn_quest_accepted`; and the
+  updated `DemoStory_BarnRaid` (now with an **optional Combat slot** req tag `bandit` → `enemy_bandit_brute`,
+  thread `barn_raid`) whose `BarnRaid.ink` forks into **fight** (`start-combat:` → on `combat_won` sets
+  `world.grain_recovered`, clears `actor.$self.looted_barn`) and **let-go** (sets `world.raider_bribed`,
+  leaves `looted_barn` true). Window 2 the director places **exactly one** of three reactions purely from
+  those facts — A `DemoStory_GratefulFarmer` (`barn_quest_accepted == true` AND `grain_recovered == true`),
+  B `DemoStory_RaiderMotive` (actor-scoped `actor.$self.looted_barn == true`, recasts the **same** raider),
+  C `DemoStory_StarvingVillage` (`barn_quest_accepted == false` AND `grain_recovered == true`); `grain_recovered`
+  and `looted_barn` are mutually exclusive by the raider choice, so the three partition the space. Four new
+  fact keys (`world.barn_quest_offered`, `world.barn_quest_accepted`, `world.grain_recovered`,
+  `world.raider_bribed`, all Bool/Global) registered in `DemoFactKeyRegistry`; two new villager dialogues
+  (`DemoDlg_GratefulFarmer`/`GratefulFarmer.ink`, `DemoDlg_StarvingVillage`/`StarvingVillage.ink`). Data-only;
+  auto-loaded from `Resources/Narrative/*`, no code or scene changes. New ink/added dialogues ship with **seed
+  compiled JSON** re-derived on editor import. Test: `RunWindowPlannerTests.BarnDemo_Window2SelectionPartitions_ByWindow1Choices`
+  drives all four window-1 combos and asserts the single expected window-2 story (and the same recast raider
+  `InstanceId` for B). See `narrative-procedural.md` §4.
+- **Data-Driven Procedural Narrative (Demo slice — recurring-actor "raider arc", exercises D11/D16):**
+  a third Demo branch that makes the new actor-scoped eligibility + recurring-actor casting visible
+  in-engine (the in-engine analogue of the `RunWindowPlannerTests` proof). New facts `world.barn_raided`
+  (Bool/Global gate) and `actor.looted_barn` (Bool/**PerActor** arc fact) added to `DemoFactKeyRegistry`;
+  archetype `DemoArch_BarnRaider` (`raider`,`can-fight`); stories `DemoStory_BarnRaid` (world-gated
+  `barn_raided == false`; tags `barn`/`raider`) and `DemoStory_RaiderMotive` (actor-gated
+  `actor.$self.looted_barn == true`; tag `motive`); dialogues `DemoDlg_BarnRaid` (writes `world.barn_raided`
+  + `actor.$self.looted_barn`) and `DemoDlg_RaiderMotive` (clears `actor.$self.looted_barn`), with
+  `BarnRaid.ink`/`RaiderMotive.ink` and **real compiled** `.json` (fact tags verified by playing the
+  compiled story). Flow: the barn story mints a raider and writes its actor fact → the next window recasts
+  the **same** raider into the motive story by that fact (the `motive` tag overlaps no archetype, so
+  placement proves the hard pin). Data-only; auto-loaded from `Resources/Narrative/*` (installer lists are
+  empty), no code or scene changes. See `narrative-procedural.md` §4.
+- **Data-Driven Procedural Narrative (director Priority-1 — actor/faction eligibility + recurring-actor
+  casting, D16/D11):** `RunWindowPlanner` now gates storylets on **actor- and faction-scoped facts**, not
+  only world/global, and **recasts a recurring `NpcInstance`** across stories instead of minting a fresh
+  actor every time. Eligibility is classified per story: a **world-only** story (no `$`-context token in
+  its preconditions) keeps the prior path — evaluated actor-less, then a fresh actor minted and recorded
+  as live; an **actor/faction-scoped** story is resolved as a **casting query** — the planner finds the
+  first live actor (deterministic registration order) whose facts satisfy the precondition when bound as
+  `$self`/`$faction`, makes the story eligible, and **hard-pins** that actor for the recast (overriding
+  the soft P1 tag preference). Continuation semantics: a positive actor-scoped gate only opens once a
+  qualifying actor already exists. New pure-C# `ILiveActorRegistry`/`LiveActorRegistry`
+  (`Narrative.Actors.Core`) holds the run's minted actors in deterministic order (R12) and is bound
+  `AsSingle` in `NarrativeSliceInstaller`, injected into the planner. Unblocks the passport loop, character
+  arcs, and the mirror antagonist. Tests: `RunWindowPlannerTests` gains the raider-arc proof
+  (`RecurringActor_RecastIntoMotiveStory_ByActorScopedFact`), `ActorScopedStory_WithoutALiveActor_IsIneligible`,
+  and `WrongActor_DoesNotSatisfyActorScopedGate`. Still open (ROADMAP): D7 spine lane, D13/D14 first-class
+  threads, D19 escalation tier, D20 meta-scoped horizon, and save-capture of the live-actor registry. See
+  `narrative-procedural.md` §2.2/§2.6/§5/§6; `narrative-director-requirements.md` (Priority-1 marked done).
 - **Data-Driven Procedural Narrative (Demo slice expanded — two branches, tag-based actors):** the
   `Resources/Narrative/*` Demo set now drives two independent starting encounters that each write a
   different fact and open a different follow-up, exercising eligibility, fact-gating, and tag-based actor

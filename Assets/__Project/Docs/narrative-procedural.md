@@ -80,6 +80,7 @@ Scripts/Core/DI/NarrativeSliceInstaller.cs
 | `SubjectResolver` | Resolves `$self`/`$target`/`$faction`/`$<contextKey>` against the casting context (R10); fail-closed on unknown token. |
 | `CastingFactory` / `Casting` | Fills typed slots by tag (R5) into a casting (R3); derives a story's advisory footprint over the library (W3-2). |
 | `RunDirector` | Selects eligible storylets by fact preconditions (R7) with a seeded, save-replayable PRNG (B2). |
+| `ILiveActorRegistry` / `LiveActorRegistry` | Run-scoped set of minted `NpcInstance`s in deterministic registration order (R12); the windowed planner registers each fresh actor and queries it to recast a recurring actor (D11). |
 | `DialogueRunner` | Drives one `DialogueSession`; dispatches Ink tags to facts/quest/combat (R4); explicit suspension state machine — `AwaitingExternal` for async combat, `AwaitingContinue` to gate one readable line at a time (`Continue()` advances). |
 | `DialogueRunnerViewPresenter` | MVP presenter (pure-C#): turns the runner's events into `IDialogueView` calls and forwards the view's choice/continue/skip input back into the runner; re-exposes combat/quest signals. |
 | `QuestInstance` | Quest lifecycle; returns effects to apply; bridges legacy `IRunProgressionRecorder`. |
@@ -139,10 +140,21 @@ Story selection is **story-first and budgeted**, planned a window at a time (a w
 `Narrative.Director.Core`) is pure C# and deterministic:
 
 `PlanWindow(windowIndex, IFactStore) → WindowPlan`
-1. **Eligibility** — keep stories whose preconditions pass over the live store (R6/R7), evaluated with an
-   actor-less context (world/global facts only; actor/faction-scoped gating is a follow-up). Actor
-   compatibility does **not** gate eligibility (see below); a story is pruned for actor reasons only when
-   no archetype exists at all.
+1. **Eligibility** — keep stories whose preconditions pass over the live store (R6/R7), resolved over
+   **world/global *and* actor/faction-scoped facts** (D16). A story is classified by its preconditions:
+   - **World-only** (no precondition references a `$`-context token): evaluated with an actor-less
+     context (world/global facts only); a fresh actor is minted for it at placement. Actor compatibility
+     does **not** gate eligibility (see below); it is pruned for actor reasons only when no archetype
+     exists at all.
+   - **Actor/faction-scoped** (any precondition uses `$self`/`$faction`/…): resolved as a **casting
+     query** (D11) — the planner can't look the fact up against a fixed subject before an actor is cast,
+     so it asks "does a *live* actor (one already minted this run, `ILiveActorRegistry`) whose facts
+     satisfy the precondition exist?" The first such actor (registration order, deterministic) makes the
+     story eligible and is **pinned** for it. None → ineligible. World predicates in the same set still
+     resolve via their empty subject, so mixed preconditions work. This is **continuation semantics**: a
+     brand-new actor (no facts) can't satisfy a positive actor-scoped precondition, so the gate only
+     opens once a qualifying actor already exists — a story meant to open for any fresh actor must use
+     world/global preconditions.
 2. **Combat minimum** — place combat-bearing stories (those with a `Combat` slot) until
    `MinCombatPerWindow` is met.
 3. **Narrative fill** — add eligible stories while the summed `StoryTemplate.Weight` stays within
@@ -151,11 +163,18 @@ Story selection is **story-first and budgeted**, planned a window at a time (a w
 4. **Pad** — fill the rest of the window with empty fillers.
 
 Selection prefers continuing a thread already chosen this window (coherence), then a seeded pick among
-ties so plans are save-replayable (B2). Each placed story gets an actor minted **once** via
-`IActorInstanceFactory` (R12). Actor↔story matching is a **soft preference**, not a hard filter (P1: hard
-requirements prune, preferences only weight): the planner prefers an `NpcArchetype` whose tags overlap the
-story's tags, but falls back to any archetype when none overlap. Output `WindowPlan` is an ordered list of
-`PlannedPlatform` (`Story`/`Combat`/`Loot`/`Empty`) the level generator maps to platforms.
+ties so plans are save-replayable (B2). A **world-only** placed story gets an actor minted via
+`IActorInstanceFactory` and **registered** in `ILiveActorRegistry`, so it can be recast later (R12/D11);
+its archetype is chosen by a **soft preference**, not a hard filter (P1: hard requirements prune,
+preferences only weight) — the planner prefers an `NpcArchetype` whose tags overlap the story's tags, but
+falls back to any archetype when none overlap. An **actor-scoped** placed story instead reuses the
+**pinned** actor resolved by the casting query above; the pin is a **hard pin** (D11) that bypasses the
+soft tag preference so an arc cannot be broken by casting a different archetype. Output `WindowPlan` is an
+ordered list of `PlannedPlatform` (`Story`/`Combat`/`Loot`/`Empty`) the level generator maps to platforms.
+
+`ILiveActorRegistry`/`LiveActorRegistry` (`Narrative.Actors.Core`, pure C#) is the run-scoped set of
+minted actors in deterministic registration order — the seam recurring-actor casting reads. It is bound
+`AsSingle` for the run; repopulating it on load is part of the deferred window/horizon save-state (§6).
 
 **Streaming & entry (now wired).** `RunStreamingCoordinator` (`LevelGeneration`) drives generation:
 `Begin()` generates window 0; on each `PlatformEvents.OnPlatformEntered` into the current frontier it
@@ -183,7 +202,7 @@ The single source of truth for one fact key (R13).
 |---|---|---|---|
 | `_namespace` | `FactNamespace` | Grouping label: World/Actor/Faction | — |
 | `_scope` | `FactScope` | Subject arity: Global / PerActor / PerFaction / PerLocation (A1) | arity comes from here, NOT the namespace |
-| `_key` | string | Bare key name, e.g. `pass_cleared` | no namespace prefix |
+| `_key` | string | Bare key name, e.g. `barn_raided` | no namespace prefix |
 | `_valueType` | `FactValueType` | Bool/Int/Float/String | — |
 | `_defaultBool/_defaultInt/_defaultFloat/_defaultString` | typed | Value when unset (participates in comparisons, B4) | type-zero |
 | `_description` | string | Author documentation | — |
@@ -267,31 +286,56 @@ A designer assembles the vertical slice (or new narrative content) entirely from
 
 ### Ready-made Demo content
 
-A complete `Demo*` asset set ships under `Resources/Narrative/` (`Facts/`, `Actors/`, `Dialogue/`,
-`Quests/`, `Enemies/`, `Stories/`) and the four `FactKeyDefinition`s + `DemoFactKeyRegistry`. When the
+A `Demo*` asset set ships under `Resources/Narrative/` (`Facts/`, `Actors/`, `Dialogue/`, `Enemies/`,
+`Stories/`) — the six barn `FactKeyDefinition`s + `DemoFactKeyRegistry`. When the
 `NarrativeSliceInstaller` inspector lists are left empty it **auto-loads** these from those Resources
 paths (`ResolveAssetsFromResources`), so the slice works without per-scene wiring; assigning assets in
 the inspector overrides the fallback.
 
-### The shipped slice — two branches ("Razor Pass" + "Gorge Toll")
-Two independent starting encounters, each writing its own fact and opening its own follow-up; the actor is
-chosen by tag overlap (P1 soft preference). All archetypes use `PlaceholderAssembly_A` for a visible body.
-- Facts: `world.pass_cleared` (Bool, Global, default false — **bandit** branch gate), `world.gorge_cleared`
-  (Bool, Global, default false — **sellsword** branch gate), plus `world.pass_blocked`, `actor.hostile`,
-  `faction.reputation` (legacy/unused by the current preconditions). All registered in `DemoFactKeyRegistry`.
-- Archetypes: `arch_road_bandit` (`bandit`,`can-fight`), `arch_sellsword` (`mercenary`,`can-fight`),
-  `arch_caravan_merchant` (`merchant`,`trader`).
-- Dialogues: `dlg_toll_shakedown`/`RazorPassToll.ink` (writes `pass_cleared`), `dlg_gorge_toll`/
-  `DemoDlg_GorgeToll.ink` (writes `gorge_cleared`), `dlg_caravan_thanks`/`CaravanThanks.ink`,
-  `dlg_road_reward`/`DemoDlg_RoadReward.ink`. Reuses `qst_clear_pass` (tag `errand`) and `enemy_bandit_brute`
-  (tag `bandit`).
-- **Bandit branch:** `story_razor_pass_toll` (precond `pass_cleared == false`; tags `road`,`bandit` → bandit)
-  → on clear, `story_grateful_caravan` (precond `pass_cleared == true`; tags `trade`,`merchant` → merchant).
-- **Sellsword branch:** `story_gorge_toll` (precond `gorge_cleared == false`; tags `gorge`,`mercenary` →
-  sellsword) → on clear, `story_rewarded_warden` (precond `gorge_cleared == true`; tags `trade`,`mercenary`).
-- *Ink compile:* `DemoDlg_GorgeToll`/`DemoDlg_RoadReward` ship with placeholder compiled JSON (copies of the
-  toll/thanks `.json`); compile their `.ink` and paste into the matching `.json` (filename → GUID preserved)
-  for the authored text. Until then the sellsword branch plays placeholder text and does not set `gorge_cleared`.
+### The shipped slice — the Barn arc (two-window reactive demo)
+A single fact-driven storyline that exercises **D5/D15 fact-based selection** and the **D11/D16
+recurring-actor** path. All archetypes use `PlaceholderAssembly_A` for a visible body.
+- Facts (all in `DemoFactKeyRegistry`): `world.barn_raided` (Bool, Global — raider world gate),
+  `actor.looted_barn` (Bool, **PerActor** — the raider-arc carry fact), and the four partition facts
+  `world.barn_quest_offered`, `world.barn_quest_accepted`, `world.grain_recovered`, `world.raider_bribed`
+  (all Bool, Global, default false).
+- Archetypes: `arch_barn_raider` (`raider`,`can-fight`), `arch_villager` (`villager`,`farmer` — the barn
+  victim + both window-2 villager reactions).
+- Dialogues: `dlg_barn_raid`/`BarnRaid.ink` (two choices: **fight** → `start-combat:` + on `combat_won`
+  writes `world.grain_recovered` and clears `actor.$self.looted_barn`; **let-go** → writes
+  `world.raider_bribed`, leaves `looted_barn` true; both also write `world.barn_raided` +
+  `actor.$self.looted_barn`), `dlg_raider_motive`/`RaiderMotive.ink` (clears `actor.$self.looted_barn`),
+  `dlg_barn_victim`/`BarnVictim.ink` (writes `world.barn_quest_offered` + `world.barn_quest_accepted`),
+  `dlg_grateful_farmer`/`GratefulFarmer.ink` and `dlg_starving_village`/`StarvingVillage.ink` (reaction
+  beats, no fact writes). Uses `enemy_bandit_brute` (tag `bandit`) for the raid combat slot.
+- The `barn_raid` thread spans two windows:
+  - *Window 1* places two openers (both world-gated, so they co-appear): `story_barn_victim` (precond
+    **world** `barn_quest_offered == false`; tags `villager`,`barn` → villager) where the player accepts or
+    refuses the plea (writes `world.barn_quest_accepted`); and `story_barn_raid`
+    (precond **world** `barn_raided == false`; tags `barn`,`raider` → barn-raider; **optional Combat slot**
+    req tag `bandit` → `enemy_bandit_brute`) which mints a raider and writes `world.barn_raided` +
+    `actor.$self.looted_barn`. The raider choice then forks: **fight** suspends on `start-combat:` and, on the
+    `combat_won` write-back, sets `world.grain_recovered` and clears `actor.$self.looted_barn`; **let-go**
+    sets `world.raider_bribed` and leaves `looted_barn` true.
+  - *Window 2* the director places **exactly one** of three reactions, selected purely from those facts —
+    `grain_recovered` (A/C) and `looted_barn` (B) are mutually exclusive by the raider choice, so the
+    preconditions partition the outcome space:
+
+    | Candidate | Precondition | Actor |
+    |---|---|---|
+    | **A** `story_grateful_farmer` | `barn_quest_accepted == true` **AND** `grain_recovered == true` | fresh `arch_villager` |
+    | **B** `story_raider_motive` | **actor-scoped** `actor.$self.looted_barn == true` | the **same** raider, recast (hard pin, §2.6) |
+    | **C** `story_starving_village` | `barn_quest_accepted == false` **AND** `grain_recovered == true` | fresh `arch_villager` |
+
+    B's `motive` tag deliberately overlaps no archetype — placement proves the recast pin overrides the P1
+    tag preference. This is the in-engine analogue of the `RunWindowPlannerTests` partition + raider-arc proof.
+- *Pacing:* the slice relies on the installer's default `RunPacingSettings` (no `RunPacingConfig` asset wired):
+  `windowSize 4`, `narrativeBudgetPerWindow 30` (two weight-10 openers fit window 1), `maxCombatPerWindow 2`,
+  `minCombatPerWindow 1` — satisfied in window 1 by `story_barn_raid`'s combat-bearing optional slot.
+- *Ink compile:* the barn dialogues `BarnRaid`, `BarnVictim`, `GratefulFarmer`, `StarvingVillage` ship with
+  **seed compiled JSON** (resolves the `DialogueDefinition` reference); the editor's auto-compiler
+  (`compileAllFilesAutomatically`) re-derives the real `.json` (with choices/branches/combat) from the `.ink`
+  on import. `RaiderMotive` ships with real compiled JSON.
 
 **Authoring constraints / gotchas:** every fact key used by a fragment/story must be in the registry
 (else fail-closed + warn); an Ink `fact:` tag may only write a shape declared in its dialogue's
@@ -302,7 +346,7 @@ slots are optional but a slot-dependent tag firing against an empty slot fails c
 
 ## 5. Tests
 
-Edit-mode suites in `Assets/__Project/Tests/EditMode/` (95 pure-C# tests, runnable without the editor):
+Edit-mode suites in `Assets/__Project/Tests/EditMode/` (96 pure-C# tests, runnable without the editor):
 
 - `FactStoreTests` — store ops + B4 presence/default + namespace isolation + stable snapshot + validation.
 - `FactVocabularyTests`, `TypedFactsTests` — conversion, Core registry, typed accessors, drift check (D3).
@@ -316,6 +360,15 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/` (95 pure-C# tests, runnab
 - `EncounterDirectorTests` — eligible→cast→begin, none-eligible/uncastable/null→false, and the R7
   fact-coupling proof **through the orchestrator** (one encounter's fact write changes the next's eligibility).
 - `RunDirectorTests` — eligibility filtering and **`CrossStorylet_ChoiceInOneThreadChangesEligibilityInAnother_ViaFacts`** (the executable R7 proof).
+- `RunWindowPlannerTests` — budget cap, combat min/max, determinism, R7 eligibility shift across windows,
+  archetype match/skip, actor assignment, and the **D11+D16 raider-arc proof**
+  (`RecurringActor_RecastIntoMotiveStory_ByActorScopedFact`): an actor-scoped fact written after window N
+  makes a motive story eligible in window N+1 and recasts the *same* `NpcInstance`; plus
+  `ActorScopedStory_WithoutALiveActor_IsIneligible` (the gate can't pass world-only) and
+  `WrongActor_DoesNotSatisfyActorScopedGate`. The **barn-demo partition proof**
+  (`BarnDemo_Window2SelectionPartitions_ByWindow1Choices`) drives all four window-1 choice combos and
+  asserts each yields exactly one window-2 story (A/B/C), with the two let-go combos recasting the same
+  raider `InstanceId` — the executable D5/D15 + D11/D16 acceptance test.
 - `DialogueTagParserTests`, `DialogueRunnerTests` — tag grammar, suspension/resume (B1), empty-slot fail-closed (W2-2), continue-gated multi-line pumping.
 - `NarrativeSnapshotTests` — fact store round-trip, stable order, PRNG capture (B2), suspended-save refusal (W3-1).
 
@@ -338,6 +391,14 @@ verified by entering the slice scene; the Ink→JSON compile and `.asset` wiring
 - **Save/load file IO (R14).** The serializable boundary (`INarrativeSaveService`, snapshot DTOs, PRNG
   state) exists and is tested; the file writer/reader and full run-state aggregate (quests/castings/
   sessions assembly) are deferred. Suspended dialogues are non-savepoints (W3-1 option a).
+- **Live-actor registry is not yet save-captured.** `ILiveActorRegistry` (recurring-actor casting,
+  D11) holds the run's minted actors in memory; `RunNarrativeSnapshot` does not yet persist/repopulate
+  it, so a mid-run save would lose recurring-actor continuity. Folds into the window/horizon save-state
+  item (ROADMAP).
+- **Remaining director gaps (design handoff `narrative-director-requirements.md`).** Beyond the
+  Priority-1 actor/faction eligibility (D16) + recurring-actor casting (D11) delivered here, the
+  director still owes: D7 spine reserved lane + per-run reveal cap, D13/D14 first-class threads with
+  closure pressure + concurrency cap, D19 escalation tier gating, D20 meta-scoped fact horizon.
 - **Ambient/character dialogue channel.** The legacy dual-Ink bark channel is intentionally dropped;
   if needed, it belongs in a separate non-narrative system.
 - **Whole-dialogue skip/abort.** The view's continue and skip inputs both advance one gated line

@@ -85,7 +85,7 @@ namespace Tests.EditMode
         public void EvaluateAll_IsAnd_AcrossActorAndFaction()
         {
             // R10: an actor predicate and a faction predicate in one uniform pass.
-            _store.SetInt(FactionFacts.Reputation, 7, "blades");
+            _store.Set(new FactKey(FactNamespace.Faction, "blades", "reputation"), FactValue.FromInt(7));
             // actor hostile unset -> default false.
 
             var predicates = new List<FactPredicate>
@@ -97,7 +97,7 @@ namespace Tests.EditMode
             Assert.IsTrue(_eval.EvaluateAll(predicates, _store, _context));
 
             // Make the actor hostile -> the AND fails.
-            _store.SetBool(ActorFacts.Hostile, true, "npc_07");
+            _store.Set(new FactKey(FactNamespace.Actor, "npc_07", "hostile"), FactValue.FromBool(true));
             Assert.IsFalse(_eval.EvaluateAll(predicates, _store, _context));
         }
 

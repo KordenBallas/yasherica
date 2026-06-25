@@ -116,6 +116,9 @@ namespace Core.DI
                 .FromMethod(ctx => new ActorInstanceFactory(ctx.Container.Resolve<IRandomSource>()))
                 .AsSingle();
 
+            // Run-scoped set of minted actors the planner queries to recast a recurring actor (D11/D16).
+            Container.Bind<ILiveActorRegistry>().To<LiveActorRegistry>().AsSingle();
+
             // The production orchestration (SelectNext -> Cast -> DialogueRunner.Begin). Bound lazily;
             // the gameplay trigger that calls BeginEncounter lands in a later cutover stage.
             Container.Bind<EncounterDirector>()
@@ -148,6 +151,7 @@ namespace Core.DI
                     ctx.Container.Resolve<IReadOnlyList<NpcArchetypeData>>(),
                     ctx.Container.Resolve<IPreconditionEvaluator>(),
                     ctx.Container.Resolve<IActorInstanceFactory>(),
+                    ctx.Container.Resolve<ILiveActorRegistry>(),
                     ctx.Container.Resolve<IRandomSource>(),
                     ctx.Container.Resolve<RunPacingSettings>(),
                     ctx.Container.Resolve<IGameLogger>()))

@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d1bb015d9fd76844a52bb325925df3e, type: 3}
+  m_Name: DemoStory_BarnRaid
+  m_EditorClassIdentifier: Yasherica::Narrative.Stories.Data.StoryTemplate
+  _storyId: story_barn_raid
+  _slots:
+  - _slotId: dialogue
+    _kind: 0
+    _requiredTags:
+    - barn-raid
+    _optional: 0
+  - _slotId: combat
+    _kind: 2
+    _requiredTags:
+    - bandit
+    _optional: 1
+  _preconditions:
+  - _namespace: 0
+    _subjectToken:
+    _key: barn_raided
+    _op: 0
+    _value:
+      _valueType: 0
+      _boolValue: 0
+      _intValue: 0
+      _floatValue: 0
+      _stringValue:
+  _ownEffects: []
+  _storyTags:
+  - barn
+  - raider
+  _threadId: barn_raid
+  _isSpine: 0
+  _weight: 10

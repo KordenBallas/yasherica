@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: DemoFactKeyRegistry
   m_EditorClassIdentifier: Yasherica::Narrative.Facts.Data.FactKeyRegistry
   _keys:
-  - {fileID: 11400000, guid: 2064abd588c342d6bcff2aaa880c90bb, type: 2}
-  - {fileID: 11400000, guid: 9ad631797fec442bb14b571f4228b549, type: 2}
-  - {fileID: 11400000, guid: 11738d7af6074099a28e25008a8af775, type: 2}
-  - {fileID: 11400000, guid: 14e5531e392f49fba9ddfa7e01cd60bf, type: 2}
-  - {fileID: 11400000, guid: a1b2c3d4e5f60718293a4b5c6d7e8f90, type: 2}
+  - {fileID: 11400000, guid: 0ec81864f1734a4faeaff920f78fa28e, type: 2}
+  - {fileID: 11400000, guid: 635b63c4db674246a174576113374bfb, type: 2}
+  - {fileID: 11400000, guid: a08dcd65317947f3ad06669534a39788, type: 2}
+  - {fileID: 11400000, guid: ec227034a1bc414d93c59ae59aecf2f9, type: 2}
+  - {fileID: 11400000, guid: 572e8d7c20db48edafe6547a2b08097b, type: 2}
+  - {fileID: 11400000, guid: 8b2b78333025432e932bc4e2ee7aa400, type: 2}

@@ -30,7 +30,13 @@ namespace Tests.EditMode
             _logger = new FakeLogger();
             var registry = new FactKeyRegistry(new[]
             {
-                new FactKeyInfo(FactNamespace.World, "pass_cleared", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false))
+                new FactKeyInfo(FactNamespace.World, "pass_cleared", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                new FactKeyInfo(FactNamespace.Actor, "looted_barn", FactScope.PerActor, FactValueType.Bool, FactValue.FromBool(false)),
+                // Barn-demo partition facts (window-1 choices that route window-2 selection).
+                new FactKeyInfo(FactNamespace.World, "barn_raided", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                new FactKeyInfo(FactNamespace.World, "barn_quest_offered", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                new FactKeyInfo(FactNamespace.World, "barn_quest_accepted", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                new FactKeyInfo(FactNamespace.World, "grain_recovered", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false))
             });
             _store = new FactStore(registry, _logger);
             var resolver = new SubjectResolver(_logger);
@@ -39,6 +45,21 @@ namespace Tests.EditMode
 
         private static FactPredicate PassCleared(bool value) =>
             new FactPredicate(FactNamespace.World, "", "pass_cleared", ComparisonOp.Eq, FactValue.FromBool(value));
+
+        // Actor-scoped precondition resolved against the cast actor's $self subject (D16).
+        private static FactPredicate LootedBarn(bool value) =>
+            new FactPredicate(FactNamespace.Actor, "$self", "looted_barn", ComparisonOp.Eq, FactValue.FromBool(value));
+
+        // A global world-fact equality predicate (the barn-demo gates are all world bools).
+        private static FactPredicate World(string key, bool value) =>
+            new FactPredicate(FactNamespace.World, "", key, ComparisonOp.Eq, FactValue.FromBool(value));
+
+        // A barn-thread story with one dialogue slot and an AND-composed precondition list (R10).
+        private static StoryTemplateData StoryAnd(string id, string[] tags, params FactPredicate[] preconditions)
+        {
+            var slots = new List<StorySlot> { new StorySlot("d", SlotKind.Dialogue, new[] { "talk" }, false) };
+            return new StoryTemplateData(id, slots, preconditions, null, tags, "barn_raid", false, weight: 10);
+        }
 
         private static StoryTemplateData Story(string id, int weight, string[] tags, bool combat = false,
             FactPredicate precondition = null, string thread = "")
@@ -61,7 +82,9 @@ namespace Tests.EditMode
         {
             var random = new DeterministicRandom(seed);
             var actorFactory = new ActorInstanceFactory(random);
-            return new RunWindowPlanner(stories, archetypes, _evaluator, actorFactory, random, settings, _logger);
+            // The registry lives with the planner so a minted actor stays queryable across windows (D11).
+            var liveActors = new LiveActorRegistry();
+            return new RunWindowPlanner(stories, archetypes, _evaluator, actorFactory, liveActors, random, settings, _logger);
         }
 
         private static int StoryCount(WindowPlan plan) =>
@@ -201,6 +224,146 @@ namespace Tests.EditMode
             var story = plan.Platforms.First(p => p.Kind == PlannedPlatformKind.Story);
             Assert.IsNotNull(story.Actor);
             Assert.AreEqual("arch_bandit", story.Actor.ArchetypeId);
+        }
+
+        [Test]
+        public void RecurringActor_RecastIntoMotiveStory_ByActorScopedFact()
+        {
+            // The raider-arc acceptance scenario (D11 + D16): window N places the barn story and mints a
+            // raider; resolving it writes actor.<raiderId>.looted_barn. Window N+1 a "raider motive" story
+            // becomes eligible *by that actor-scoped fact* and the *same* raider instance is recast.
+            var settings = new RunPacingSettings(windowSize: 1, narrativeBudgetPerWindow: 100,
+                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
+            var barn = Story("barn", 10, new[] { "raider" }, precondition: PassCleared(false));
+            // "motive" tags overlap no archetype: a placement here proves the actor pin overrides the P1 tag preference.
+            var motive = Story("motive", 10, new[] { "motive" }, precondition: LootedBarn(true));
+            var planner = Planner(settings, new[] { barn, motive }, new[] { Archetype("arch_raider", "raider") });
+
+            var windowN = planner.PlanWindow(0, _store);
+            var barnPlatform = windowN.Platforms.First(p => p.Kind == PlannedPlatformKind.Story);
+            Assert.AreEqual("barn", barnPlatform.Story.StoryId); // only the world-gated barn is eligible at first
+            var raider = barnPlatform.Actor;
+
+            // Resolving the barn writes the raider's actor-scoped fact; the world gate also flips closed.
+            _store.Set(new FactKey(FactNamespace.Actor, raider.InstanceId, "looted_barn"), FactValue.FromBool(true));
+            _store.Set(FactKey.Global(FactNamespace.World, "pass_cleared"), FactValue.FromBool(true));
+
+            var windowNext = planner.PlanWindow(1, _store);
+            var placed = windowNext.Platforms.First(p => p.Kind == PlannedPlatformKind.Story);
+            Assert.AreEqual("motive", placed.Story.StoryId);            // eligible by the actor-scoped fact (item 1)
+            Assert.AreEqual(raider.InstanceId, placed.Actor.InstanceId); // same instance recast (item 2)
+        }
+
+        [Test]
+        public void BarnDemo_Window2SelectionPartitions_ByWindow1Choices()
+        {
+            // D5/D15 + D11/D16 acceptance test: window 1 places the victim and the raider; the player's two
+            // choices write facts that make EXACTLY ONE of three window-2 reactions eligible. The three
+            // preconditions partition the outcome space - grain_recovered (A/C) and looted_barn (B) are
+            // mutually exclusive by the raider choice - so every play resolves to a single story. For the
+            // let-go combos the recast raider must be the *same* NpcInstance from window 1 (recurring actor).
+            var settings = new RunPacingSettings(windowSize: 2, narrativeBudgetPerWindow: 100,
+                minCombatPerWindow: 0, maxCombatPerWindow: 2, lookAheadWindows: 1);
+            var archetypes = new[]
+            {
+                Archetype("arch_villager", "villager", "farmer"),
+                Archetype("arch_raider", "raider")
+            };
+
+            var combos = new[]
+            {
+                (accepted: true,  fought: true,  expected: "story_grateful_farmer",  recurring: false),
+                (accepted: false, fought: true,  expected: "story_starving_village", recurring: false),
+                (accepted: true,  fought: false, expected: "story_raider_motive",    recurring: true),
+                (accepted: false, fought: false, expected: "story_raider_motive",    recurring: true)
+            };
+
+            foreach (var combo in combos)
+            {
+                // Fresh store + planner per play so live actors and facts never leak between combos.
+                SetUp();
+                var victim = StoryAnd("story_barn_victim", new[] { "villager", "barn" }, World("barn_quest_offered", false));
+                var raid = StoryAnd("story_barn_raid", new[] { "raider", "barn" }, World("barn_raided", false));
+                var grateful = StoryAnd("story_grateful_farmer", new[] { "villager", "barn" },
+                    World("barn_quest_accepted", true), World("grain_recovered", true));
+                var motive = StoryAnd("story_raider_motive", new[] { "motive" }, LootedBarn(true));
+                var starving = StoryAnd("story_starving_village", new[] { "villager", "barn" },
+                    World("barn_quest_accepted", false), World("grain_recovered", true));
+                var planner = Planner(settings, new[] { victim, raid, grateful, motive, starving }, archetypes);
+
+                // Window 1: only the two world-gated openers are eligible (A/C need grain, B needs a live
+                // looter). Capture the minted raider so we can prove the recast identity later.
+                var window1 = planner.PlanWindow(0, _store);
+                Assert.AreEqual(2, StoryCount(window1)); // victim + raider co-appear in window 1
+                var raider = window1.Platforms
+                    .First(p => p.Kind == PlannedPlatformKind.Story && p.Story.StoryId == "story_barn_raid").Actor;
+
+                // Apply the window-1 outcome facts the dialogues would have written for this combo.
+                _store.Set(FactKey.Global(FactNamespace.World, "barn_raided"), FactValue.FromBool(true));
+                _store.Set(FactKey.Global(FactNamespace.World, "barn_quest_offered"), FactValue.FromBool(true));
+                _store.Set(FactKey.Global(FactNamespace.World, "barn_quest_accepted"), FactValue.FromBool(combo.accepted));
+                var lootedKey = new FactKey(FactNamespace.Actor, raider.InstanceId, "looted_barn");
+                _store.Set(lootedKey, FactValue.FromBool(true)); // the raid always sets it on the raider
+                if (combo.fought)
+                {
+                    // Fight-win returns the grain and clears the raider's at-large flag (routes to A/C).
+                    _store.Set(FactKey.Global(FactNamespace.World, "grain_recovered"), FactValue.FromBool(true));
+                    _store.Set(lootedKey, FactValue.FromBool(false));
+                }
+                // Let-go leaves looted_barn true: the raider is still at large and becomes candidate B.
+
+                // Window 2: exactly one reaction is eligible by the partitioned preconditions.
+                var window2 = planner.PlanWindow(1, _store);
+                Assert.AreEqual(1, StoryCount(window2),
+                    $"accepted={combo.accepted} fought={combo.fought} should yield exactly one window-2 story");
+                var placed = window2.Platforms.First(p => p.Kind == PlannedPlatformKind.Story);
+                Assert.AreEqual(combo.expected, placed.Story.StoryId,
+                    $"accepted={combo.accepted} fought={combo.fought}");
+
+                if (combo.recurring)
+                {
+                    Assert.AreEqual(raider.InstanceId, placed.Actor.InstanceId); // same raider recast (B)
+                }
+            }
+        }
+
+        [Test]
+        public void ActorScopedStory_WithoutALiveActor_IsIneligible()
+        {
+            // Item 1 is required: an actor-scoped gate cannot pass under the world-only context the planner
+            // used before this change (no live actor exists to satisfy $self), even with world facts set.
+            var settings = new RunPacingSettings(windowSize: 1, narrativeBudgetPerWindow: 100,
+                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
+            var motive = Story("motive", 10, new[] { "motive" }, precondition: LootedBarn(true));
+            _store.Set(FactKey.Global(FactNamespace.World, "pass_cleared"), FactValue.FromBool(true));
+
+            var plan = Planner(settings, new[] { motive }, new[] { Archetype("arch_raider", "raider") }).PlanWindow(0, _store);
+
+            Assert.AreEqual(0, StoryCount(plan));
+        }
+
+        [Test]
+        public void WrongActor_DoesNotSatisfyActorScopedGate()
+        {
+            // Two raiders are minted; only one looted the barn. The motive recast must pick that one.
+            var settings = new RunPacingSettings(windowSize: 2, narrativeBudgetPerWindow: 100,
+                minCombatPerWindow: 0, maxCombatPerWindow: 2, lookAheadWindows: 1);
+            var barnA = Story("barnA", 10, new[] { "raider" }, precondition: PassCleared(false));
+            var barnB = Story("barnB", 10, new[] { "raider" }, precondition: PassCleared(false));
+            var motive = Story("motive", 10, new[] { "motive" }, precondition: LootedBarn(true));
+            var planner = Planner(settings, new[] { barnA, barnB, motive }, new[] { Archetype("arch_raider", "raider") });
+
+            var windowN = planner.PlanWindow(0, _store);
+            var actors = windowN.Platforms.Where(p => p.Kind == PlannedPlatformKind.Story).Select(p => p.Actor).ToList();
+            Assert.AreEqual(2, actors.Count);
+            var looter = actors[1];
+
+            _store.Set(new FactKey(FactNamespace.Actor, looter.InstanceId, "looted_barn"), FactValue.FromBool(true));
+            _store.Set(FactKey.Global(FactNamespace.World, "pass_cleared"), FactValue.FromBool(true));
+
+            var placed = planner.PlanWindow(1, _store).Platforms.First(p => p.Kind == PlannedPlatformKind.Story);
+            Assert.AreEqual("motive", placed.Story.StoryId);
+            Assert.AreEqual(looter.InstanceId, placed.Actor.InstanceId); // the barn-looter, not the other raider
         }
     }
 }

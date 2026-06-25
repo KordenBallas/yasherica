@@ -65,6 +65,20 @@ Known limitations (§5):
 ## Data-Driven Procedural Narrative
 
 Deferred design (from `narrative-procedural.md` §6):
+- [x] `[arch]` **Director Priority-1 — actor/faction eligibility (D16) + recurring-actor casting (D11).**
+  *(Done — `RunWindowPlanner` classifies each story: world-only stories keep the actor-less path + fresh
+  mint; actor/faction-scoped stories resolve as a casting query over `ILiveActorRegistry` and hard-pin
+  the satisfying live actor for recast (continuation semantics). New pure-C# `ILiveActorRegistry`/
+  `LiveActorRegistry` bound `AsSingle`. Proven by the `RunWindowPlannerTests` raider-arc + negative
+  tests. See CHANGELOG; `narrative-procedural.md` §2.2/§2.6.)*
+- [ ] `[arch]` **D7 — Spine reserved lane + per-run reveal cap.** Place spine reveal-beats first by
+  their own quota (mirroring the combat minimum), capped at ≤1–2/run, gated on mastery milestone + soft
+  floor; they never compete for the narrative density budget by weight. Decoupled from win/lose.
+- [ ] `[arch]` **D19 — Escalation tier gating.** Read an altitude/tier fact and shift the eligible
+  story pool + tonal register (and optionally density) as the run climbs.
+- [ ] `[arch]` **D20 — Meta-scoped fact horizon.** Distinguish run-scoped facts (reset on death) from
+  meta-scoped facts (persist across runs); long arcs (spine cursor, mirror-lore flags, cauldron memory)
+  ride the meta horizon. The director reads both.
 - [ ] `[arch]` **R8 — First-class threads.** Promote `_threadId` from a string label to a `Thread`
   entity (id + stage) the director balances and the player can read; express "a choice in thread A
   affects thread C" as A's effect read by C's precondition (already the mechanism — this adds the
@@ -100,7 +114,8 @@ Deferred design (from `narrative-procedural.md` §6):
   rewards from stories; the new engine has no item-reward sink (quests carry fact effects). Add item
   rewards on the quest so the cutover doesn't drop them.
 - [ ] `[arch]` **Window/horizon save-state.** `RunNarrativeSnapshot` does not yet capture the streaming
-  planner's window/committed-horizon state; add it (ties to R14 file IO).
+  planner's window/committed-horizon state **nor the `ILiveActorRegistry` live-actor set** (recurring-actor
+  continuity, D11); add both (ties to R14 file IO).
 - [ ] `[arch]` **R11 — Reactive-rule cascade layer.** Optional central layer that derives cross-category
   cascades from fact reads/writes; cascades are explicit authored effects until then.
 - [ ] `[arch]` **OR/boolean precondition composition.** Preconditions are AND-only; add OR/grouping.
@@ -121,6 +136,13 @@ Deferred design (from `narrative-procedural.md` §6):
 - [x] `[debt]` **Legacy cutover.** *(Done — `DialogueActiveState`/`NpcContent` run the casting/streaming
   engine; the old `NpcDefinition`/`StoryDefinition`/`CompositeDialoguePresenter`/`NpcAssignment` path,
   `NarrativeInstaller`, and assets are deleted. See CHANGELOG; "Story-first streaming director" above.)*
+- [ ] `[content]` **Barn demo — combat loss branch.** `BarnRaid.ink`'s fight `else` (raider wins) is a
+  flavor line treated as run-end; wire a real loss consequence once a run-failure path exists.
+- [ ] `[arch]` **D12 — Window-1 adjacency ordering.** The barn demo only needs the victim + raider to
+  co-appear in window 1; ordered/adjacent placement within a window is not guaranteed yet.
+- [ ] `[content]` **Barn demo — recast the victim into reaction A.** Optional second recurring-actor proof:
+  make `story_grateful_farmer` recast the *same* villager from `story_barn_victim` via an actor-scoped fact
+  (currently A/C mint a fresh `arch_villager`).
 
 ---
 

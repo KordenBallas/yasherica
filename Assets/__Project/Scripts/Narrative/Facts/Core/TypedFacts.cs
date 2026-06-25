@@ -8,20 +8,14 @@ namespace Narrative.Facts.Core
     /// </summary>
     public static class WorldFacts
     {
-        public static readonly FactKeyRef PassBlocked = new FactKeyRef(FactNamespace.World, FactScope.Global, "pass_blocked", FactValueType.Bool);
-        public static readonly FactKeyRef PassCleared = new FactKeyRef(FactNamespace.World, FactScope.Global, "pass_cleared", FactValueType.Bool);
+        public static readonly FactKeyRef BarnRaided = new FactKeyRef(FactNamespace.World, FactScope.Global, "barn_raided", FactValueType.Bool);
+        public static readonly FactKeyRef GrainRecovered = new FactKeyRef(FactNamespace.World, FactScope.Global, "grain_recovered", FactValueType.Bool);
     }
 
     /// <summary>Curated, compile-safe references to per-actor fact keys.</summary>
     public static class ActorFacts
     {
-        public static readonly FactKeyRef Hostile = new FactKeyRef(FactNamespace.Actor, FactScope.PerActor, "hostile", FactValueType.Bool);
-    }
-
-    /// <summary>Curated, compile-safe references to per-faction fact keys.</summary>
-    public static class FactionFacts
-    {
-        public static readonly FactKeyRef Reputation = new FactKeyRef(FactNamespace.Faction, FactScope.PerFaction, "reputation", FactValueType.Int);
+        public static readonly FactKeyRef LootedBarn = new FactKeyRef(FactNamespace.Actor, FactScope.PerActor, "looted_barn", FactValueType.Bool);
     }
 
     /// <summary>Enumerates every curated <see cref="FactKeyRef"/> for the drift check (D3).</summary>
@@ -29,10 +23,9 @@ namespace Narrative.Facts.Core
     {
         public static IEnumerable<FactKeyRef> All()
         {
-            yield return WorldFacts.PassBlocked;
-            yield return WorldFacts.PassCleared;
-            yield return ActorFacts.Hostile;
-            yield return FactionFacts.Reputation;
+            yield return WorldFacts.BarnRaided;
+            yield return WorldFacts.GrainRecovered;
+            yield return ActorFacts.LootedBarn;
         }
     }
 }

@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99291a53c0444734f999239612c7e299, type: 3}
+  m_Name: DemoDlg_BarnRaid
+  m_EditorClassIdentifier: Yasherica::Narrative.Dialogue.Data.DialogueDefinition
+  _dialogueId: dlg_barn_raid
+  _inkJsonAsset: {fileID: 4900000, guid: c547ab00ef584e9abf714ce54b6dfa66, type: 3}
+  _startKnot: start
+  _declaredVariables:
+  - npc_name
+  - combat_won
+  _declaredFactWrites:
+  - _namespace: 0
+    _subjectToken:
+    _key: barn_raided
+    _valueType: 0
+  - _namespace: 1
+    _subjectToken: $self
+    _key: looted_barn
+    _valueType: 0
+  - _namespace: 0
+    _subjectToken:
+    _key: grain_recovered
+    _valueType: 0
+  - _namespace: 0
+    _subjectToken:
+    _key: raider_bribed
+    _valueType: 0
+  _dialogueTags:
+  - barn-raid

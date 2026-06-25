@@ -16,28 +16,33 @@ namespace Tests.EditMode
             public void Error(string message) { }
         }
 
+        // A per-faction Int ref for exercising the typed Int accessors; not part of TypedFacts.All()
+        // (the barn slice has no faction/int fact), so it never participates in the registry drift check.
+        private static readonly FactKeyRef Reputation =
+            new FactKeyRef(FactNamespace.Faction, FactScope.PerFaction, "reputation", FactValueType.Int);
+
         [Test]
         public void TypedExtensions_RoundTripGlobalAndScopedValues()
         {
             var store = new FactStore();
 
-            store.SetBool(WorldFacts.PassCleared, true);
-            Assert.IsTrue(store.GetBool(WorldFacts.PassCleared));
+            store.SetBool(WorldFacts.BarnRaided, true);
+            Assert.IsTrue(store.GetBool(WorldFacts.BarnRaided));
 
-            store.SetBool(ActorFacts.Hostile, true, "npc_07");
-            Assert.IsTrue(store.GetBool(ActorFacts.Hostile, "npc_07"));
-            Assert.IsFalse(store.GetBool(ActorFacts.Hostile, "npc_99")); // different subject, unset
+            store.SetBool(ActorFacts.LootedBarn, true, "npc_07");
+            Assert.IsTrue(store.GetBool(ActorFacts.LootedBarn, "npc_07"));
+            Assert.IsFalse(store.GetBool(ActorFacts.LootedBarn, "npc_99")); // different subject, unset
 
-            store.SetInt(FactionFacts.Reputation, 5, "blades");
-            Assert.AreEqual(5, store.GetInt(FactionFacts.Reputation, "blades"));
+            store.SetInt(Reputation, 5, "blades");
+            Assert.AreEqual(5, store.GetInt(Reputation, "blades"));
         }
 
         [Test]
         public void GetBool_ReturnsTypeDefault_WhenUnset()
         {
             var store = new FactStore();
-            Assert.IsFalse(store.GetBool(WorldFacts.PassBlocked));
-            Assert.AreEqual(0, store.GetInt(FactionFacts.Reputation, "any"));
+            Assert.IsFalse(store.GetBool(WorldFacts.GrainRecovered));
+            Assert.AreEqual(0, store.GetInt(Reputation, "any"));
         }
 
         [Test]
@@ -54,12 +59,11 @@ namespace Tests.EditMode
         public void DriftCheck_FlagsMissingRef()
         {
             var logger = new FakeLogger();
-            // Registry missing ActorFacts.Hostile.
+            // Registry missing ActorFacts.LootedBarn.
             var registry = new FactKeyRegistry(new[]
             {
-                new FactKeyInfo(FactNamespace.World, "pass_blocked", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
-                new FactKeyInfo(FactNamespace.World, "pass_cleared", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
-                new FactKeyInfo(FactNamespace.Faction, "reputation", FactScope.PerFaction, FactValueType.Int, FactValue.FromInt(0))
+                new FactKeyInfo(FactNamespace.World, "barn_raided", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                new FactKeyInfo(FactNamespace.World, "grain_recovered", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false))
             });
 
             Assert.IsFalse(FactKeyRefRegistryCheck.Validate(registry, TypedFacts.All(), logger));
@@ -72,11 +76,11 @@ namespace Tests.EditMode
             var logger = new FakeLogger();
             var registry = new FactKeyRegistry(new[]
             {
-                // pass_cleared declared as Int instead of Bool.
-                new FactKeyInfo(FactNamespace.World, "pass_cleared", FactScope.Global, FactValueType.Int, FactValue.FromInt(0))
+                // barn_raided declared as Int instead of Bool.
+                new FactKeyInfo(FactNamespace.World, "barn_raided", FactScope.Global, FactValueType.Int, FactValue.FromInt(0))
             });
 
-            Assert.IsFalse(FactKeyRefRegistryCheck.Validate(registry, new[] { WorldFacts.PassCleared }, logger));
+            Assert.IsFalse(FactKeyRefRegistryCheck.Validate(registry, new[] { WorldFacts.BarnRaided }, logger));
             Assert.AreEqual(1, logger.Warnings.Count);
         }
 
