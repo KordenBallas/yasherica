@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bcb3e870f3de04b42bc98edf8ebf147b, type: 3}
+  m_Name: DemoQst_RaiderRun
+  m_EditorClassIdentifier: Yasherica::Narrative.Quests.Data.QuestDefinition
+  _questId: qst_raider_run
+  _displayName: The Raider's Run
+  _summary: Run a sack of grain to the raider's starving kin up the road. He pays in iron, not thanks.
+  _objectives:
+  - _objectiveId: obj_run_grain
+    _description: Carry the raider's sack to his people.
+    _kind: 2
+    _targetCount: 1
+    _completionEffects: []
+  _questTags:
+  - raider-run
+  _onCompleteEffects: []
+  _onFailEffects: []
+  _rewards:
+  - _artifactId: fire
+    _count: 1

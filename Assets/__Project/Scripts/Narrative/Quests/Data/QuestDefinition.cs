@@ -27,6 +27,9 @@ namespace Narrative.Quests.Data
         [SerializeField] private List<FactEffectSerial> _onCompleteEffects = new List<FactEffectSerial>();
         [SerializeField] private List<FactEffectSerial> _onFailEffects = new List<FactEffectSerial>();
 
+        [Header("Rewards (granted on completion)")]
+        [SerializeField] private List<QuestRewardSerial> _rewards = new List<QuestRewardSerial>();
+
         public string QuestId => _questId;
         public string DisplayName => _displayName;
         public string Summary => _summary;
@@ -34,5 +37,6 @@ namespace Narrative.Quests.Data
         public IReadOnlyList<string> QuestTags => _questTags;
         public IReadOnlyList<FactEffectSerial> OnCompleteEffects => _onCompleteEffects;
         public IReadOnlyList<FactEffectSerial> OnFailEffects => _onFailEffects;
+        public IReadOnlyList<QuestRewardSerial> Rewards => _rewards;
     }
 }

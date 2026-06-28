@@ -1,5 +1,16 @@
 # Loot Subsystem
 
+> ⚠️ **STALE (predates the streaming Phase-3 cutover).** This doc references legacy narrative pieces
+> that have since been **deleted**: `RewardResolver` / `ResolvedReward`, `StoryDefinition` reward
+> slots, `NpcAssignment.Rewards`, `RewardDefinition`, `NarrativeInstaller`, `ScenarioGenerator`,
+> `PlatformGraphGenerator` (see ROADMAP "Delete legacy (Phase 3)"). Consequences: (1) the **live**
+> quest-reward path is in `quest-subsystem.md` — `QuestRewardGranter` grants the active quest's fixed
+> `QuestRewardCore` (id+count), **no roll**; the §2 description of the granter is wrong. (2) The roll
+> engine (`LootRollService`) still exists but is **dormant on the streaming path** — loot platforms are
+> not generated yet (ROADMAP "Streaming-path loot + biome", open). Treat §1.6 (R6), §2 "Generation
+> integration"/"Runtime hooks", and the granter description as **outdated** until this doc is refreshed
+> (ROADMAP `[debt]`). The seed/`WeightedPicker`/biome-table **Core** is still valid.
+
 Status: current as of 2026-06-12.
 
 Data-driven artifact rewards integrated with procedural level generation. Artifacts

@@ -44,6 +44,18 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void ParsesQuestLifecycleTags()
+        {
+            Assert.AreEqual(DialogueTagKind.CompleteQuest, _parser.Parse("complete-quest: qst_clear_pass").Kind);
+            Assert.AreEqual("qst_clear_pass", _parser.Parse("complete-quest: qst_clear_pass").Argument);
+            Assert.AreEqual(DialogueTagKind.FailQuest, _parser.Parse("fail-quest:").Kind);
+
+            var advance = _parser.Parse("advance-objective: step 2");
+            Assert.AreEqual(DialogueTagKind.AdvanceObjective, advance.Kind);
+            Assert.AreEqual("step 2", advance.Argument); // objective id + amount; the runner splits it
+        }
+
+        [Test]
         public void ParsesGlobalBoolFact()
         {
             var tag = _parser.Parse("fact: world.pass_cleared Set true");

@@ -1,13 +1,21 @@
-// "Why He Raids" - raider-motive encounter for the recurring-actor demo (D11/D16).
-// The SAME raider instance, recast because he still carries actor.$self.looted_barn from the barn
-// raid. Hearing his motive closes the arc (clears the fact) so the storylet does not recur.
-// Parameterized and free of hardcoded NPCs (R4); game systems are reached ONLY via tags.
+// "The Raider's Counter-Offer" - barn_raid thread, the cross-actor MORAL FORK (quest-as-reward §4,
+// D10-D13). The SAME raider instance, recast because he still carries actor.$self.looted_barn from
+// the barn raid. He now OFFERS a competing quest (tag raider-run, carried by this story's optional
+// Quest slot): run grain to HIS starving kin for iron - the power/Monster side, opposed to the
+// farmer's bounty taken earlier (world.barn_quest_accepted). Separated in time on the shared actor's
+// thread, NOT shown side by side. Same tier, different currency (facts are the stakes, not loot-EV).
+// Accepting sets world.raider_offer_taken and clears actor.$self.looted_barn so the arc closes (D13).
+// Leaving is the presenter's system Leave card (he lingers, may re-offer). NPC-free (R4); systems via
+// tags only. npc_name injected on fresh start.
 
 VAR npc_name = ""
 
 === start ===
 # speaker: {npc_name}
-You meet the raider again on the road. He lowers the grain. "My village starves. I am no thief by trade."
-# fact: actor.$self.looted_barn Set false
-He shoulders the sack once more and is gone.
--> END
+You meet the raider again, grain still on his back. "You again. Listen - my own village starves too. Run a sack to my kin and I'll pay you in good iron."
+* [Run grain for the raider.]
+    # fact: world.raider_offer_taken Set true
+    # fact: actor.$self.looted_barn Set false
+    # offer-quest: raider-run
+    "Smart. Loyalty's worth more than bread." He marks the road for you.
+- -> END

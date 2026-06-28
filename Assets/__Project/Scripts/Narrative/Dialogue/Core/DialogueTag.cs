@@ -20,8 +20,21 @@ namespace Narrative.Dialogue.Core
         /// <summary>Terminal outcome: <c>outcome: &lt;type&gt;</c>.</summary>
         Outcome = 4,
 
+        /// <summary>
+        /// Advance one of the active quest's objectives: <c>advance-objective: &lt;objectiveId&gt; [amount]</c>.
+        /// Tracks progress only; it never completes the quest (completion is the explicit
+        /// <see cref="CompleteQuest"/> signal).
+        /// </summary>
+        AdvanceObjective = 5,
+
+        /// <summary>Complete the active quest: <c>complete-quest: [questId]</c> (argument optional, for author validation).</summary>
+        CompleteQuest = 6,
+
+        /// <summary>Fail the active quest: <c>fail-quest: [questId]</c> (argument optional, for author validation).</summary>
+        FailQuest = 7,
+
         /// <summary>Not a recognized bridge tag (ignored).</summary>
-        Unknown = 5
+        Unknown = 8
     }
 
     /// <summary>

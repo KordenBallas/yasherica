@@ -98,6 +98,31 @@ Presenter → Model (interfaces). **View never talks to Model directly.**
 * **Forbidden APIs:** `FindObjectOfType`, `GameObject.Find`, `GetComponent` inside `Update`.
   All references must be cached or injected.
 
+### 5.1 Prefabs & assets — author them, do NOT defer to the editor
+
+When a change needs a `.prefab`, `.asset`, `.unity` scene, or any other YAML asset, AI MUST author or
+edit that asset's YAML **directly**, as part of the same change as the code. Handing the asset off to
+the user "to wire in the editor" is **not** an acceptable substitute — a feature whose view/prefab is
+unwired is an **incomplete change** (§0). The editor is not available to AI; treat the text file as the
+source of truth and produce it.
+
+How to do it reliably (this is a proven workflow, not a fallback):
+
+* **Crib from a sibling.** Copy exact component blocks and GUIDs (TMP `TextMeshProUGUI`, `Image`,
+  `Button`, layout groups, font asset + material) from an existing prefab/asset that already uses them,
+  rather than inventing GUIDs. Search the repo for a representative example first.
+* **Keep `.meta` GUIDs stable.** Edit only the asset body; never regenerate or alter the companion
+  `.meta`, so installer `Resources/` loads and cross-asset references keep resolving. New script GUIDs
+  are referenced only by the editor on import — never hard-code them.
+* **Wire every serialized field.** The `MonoBehaviour` block must list each `[SerializeField]` field by
+  its exact C# name, pointing at the correct component `fileID`. A field type change in code (e.g.
+  `Text` → `TextMeshProUGUI`) means the prefab reference must move to the new component type.
+* **Validate before finishing.** Every internal `{fileID: N}` must resolve to an anchor `&N` in the
+  same file; no duplicate anchors; every `m_GameObject` back-points to a real GameObject anchor. Files
+  are **BOM-less UTF-8 with spaces** (never tabs) — see the meta/YAML gotchas the team has hit.
+* **Verify the look in play mode last.** Authoring the YAML is mandatory; confirming the on-screen
+  feel in the editor is the user's final check, not a reason to skip authoring.
+
 ---
 
 ## 6. Communication & Events

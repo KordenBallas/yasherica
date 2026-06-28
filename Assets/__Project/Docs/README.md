@@ -18,9 +18,20 @@ Older documentation elsewhere in the repository may be stale; prefer this folder
 | [Character Locomotion](character-locomotion.md) | Requirements and design of movement-driven animation: run blend on a `Speed` parameter and shortest-arc facing toward the travel direction, wired between the movement controller and the assembled rig |
 | [Mutation Subsystem](mutation-subsystem.md) | Requirements and design of the M1 mutation data surface: authorable creature-archetype set and per-artifact archetype weights that feed the (planned) level-up mutation loop |
 | [Character Progression](character-progression.md) | Requirements and design of the per-run progression record: quests (active/completed/failed), NPCs encountered, key choices, and condition evaluation that gates run-state-dependent content (e.g. reward slots) |
+| [Quest Subsystem](quest-subsystem.md) | Requirements and design of the quest fragment, lifecycle, and rewards: offer/advance/complete/fail driven by Ink tags, fact effects gated against the quest's own footprint, progression-record bridge, and item rewards granted on completion |
+| [Encounter Dialogue UI](encounter-dialogue-ui.md) | Requirements and design of the Hades-style encounter presentation: bottom-centre dialogue box with portrait + name, word-by-word line reveal (tap to complete), quest/attack/exit cards labelled with the job, and author-marked `[[ ]]` keyword highlighting — a presentation layer over the unchanged conversation engine |
+| [Developer Tools](dev-tools.md) | The in-game developer overlay (editor / dev-build only): a key-toggled IMGUI panel with generic sections — quest statuses and director facts — built by a pure-C# presenter from live game state |
+
+## Product requirement briefs
+
+Verified, product-owner-level feature briefs (the intended behavior of a change, agreed before it
+is built) live under [`product-requirements/`](product-requirements/README.md). They are the one
+**exception** to the "as-implemented only" rule below: they describe intended behavior and are
+handed to the code track. Once built, the as-implemented behavior is documented in the relevant
+system doc above.
 
 ## Conventions
 
 - One document per subsystem.
 - Each document states requirements first, then describes the implementing design with file references.
-- Do not document planned/unimplemented behavior except in a clearly marked "Known limitations / open points" section.
+- Do not document planned/unimplemented behavior except in a clearly marked "Known limitations / open points" section (the `product-requirements/` briefs above are the deliberate exception).

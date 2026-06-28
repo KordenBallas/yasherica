@@ -82,7 +82,7 @@ Scripts/Core/DI/NarrativeSliceInstaller.cs
 | `RunDirector` | Selects eligible storylets by fact preconditions (R7) with a seeded, save-replayable PRNG (B2). |
 | `ILiveActorRegistry` / `LiveActorRegistry` | Run-scoped set of minted `NpcInstance`s in deterministic registration order (R12); the windowed planner registers each fresh actor and queries it to recast a recurring actor (D11). |
 | `DialogueRunner` | Drives one `DialogueSession`; dispatches Ink tags to facts/quest/combat (R4); explicit suspension state machine — `AwaitingExternal` for async combat, `AwaitingContinue` to gate one readable line at a time (`Continue()` advances). |
-| `DialogueRunnerViewPresenter` | MVP presenter (pure-C#): turns the runner's events into `IDialogueView` calls and forwards the view's choice/continue/skip input back into the runner; re-exposes combat/quest signals. |
+| `EncounterCardHandPresenter` | MVP presenter (pure-C#): composes the typed encounter card hand from the runner's events and drives `IEncounterCardHandView` (§2.7). Replaces `DialogueRunnerViewPresenter`, now dormant/unbound. |
 | `QuestInstance` | Quest lifecycle; returns effects to apply; bridges legacy `IRunProgressionRecorder`. |
 
 ### 2.3 Runtime flow
@@ -96,7 +96,9 @@ Scripts/Core/DI/NarrativeSliceInstaller.cs
    dialogue, optional quest, optional enemy, and a `ContextBag` (`$self`/`$faction`, `npc_name`, and
    the `quest_available`/`combat_available` flags).
 4. `DialogueRunner.Begin(casting)` starts a fresh `DialogueSession`, pumps Ink, and dispatches tags:
-   `fact:` writes (footprint-gated), `offer-quest:` starts the quest, `start-combat:` suspends until
+   `fact:` writes (footprint-gated), `offer-quest:` starts the quest and
+   `advance-objective:`/`complete-quest:`/`fail-quest:` drive its lifecycle (gated against the quest's
+   own footprint — see [Quest Subsystem](quest-subsystem.md)), `start-combat:` suspends until
    `ReportCombatResult` resumes it; `speaker:`/`outcome:` drive presentation/termination. Each readable
    line parks the runner in `AwaitingContinue`; `DialogueRunnerViewPresenter` drives the `IDialogueView`
    and calls `Continue()` on the view's continue/skip input, so multi-line knots are read one line at a
@@ -110,9 +112,10 @@ Scripts/Core/DI/NarrativeSliceInstaller.cs
 cutover) binds the fact store/evaluator/applier/resolver, the fragment library + storylets (mapped from
 inspector SO lists or auto-loaded from `Resources/Narrative/*`), the casting factory + director +
 windowed planner + serializable PRNG (seeded from the run seed via `LootSeed.Derive`), the actor-instance
-factory + encounter orchestrator (§2.5), the dialogue session/runner/tag-parser, the `IDialogueView`
-(instantiated from the `Resources` prefab), and `INarrativeSaveService`. A `NarrativeSliceBootstrap`
-`IInitializable` runs footprint derivation + typed-ref validation after build.
+factory + encounter orchestrator (§2.5), the dialogue session/runner/tag-parser, the
+`IEncounterCardHandView` + `EncounterCardHandPresenter` (the card-hand UI, §2.7; instantiated from the
+`Resources` prefab), and `INarrativeSaveService`. A `NarrativeSliceBootstrap` `IInitializable` runs
+footprint derivation + typed-ref validation after build.
 
 ### 2.5 Encounter entry (runtime orchestration)
 
@@ -190,6 +193,50 @@ instead of the legacy generator.
 Open points this stage: loot is not placed on the streaming path (fillers are empty), biome is fixed
 (Forest). An archetype with no `_assembly` runs its dialogue but spawns no visible NPC body (logged warning).
 
+### 2.7 Encounter card-hand (presentation, MVP)
+
+The encounter is presented as a **situation bubble + a composed hand of typed cards**, not a line-reading
+panel with an Ink choice list. This is a presentation + choice-selection layer over the unchanged
+`DialogueRunner`; the fact/quest/tag engine (§2.3) is untouched.
+
+- **Pieces (`Narrative.Encounter` + `Narrative.View`).** `EncounterCardHandPresenter` (pure C#,
+  `IInitializable`) subscribes to the runner's `OnSpeakerChanged`/`OnLine`/`OnChoices`/`OnCombatTriggered`/
+  `OnDialogueEnded` and drives `IEncounterCardHandView` (the thin `EncounterCardHandView` MonoBehaviour +
+  per-card `EncounterCardView`). `EncounterCardType` (`QuestOffer`/`Attack`/`Leave`/`Talk`) and the
+  `EncounterCardViewData` DTO are the view contract.
+- **Composition.** Each readable line updates the situation bubble (tap-to-continue preserves the runner's
+  `AwaitingContinue` gate). At a decision point the hand is composed as: one **QuestOffer** card per Ink
+  choice; an **Attack** card from any Ink choice tagged `# card: attack` (its authored combat consequence
+  runs through Ink) **or**, only when the casting is combat-capable and no choice authored one, a
+  **system-added** Attack card (pick → `DialogueRunner.TriggerCombat`); and an always-present **Leave** card
+  (pick → `DialogueRunner.Leave`). During plain narration only the Leave card shows, so a system Attack can
+  never be picked mid-narration and skip an authored Ink combat branch.
+- **Runner verbs.** `DialogueRunner` exposes `CombatAvailable` / `CombatEnemyId` (read from the active
+  casting), `TriggerCombat()` (suspends to `AwaitingExternal` and fires `OnCombatTriggered` exactly like a
+  `start-combat:` tag, so `ReportCombatResult` resume + the platform combat route are reused), and `Leave()`
+  (a guarded graceful end with outcome `"leave"`; refused while suspended on combat).
+- **Choice-tag authoring.** The `# card: attack` tag must follow **shown** (non-bracketed) choice text so it
+  lands in the Ink `Choice.tags` the presenter reads (`* Drop the grain. # card: attack`); a tag after a
+  `[bracketed]` choice goes to post-selection output instead and is not seen pre-selection.
+- **Wiring.** `NarrativeSliceInstaller` binds `IEncounterCardHandView` from
+  `Prefabs/UI/Encounter/EncounterCardHandView` and `EncounterCardHandPresenter` (`AsSingle().NonLazy()`).
+  `DialogueActiveState` no longer depends on the view (the NPC is visible as a 3D body; no portrait panel in
+  the MVP). The legacy `IDialogueView` / `DialogueView` / `DialogueRunnerViewPresenter` are left in the repo
+  **dormant (unbound)** for the §6 removal item.
+
+**Presentation feel upgrade (Hades-style box).** The view layer over this seam is the bottom-centre
+dialogue box documented in **`encounter-dialogue-ui.md`**: a portrait + name, the line revealed **word
+by word** (tap to complete), cards centred above the box, the **quest card labelled with the job**
+(title + summary from `DialogueRunner.OfferedQuest`), and author-marked **`[[ ]]` key words** tinted in
+both lines and cards (`KeywordHighlightFormatter`). The presenter stays UnityEngine-free — it forwards
+the NPC archetype **id** (`DialogueRunner.EncounterArchetypeId` / `EncounterDisplayName`) and the view
+resolves the portrait via `INpcArchetypeCatalog`. The conversation engine is unchanged.
+
+Open points this stage: the card visual is a placeholder per-type tint (reward tier-glow / belonging color
+is gated on the crafting tier model); the fully system-driven Monster verb (thread closure, conquest facts,
+corpse-loot routing, cauldron bark, post-combat write-backs relocated out of Ink) and several offers per NPC
+are deferred (§6).
+
 ---
 
 ## 3. ScriptableObject Reference
@@ -224,11 +271,12 @@ visuals), `_portrait`, `_factionId` (id only), `_baseDisposition` (personality s
 `_declaredVariables` (injected on fresh start), `_declaredFactWrites` (`FactKeyShape[]` — the
 **authoritative** set of key shapes its `fact:` tags may write, the runtime write-gate), `_dialogueTags`.
 
-### `QuestDefinition` (+ `QuestObjectiveDefinition`)  (asset menu: `Create → Narrative → Quests → Quest`)
+### `QuestDefinition` (+ `QuestObjectiveDefinition`, `QuestRewardSerial`)  (asset menu: `Create → Narrative → Quests → Quest`)
 
-`_questId`, `_displayName`, `_summary`, `_objectives` (`_objectiveId`, `_description`, `_kind`,
-`_targetCount`, `_completionEffects`), `_questTags`, `_onCompleteEffects`, `_onFailEffects`
-(`FactEffectSerial[]`). The union of all its effect shapes is the quest's own footprint.
+The quest fragment, its lifecycle (offer → advance → complete/fail), and its item rewards are owned by
+the **[Quest Subsystem](quest-subsystem.md)** doc (full field reference + authoring recipes there).
+Summary: `_questId`, `_displayName`, `_summary`, `_objectives`, `_questTags`, `_onCompleteEffects`,
+`_onFailEffects`, `_rewards`. The union of all its effect shapes is the quest's own footprint.
 
 ### `StoryTemplate` (+ `StorySlotDefinition`)  (asset menu: `Create → Narrative → Stories → Story Template`)
 
@@ -267,8 +315,13 @@ A designer assembles the vertical slice (or new narrative content) entirely from
 
 ### Add a dialogue
 1. Author a `.ink` file under `Resources/Stories/...` using only tags to reach systems
-   (`speaker:`, `fact:`, `offer-quest:`, `start-combat:`, `outcome:`). Declare any variables the runner
+   (`speaker:`, `fact:`, `offer-quest:`, `advance-objective:`, `complete-quest:`, `fail-quest:`,
+   `start-combat:`, `outcome:`). Declare any variables the runner
    injects (`npc_name`, `quest_available`, `combat_available`, `combat_won`, `quest_accepted`).
+   **Encounter card model (§2.7):** Ink choices become **cards**. A *leave* card is added by the presenter
+   (do not author a "walk away" choice); an *attack* card is added when the casting is combat-capable, or you
+   may tag a combat-bearing choice `# card: attack` to keep its in-Ink consequence — the tag must follow
+   **shown (non-bracketed)** choice text (`* Drop the grain. # card: attack`) to land in `Choice.tags`.
 2. Compile it to JSON (Ink integration) and `Create → Narrative → Dialogue → Dialogue`; assign the JSON,
    declare variables, and list every fact-write shape under `_declaredFactWrites`, add matching tags.
 
@@ -287,31 +340,55 @@ A designer assembles the vertical slice (or new narrative content) entirely from
 ### Ready-made Demo content
 
 A `Demo*` asset set ships under `Resources/Narrative/` (`Facts/`, `Actors/`, `Dialogue/`, `Enemies/`,
-`Stories/`) — the six barn `FactKeyDefinition`s + `DemoFactKeyRegistry`. When the
+`Stories/`) — ten `FactKeyDefinition`s + `DemoFactKeyRegistry`. When the
 `NarrativeSliceInstaller` inspector lists are left empty it **auto-loads** these from those Resources
 paths (`ResolveAssetsFromResources`), so the slice works without per-scene wiring; assigning assets in
 the inspector overrides the fallback.
 
-### The shipped slice — the Barn arc (two-window reactive demo)
-A single fact-driven storyline that exercises **D5/D15 fact-based selection** and the **D11/D16
-recurring-actor** path. All archetypes use `PlaceholderAssembly_A` for a visible body.
-- Facts (all in `DemoFactKeyRegistry`): `world.barn_raided` (Bool, Global — raider world gate),
-  `actor.looted_barn` (Bool, **PerActor** — the raider-arc carry fact), and the four partition facts
-  `world.barn_quest_offered`, `world.barn_quest_accepted`, `world.grain_recovered`, `world.raider_bribed`
-  (all Bool, Global, default false).
+### The shipped slice — two parallel threads (barn arc + marsh passport)
+Two fact-driven threads run side by side, exercising **D5/D15 fact-based selection**, the **D11/D16
+recurring-actor** path, the **cross-actor moral fork** (`quest-as-reward.md` §4), **passport/faction
+gating** (D15/D16), and **multi-thread** within-window coherence (D12/D14). All archetypes use
+`PlaceholderAssembly_A` for a visible body.
+- Facts (all Bool, Global, default false, in `DemoFactKeyRegistry` — except `looted_barn`, PerActor):
+  *barn_raid thread* — `world.barn_raided` (raider world gate), `actor.looted_barn` (raider-arc carry),
+  the partition facts `world.barn_quest_offered`, `world.barn_quest_accepted`, `world.grain_recovered`,
+  `world.raider_bribed`, and `world.raider_offer_taken` (the fork's power side). *frog_marsh thread* —
+  `world.reads_as_frogfolk` (the passport fact, D15/D16), `world.frog_quest_offered`,
+  `world.frog_quest_accepted`.
 - Archetypes: `arch_barn_raider` (`raider`,`can-fight`), `arch_villager` (`villager`,`farmer` — the barn
-  victim + both window-2 villager reactions).
-- Dialogues: `dlg_barn_raid`/`BarnRaid.ink` (two choices: **fight** → `start-combat:` + on `combat_won`
-  writes `world.grain_recovered` and clears `actor.$self.looted_barn`; **let-go** → writes
-  `world.raider_bribed`, leaves `looted_barn` true; both also write `world.barn_raided` +
-  `actor.$self.looted_barn`), `dlg_raider_motive`/`RaiderMotive.ink` (clears `actor.$self.looted_barn`),
-  `dlg_barn_victim`/`BarnVictim.ink` (writes `world.barn_quest_offered` + `world.barn_quest_accepted`),
-  `dlg_grateful_farmer`/`GratefulFarmer.ink` and `dlg_starving_village`/`StarvingVillage.ink` (reaction
-  beats, no fact writes). Uses `enemy_bandit_brute` (tag `bandit`) for the raid combat slot.
+  victim + both window-2 villager reactions), `arch_frogfolk` (`frogfolk`,`elder`,`marsh`; faction
+  `marsh_folk` — the marsh hermit + frog elder).
+- Dialogues: `dlg_barn_raid`/`BarnRaid.ink` (the **Attack** card — fight choice tagged `# card: attack` →
+  `start-combat:` + on `combat_won` writes `world.grain_recovered` and clears `actor.$self.looted_barn`; a
+  **let-go** card → writes `world.raider_bribed`, leaves `looted_barn` true; both also write `world.barn_raided`
+  + `actor.$self.looted_barn`; walking away is the system **Leave** card), `dlg_raider_motive`/`RaiderMotive.ink`
+  (the **counter-offer fork** — a single **quest-offer** card OFFERS `raider-run`, writes
+  `world.raider_offer_taken` + clears `actor.$self.looted_barn` to close the arc, D13), `dlg_barn_victim`/`BarnVictim.ink`
+  (a single **quest-offer** card writes `world.barn_quest_offered` + `world.barn_quest_accepted`; declining is the
+  system **Leave** card, leaving `barn_quest_accepted` at default false),
+  `dlg_grateful_farmer`/`GratefulFarmer.ink` (the reward beat — offers/advances/completes the bounty
+  quest via `offer-quest:`/`advance-objective:`/`complete-quest:`, no fact writes) and
+  `dlg_starving_village`/`StarvingVillage.ink` (reaction beat, no fact writes). *frog_marsh:*
+  `dlg_marsh_pool`/`MarshPool.ink` (the passport **setter** — a card writes `world.reads_as_frogfolk`),
+  `dlg_frog_elder_closed`/`FrogElderClosed.ink` (passport-negative reaction, no fact writes),
+  `dlg_frog_elder_open`/`FrogElderOpen.ink` (passport-positive — writes `world.frog_quest_offered` on
+  meeting, a quest-offer card OFFERS `frog-errand` + writes `world.frog_quest_accepted`), and
+  `dlg_frog_marsh_thanks`/`FrogMarshThanks.ink` (advances/completes the frog errand). Uses
+  `enemy_bandit_brute` (tag `bandit`) for the raid combat slot.
+- Quests: `qst_barn_bounty`/`DemoQst_BarnBounty` (tag `bounty`, objective `obj_return_grain`, no fact
+  effects, reward `1× rock`) fills `story_grateful_farmer`'s optional Quest slot, exercising the quest
+  loop end-to-end (offer → advance → complete → item reward on platform completion);
+  `qst_raider_run`/`DemoQst_RaiderRun` (tag `raider-run`, reward `1× fire` — power currency; offered, not
+  completed in the demo) fills the raider story's new Quest slot; `qst_frog_errand`/`DemoQst_FrogErrand`
+  (tag `frog-errand`, reward `1× water` — access currency) runs the frog loop offer → complete. The
+  raider/frog rewards pay in **different archetypes, same tier** (Fork A — `quest-as-reward.md` §3). See
+  [Quest Subsystem](quest-subsystem.md).
 - The `barn_raid` thread spans two windows:
   - *Window 1* places two openers (both world-gated, so they co-appear): `story_barn_victim` (precond
-    **world** `barn_quest_offered == false`; tags `villager`,`barn` → villager) where the player accepts or
-    refuses the plea (writes `world.barn_quest_accepted`); and `story_barn_raid`
+    **world** `barn_quest_offered == false`; tags `villager`,`barn` → villager) where accepting the plea
+    (the quest-offer card) writes `world.barn_quest_accepted == true`, and declining (the system Leave card)
+    leaves it at default false; and `story_barn_raid`
     (precond **world** `barn_raided == false`; tags `barn`,`raider` → barn-raider; **optional Combat slot**
     req tag `bandit` → `enemy_bandit_brute`) which mints a raider and writes `world.barn_raided` +
     `actor.$self.looted_barn`. The raider choice then forks: **fight** suspends on `start-combat:` and, on the
@@ -323,19 +400,38 @@ recurring-actor** path. All archetypes use `PlaceholderAssembly_A` for a visible
 
     | Candidate | Precondition | Actor |
     |---|---|---|
-    | **A** `story_grateful_farmer` | `barn_quest_accepted == true` **AND** `grain_recovered == true` | fresh `arch_villager` |
+    | **A** `story_grateful_farmer` (carries the `bounty` quest) | `barn_quest_accepted == true` **AND** `grain_recovered == true` | fresh `arch_villager` |
     | **B** `story_raider_motive` | **actor-scoped** `actor.$self.looted_barn == true` | the **same** raider, recast (hard pin, §2.6) |
     | **C** `story_starving_village` | `barn_quest_accepted == false` **AND** `grain_recovered == true` | fresh `arch_villager` |
 
     B's `motive` tag deliberately overlaps no archetype — placement proves the recast pin overrides the P1
     tag preference. This is the in-engine analogue of the `RunWindowPlannerTests` partition + raider-arc proof.
+    Reaction **B is now the cross-actor moral fork**: the recast raider OFFERS `qst_raider_run` (power
+    currency) — the mutually-exclusive counterpart to the farmer's bounty taken on the window-1 victim
+    platform. Same tier, opposed facts (`raider_offer_taken` vs. `barn_quest_accepted`), separated in time on
+    the shared actor's thread (`quest-as-reward.md` §4); accepting clears `looted_barn` so the arc closes (D13).
+- The **`frog_marsh` thread** runs **in parallel** with `barn_raid` (distinct `_threadId`s eligible together,
+  so a window may hold beats of both — the multi-thread within-window coherence test, D12/D14). It is gated
+  purely on the **passport fact** `world.reads_as_frogfolk` (D15/D16), which a card sets (standing in for the
+  mutation→fact projection):
+  - While `reads_as_frogfolk == false`: `story_marsh_pool` (the setter card → sets `reads_as_frogfolk`) and
+    `story_frog_elder_closed` (the closed-door reaction, no quest) are eligible. Taking the MarshPool card
+    **flips the passport true**.
+  - Once `reads_as_frogfolk == true`: the closed/pool stories drop out and `story_frog_elder_open` becomes
+    eligible (guarded by `frog_quest_offered == false` so it offers once), OFFERING `qst_frog_errand`
+    (access currency) and writing `frog_quest_accepted`.
+  - With `frog_quest_accepted == true`: `story_frog_marsh_thanks` (the thread's second sequential beat)
+    advances + completes the errand. The same one fact flipping false→true swapping `FrogElderClosed` for
+    `FrogElderOpen` is the **passport flip** in miniature.
 - *Pacing:* the slice relies on the installer's default `RunPacingSettings` (no `RunPacingConfig` asset wired):
   `windowSize 4`, `narrativeBudgetPerWindow 30` (two weight-10 openers fit window 1), `maxCombatPerWindow 2`,
   `minCombatPerWindow 1` — satisfied in window 1 by `story_barn_raid`'s combat-bearing optional slot.
-- *Ink compile:* the barn dialogues `BarnRaid`, `BarnVictim`, `GratefulFarmer`, `StarvingVillage` ship with
-  **seed compiled JSON** (resolves the `DialogueDefinition` reference); the editor's auto-compiler
-  (`compileAllFilesAutomatically`) re-derives the real `.json` (with choices/branches/combat) from the `.ink`
-  on import. `RaiderMotive` ships with real compiled JSON.
+- *Ink compile:* there is no inklecate in the repo — every story ships with **hand-authored compiled JSON**
+  kept in lockstep with its `.ink` (offer stories crib `BarnVictim.json`'s single bracketed-choice skeleton;
+  linear reaction stories crib `GratefulFarmer.json`). `BarnRaid`'s fight choice carries the `card: attack`
+  Choice.tag; `BarnVictim`/`FrogElderOpen`/`RaiderMotive` are offer cards; `MarshPool` is a fact-setter card;
+  `FrogElderClosed`/`StarvingVillage` are linear reactions; `GratefulFarmer`/`FrogMarshThanks` carry the
+  quest-loop tags. If the Ink editor package is present it will re-derive any `.json` from its `.ink` on import.
 
 **Authoring constraints / gotchas:** every fact key used by a fragment/story must be in the registry
 (else fail-closed + warn); an Ink `fact:` tag may only write a shape declared in its dialogue's
@@ -346,7 +442,7 @@ slots are optional but a slot-dependent tag firing against an empty slot fails c
 
 ## 5. Tests
 
-Edit-mode suites in `Assets/__Project/Tests/EditMode/` (96 pure-C# tests, runnable without the editor):
+Edit-mode suites in `Assets/__Project/Tests/EditMode/` (132 pure-C# tests, runnable without the editor):
 
 - `FactStoreTests` — store ops + B4 presence/default + namespace isolation + stable snapshot + validation.
 - `FactVocabularyTests`, `TypedFactsTests` — conversion, Core registry, typed accessors, drift check (D3).
@@ -368,8 +464,17 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/` (96 pure-C# tests, runnab
   `WrongActor_DoesNotSatisfyActorScopedGate`. The **barn-demo partition proof**
   (`BarnDemo_Window2SelectionPartitions_ByWindow1Choices`) drives all four window-1 choice combos and
   asserts each yields exactly one window-2 story (A/B/C), with the two let-go combos recasting the same
-  raider `InstanceId` — the executable D5/D15 + D11/D16 acceptance test.
-- `DialogueTagParserTests`, `DialogueRunnerTests` — tag grammar, suspension/resume (B1), empty-slot fail-closed (W2-2), continue-gated multi-line pumping.
+  raider `InstanceId` — the executable D5/D15 + D11/D16 acceptance test. The deeper-web cases extend it:
+  `PassportFact_FlipsClosedDoorToOpen` (D15/D16 — one world fact on opposite values swaps the closed-door
+  story for the open-door one), `CrossActorFork_RaiderCounterOfferEligible_AfterBountyTaken` (the
+  cross-actor moral fork — the recast raider's counter-offer becomes eligible after the farmer's bounty is
+  taken), and `TwoThreads_BothEligibleInOneWindow` (multi-thread — `barn_raid` + `frog_marsh` beats co-occur).
+- `DialogueTagParserTests`, `DialogueRunnerTests` — tag grammar, suspension/resume (B1), empty-slot fail-closed (W2-2),
+  continue-gated multi-line pumping, and the card-hand verbs (`CombatAvailable`/`CombatEnemyId`, `TriggerCombat`
+  suspend+emit, `Leave` graceful end / refused mid-combat).
+- `EncounterCardHandPresenterTests` — card-hand composition (QuestOffer per Ink choice, tagged-vs-system Attack,
+  always-present Leave, narration shows only Leave) and pick routing (offer→`SelectChoice`, system attack→`TriggerCombat`,
+  tagged attack→Ink choice, Leave→end) (§2.7).
 - `NarrativeSnapshotTests` — fact store round-trip, stable order, PRNG capture (B2), suspended-save refusal (W3-1).
 
 Unity-side classes (SOs, mappers from SO, `NarrativeSliceInstaller`, Ink) are compile-checked and
@@ -403,6 +508,42 @@ verified by entering the slice scene; the Ink→JSON compile and `.asset` wiring
   if needed, it belongs in a separate non-narrative system.
 - **Whole-dialogue skip/abort.** The view's continue and skip inputs both advance one gated line
   (`DialogueRunner.Continue`); a true skip-to-end / abort of the whole conversation has no runner path yet.
+
+### Encounter card model — replaces branching dialogue (scaffold DONE; deeper verbs deferred)
+
+Design intent from `design/narrative/npc-encounter-cards.md` (decisions 2026-06-27; ROADMAP
+"Data-Driven Procedural Narrative" + "Quests"). An NPC encounter becomes **a hand of action-cards**,
+not a read-the-lines-and-pick-a-reply conversation. **The MVP card-hand scaffold is now implemented —
+see §2.7** (situation bubble + composed QuestOffer/Attack/Leave card hand over the unchanged runner).
+The remaining items below are still deferred. What changes vs. the as-implemented flow above (§2.3/§2.6):
+
+- **Two visual registers replace the dialogue panel.** A plain **situation bubble** (one terse line
+  above the NPC, ambient) and, on approach, a **centred hand of 1..N typed cards**. Every player
+  action in the short exchange = picking a card. This replaces the line-by-line, continue-gated
+  reading UI and the Ink **choice list** (`DialogueRunner.OnChoices`/`SelectChoice`/`StoryChoice` →
+  `IDialogueView.ShowChoices`, `DialogueRunnerViewPresenter.HandleChoices`).
+- **Card types:** *quest-offer* (the ornate framed card — glow=tier, color=belonging, item hidden;
+  see [Quest Subsystem](quest-subsystem.md) §6), *combat/attack* (present only on some NPCs; the
+  Monster verb — see Quest §6), *leave/skip*.
+- **What is kept (do not remove):** the tag/effect machinery is the **card outcome channel**. A
+  chosen card still fires `fact:` / `offer-quest:` / `advance-objective:` / `complete-quest:` /
+  `start-combat:` against the casting's footprint exactly as today — only the *presentation +
+  choice-selection* layer changes. Facts remain the sole coupling between stories (R7).
+- **To remove (planned):** the branching-choice presentation — the Ink `*`-choice authoring in the
+  field `.ink` files, the runner's `OnChoices`/`SelectChoice` path and `StoryChoice`, and the
+  dialogue-reading parts of `IDialogueView` (`SetDialogueText` / `ShowChoices` / `PlayTypewriterEffect`
+  / continue-gating) + their `DialogueRunnerViewPresenter` handlers. They are superseded by a
+  card-hand View + Presenter (MVP) over the same runner events. (Today's field stories are already
+  flat — `BarnVictim`/`BarnRaid` carry only accept/decline and fight/let-go — so this is a
+  presentation swap + one new verb, not a teardown of the fact/quest engine.)
+- **Multiple offers on one NPC.** A single story/NPC may present **several quest-offer cards at once**
+  (several resolution paths to one situation), bound by "different currency, not more". This is a new
+  authoring shape — see [Quest Subsystem](quest-subsystem.md) §6. Distinct from the **cross-actor
+  moral fork** (victim vs. robber), which stays time-separated on a shared-actor thread (Quest §6).
+- **Attack card = player trigger for thread closure (D13).** Choosing the combat card (or NPC
+  self-initiation) closes that actor's thread (`narrative-director-requirements.md` D13), routes
+  corpse-loot to the **separate** combat/mutation loot channel (not the quest economy), writes
+  Conquest/path facts, and fires the cauldron tempter bark (Quest §6).
 - **PerLocation-scope content.** The data shape supports it (A1); no slice content uses it yet.
 - **Legacy cutover — done.** The old `NpcDefinition`/`StoryDefinition`/`CompositeDialoguePresenter`/
   `LevelNarrativeGenerator` path, `NarrativeInstaller`, and assets are deleted; `DialogueActiveState`/

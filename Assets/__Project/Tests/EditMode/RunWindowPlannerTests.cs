@@ -36,7 +36,12 @@ namespace Tests.EditMode
                 new FactKeyInfo(FactNamespace.World, "barn_raided", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
                 new FactKeyInfo(FactNamespace.World, "barn_quest_offered", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
                 new FactKeyInfo(FactNamespace.World, "barn_quest_accepted", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
-                new FactKeyInfo(FactNamespace.World, "grain_recovered", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false))
+                new FactKeyInfo(FactNamespace.World, "grain_recovered", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                // Cross-actor fork + frog_marsh passport facts (deeper demo web).
+                new FactKeyInfo(FactNamespace.World, "raider_offer_taken", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                new FactKeyInfo(FactNamespace.World, "reads_as_frogfolk", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                new FactKeyInfo(FactNamespace.World, "frog_quest_offered", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                new FactKeyInfo(FactNamespace.World, "frog_quest_accepted", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false))
             });
             _store = new FactStore(registry, _logger);
             var resolver = new SubjectResolver(_logger);
@@ -364,6 +369,85 @@ namespace Tests.EditMode
             var placed = planner.PlanWindow(1, _store).Platforms.First(p => p.Kind == PlannedPlatformKind.Story);
             Assert.AreEqual("motive", placed.Story.StoryId);
             Assert.AreEqual(looter.InstanceId, placed.Actor.InstanceId); // the barn-looter, not the other raider
+        }
+
+        [Test]
+        public void PassportFact_FlipsClosedDoorToOpen()
+        {
+            // D15/D16 passport gating (frog_marsh thread): two stories on OPPOSITE values of one world fact
+            // (reads_as_frogfolk). While false only the closed-door story is eligible; flipping the passport
+            // true swaps it for the open-door (quest-offering) story. The passport flip in miniature.
+            var settings = new RunPacingSettings(windowSize: 1, narrativeBudgetPerWindow: 100,
+                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
+            var closed = Story("frog_closed", 10, new[] { "frogfolk" },
+                precondition: World("reads_as_frogfolk", false), thread: "frog_marsh");
+            var open = Story("frog_open", 10, new[] { "frogfolk" },
+                precondition: World("reads_as_frogfolk", true), thread: "frog_marsh");
+            var planner = Planner(settings, new[] { closed, open }, new[] { Archetype("arch_frogfolk", "frogfolk") });
+
+            var before = planner.PlanWindow(0, _store);
+            Assert.AreEqual("frog_closed",
+                before.Platforms.First(p => p.Kind == PlannedPlatformKind.Story).Story.StoryId);
+
+            _store.Set(FactKey.Global(FactNamespace.World, "reads_as_frogfolk"), FactValue.FromBool(true));
+            var after = planner.PlanWindow(1, _store);
+            Assert.AreEqual("frog_open",
+                after.Platforms.First(p => p.Kind == PlannedPlatformKind.Story).Story.StoryId);
+        }
+
+        [Test]
+        public void CrossActorFork_RaiderCounterOfferEligible_AfterBountyTaken()
+        {
+            // The cross-actor moral fork (quest-as-reward.md §4): the player takes the farmer's bounty
+            // (world.barn_quest_accepted == true), and the raid leaves the raider at large. A couple
+            // platforms later the SAME raider, recast by his actor-scoped fact, becomes eligible to make the
+            // mutually-exclusive counter-offer - opposed facts on one shared-actor thread, separated in time.
+            var settings = new RunPacingSettings(windowSize: 1, narrativeBudgetPerWindow: 100,
+                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
+            var raid = Story("story_barn_raid", 10, new[] { "raider" },
+                precondition: World("barn_raided", false), thread: "barn_raid");
+            var counter = Story("story_raider_motive", 10, new[] { "motive" },
+                precondition: LootedBarn(true), thread: "barn_raid");
+            var planner = Planner(settings, new[] { raid, counter }, new[] { Archetype("arch_raider", "raider") });
+
+            var window1 = planner.PlanWindow(0, _store);
+            var raidPlatform = window1.Platforms.First(p => p.Kind == PlannedPlatformKind.Story);
+            Assert.AreEqual("story_barn_raid", raidPlatform.Story.StoryId); // only the world-gated raid at first
+            var raider = raidPlatform.Actor;
+
+            _store.Set(FactKey.Global(FactNamespace.World, "barn_raided"), FactValue.FromBool(true));
+            _store.Set(FactKey.Global(FactNamespace.World, "barn_quest_accepted"), FactValue.FromBool(true)); // bounty taken
+            _store.Set(new FactKey(FactNamespace.Actor, raider.InstanceId, "looted_barn"), FactValue.FromBool(true));
+
+            var window2 = planner.PlanWindow(1, _store);
+            var placed = window2.Platforms.First(p => p.Kind == PlannedPlatformKind.Story);
+            Assert.AreEqual("story_raider_motive", placed.Story.StoryId);          // counter-offer eligible
+            Assert.AreEqual(raider.InstanceId, placed.Actor.InstanceId);           // same raider recast
+        }
+
+        [Test]
+        public void TwoThreads_BothEligibleInOneWindow()
+        {
+            // Multi-thread (D12/D14): a barn_raid opener and a frog_marsh opener are both eligible at once, so
+            // a single window holds beats from two DISTINCT threads. Exercises the planner's concurrent-thread
+            // selection (the within-window "continue the started thread" preference operates over real threads).
+            var settings = new RunPacingSettings(windowSize: 4, narrativeBudgetPerWindow: 100,
+                minCombatPerWindow: 0, maxCombatPerWindow: 0, lookAheadWindows: 1);
+            var barn = Story("story_barn_victim", 10, new[] { "villager" },
+                precondition: World("barn_quest_offered", false), thread: "barn_raid");
+            var frog = Story("story_frog_elder_closed", 10, new[] { "frogfolk" },
+                precondition: World("reads_as_frogfolk", false), thread: "frog_marsh");
+            var archetypes = new[] { Archetype("arch_villager", "villager"), Archetype("arch_frogfolk", "frogfolk") };
+
+            var plan = Planner(settings, new[] { barn, frog }, archetypes).PlanWindow(0, _store);
+
+            Assert.AreEqual(2, StoryCount(plan));
+            var threads = plan.Platforms
+                .Where(p => p.Kind == PlannedPlatformKind.Story)
+                .Select(p => p.Story.ThreadId)
+                .Distinct()
+                .ToList();
+            CollectionAssert.AreEquivalent(new[] { "barn_raid", "frog_marsh" }, threads);
         }
     }
 }

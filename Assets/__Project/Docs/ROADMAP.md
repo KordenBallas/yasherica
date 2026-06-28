@@ -59,6 +59,10 @@ Known limitations (§5):
   `character-progression.md`. Only single-predicate conditions are supported — composition is a
   Character Progression follow-up.)*
 - [ ] `[rule]` Generator logs via `Debug.Log/LogWarning` directly — violates the logger-abstraction rule (§9).
+- [ ] `[debt]` **Reconcile/retire `narrative-generation.md`.** §1–§3 describe the deleted legacy pipeline
+  (replaced by the streaming director — `narrative-procedural.md` / `narrative-director-requirements.md`).
+  Decide: fold any still-relevant P1–P4 planned design into the streaming docs and retire/trim this file.
+  Stale-banner added; reconciliation pending.
 
 ---
 
@@ -110,12 +114,20 @@ Deferred design (from `narrative-procedural.md` §6):
     and a fixed biome (Forest); fold loot platforms and progression/biome selection into the planner.
 - [ ] `[arch]` **Director pacing — thread balancing.** Cross-window thread continuity/quotas beyond the
   planner's within-window thread preference (ties into R8 first-class threads).
-- [ ] `[content]` **Quest-carried item rewards.** The legacy `RewardResolver`/`RewardSlot` granted item
-  rewards from stories; the new engine has no item-reward sink (quests carry fact effects). Add item
-  rewards on the quest so the cutover doesn't drop them.
+- [ ] `[content]` **Demo fact-web sharpeners.** The deeper two-thread demo (`narrative-procedural.md` §4)
+  defers, to sharpen director fact-analysis coverage later: (a) **numeric-threshold facts** — an int fact
+  (e.g. `village_hunger`) exercising `Gt/Gte/Lt/Lte` (today all demo facts are Bool/`Eq`); (b) replace the
+  card-set `world.reads_as_frogfolk` **passport stand-in** with the real mutation→fact projection (D15);
+  (c) a **single NPC offering several resolution cards at once** (`npc-encounter-cards.md` §3), which needs
+  multiple quest slots per story (one today).
+- [x] `[content]` **Quest-carried item rewards.** *(Done — item rewards live on `QuestDefinition._rewards`
+  and are granted on completion by `QuestRewardGranter` (no longer a no-op) via the `PlatformCompletedState`
+  hook. Item rewards only; currency/experience/ability kinds still lack a receiving system. See CHANGELOG;
+  `quest-subsystem.md`.)*
 - [ ] `[arch]` **Window/horizon save-state.** `RunNarrativeSnapshot` does not yet capture the streaming
-  planner's window/committed-horizon state **nor the `ILiveActorRegistry` live-actor set** (recurring-actor
-  continuity, D11); add both (ties to R14 file IO).
+  planner's window/committed-horizon state, the `ILiveActorRegistry` live-actor set (recurring-actor
+  continuity, D11), **nor the `ILiveQuestRegistry` live-quest set** (cross-dialogue quest continuity, R8);
+  add all three (ties to R14 file IO).
 - [ ] `[arch]` **R11 — Reactive-rule cascade layer.** Optional central layer that derives cross-category
   cascades from fact reads/writes; cascades are explicit authored effects until then.
 - [ ] `[arch]` **OR/boolean precondition composition.** Preconditions are AND-only; add OR/grouping.
@@ -127,8 +139,23 @@ Deferred design (from `narrative-procedural.md` §6):
   existing `IDialogueView` from the runner's events and is wired in `NarrativeSliceInstaller`; the runner
   gained continue-gated pumping (`AwaitingContinue` + `Continue()`) so multi-line knots are read one line
   at a time. See CHANGELOG; `narrative-procedural.md`. A whole-dialogue skip/abort path remains open.)*
-- [ ] `[arch]` **Whole-dialogue skip/abort.** The view's continue and skip inputs both advance one gated
-  line (`DialogueRunner.Continue`); add a runner path to skip-to-end / abort the whole conversation.
+- [~] `[arch]` **Whole-dialogue skip/abort.** `DialogueRunner.Leave()` now ends the whole conversation
+  (outcome `"leave"`, the card-hand Leave card). Still open: skip-to-end of a running multi-line knot, and
+  abort while suspended on combat (`Leave()` refuses `AwaitingExternal`).
+- [x] `[arch]` **Encounter card model — cut branching dialogue (presentation cutover).** *(Done, MVP
+  scaffold — the encounter is a **situation bubble + composed hand of typed cards**
+  (`EncounterCardHandPresenter` + `IEncounterCardHandView`) over the unchanged runner; the tag/effect
+  machinery is kept as the card-outcome channel, only presentation + choice selection changed. `DialogueRunner`
+  gained `TriggerCombat`/`Leave`/`CombatAvailable`. See CHANGELOG; `narrative-procedural.md` §2.7. The
+  reward tier-glow/belonging color (gated on Crafting), the full Monster verb, several-offers-per-NPC, and
+  deletion of the old UI remain as the separate items below.)*
+- [ ] `[debt]` **Remove the branching-choice dialogue UI.** The card hand has landed (`narrative-procedural.md`
+  §2.7) and the old UI is dormant/unbound — this removal is now ready to execute: retire the
+  branching-choice presentation: the runner's `OnChoices`/`SelectChoice` path + `StoryChoice`, the
+  reading parts of `IDialogueView` (`SetDialogueText`/`ShowChoices`/`PlayTypewriterEffect`/continue-gating)
+  and their `DialogueRunnerViewPresenter` handlers, and the `*`-choice authoring in the field `.ink`
+  files (migrate `BarnVictim`/`BarnRaid`/`GratefulFarmer` to the card model). The fact/quest/tag engine
+  stays. *(debt — narrative)*
 - [ ] `[content]` **PerLocation-scope content.** Data shape supports per-location world facts (A1);
   author content that uses it (e.g. `world.<locationId>.burned` cascades).
 - [ ] `[content]` **Optional ambient/bark channel.** The legacy dual-Ink bark channel was dropped; if
@@ -136,6 +163,14 @@ Deferred design (from `narrative-procedural.md` §6):
 - [x] `[debt]` **Legacy cutover.** *(Done — `DialogueActiveState`/`NpcContent` run the casting/streaming
   engine; the old `NpcDefinition`/`StoryDefinition`/`CompositeDialoguePresenter`/`NpcAssignment` path,
   `NarrativeInstaller`, and assets are deleted. See CHANGELOG; "Story-first streaming director" above.)*
+- [x] `[content]` **Barn demo — exercise the quest loop end-to-end.** *(Done — `DemoQst_BarnBounty`
+  (`qst_barn_bounty`, tag `bounty`, objective `obj_return_grain`, reward `1× rock`) fills the `bounty`
+  Quest slot. Now split **across two platforms** to prove cross-dialogue continuity: `story_barn_victim`
+  (window 1) carries the `bounty` slot and **offers** the quest on the "bring your grain back" branch;
+  `story_grateful_farmer` (window 2) restores the live instance and **advances/completes** it (its
+  `GratefulFarmer.ink` no longer offers), so the reward is granted on the window-2 platform. Reachable
+  after accepting the victim's plea + winning the raid. See CHANGELOG; `quest-subsystem.md` (R8, §4);
+  `narrative-procedural.md` §4.)*
 - [ ] `[content]` **Barn demo — combat loss branch.** `BarnRaid.ink`'s fight `else` (raider wins) is a
   flavor line treated as run-end; wire a real loss consequence once a run-failure path exists.
 - [ ] `[arch]` **D12 — Window-1 adjacency ordering.** The barn demo only needs the victim + raider to
@@ -154,8 +189,9 @@ New work (no system doc yet — author `character-progression.md` when implement
   tracking quests (active/completed/failed), NPCs encountered, and key choices, plus
   `RunConditionEvaluator`. Recorded from the dialogue flow (NPC encounter + Ink `start_quest`);
   consumed by `RewardResolver` to evaluate `RewardSlot.Condition`. See CHANGELOG;
-  `character-progression.md`. Quest **completion/failure** recording and `StoryNodeRequirement`
-  gating remain open — see follow-ups below.)*
+  `character-progression.md`. Quest **completion/failure** recording is now wired — the quest
+  lifecycle tags drive `IRunProgressionRecorder.CompleteQuest`/`FailQuest` (see `quest-subsystem.md`).
+  `StoryNodeRequirement` gating remains open — see follow-ups below.)*
 - [ ] `[arch]` **M2 — Condition AND/OR composition.** `RunConditionEvaluator` supports a single
   predicate only; add boolean composition so a reward/node can require multiple run-state facts.
 - [ ] `[arch]` **M2 — Wire `StoryNodeRequirement` gating.** `RequiredActiveQuests` /
@@ -170,23 +206,88 @@ New work (no system doc yet — author `character-progression.md` when implement
 
 ## Quests
 
-New work (no system doc yet — author `quest-subsystem.md` when implemented):
-- [ ] `[arch]` **M2 — Separate quests from stories.** Introduce a `QuestDefinition` SO (objectives,
-  state, rewards, tags) distinct from `StoryDefinition`; link stories ↔ quests by reference. A story
-  can offer/advance/complete one or more quests; a quest can be referenced by multiple stories.
-  Replace the placeholder `QuestContent`.
-- [ ] `[content]` **M2 — Quest rewards live on the quest.** Move quest-completion rewards from the
-  story's `RewardSlot[]` onto the quest, so story rewards and quest rewards are authored separately.
-- [ ] `[arch]` **M2 — Explicit quest-completion signal from Ink.** Complete quests on an explicit Ink
-  signal rather than on walking away from dialogue (mirrors the Loot §4 known limitation).
+See `quest-subsystem.md` for the implemented quest fragment, lifecycle, and rewards.
+
+> **Priority — the quest-as-reward economy** (`design/narrative/quest-as-reward.md`,
+> `quest-subsystem.md` §6). Make a quest *offer* feel like a prize. **Gated:** the reward **tier**
+> (card glow + roll-by-tier) needs the artifact trait/tier model — see **`## Crafting`** (prerequisite).
+> Suggested order:
+> - *Can precede the tier model:* (1) cross-dialogue quest continuity (enabler below);
+>   (2) competing same-tier offers + mutual-exclusion facts on a thread; (3) the encounter card-hand
+>   scaffold (situation bubble + typed card hand) that replaces the branching dialogue UI, incl.
+>   several offers per NPC and the attack card.
+> - *Gated on `## Crafting` (tier):* (4) reward rolled by `tier + archetype-bias`; (5) the card's
+>   tier glow + belonging color; (6) the cauldron tempter bark.
+- [x] `[arch]` **M2 — Separate quests from stories.** *(Done — `QuestDefinition` SO (objectives, tags,
+  on-complete/on-fail fact effects, rewards) distinct from the story; matched into a story Quest slot by
+  tag; `QuestData`/`QuestInstance`/`QuestMapper`. The placeholder `QuestContent` is no longer used by the
+  engine. See CHANGELOG; `quest-subsystem.md`.)*
+- [x] `[content]` **M2 — Quest rewards live on the quest.** *(Done — item rewards authored on
+  `QuestDefinition._rewards`; granted on completion via `QuestRewardGranter` through the
+  `PlatformCompletedState` hook. Item rewards only — currency/experience/ability reward kinds still have
+  no receiving system (Cross-cutting). See CHANGELOG.)*
+- [x] `[arch]` **M2 — Explicit quest-completion signal from Ink.** *(Done — `complete-quest:` /
+  `fail-quest:` / `advance-objective:` Ink tags drive `QuestInstance.Complete`/`Fail`/`AdvanceObjective`
+  in `DialogueRunner`; completion is explicit, not on walking away. See CHANGELOG; `quest-subsystem.md`.
+  The Loot §4 "explicit Ink quest-completed signal" walk-away limitation is resolved for the new engine.)*
+- [x] `[arch]` **M2 — Cross-dialogue quest continuity.** *(Done — run-scoped `ILiveQuestRegistry` /
+  `LiveQuestRegistry` (bound `AsSingle` beside `ILiveActorRegistry`) holds live `QuestInstance`s by id;
+  `DialogueRunner.Begin` restores the registered instance when the casting carries an already-offered quest
+  (matched by id via its Quest slot) instead of resetting, and `QuestRewardGranter` now scans the registry.
+  A quest can be offered on platform A and completed on a later platform B. Demo: `story_barn_victim`
+  (window 1) offers `qst_barn_bounty`, `story_grateful_farmer` (window 2) completes it. Tested by
+  `LiveQuestRegistryTests` + a cross-dialogue `DialogueRunnerTests` case. See CHANGELOG; `quest-subsystem.md`
+  R8.)*
+- [ ] `[content]` **M2 — Quest log UI.** Surface the active/completed/failed quests and objective
+  progress (ties into the backlog quest-log item + the progression record).
+
+Quest-as-reward (priority — `design/narrative/quest-as-reward.md`, `quest-subsystem.md` §6):
+- [ ] `[arch]` **Reward = rolled `tier + archetype-bias`, not a literal id.** Replace the fixed
+  `(artifactId, count)` on `QuestRewardCore` / `QuestRewardSerial` with a declared **reward tier +
+  archetype-bias**; on completion `QuestRewardGranter` **rolls** the artifact against loot tables by
+  tier + bias instead of granting a literal id. Keeps the offer-card glow honest and the world
+  non-catalog ("direction + floor, not vending"). Item rewards only. *(quests + loot)*
+- [ ] `[arch]` **Competing / mutually-exclusive same-tier offers, separated in time.** Two offers on a
+  shared-actor thread (director D10–D12) where accepting/declining the first gates a **same-tier** second
+  offer placed a couple platforms later; the choice reads as *whose side / which facts*, not "better
+  loot." The cross-dialogue quest-continuity prerequisite is now **done** (above); this still needs
+  mutual-exclusion facts **and** same-tier offer placement. *(quests + narrative)*
+- [x] `[content]` **Encounter card-hand UI (replaces the dialogue choice UI).** *(Done, MVP — the NPC
+  encounter is a situation bubble + a centred **hand of typed cards** composed by `EncounterCardHandPresenter`
+  over the `DialogueRunner` offer/choice events; card types **quest-offer** / **attack** (Ink `# card: attack`
+  or system-added when combat-capable) / **leave** (always). Supersedes the line-reading + Ink choice-list UI
+  (now dormant). The card visual is a placeholder per-type tint — the **frame glow = tier, color = belonging,
+  exact item hidden** treatment is still gated on the Crafting tier model. See CHANGELOG; `narrative-procedural.md`
+  §2.7. Prefabs `Prefabs/UI/Encounter/EncounterCardHandView` + `EncounterCardView` are authored and wired.)* *(quests + narrative)*
+- [x] `[content]` **Encounter Dialogue UI — Hades-style box (presentation/feel upgrade).** *(Done, MVP —
+  bottom-centre dialogue box with portrait + name, word-by-word line reveal (tap to complete), cards
+  centred above the box, the **quest card labelled with the job** (title + summary), and author-marked
+  `[[ ]]` keyword highlighting in lines and cards. Pure-C# `KeywordHighlightFormatter`; `DialogueRunner`
+  gains `OfferedQuest`/`EncounterArchetypeId`/`EncounterDisplayName` read-only seams; view on TMP via
+  `maxVisibleCharacters`; portrait resolved through `INpcArchetypeCatalog`. Engine unchanged. See
+  `encounter-dialogue-ui.md`; `narrative-procedural.md` §2.7. **Deferred:** per-tier card glow (gated on
+  Crafting), several quest cards per NPC, mid-conversation portrait/emotion changes, automatic name
+  detection.)* *(quests + narrative)*
+- [ ] `[arch]` **Several quest offers per NPC/storylet (new authoring shape).** A single story/NPC may
+  present **multiple quest-offer cards at once** (several resolution paths to one situation), same tier +
+  "different currency, not more". Today a story carries one Quest slot; let a story/casting carry several
+  offers and the card hand present them. Distinct from the time-separated cross-actor fork above. *(quests + narrative)*
+- [ ] `[arch]` **Attack card — the Monster verb.** A combat card present on **eligible NPCs only** (NPC
+  may also self-initiate) that, on pick: closes the actor's thread (director D13), routes corpse-loot to
+  the **separate** combat/mutation loot channel (`LootRollService` — never balance the fork on it), writes
+  Conquest/path facts, and fires the cauldron tempter bark. `design/narrative/npc-encounter-cards.md` §4. *(quests + narrative + loot)*
+- [ ] `[content]` **Cauldron-voice tempter hook on the dark offer.** A bark slot fired when a
+  power-archetype (Monster-path) offer **or the attack card** is presented, so the temptation rides fiction
+  rather than weighting the loot (`design/narrative/cauldron-voice.md`).
 
 ---
 
 ## Loot Subsystem
 
 Known limitations (from `loot-subsystem.md` §4):
-- [ ] `[content]` Explicit Ink "quest completed" signal — today walking away from a dialogue still
-  completes the platform and grants rewards.
+- [x] `[content]` Explicit Ink "quest completed" signal — *(Done for the new engine — quests complete on
+  an explicit `complete-quest:` Ink tag, not on walking away; rewards are granted for a `Completed` quest
+  only. See `quest-subsystem.md`; CHANGELOG.)*
 - [ ] `[arch]` Filler platforms (beyond scenario requirements) never carry loot; only requirement-driven ones roll it.
 - [ ] `[arch]` Non-item `RewardType`s have no receiving system (see Cross-cutting).
 - [ ] `[arch]` Inventory capacity feedback (R11) is unreachable while inventory is unlimited;
@@ -196,6 +297,11 @@ Known limitations (from `loot-subsystem.md` §4):
 - [ ] `[debt]` `WorldArtifactView` duplicates `BubbleView`'s depth-stack construction; extract a shared
   builder once a third consumer appears.
 - [ ] `[arch]` World pickups are not despawned when leaving a platform; they persist until collected or scene unload.
+- [ ] `[debt]` **Refresh `loot-subsystem.md` to the streaming cutover.** The doc (2026-06-12) describes the
+  deleted legacy reward path (`RewardResolver`/`ResolvedReward`, `StoryDefinition` reward slots,
+  `NpcAssignment.Rewards`, `NarrativeInstaller`/`ScenarioGenerator`/`PlatformGraphGenerator`) and a wrong
+  `QuestRewardGranter`; rewrite §1.6/§2 to the live state (fixed `QuestRewardCore` grant; `LootRollService`
+  dormant until "Streaming-path loot" lands). Stale-banner added; full rewrite pending.
 
 ---
 
@@ -368,6 +474,39 @@ Enhancements to the implemented combat (extend `ability-subsystem.md` / a new co
   artifact via `ArtifactArchetypeMapper.ToProfile` into `IMutationTally.Add` and advances
   `IDigestionProgress`. *(Done — see CHANGELOG; `inventory-subsystem.md` R24–R26; `mutation-subsystem.md`.)*
 - [ ] _seed remaining items from `inventory-subsystem.md` "Known limitations" on next pass._
+
+---
+
+## Crafting
+
+Design intent in `design/crafting/model.md` (handed off in `design/needs-code.md`, 2026-06-21). The
+shipped combine is a flat recipe table (`inventory-subsystem.md` R16–R18); this evolves it.
+- [ ] `[arch]` **Artifact trait model (incl. tier).** Add to `ArtifactDefinition`, beside the existing
+  `_archetypeWeights`: **substance** + **property** trait tags and a **tier/potency** axis (traits
+  hidden from UI; read from the fiction). **Prerequisite for the quest-as-reward reward economy** —
+  the reward card's tier glow + belonging color and the roll-by-`tier + archetype-bias` all need this
+  tier/archetype data on the artifact. (`ArtifactDefinition` has no tier today.)
+- [ ] `[arch]` **Two-tier emergent resolution (no failure).** Match a signature `RecipeDefinition`
+  first, else compute an emergent result from input traits (combine/amplify/transmute); every combine
+  yields something. Reuses `RecipeBook`/`RecipeDefinition` as the signature layer.
+- [ ] `[arch]` **Crafting → mutation coupling.** Feeding accumulates a trait-tally beside the archetype
+  tally; `PartDefinition` gains trait-affinity; `MutationOptionBuilder` gains a trait term in its score
+  (`(archetypeAffinity·archetypeTally + traitAffinity·traitTally) × rarity`). Scored, not deterministic.
+
+---
+
+## Developer Tools
+
+See `dev-tools.md` for the implemented overlay.
+- [x] `[arch]` **Dev state overlay (quests + director facts).** *(Done — key-toggled IMGUI overlay
+  (F1, editor/dev-build only) with generic sections; `DevStatePresenter`/`IDevStateSource` +
+  `DevOverlayView` + `DevToolsInstaller`. See CHANGELOG; `dev-tools.md`.)*
+- [ ] `[content]` **More dev sections.** Inventory contents, mutation feed tally / digestion progress,
+  the streaming planner's window/committed-horizon + `ILiveActorRegistry` live actors, and live quest
+  objective progress (advanced/target) read from `ILiveQuestRegistry.LiveQuests`.
+- [ ] `[arch]` **Mutating dev controls.** Beyond read-out: force a fact value, force a quest to
+  complete/fail, or grant an artifact from the overlay (currently read-only).
+- [ ] `[arch]` **Configurable toggle key.** The toggle is hardcoded to F1; make it configurable.
 
 ---
 

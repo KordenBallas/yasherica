@@ -10,7 +10,7 @@ namespace Platform
     /// Entry adapter for a narrative platform: runs the planner's committed encounter through the
     /// data-driven engine. On enter it reads the platform's <see cref="NpcContent"/> (its minted actor +
     /// planned story) and asks <see cref="EncounterDirector.BeginPlanned"/> to cast and start the
-    /// <see cref="DialogueRunner"/>; the bound <c>DialogueRunnerViewPresenter</c> drives the view. Routes
+    /// <see cref="DialogueRunner"/>; the bound <c>EncounterCardHandPresenter</c> drives the card-hand view. Routes
     /// the runner's outcomes back to the platform: combat → spawn enemy + CombatActiveState; a normal
     /// dialogue end (no combat) → completed. The post-combat resume + completion is owned by
     /// CombatActiveState (the runner is a singleton suspended across the combat state).
@@ -21,7 +21,6 @@ namespace Platform
 
         private readonly EncounterDirector _encounterDirector;
         private readonly DialogueRunner _runner;
-        private readonly IDialogueView _view;
         private readonly IPlatformStateFactory _stateFactory;
 
         private IPlatform _platform;
@@ -32,12 +31,10 @@ namespace Platform
         public DialogueActiveState(
             EncounterDirector encounterDirector,
             DialogueRunner runner,
-            IDialogueView view,
             IPlatformStateFactory stateFactory)
         {
             _encounterDirector = encounterDirector;
             _runner = runner;
-            _view = view;
             _stateFactory = stateFactory;
         }
 
@@ -56,15 +53,6 @@ namespace Platform
 
             _runner.OnCombatTriggered += HandleCombatTriggered;
             _runner.OnDialogueEnded += HandleDialogueEnded;
-
-            if (_npc.Portrait != null)
-            {
-                _view.SetPortrait(_npc.Portrait);
-            }
-            else
-            {
-                _view.ClearPortrait();
-            }
 
             if (!_encounterDirector.BeginPlanned(_npc.PlannedStory, _npc.Actor))
             {

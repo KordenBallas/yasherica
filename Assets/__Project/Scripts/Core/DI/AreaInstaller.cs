@@ -57,6 +57,11 @@ namespace Core.DI
             InstallGameCoreBindings();
             InstallPlatformBindings();
             InstallCombatBindings();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // Developer state overlay (quests + director facts). Editor/dev-build only; never ships.
+            DevToolsInstaller.Install(Container);
+#endif
         }
 
         private void InstallGameCoreBindings()

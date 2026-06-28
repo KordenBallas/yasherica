@@ -19,6 +19,11 @@ MonoBehaviour:
     _requiredTags:
     - barn-victim
     _optional: 0
+  - _slotId: bounty
+    _kind: 1
+    _requiredTags:
+    - bounty
+    _optional: 1
   _preconditions:
   - _namespace: 0
     _subjectToken:

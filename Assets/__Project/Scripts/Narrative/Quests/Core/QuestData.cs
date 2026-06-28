@@ -19,10 +19,14 @@ namespace Narrative.Quests.Core
         public IReadOnlyList<FactEffectCore> OnCompleteEffects { get; }
         public IReadOnlyList<FactEffectCore> OnFailEffects { get; }
 
+        /// <summary>Item rewards granted on completion (R-rewards). Item-only; no fact write, so not in the footprint.</summary>
+        public IReadOnlyList<QuestRewardCore> Rewards { get; }
+
         private readonly List<FactKeyShapeCore> _footprint;
 
         public QuestData(string questId, string displayName, string summary, IReadOnlyList<QuestObjective> objectives,
-            IReadOnlyList<string> tags, IReadOnlyList<FactEffectCore> onCompleteEffects, IReadOnlyList<FactEffectCore> onFailEffects)
+            IReadOnlyList<string> tags, IReadOnlyList<FactEffectCore> onCompleteEffects, IReadOnlyList<FactEffectCore> onFailEffects,
+            IReadOnlyList<QuestRewardCore> rewards = null)
         {
             QuestId = questId ?? string.Empty;
             DisplayName = displayName ?? string.Empty;
@@ -31,6 +35,7 @@ namespace Narrative.Quests.Core
             Tags = tags ?? System.Array.Empty<string>();
             OnCompleteEffects = onCompleteEffects ?? System.Array.Empty<FactEffectCore>();
             OnFailEffects = onFailEffects ?? System.Array.Empty<FactEffectCore>();
+            Rewards = rewards ?? System.Array.Empty<QuestRewardCore>();
             _footprint = BuildFootprint();
         }
 

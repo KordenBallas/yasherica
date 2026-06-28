@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bcb3e870f3de04b42bc98edf8ebf147b, type: 3}
+  m_Name: DemoQst_BarnBounty
+  m_EditorClassIdentifier: Yasherica::Narrative.Quests.Data.QuestDefinition
+  _questId: qst_barn_bounty
+  _displayName: The Farmer's Bounty
+  _summary: Recover the farmer's stolen grain from the [[Raiders]] and claim the bounty.
+  _objectives:
+  - _objectiveId: obj_return_grain
+    _description: Return the stolen grain to the farmer.
+    _kind: 2
+    _targetCount: 1
+    _completionEffects: []
+  _questTags:
+  - bounty
+  _onCompleteEffects: []
+  _onFailEffects: []
+  _rewards:
+  - _artifactId: rock
+    _count: 1

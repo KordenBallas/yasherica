@@ -8,6 +8,72 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Added
+- **Data-Driven Procedural Narrative (deeper demo fact-web — director fact-analysis coverage):** the demo
+  slice grows from one thread to **two parallel threads** so the director's eligibility analysis is
+  exercised across previously-untested paths (content/asset-only — no engine change). New `frog_marsh`
+  thread tests **passport/faction gating** (D15/D16): four stories gated on the passport fact
+  `world.reads_as_frogfolk` — `MarshPool` (a card sets the fact, standing in for the mutation→fact
+  projection), `FrogElderClosed` (passport-negative, recurs until you pass), `FrogElderOpen` (passport-
+  positive, offers `qst_frog_errand`), `FrogMarshThanks` (the thread's 2nd beat — completes it). Running
+  alongside `barn_raid` (distinct `_threadId`s eligible together) it exercises **multi-thread within-window
+  coherence** (D12/D14). The `barn_raid` thread gains the **cross-actor moral fork** (`quest-as-reward.md`
+  §4): `RaiderMotive` is reworked from an arc-closer into the recurring raider's **counter-offer** —
+  a quest-offer card OFFERING `qst_raider_run` (power currency, `1× fire`) opposed to the farmer's bounty
+  (access currency), same tier, separated in time on the shared actor's thread, writing
+  `world.raider_offer_taken` + closing the arc (D13). New assets: 4 `FactKeyDefinition`s
+  (`raider_offer_taken`, `reads_as_frogfolk`, `frog_quest_offered`, `frog_quest_accepted`) registered in
+  `DemoFactKeyRegistry`; `arch_frogfolk` archetype (faction `marsh_folk`); `qst_raider_run` +
+  `qst_frog_errand`; 4 stories (`.ink` + hand-authored compiled `.json` + `StoryTemplate` + `DialogueDefinition`).
+  All facts Bool (numeric-threshold facts deferred). See `narrative-procedural.md` §4 (demo slice).
+- **Encounter Dialogue UI (Hades-style presentation/feel upgrade — R1–R12):** the NPC encounter is now
+  a bottom-centre dialogue **box** with the speaker's portrait + name, the current line revealed **word
+  by word** at a tunable global reading speed (tap to instantly complete), choice **cards** centred
+  above the box that appear only once the line finishes, and author-marked **`[[ ]]` key words** tinted
+  in both lines and cards. The **quest card is labelled with the job** — the offered quest's title
+  (`DisplayName`) + objective/summary (`Summary`), not just the reply text. New pure-C#
+  `KeywordHighlightFormatter` (`[[word]] → <color>` rich text, markers stripped; unit-tested);
+  `EncounterCardViewData` gains optional `QuestTitle`/`QuestObjective`; `DialogueRunner` gains read-only
+  `OfferedQuest` / `EncounterArchetypeId` / `EncounterDisplayName` seams (no engine behavior change);
+  `IEncounterCardHandView` gains `SetPortrait(archetypeId)`. The view (`EncounterCardHandView` /
+  `EncounterCardView`) moves to `TextMeshProUGUI` and reveals via TMP `maxVisibleCharacters` stepped to
+  word boundaries (rich-text color spans stay intact), resolves the portrait through the already-bound
+  `INpcArchetypeCatalog`, and falls back to a neutral placeholder for portrait-less NPCs. The presenter
+  stays UnityEngine-free (forwards the archetype **id**, not a `Sprite`); the conversation engine
+  (facts/quests/combat) is unchanged. Demo: `BarnVictim` marks `[[Raiders]]` in the victim's line and
+  the bounty quest summary so the key word reads the same in the line and on the quest card. New
+  `KeywordHighlightFormatterTests` + `EncounterCardHandPresenterTests` cases. The box layout (bottom-
+  centre, portrait `Image`, TMP text, full-box tap catcher, card anchor above the box) is wired in the
+  `EncounterCardHandView` / `EncounterCardView` prefabs. See new doc `encounter-dialogue-ui.md`;
+  `narrative-procedural.md` §2.7.
+- **Data-Driven Procedural Narrative / Quests (Encounter card-hand UI — presentation cutover, MVP):** the
+  NPC encounter now presents a **situation bubble + a composed hand of typed cards** instead of the
+  line-reading + Ink choice-list panel. New `Narrative.Encounter` MVP slice: `EncounterCardType`
+  (`QuestOffer`/`Attack`/`Leave`/`Talk`), the `EncounterCardViewData` DTO, the pure-C#
+  `EncounterCardHandPresenter`, and the `IEncounterCardHandView` + thin `EncounterCardHandView` /
+  `EncounterCardView` MonoBehaviours. The presenter **composes** the hand off the runner's existing events:
+  a `QuestOffer` card per Ink choice; an `Attack` card from an Ink choice tagged `# card: attack` (or,
+  only at a decision point, a system-added card when the casting is combat-capable and none was authored);
+  and an always-present `Leave` card. The fact/quest/tag engine is unchanged — only presentation + choice
+  selection. `DialogueRunner` gains `CombatAvailable`/`CombatEnemyId`, `TriggerCombat()` (player-initiated
+  combat reusing the `start-combat:` suspend/resume path), and `Leave()` (graceful `"leave"` end).
+  `NarrativeSliceInstaller` binds the card-hand view (the authored `Prefabs/UI/Encounter/EncounterCardHandView`
+  + `EncounterCardView` prefab pair; the view auto-creates an `EventSystem` if the scene lacks one) +
+  presenter; the old `IDialogueView` / `DialogueRunnerViewPresenter` are left **dormant (unbound)** for the
+  separate UI-removal follow-up. The barn demo migrated: `BarnVictim` drops its decline choice (now the
+  system Leave card; `world.barn_quest_accepted` stays default-false), `BarnRaid`'s fight choice is tagged
+  `# card: attack` (its `combat_won → world.grain_recovered` write-back preserved). New
+  `EncounterCardHandPresenterTests` + `DialogueRunnerTests` cases (129 domain tests green). See
+  `narrative-procedural.md` §2.7/§6; `quest-subsystem.md` §6.
+
+### Changed
+- **Loot / Quest Subsystem (reward granting reads the live quest registry):** `QuestRewardGranter` now
+  constructor-injects `ILiveQuestRegistry` (not `DialogueRunner`) and `GrantFor` scans `LiveQuests` for any
+  `Completed`, not-yet-paid quest, granting and marking each (idempotent). This makes the payout land on
+  whichever platform sees a quest completed (cross-dialogue), and models more than one completed quest per
+  platform — removing the prior single-`ActiveQuest` fragility. `QuestRewardGranterTests` updated to drive
+  through the registry. See `quest-subsystem.md` §2.3–§2.4.
+
 ### Removed
 - **Data-Driven Procedural Narrative (Demo slice — old branches pruned to barn-only):** removed the
   "Razor Pass" (bandit) and "Gorge Toll" (sellsword) demo branches so the slice ships only the latest barn
@@ -24,6 +90,53 @@ Every functional change appends an entry **in the same change as the code** (CLA
   `narrative-procedural.md` §4.
 
 ### Added
+- **Quest Subsystem (M2 — cross-dialogue quest continuity; R8):** a live `QuestInstance` now outlives the
+  dialogue that offered it, so a quest can be offered on platform A and completed on a later platform B.
+  New pure-C# run-scoped `ILiveQuestRegistry` / `LiveQuestRegistry` (`Narrative/Quests/Core`, idempotent
+  `Register` on quest id, `TryGet`, ordered `LiveQuests`), bound `AsSingle` in `NarrativeSliceInstaller`
+  beside `ILiveActorRegistry`. `DialogueRunner.Begin` now **restores** the registered instance when the
+  casting carries a quest already offered this run (matched by id via its Quest slot) instead of nulling
+  its active quest; `HandleOfferQuest` registers a newly minted instance and reuses a restored one (no
+  second `Start`). The live registry is the run-scoped counterpart of the progression record (which still
+  holds only status flags, kept in sync via `QuestInstance`'s recorder calls). Demo proof: split the barn
+  bounty across two windows — `story_barn_victim` (window 1) now carries the `bounty` Quest slot and offers
+  `qst_barn_bounty` on the "bring your grain back" branch; `story_grateful_farmer` (window 2) restores and
+  completes it (its `GratefulFarmer.ink` no longer offers). Tested by new `LiveQuestRegistryTests` and a
+  cross-dialogue case in `DialogueRunnerTests`. See `quest-subsystem.md` (R8, §2); `narrative-procedural.md` §4.
+- **Developer Tools (new — in-game dev state overlay):** added a key-toggled IMGUI overlay (default
+  **F1**, editor / development-build only) that displays live game state in generic sections. First two
+  sections: **Quests** (`DisplayName (questId): Status` grouped Active/Completed/Failed, ids mapped to
+  names via `IFragmentLibrary`) and **Director Facts** (`key = value [Type]` from `IFactStore.Snapshot()`).
+  Pure-C# `DevStatePresenter` (`IDevStateSource`) builds the sections from `IRunProgressionRecord` +
+  `IFragmentLibrary` + `IFactStore`; thin `DevOverlayView` renders them. Wired by `DevToolsInstaller`
+  (non-Mono `Installer<T>`, mirrors `LoggingInstaller`), installed from `AreaInstaller` under
+  `#if UNITY_EDITOR || DEVELOPMENT_BUILD` so it never ships. Tested by `DevStatePresenterTests`. New
+  `dev-tools.md`. See `dev-tools.md`.
+- **Quest Subsystem (Demo — barn slice exercises the quest loop end-to-end):** added
+  `DemoQst_BarnBounty` (`qst_barn_bounty`, tag `bounty`, objective `obj_return_grain`, reward `1× rock`,
+  no fact effects) under `Resources/Narrative/Quests/` (auto-loaded by `NarrativeSliceInstaller`). Gave
+  `DemoStory_GratefulFarmer` an optional `bounty` Quest slot (filled by tag) and rewrote
+  `GratefulFarmer.ink` to offer/advance/complete the quest via `offer-quest:`/`advance-objective:`/
+  `complete-quest:`, so the bounty's item reward is granted on platform completion. Reachable in-engine
+  after accepting the barn-victim's plea and winning the raid (the existing window-2 reaction-A path).
+  Single-session by design — the runner's `ActiveQuest` is per-dialogue, so offer and complete live in the
+  same conversation. See `narrative-procedural.md` §4; `quest-subsystem.md`.
+- **Quest Subsystem (M2 — quest lifecycle loop closed; R2–R7):** a quest can now finish, not just
+  start. Added three Ink lifecycle tags parsed by `DialogueTagParser` and dispatched by
+  `DialogueRunner`: `advance-objective: <objectiveId> [amount]`, `complete-quest:`, `fail-quest:`.
+  `DialogueRunner` drives `QuestInstance.AdvanceObjective`/`Complete`/`Fail`, applies the emitted fact
+  effects gated against the **quest's own footprint** (not the dialogue session's), records each
+  transition via `IRunProgressionRecorder` (closing the Character Progression completion/failure-recording
+  gap), and raises new `OnQuestCompleted`/`OnQuestFailed` events. Completion is explicit — advancing
+  objectives never auto-completes. Tags firing with no active quest fail closed (warn + no-op).
+  Quest-carried **item rewards**: `QuestDefinition._rewards` (`QuestRewardSerial` = artifact id +
+  count) → `QuestData.Rewards` (`QuestRewardCore`) via `QuestMapper`; `QuestRewardGranter` (previously a
+  no-op) now reads the singleton `DialogueRunner.ActiveQuest` and, when `Completed`, grants each reward to
+  `IInventoryModel` through the existing `PlatformCompletedState` hook (covers both dialogue-ended and
+  combat-won routes). New tests: `DialogueRunnerTests` (offer→complete/fail, objective advance,
+  no-active-quest no-op), `DialogueTagParserTests` (new tags), `QuestRewardGranterTests`, plus
+  `QuestInstance`/`QuestMapper` reward coverage. New `quest-subsystem.md`; `narrative-procedural.md`
+  tag bridge + quest SO section updated to point to it. See `quest-subsystem.md`.
 - **Data-Driven Procedural Narrative (Demo slice — barn two-window reactive demo, exercises D5/D15 +
   D11/D16):** expanded the single-beat barn slice into a two-window partition demo that makes fact-based
   window-2 selection legible end-to-end. Window 1 places two world-gated openers: `DemoStory_BarnVictim`

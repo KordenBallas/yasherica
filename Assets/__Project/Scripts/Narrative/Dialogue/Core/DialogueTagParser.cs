@@ -42,6 +42,9 @@ namespace Narrative.Dialogue.Core
             {
                 case "speaker": return DialogueTag.Of(DialogueTagKind.Speaker, arg);
                 case "offer-quest": return DialogueTag.Of(DialogueTagKind.OfferQuest, arg);
+                case "advance-objective": return DialogueTag.Of(DialogueTagKind.AdvanceObjective, arg);
+                case "complete-quest": return DialogueTag.Of(DialogueTagKind.CompleteQuest, arg);
+                case "fail-quest": return DialogueTag.Of(DialogueTagKind.FailQuest, arg);
                 case "start-combat": return DialogueTag.Of(DialogueTagKind.StartCombat, arg);
                 case "outcome": return DialogueTag.Of(DialogueTagKind.Outcome, arg);
                 case "fact": return ParseFact(arg);

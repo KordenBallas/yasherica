@@ -41,7 +41,27 @@ namespace Narrative.Quests.Data
                 objectives,
                 new List<string>(definition.QuestTags),
                 ToEffects(definition.OnCompleteEffects),
-                ToEffects(definition.OnFailEffects));
+                ToEffects(definition.OnFailEffects),
+                ToRewards(definition.Rewards));
+        }
+
+        private static List<QuestRewardCore> ToRewards(IReadOnlyList<QuestRewardSerial> serials)
+        {
+            var result = new List<QuestRewardCore>();
+            if (serials == null)
+            {
+                return result;
+            }
+
+            for (int i = 0; i < serials.Count; i++)
+            {
+                if (serials[i] != null)
+                {
+                    result.Add(serials[i].ToCore());
+                }
+            }
+
+            return result;
         }
 
         private static List<FactEffectCore> ToEffects(IReadOnlyList<FactEffectSerial> serials)

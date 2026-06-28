@@ -22,5 +22,9 @@ MonoBehaviour:
     _subjectToken: $self
     _key: looted_barn
     _valueType: 0
+  - _namespace: 0
+    _subjectToken:
+    _key: raider_offer_taken
+    _valueType: 0
   _dialogueTags:
   - raider-motive

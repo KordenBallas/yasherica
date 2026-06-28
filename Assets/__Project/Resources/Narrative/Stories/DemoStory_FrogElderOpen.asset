@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d1bb015d9fd76844a52bb325925df3e, type: 3}
+  m_Name: DemoStory_FrogElderOpen
+  m_EditorClassIdentifier: Yasherica::Narrative.Stories.Data.StoryTemplate
+  _storyId: story_frog_elder_open
+  _slots:
+  - _slotId: dialogue
+    _kind: 0
+    _requiredTags:
+    - frog-elder-open
+    _optional: 0
+  - _slotId: errand
+    _kind: 1
+    _requiredTags:
+    - frog-errand
+    _optional: 1
+  _preconditions:
+  - _namespace: 0
+    _subjectToken:
+    _key: reads_as_frogfolk
+    _op: 0
+    _value:
+      _valueType: 0
+      _boolValue: 1
+      _intValue: 0
+      _floatValue: 0
+      _stringValue:
+  - _namespace: 0
+    _subjectToken:
+    _key: frog_quest_offered
+    _op: 0
+    _value:
+      _valueType: 0
+      _boolValue: 0
+      _intValue: 0
+      _floatValue: 0
+      _stringValue:
+  _ownEffects: []
+  _storyTags:
+  - frogfolk
+  - elder
+  - marsh
+  _threadId: frog_marsh
+  _isSpine: 0
+  _weight: 10

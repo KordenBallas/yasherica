@@ -9,6 +9,7 @@ using Narrative.Casting.Core;
 using Narrative.Dialogue;
 using Narrative.Dialogue.Core;
 using Narrative.Dialogue.Data;
+using Narrative.Encounter;
 using Narrative.Director.Core;
 using Narrative.Director.Data;
 using Narrative.Facts.Core;
@@ -119,6 +120,10 @@ namespace Core.DI
             // Run-scoped set of minted actors the planner queries to recast a recurring actor (D11/D16).
             Container.Bind<ILiveActorRegistry>().To<LiveActorRegistry>().AsSingle();
 
+            // Run-scoped set of offered quests the runner restores by id for cross-dialogue continuity,
+            // and the reward granter scans for a completed-but-unpaid quest on platform completion.
+            Container.Bind<ILiveQuestRegistry>().To<LiveQuestRegistry>().AsSingle();
+
             // The production orchestration (SelectNext -> Cast -> DialogueRunner.Begin). Bound lazily;
             // the gameplay trigger that calls BeginEncounter lands in a later cutover stage.
             Container.Bind<EncounterDirector>()
@@ -160,11 +165,13 @@ namespace Core.DI
 
         private void InstallView()
         {
-            // The dialogue view (ownership moved here from the retired NarrativeInstaller). Instantiated
-            // from the Resources prefab; the DialogueRunnerViewPresenter drives it from the runner's events.
-            Container.Bind<IDialogueView>()
-                .To<DialogueView>()
-                .FromComponentInNewPrefabResource("Prefabs/UI/Dialogue/DialogueView")
+            // The encounter card-hand view (the active encounter presentation; replaces the line-reading
+            // IDialogueView). Instantiated from the Resources prefab; EncounterCardHandPresenter drives it
+            // from the runner's events. The old DialogueView/IDialogueView is left dormant (unbound) for
+            // the separate "Remove the branching-choice dialogue UI" follow-up.
+            Container.Bind<IEncounterCardHandView>()
+                .To<EncounterCardHandView>()
+                .FromComponentInNewPrefabResource("Prefabs/UI/Encounter/EncounterCardHandView")
                 .AsSingle()
                 .NonLazy();
         }
@@ -189,12 +196,14 @@ namespace Core.DI
                     ctx.Container.Resolve<IFactEffectApplier>(),
                     ctx.Container.Resolve<DialogueTagParser>(),
                     ctx.Container.Resolve<IRunProgressionRecorder>(),
+                    ctx.Container.Resolve<ILiveQuestRegistry>(),
                     ctx.Container.Resolve<IGameLogger>()))
                 .AsSingle();
 
-            // View adapter: drives the existing IDialogueView (bound by the legacy NarrativeInstaller
-            // in the Area scene) from the runner's events. Reuses that view; does not bind a new one.
-            Container.BindInterfacesTo<DialogueRunnerViewPresenter>().AsSingle().NonLazy();
+            // Card-hand presenter: composes the typed card hand from the runner's events and drives the
+            // IEncounterCardHandView. Replaces DialogueRunnerViewPresenter as the active encounter adapter
+            // (the old presenter is left dormant — unbound — for the separate UI-removal follow-up).
+            Container.BindInterfacesTo<EncounterCardHandPresenter>().AsSingle().NonLazy();
         }
 
         private void InstallSave()

@@ -1,5 +1,14 @@
 # Narrative Generation — Requirements & Design
 
+> ⚠️ **STALE — describes the deleted legacy pipeline.** The as-implemented system in §1–§3
+> (`LevelNarrativeGenerator`, `StoryDefinition`/`NpcDefinition`/`RewardDefinition`,
+> `LevelNarrativeConfig`, `RewardResolver`, `CompositeDialoguePresenter`, `NarrativeInstaller`,
+> `ScenarioGenerator`, `PlatformGraphGenerator`) was **replaced** by the story-first streaming director
+> in the Phase-3 cutover and **no longer exists** (see ROADMAP "Delete legacy (Phase 3)"). The current
+> engine is documented in `narrative-procedural.md` (as-implemented) and `narrative-director-requirements.md`
+> (forward-looking). This doc is retained only for the §4 planned-design (P1–P4) reference, itself now
+> reframed by the streaming director; do not treat §1–§3 as accurate. Refresh tracked in ROADMAP `[debt]`.
+
 Part of the **Narrative System**. This document describes level narrative generation as implemented: how stories and NPCs are selected and paired when a level is formed, how rewards are resolved, and how the resulting assignments drive platform content and dialogue.
 
 Status: current as of 2026-06-10.

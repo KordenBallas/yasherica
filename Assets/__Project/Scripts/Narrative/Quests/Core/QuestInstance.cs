@@ -30,6 +30,15 @@ namespace Narrative.Quests.Core
         public QuestData Data => _data;
         public IReadOnlyList<FactKeyShapeCore> Footprint => _data.Footprint;
 
+        /// <summary>
+        /// Idempotency guard for reward granting. The runner is a singleton and keeps a completed quest as
+        /// its <c>ActiveQuest</c> after the platform finishes, so the granter marks the quest once to avoid
+        /// re-granting on a later platform's completion that never started a new dialogue.
+        /// </summary>
+        public bool RewardsGranted { get; private set; }
+
+        public void MarkRewardsGranted() => RewardsGranted = true;
+
         public QuestInstance(QuestData data, IRunProgressionRecorder recorder = null)
         {
             _data = data;

@@ -31,6 +31,7 @@ namespace Narrative.Dialogue
         private readonly IFactEffectApplier _applier;
         private readonly DialogueTagParser _parser;
         private readonly IRunProgressionRecorder _recorder;
+        private readonly ILiveQuestRegistry _questRegistry;
         private readonly IGameLogger _logger;
 
         private CastingModel _casting;
@@ -43,26 +44,57 @@ namespace Narrative.Dialogue
         public event Action<IReadOnlyList<StoryChoice>> OnChoices;
         public event Action<string> OnCombatTriggered;
         public event Action<string> OnQuestStarted;
+        public event Action<string> OnQuestCompleted;
+        public event Action<string> OnQuestFailed;
         public event Action<string> OnDialogueEnded;
 
         public DialogueRunner(DialogueSession session, IFactStore store, IFactEffectApplier applier,
-            DialogueTagParser parser, IRunProgressionRecorder recorder = null, IGameLogger logger = null)
+            DialogueTagParser parser, IRunProgressionRecorder recorder = null,
+            ILiveQuestRegistry questRegistry = null, IGameLogger logger = null)
         {
             _session = session;
             _store = store;
             _applier = applier;
             _parser = parser;
             _recorder = recorder;
+            _questRegistry = questRegistry;
             _logger = logger;
         }
 
         public QuestInstance ActiveQuest => _activeQuest;
 
+        /// <summary>
+        /// The quest this casting can offer (its filled quest slot), or null. Read by the encounter UI to
+        /// label the quest card with the job's title + summary BEFORE the player accepts — the offer-quest
+        /// tag (which mints <see cref="ActiveQuest"/>) only fires once the offer choice is taken.
+        /// </summary>
+        public QuestData OfferedQuest => _casting?.OptionalQuest;
+
+        /// <summary>Archetype id of the encounter's NPC — the UI resolves its portrait from this.</summary>
+        public string EncounterArchetypeId => _casting?.Actor?.ArchetypeId;
+
+        /// <summary>The encounter NPC's chosen display name — the UI's default speaker label.</summary>
+        public string EncounterDisplayName => _casting?.Actor?.ChosenDisplayName;
+
+        /// <summary>
+        /// Whether the active casting carries a combat slot — i.e. the encounter card-hand may present an
+        /// Attack card (the Monster verb). Mirrors the gate <see cref="HandleStartCombat"/> checks.
+        /// </summary>
+        public bool CombatAvailable => _casting?.CombatAllowed == true;
+
+        /// <summary>The enemy id the Attack card / <see cref="TriggerCombat"/> initiates (null when none).</summary>
+        public string CombatEnemyId => _casting?.OptionalEnemyId;
+
         /// <summary>Begins a fresh conversation for a casting and pumps to the first stop.</summary>
         public void Begin(CastingModel casting)
         {
             _casting = casting;
-            _activeQuest = null;
+            // Restore the in-flight instance if this casting carries a quest already offered this run
+            // (cross-dialogue continuity); otherwise a fresh offer-quest tag mints and registers it.
+            _activeQuest = casting?.QuestSlotFilled == true && _questRegistry != null
+                && _questRegistry.TryGet(casting.OptionalQuest.QuestId, out var live)
+                ? live
+                : null;
             State = DialogueRunnerState.Running;
             if (casting?.Actor != null)
             {
@@ -110,6 +142,52 @@ namespace Narrative.Dialogue
 
             _session.SetVariable(CombatWonVariable, won);
             Resume();
+        }
+
+        /// <summary>
+        /// Player-initiated combat from the encounter card-hand's Attack card (the Monster verb). Suspends
+        /// to <see cref="DialogueRunnerState.AwaitingExternal"/> and fires <see cref="OnCombatTriggered"/>
+        /// exactly like a <c>start-combat:</c> tag, so the existing <see cref="ReportCombatResult"/> resume
+        /// and platform combat routing are reused. No-op (warns) when no combat is available or while ended
+        /// or already suspended.
+        /// </summary>
+        public void TriggerCombat()
+        {
+            if (State == DialogueRunnerState.Ended || State == DialogueRunnerState.AwaitingExternal)
+            {
+                _logger?.Warning("[DialogueRunner] TriggerCombat in a non-interactive state - ignored.");
+                return;
+            }
+
+            if (!CombatAvailable)
+            {
+                _logger?.Warning("[DialogueRunner] TriggerCombat with no combat in casting - ignored.");
+                return;
+            }
+
+            State = DialogueRunnerState.AwaitingExternal;
+            OnCombatTriggered?.Invoke(_casting.OptionalEnemyId);
+        }
+
+        /// <summary>
+        /// Player-initiated end of the encounter from the card-hand's Leave card. Ends the conversation
+        /// gracefully (outcome <c>"leave"</c>). No-op when already ended; refuses to abort while suspended
+        /// on combat (a full mid-suspension abort is a deferred follow-up).
+        /// </summary>
+        public void Leave()
+        {
+            if (State == DialogueRunnerState.Ended)
+            {
+                return;
+            }
+
+            if (State == DialogueRunnerState.AwaitingExternal)
+            {
+                _logger?.Warning("[DialogueRunner] Leave while suspended on combat - ignored.");
+                return;
+            }
+
+            End("leave");
         }
 
         private void Resume()
@@ -178,6 +256,15 @@ namespace Narrative.Dialogue
                     case DialogueTagKind.OfferQuest:
                         HandleOfferQuest();
                         break;
+                    case DialogueTagKind.AdvanceObjective:
+                        HandleAdvanceObjective(tag.Argument);
+                        break;
+                    case DialogueTagKind.CompleteQuest:
+                        HandleCompleteQuest();
+                        break;
+                    case DialogueTagKind.FailQuest:
+                        HandleFailQuest();
+                        break;
                     case DialogueTagKind.StartCombat:
                         return HandleStartCombat(); // may suspend (returns false)
                     case DialogueTagKind.Outcome:
@@ -198,10 +285,79 @@ namespace Narrative.Dialogue
                 return;
             }
 
-            _activeQuest = new QuestInstance(_casting.OptionalQuest, _recorder);
-            _activeQuest.Start();
+            // A restored instance (offered on an earlier platform) is reused as-is — no second Start().
+            if (_activeQuest == null)
+            {
+                _activeQuest = new QuestInstance(_casting.OptionalQuest, _recorder);
+                _activeQuest.Start();
+                _questRegistry?.Register(_activeQuest);
+            }
+
             _session.SetVariable(QuestAcceptedVariable, true);
             OnQuestStarted?.Invoke(_casting.OptionalQuest.QuestId);
+        }
+
+        /// <summary>Advances an objective of the active quest and applies any objective-completion effects.</summary>
+        private void HandleAdvanceObjective(string argument)
+        {
+            if (_activeQuest == null)
+            {
+                _logger?.Warning("[DialogueRunner] advance-objective with no active quest - ignored.");
+                return;
+            }
+
+            var parts = (argument ?? string.Empty).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0)
+            {
+                _logger?.Warning("[DialogueRunner] advance-objective with no objective id - ignored.");
+                return;
+            }
+
+            int amount = parts.Length >= 2 && int.TryParse(parts[1], out var parsed) ? parsed : 1;
+            ApplyQuestEffects(_activeQuest.AdvanceObjective(parts[0], amount));
+        }
+
+        /// <summary>Completes the active quest, applies its on-complete effects, and records the transition.</summary>
+        private void HandleCompleteQuest()
+        {
+            if (_activeQuest == null)
+            {
+                _logger?.Warning("[DialogueRunner] complete-quest with no active quest - ignored.");
+                return;
+            }
+
+            ApplyQuestEffects(_activeQuest.Complete());
+            OnQuestCompleted?.Invoke(_activeQuest.Data.QuestId);
+        }
+
+        /// <summary>Fails the active quest, applies its on-fail effects, and records the transition.</summary>
+        private void HandleFailQuest()
+        {
+            if (_activeQuest == null)
+            {
+                _logger?.Warning("[DialogueRunner] fail-quest with no active quest - ignored.");
+                return;
+            }
+
+            ApplyQuestEffects(_activeQuest.Fail());
+            OnQuestFailed?.Invoke(_activeQuest.Data.QuestId);
+        }
+
+        /// <summary>
+        /// Applies quest-emitted fact effects gated against the quest's OWN footprint (W2-1), not the
+        /// dialogue session's — a quest is validated and applied against the shapes it declared.
+        /// </summary>
+        private void ApplyQuestEffects(IReadOnlyList<FactEffectCore> effects)
+        {
+            if (effects == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < effects.Count; i++)
+            {
+                _applier.Apply(effects[i], _store, _casting?.Context, _activeQuest.Footprint);
+            }
         }
 
         private bool HandleStartCombat()

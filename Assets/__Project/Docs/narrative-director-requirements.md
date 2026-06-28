@@ -85,6 +85,11 @@ it selects*, not new authoring power. Engine baseline: the story-first, budgeted
 - **D13 — Two thread classes.** *Ephemeral* threads (the default) are under closure pressure — the
   director drives them to a payoff or retires them when they go stale. *Arc / spine* threads are
   the exception: they may live a whole run (or most of it) and are exempt from closure pressure.
+  - **Player-facing trigger — the attack card.** Picking the encounter's **combat/attack card** (or an
+    NPC self-initiating combat) is the in-fiction way the player forces a thread closed: it forecloses
+    that actor's future arc (his recurring-actor motive stories, D11) in exchange for corpse-loot on the
+    separate combat channel. See `design/narrative/npc-encounter-cards.md` §4, `quest-subsystem.md` §6,
+    and `narrative-procedural.md` §6 "Encounter card model".
 - **D14 — Concurrency cap.** A small ceiling on simultaneously-live threads (ephemeral + arc
   together) keeps a run readable as one growing saga. The director prefers advancing an open thread
   over opening a new one.
