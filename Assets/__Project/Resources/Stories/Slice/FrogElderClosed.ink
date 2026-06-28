@@ -8,5 +8,5 @@ VAR npc_name = ""
 
 === start ===
 # speaker: {npc_name}
-The frog elder's throat-sac swells. "We have no words for dry-skins. Go back to your road, outsider."
+Горловой мешок лягушачьего старейшины раздувается. «Нам не о чем говорить с сухокожими. Возвращайся на свою дорогу, чужак.»
 -> END

@@ -11,8 +11,8 @@ VAR quest_accepted = false
 
 === start ===
 # speaker: {npc_name}
-"Every sack returned, just as you swore."
+«Каждый мешок возвращён, как ты и клялся.»
 # advance-objective: obj_return_grain
 # complete-quest: qst_barn_bounty
-"Take this purse - it's all I can spare, and my thanks beyond it."
+«Вот кошель — это всё, что могу уделить, и благодарность сверх того.»
 -> END

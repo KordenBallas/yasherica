@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: DemoQst_FrogErrand
   m_EditorClassIdentifier: Yasherica::Narrative.Quests.Data.QuestDefinition
   _questId: qst_frog_errand
-  _displayName: The Marsh Elder's Errand
-  _summary: The frog elder takes you for kin. Do his small errand and the marsh opens its doors.
+  _displayName: Поручение болотного старейшины
+  _summary: Лягушачий старейшина принимает тебя за своего. Выполни его небольшое поручение, и болото откроет двери.
   _objectives:
   - _objectiveId: obj_frog_errand
-    _description: Run the elder's errand through the marsh.
+    _description: Выполни поручение старейшины через болото.
     _kind: 2
     _targetCount: 1
     _completionEffects: []

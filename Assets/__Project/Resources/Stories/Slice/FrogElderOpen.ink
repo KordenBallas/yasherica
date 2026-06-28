@@ -7,13 +7,14 @@
 // Leaving is the presenter's system Leave card (no Ink choice). NPC-free (R4). npc_name injected on start.
 
 VAR npc_name = ""
+VAR quest_accepted = false
 
 === start ===
 # speaker: {npc_name}
 # fact: world.frog_quest_offered Set true
-The frog elder clasps your webbed hand as kin. "One of ours! Carry this to the far pool for me, cousin?"
-* [I'll run your errand.]
+Лягушачий старейшина сжимает твою перепончатую ладонь как родичу. «Свой! Отнесёшь это к дальнему пруду, братец?»
+* [Я выполню твоё поручение.]
     # fact: world.frog_quest_accepted Set true
     # offer-quest: frog-errand
-    "The marsh remembers a good cousin. Hop swift."
+    «Болото помнит доброго родича. Прыгай шустро.»
 - -> END

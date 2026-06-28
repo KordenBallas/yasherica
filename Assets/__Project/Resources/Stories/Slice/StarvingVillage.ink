@@ -6,5 +6,5 @@ VAR npc_name = ""
 
 === start ===
 # speaker: {npc_name}
-"You downed the raider, they say. Pity you never asked whose grain it was - the barn family went hungry."
+«Говорят, ты одолел налётчика. Жаль, не спросил, чьё это зерно — семья из амбара осталась голодать.»
 -> END

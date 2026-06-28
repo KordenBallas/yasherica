@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Yasherica::Narrative.Actors.Data.NpcArchetype
   _archetypeId: arch_frogfolk
   _displayNamePool:
-  - Glub
-  - Marsh-Mother Ree
+  - Глуб
+  - Болотная Мать Ри
   _assembly: {fileID: 11400000, guid: fc1ee46c28382e64381e6548974aa94f, type: 2}
   _portrait: {fileID: 0}
   _factionId: marsh_folk

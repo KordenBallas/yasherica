@@ -20,15 +20,15 @@ VAR combat_won = false
 # speaker: {npc_name}
 # fact: world.barn_raided Set true
 # fact: actor.$self.looted_barn Set true
-The raider shoulders a sack of stolen grain. "Nothing here for you. Walk on."
-* Drop the grain. # card: attack
+Налётчик вскидывает на плечо мешок краденого зерна. «Тут тебе ничего нет. Проходи мимо.»
+* Брось зерно. # card: attack
     -> demand
-* [Take a cut, look away.]
+* [Взять долю и отвернуться.]
     -> bribe
 
 === demand ===
 # speaker: {npc_name}
-"Then bleed."
+«Тогда истекай кровью.»
 # start-combat: enemy_bandit_brute
 -> resolve
 
@@ -36,13 +36,13 @@ The raider shoulders a sack of stolen grain. "Nothing here for you. Walk on."
 { combat_won:
     # fact: world.grain_recovered Set true
     # fact: actor.$self.looted_barn Set false
-    You wrench the grain free. The barn's loss is undone.
+    Ты вырываешь зерно. Утрата амбара возмещена.
 - else:
-    The raider leaves you in the dust.
+    Налётчик оставляет тебя глотать пыль.
 }
 -> END
 
 === bribe ===
 # fact: world.raider_bribed Set true
-He flips you a coin and slips off, grain still on his back.
+Он бросает тебе монету и ускользает, а мешок так и остаётся у него за спиной.
 -> END

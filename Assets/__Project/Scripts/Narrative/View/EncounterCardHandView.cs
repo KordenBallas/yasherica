@@ -15,11 +15,12 @@ namespace Narrative.View
     /// <summary>
     /// Thin adapter for the encounter dialogue UI (the Hades-style bottom box): a portrait + speaker name,
     /// the current line revealed <b>word by word</b> at a tunable reading speed (R4) with a tap that snaps
-    /// it to full (R5), a tap-to-continue affordance shown only once the line has finished (R6), and a
-    /// centred hand of <see cref="EncounterCardView"/> instances above the box. Author-marked key words
-    /// (<c>[[ ]]</c>) are tinted via <see cref="KeywordHighlightFormatter"/> (R11/R12). Holds no domain
-    /// logic — the reveal/tap interaction is pure presentation; picks and the continue tap forward to the
-    /// presenter.
+    /// it to full (R5). When a line finishes revealing it raises <see cref="OnRevealCompleted"/> (R6) — the
+    /// presenter then surfaces the choice cards automatically (no continue button); a tap on a fully-shown
+    /// closing reply raises <see cref="OnContinueRequested"/> to end the encounter. Cards are a centred hand
+    /// of <see cref="EncounterCardView"/> instances above the box. Author-marked key words (<c>[[ ]]</c>)
+    /// are tinted via <see cref="KeywordHighlightFormatter"/> (R11/R12). Holds no domain logic — the
+    /// reveal/tap interaction is pure presentation; picks and taps forward to the presenter.
     /// </summary>
     public class EncounterCardHandView : MonoBehaviour, IEncounterCardHandView
     {
@@ -38,11 +39,8 @@ namespace Narrative.View
         [SerializeField] private float _wordsPerSecond = 8f;
         [Tooltip("Tint applied to author-marked [[key words]] (R11)")]
         [SerializeField] private Color _keywordColor = new Color(1f, 0.82f, 0.4f);
-        [Tooltip("Full-box tap target: tap to complete the reveal, then to continue (R5)")]
+        [Tooltip("Full-box tap target: tap to complete the reveal, then to dismiss the closing reply (R5)")]
         [SerializeField] private Button _tapArea;
-        [Tooltip("Tap-to-continue affordance shown once the line has finished revealing")]
-        [SerializeField] private GameObject _continueAffordance;
-        [SerializeField] private Button _continueButton;
 
         [Header("Cards")]
         [Tooltip("Parent transform the card hand is laid out under (centred above the box)")]
@@ -55,21 +53,16 @@ namespace Narrative.View
 
         private Coroutine _revealRoutine;
         private bool _revealing;
-        private bool _continuePending; // the presenter declared the current line continuable
         private string _keywordHex;
 
         public event Action<int> OnCardSelected;
+        public event Action OnRevealCompleted;
         public event Action OnContinueRequested;
 
         private void Awake()
         {
             EnsureEventSystemExists();
             _keywordHex = ColorUtility.ToHtmlStringRGB(_keywordColor);
-
-            if (_continueButton != null)
-            {
-                _continueButton.onClick.AddListener(HandleTap);
-            }
 
             if (_tapArea != null)
             {
@@ -98,11 +91,6 @@ namespace Narrative.View
 
         private void OnDestroy()
         {
-            if (_continueButton != null)
-            {
-                _continueButton.onClick.RemoveListener(HandleTap);
-            }
-
             if (_tapArea != null)
             {
                 _tapArea.onClick.RemoveListener(HandleTap);
@@ -142,18 +130,9 @@ namespace Narrative.View
                 return;
             }
 
-            ShowGlyph(false); // hidden until the reveal finishes (R6)
             _situationText.text = KeywordHighlightFormatter.ToRichText(line ?? string.Empty, _keywordHex);
             _situationText.maxVisibleCharacters = 0;
             StartReveal();
-        }
-
-        public void ShowContinueAffordance(bool visible)
-        {
-            _continuePending = visible;
-            // Defer showing the glyph until the word-by-word reveal completes; hide immediately when the
-            // line is no longer continuable (a decision point passes false).
-            ShowGlyph(visible && !_revealing);
         }
 
         public void ShowCards(IReadOnlyList<EncounterCardViewData> cards)
@@ -242,7 +221,8 @@ namespace Narrative.View
             CompleteReveal();
         }
 
-        // Snaps the line to fully visible and surfaces the continue glyph if the line is gated.
+        // Snaps the line to fully visible and signals the presenter the line is read (R6): a pre-choice
+        // line auto-advances into its choices, a closing reply waits for the dismiss tap.
         private void CompleteReveal()
         {
             if (_revealRoutine != null)
@@ -257,10 +237,7 @@ namespace Narrative.View
                 _situationText.maxVisibleCharacters = int.MaxValue;
             }
 
-            if (_continuePending)
-            {
-                ShowGlyph(true);
-            }
+            OnRevealCompleted?.Invoke();
         }
 
         private void StopReveal()
@@ -274,7 +251,7 @@ namespace Narrative.View
             _revealing = false;
         }
 
-        // A tap mid-reveal completes the line (R5); a tap once revealed advances the gated line (R6).
+        // A tap mid-reveal completes the line (R5); a tap once revealed dismisses the closing reply.
         private void HandleTap()
         {
             if (_revealing)
@@ -284,14 +261,6 @@ namespace Narrative.View
             }
 
             OnContinueRequested?.Invoke();
-        }
-
-        private void ShowGlyph(bool visible)
-        {
-            if (_continueAffordance != null)
-            {
-                _continueAffordance.SetActive(visible);
-            }
         }
 
         private void HandleCardSelected(int index) => OnCardSelected?.Invoke(index);

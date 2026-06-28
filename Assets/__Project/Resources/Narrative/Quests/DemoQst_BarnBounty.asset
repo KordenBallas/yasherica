@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: DemoQst_BarnBounty
   m_EditorClassIdentifier: Yasherica::Narrative.Quests.Data.QuestDefinition
   _questId: qst_barn_bounty
-  _displayName: The Farmer's Bounty
-  _summary: Recover the farmer's stolen grain from the [[Raiders]] and claim the bounty.
+  _displayName: Награда фермера
+  _summary: Верни украденное у фермера зерно у [[Налётчиков]] и получи награду.
   _objectives:
   - _objectiveId: obj_return_grain
-    _description: Return the stolen grain to the farmer.
+    _description: Верни украденное зерно фермеру.
     _kind: 2
     _targetCount: 1
     _completionEffects: []

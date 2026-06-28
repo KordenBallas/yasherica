@@ -26,7 +26,9 @@ below mirror that brief.
 - **R4** Each line is revealed **word by word** (whole words, never letter-by-letter) at a tunable,
   global reading speed.
 - **R5** A tap while a line is revealing immediately completes that line.
-- **R6** Choices do not appear/act until the current line has fully revealed.
+- **R6** Choices do not appear/act until the current line has fully revealed; once it has, the choice
+  cards appear **automatically** — there is no Continue button. Picking a quest/talk card shows the
+  branch's closing reply, which a tap then dismisses to close the box.
 - **R7** When choices are available they appear as cards centred above the box.
 - **R8** The hand holds up to three card kinds: **quest** (the offer), **attack** (when fighting is
   possible), **exit** (always).
@@ -82,20 +84,27 @@ the quest-card job text, and keyword highlighting.
 
 1. The runner pumps a line → presenter `HandleLine`: `SetVisible(true)`, `EnsureEncounterChrome()`
    (once per encounter: `SetPortrait(runner.EncounterArchetypeId)`, and `SetSpeaker(runner.
-   EncounterDisplayName)` unless a `#speaker:` tag already set one), then `ShowSituation(text)` and
-   `ShowContinueAffordance(true)`.
+   EncounterDisplayName)` unless a `#speaker:` tag already set one), **clears the hand** (no cards while
+   a line types), then `ShowSituation(text)`.
 2. The view formats the line through `KeywordHighlightFormatter`, sets it on the TMP text with
    `maxVisibleCharacters = 0`, and a coroutine steps `maxVisibleCharacters` to each **word boundary**
    at `_wordsPerSecond` (R4). TMP's `characterCount` excludes rich-text tags, so the `<color>` spans
-   never shift the boundaries. The continue glyph is shown only when the reveal finishes (R6).
-3. A tap (`_tapArea` or `_continueButton`): mid-reveal → snap the line to full (R5); once revealed →
-   raise `OnContinueRequested` → `runner.Continue()`.
-4. At a decision point the runner fires `OnChoices` → presenter composes the hand. A `QuestOffer`
-   card is labelled from `runner.OfferedQuest` (the casting's filled quest slot — read **before** the
-   offer-quest tag mints the live instance) using `DisplayName` (title) + `Summary` (objective). The
-   view renders cards centred above the box; quest cards run their title + objective through the same
-   highlighter.
-5. `OnDialogueEnded` → presenter hides the box and resets the chrome guards for the next encounter.
+   never shift the boundaries. A tap on `_tapArea` mid-reveal snaps the line to full (R5).
+3. When the line has fully revealed the view raises `OnRevealCompleted` → presenter `HandleRevealCompleted`:
+   a **pre-choice** line auto-advances (`runner.Continue()`) so its choices surface without a tap; a
+   **closing reply** (after a quest/talk pick, guarded by `_closingReplyPending`) holds, waiting for the
+   dismiss tap. There is no Continue button (R6).
+4. At a decision point the runner fires `OnChoices` → presenter composes the hand (clearing
+   `_closingReplyPending`). A `QuestOffer` card is labelled from `runner.OfferedQuest` (the casting's
+   filled quest slot — read **before** the offer-quest tag mints the live instance) using `DisplayName`
+   (title) + `Summary` (objective). The view renders cards centred above the box; quest cards run their
+   title + objective through the same highlighter.
+5. Picking a quest/talk card sets `_closingReplyPending` then `runner.SelectChoice(...)`; the branch's
+   trailing line (carrying its `offer-quest`/`fact` tags, applied as usual) is shown via `HandleLine` and
+   typed out, then a tap raises `OnContinueRequested` → `runner.Continue()` → `END`. (Picking Leave ends
+   immediately.)
+6. `OnDialogueEnded` → presenter hides the box and resets the chrome guards + `_closingReplyPending` for
+   the next encounter.
 
 ### 2.4 DI wiring
 
@@ -160,9 +169,11 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
   green.
 
 Verified manually in the editor (the demo barn-victim encounter): bottom-centre box + portrait/name,
-word-by-word reveal, tap-to-complete, cards centred above with a quest card showing title + summary,
-the `[[Raiders]]` key word tinted the same in the line and on the card, and the portrait-less
-placeholder fallback.
+word-by-word reveal with no cards while the line types, tap-to-complete, cards then appearing
+automatically above (no Continue button) with a quest card showing title + summary, picking it shows
+the closing reply and a tap closes the box, the `[[Налётчики]]` key word tinted the same in the line
+and on the card, and the portrait-less placeholder fallback. (Demo story text is authored in Russian;
+`[[ ]]` keyword markers carry over.)
 
 ---
 

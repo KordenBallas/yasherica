@@ -29,3 +29,4 @@ track for implementation.
 | Brief | Scope |
 |---|---|
 | [Encounter Dialogue UI](encounter-dialogue-ui.md) | Hades-style bottom-centre dialogue box (NPC portrait + name), word-by-word text reveal at reading speed, choice cards (quest / attack / exit) that surface after the line, quest card carries title + objective, author-marked keyword highlighting |
+| [NPC Proximity Interaction](npc-proximity-interaction.md) | Replace land-on-platform triggering with proximity: walk into an NPC's interaction radius → **F** prompt → dialogue; hostile NPCs auto-start the battle on entering their aggro radius; always-visible `?` (quest) / `!` (hostile) markers above NPCs; global radius config with a toggleable dev debug overlay |

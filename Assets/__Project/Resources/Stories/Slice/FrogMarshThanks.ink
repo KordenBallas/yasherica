@@ -9,8 +9,8 @@ VAR npc_name = ""
 
 === start ===
 # speaker: {npc_name}
-The elder waits at the pool's edge, pleased. "Done, and done well, cousin."
+Старейшина ждёт у кромки пруда, довольный. «Сделано, и сделано славно, братец.»
 # advance-objective: obj_frog_errand
 # complete-quest: qst_frog_errand
-"The marsh owes you a debt. Its doors are yours now."
+«Болото в долгу перед тобой. Его двери отныне открыты тебе.»
 -> END

@@ -9,6 +9,15 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **NPC Proximity Interaction (product requirement authored — not yet implemented):** new verified
+  product-owner brief `product-requirements/npc-proximity-interaction.md` replacing the implicit
+  land-on-platform encounter trigger with **proximity + button**: walking into an NPC's interaction
+  radius shows an **F** prompt that opens the dialogue; hostile NPCs **auto-start the battle** on
+  entering their aggro radius (no prompt, no talk); always-visible `?` (has-quest) / `!` (hostile)
+  markers float above NPCs; both radii are **global config values** with a toggleable **dev debug
+  overlay** that draws the circles in play mode for tuning. Brief only — no engine/asset change in
+  this entry; the code track owns implementation. Added to the briefs index in
+  `product-requirements/README.md`.
 - **Data-Driven Procedural Narrative (deeper demo fact-web — director fact-analysis coverage):** the demo
   slice grows from one thread to **two parallel threads** so the director's eligibility analysis is
   exercised across previously-untested paths (content/asset-only — no engine change). New `frog_marsh`
@@ -66,7 +75,36 @@ Every functional change appends an entry **in the same change as the code** (CLA
   `EncounterCardHandPresenterTests` + `DialogueRunnerTests` cases (129 domain tests green). See
   `narrative-procedural.md` §2.7/§6; `quest-subsystem.md` §6.
 
+### Fixed
+- **Data-Driven Procedural Narrative / Quests (offer-quest stories crashed on accept):** accepting a quest
+  from an NPC threw `[InkStoryManager] Failed to set variable 'quest_accepted': Cannot assign to a variable
+  that hasn't been declared`. `DialogueRunner.HandleOfferQuest` always injects the runner-side
+  `quest_accepted` Ink variable, but three `# offer-quest:` stories never declared it (only `GratefulFarmer`
+  did). Added `VAR quest_accepted = false` to `BarnVictim`, `RaiderMotive`, and `FrogElderOpen` (`.ink`
+  + lockstep compiled `.json`), per the runner-injected-variable contract in `narrative-procedural.md` §4 —
+  content/asset-only, no engine change.
+
 ### Changed
+- **Encounter Dialogue UI (Continue gate removed — lines auto-reveal into choices, R6):** the encounter
+  no longer gates each line behind a **Continue** button. A narration line now shows **alone** (no cards
+  while it types); once it finishes revealing the presenter **auto-advances** so the choice cards appear
+  automatically. Picking a quest/talk card shows the branch's closing reply (its `offer-quest`/`fact`
+  tags applied as before) and a tap then closes the box; the always-present **Leave** card now appears
+  only in the choice hand, not during the opening line. Implemented in presentation only — `DialogueRunner`
+  and the fact/quest/tag engine are unchanged: `IEncounterCardHandView` drops `ShowContinueAffordance` and
+  gains `OnRevealCompleted`; `EncounterCardHandView` raises it on reveal-complete (the Continue button is
+  removed from `EncounterCardHandView.prefab`); `EncounterCardHandPresenter` clears the hand on a line,
+  auto-advances pre-choice lines, and holds a closing reply (`_closingReplyPending`) for the dismiss tap.
+  `EncounterCardHandPresenterTests` updated. See `encounter-dialogue-ui.md` §2.3.
+- **Data-Driven Procedural Narrative (demo story text localized to Russian):** all 9 demo stories'
+  player-facing text — situation lines, choice-card labels, outcomes — translated to Russian in the
+  `.ink` sources and their lockstep compiled `.json` (Russian guillemets «» replace the escaped speech
+  quotes; engine tags `# fact:`/`# offer-quest:`/`# speaker:` and Ink structure/variables untouched).
+  Quest `DisplayName`/`Summary`/objective descriptions (`BarnBounty`, `RaiderRun`, `FrogErrand`) and NPC
+  display-name pools (`arch_villager`, `arch_barn_raider`, `arch_frogfolk`) localized too; the `[[ ]]`
+  keyword (`[[Raiders]]`→`[[Налётчики]]`) stays consistent between `BarnVictim`'s line and the bounty
+  quest summary. Content/asset-only, no engine change. All `.json` re-validated. **Note:** the TMP font
+  asset must carry Cyrillic + «» glyphs for in-game rendering (editor-side check).
 - **Loot / Quest Subsystem (reward granting reads the live quest registry):** `QuestRewardGranter` now
   constructor-injects `ILiveQuestRegistry` (not `DialogueRunner`) and `GrantFor` scans `LiveQuests` for any
   `Completed`, not-yet-paid quest, granting and marking each (idempotent). This makes the payout land on

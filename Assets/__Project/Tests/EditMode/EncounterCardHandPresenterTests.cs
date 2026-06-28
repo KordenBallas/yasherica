@@ -33,24 +33,24 @@ namespace Tests.EditMode
         private sealed class StubCardHandView : IEncounterCardHandView
         {
             public event Action<int> OnCardSelected;
+            public event Action OnRevealCompleted;
             public event Action OnContinueRequested;
 
             public string Speaker;
             public string Portrait;
             public string Situation;
-            public bool? ContinueAffordance;
             public bool Visible;
             public IReadOnlyList<EncounterCardViewData> LastCards = Array.Empty<EncounterCardViewData>();
 
             public void SetSpeaker(string name) => Speaker = name;
             public void SetPortrait(string archetypeId) => Portrait = archetypeId;
             public void ShowSituation(string line) => Situation = line;
-            public void ShowContinueAffordance(bool visible) => ContinueAffordance = visible;
             public void ShowCards(IReadOnlyList<EncounterCardViewData> cards) => LastCards = cards;
             public void SetVisible(bool visible) => Visible = visible;
 
             public void FireCard(int index) => OnCardSelected?.Invoke(index);
-            public void FireContinue() => OnContinueRequested?.Invoke();
+            public void FireRevealCompleted() => OnRevealCompleted?.Invoke(); // the line finished typing
+            public void FireContinue() => OnContinueRequested?.Invoke();       // a tap on a fully-shown line
         }
 
         private FakeLogger _logger;
@@ -94,7 +94,7 @@ namespace Tests.EditMode
             cards.Select(c => c.CardType).ToArray();
 
         [Test]
-        public void QuestOfferAndLeave_NoCombat_ComposesTwoCards()
+        public void NarrationLine_ShowsNoCards_ThenRevealAutoAdvancesToChoices()
         {
             _fake.Script(
                 FakeStoryManager.Frame.Line("Raiders cleaned out my barn."),
@@ -105,13 +105,42 @@ namespace Tests.EditMode
             _runner.Begin(Cast(enemyId: null)); // narration line first
             Assert.IsTrue(_view.Visible);
             Assert.AreEqual("Raiders cleaned out my barn.", _view.Situation);
-            Assert.AreEqual(true, _view.ContinueAffordance);
-            Assert.AreEqual(new[] { EncounterCardType.Leave }, Types(_view.LastCards)); // only Leave during narration
+            Assert.IsEmpty(_view.LastCards); // no cards while a line types
 
-            _runner.Continue(); // advance to the choices
-            Assert.AreEqual(false, _view.ContinueAffordance);
+            _view.FireRevealCompleted(); // the line finished revealing -> auto-advance into the choices
             Assert.AreEqual(new[] { EncounterCardType.QuestOffer, EncounterCardType.Leave }, Types(_view.LastCards));
             Assert.AreEqual("I'll bring your grain back.", _view.LastCards[0].Label);
+        }
+
+        [Test]
+        public void PickQuestOffer_ShowsClosingReply_DismissTapClosesTheBox()
+        {
+            _fake.Script(
+                FakeStoryManager.Frame.Line("Raiders cleaned out my barn."),
+                FakeStoryManager.Frame.ChoicePoint(
+                    new[] { new StoryChoice(0, "I'll bring your grain back.") },
+                    new[] { new[] { FakeStoryManager.Frame.Line("The gods walk with you.") } }));
+
+            string ended = null;
+            _runner.OnDialogueEnded += o => ended = o;
+
+            _runner.Begin(Cast(enemyId: null));
+            _view.FireRevealCompleted(); // line -> choices
+
+            _view.FireCard(0); // pick the quest offer -> its closing reply is shown
+            Assert.AreEqual("The gods walk with you.", _view.Situation);
+            Assert.IsEmpty(_view.LastCards); // no cards while the closing reply types
+            Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State);
+            Assert.IsTrue(_view.Visible);
+
+            _view.FireRevealCompleted(); // a closing reply does NOT auto-advance; it waits for the tap
+            Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State);
+            Assert.IsTrue(_view.Visible);
+
+            _view.FireContinue(); // the dismiss tap closes the box
+            Assert.AreEqual("exit", ended);
+            Assert.AreEqual(DialogueRunnerState.Ended, _runner.State);
+            Assert.IsFalse(_view.Visible);
         }
 
         [Test]

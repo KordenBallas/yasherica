@@ -40,7 +40,9 @@ conversation logic, quests, and combat triggers are unchanged.
    comfortable, tunable **reading speed**.
 5. A tap/click while a line is still revealing **immediately completes** that line.
 6. Choices do **not** appear until the current line has fully finished revealing — the player
-   always hears the full line before being asked to choose.
+   always hears the full line before being asked to choose. Once it has, the cards appear
+   **automatically**; there is no separate "Continue" button. Picking a card shows the NPC's
+   short closing reply (it types out like any line), and a tap then dismisses it to close the box.
 
 ### Choice cards
 7. When choices are available, they appear as cards **centred, above the dialogue box**.
@@ -70,10 +72,12 @@ conversation logic, quests, and combat triggers are unchanged.
 - Walking into the NPC opens a bottom-centre box with their portrait and name.
 - The line types out word by word; a marked name (e.g. `[[name]]`) appears highlighted.
 - Tapping mid-line fills the rest of the line instantly.
-- After the line finishes, cards appear centred above the box: a quest card showing the job's
-  title + objective, an exit card, and an attack card when a fight is possible.
+- After the line finishes, the cards appear centred above the box **automatically** (no Continue
+  button): a quest card showing the job's title + objective, an exit card, and an attack card when a
+  fight is possible.
 - A highlighted name on the quest card reads the same way as in the line.
-- Picking a card behaves exactly as before (accept quest / fight / leave).
+- Picking a card behaves exactly as before (accept quest / fight / leave); accepting a quest shows the
+  NPC's short closing reply, then a tap closes the box.
 
 ## Out of scope (deferred, do not build now)
 - Per-tier **glow / rarity colour** on quest cards — waits on the crafting tier model.

@@ -9,13 +9,14 @@
 // systems reached ONLY via tags. npc_name injected on fresh start.
 
 VAR npc_name = ""
+VAR quest_accepted = false
 
 === start ===
 # speaker: {npc_name}
 # fact: world.barn_quest_offered Set true
-"[[Raiders]] cleaned out my barn. My little ones won't see spring."
-* [I'll bring your grain back.]
+«[[Налётчики]] вычистили мой амбар. Мои малыши не доживут до весны.»
+* [Я верну твоё зерно.]
     # fact: world.barn_quest_accepted Set true
     # offer-quest: bounty
-    "The gods walk with you. He fled up the road."
+    «Да хранят тебя боги. Он удрал вверх по дороге.»
 - -> END

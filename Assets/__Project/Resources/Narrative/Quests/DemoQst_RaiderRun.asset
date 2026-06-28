@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: DemoQst_RaiderRun
   m_EditorClassIdentifier: Yasherica::Narrative.Quests.Data.QuestDefinition
   _questId: qst_raider_run
-  _displayName: The Raider's Run
-  _summary: Run a sack of grain to the raider's starving kin up the road. He pays in iron, not thanks.
+  _displayName: Поручение налётчика
+  _summary: Доставь мешок зерна голодающим родичам налётчика вверх по дороге. Он платит железом, не благодарностью.
   _objectives:
   - _objectiveId: obj_run_grain
-    _description: Carry the raider's sack to his people.
+    _description: Отнеси мешок налётчика его людям.
     _kind: 2
     _targetCount: 1
     _completionEffects: []

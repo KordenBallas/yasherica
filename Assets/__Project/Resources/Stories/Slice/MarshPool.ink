@@ -9,8 +9,8 @@ VAR npc_name = ""
 
 === start ===
 # speaker: {npc_name}
-A marsh hermit watches you from the reeds. "Smooth-skin. Wear our look, outsider, and the marsh may yet open to you."
-* [Take on frog-kin features.]
+Болотный отшельник наблюдает за тобой из камышей. «Гладкокожий. Прими наш облик, чужак, и болото, быть может, откроется тебе.»
+* [Принять черты лягушачьего рода.]
     # fact: world.reads_as_frogfolk Set true
-    Cold marsh-skin prickles across you. The reeds seem to lean in, closer now.
+    Холодная болотная кожа покалывает по всему телу. Камыши будто клонятся ближе.
 - -> END

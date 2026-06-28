@@ -14,7 +14,17 @@ namespace Narrative.Encounter
         /// <summary>Raised when the player picks the card at the given hand index.</summary>
         event Action<int> OnCardSelected;
 
-        /// <summary>Raised when the player advances a gated narration line (tap-to-continue).</summary>
+        /// <summary>
+        /// Raised when a line has fully revealed — naturally or because a tap snapped it to full. The
+        /// presenter decides what follows: a pre-choice line auto-advances into its choices; a closing
+        /// reply waits for the dismiss tap (<see cref="OnContinueRequested"/>).
+        /// </summary>
+        event Action OnRevealCompleted;
+
+        /// <summary>
+        /// Raised when the player taps after the line has fully revealed. Used to dismiss the closing
+        /// reply and end the encounter; a no-op while a line is still revealing (that tap completes it).
+        /// </summary>
         event Action OnContinueRequested;
 
         /// <summary>Sets the speaker label above the situation bubble.</summary>
@@ -29,18 +39,13 @@ namespace Narrative.Encounter
 
         /// <summary>
         /// Shows the current line and starts revealing it word by word at the view's reading speed (R4).
-        /// The continue affordance and any cards must not be acted on until the reveal completes (R6); the
-        /// view owns that timing — a tap mid-reveal completes the line instantly (R5).
+        /// Cards must not be acted on until the reveal completes (R6); the view owns that timing — a tap
+        /// mid-reveal completes the line instantly (R5) and a fully-revealed line raises
+        /// <see cref="OnRevealCompleted"/>.
         /// </summary>
         void ShowSituation(string line);
 
-        /// <summary>
-        /// Declares the current line continuable. The glyph is presented only once the word-by-word reveal
-        /// has finished; passing <c>false</c> (a decision point) hides it.
-        /// </summary>
-        void ShowContinueAffordance(bool visible);
-
-        /// <summary>Rebuilds the card hand from the given cards (in order).</summary>
+        /// <summary>Rebuilds the card hand from the given cards (in order); an empty list clears it.</summary>
         void ShowCards(IReadOnlyList<EncounterCardViewData> cards);
 
         /// <summary>Shows or hides the whole encounter UI.</summary>

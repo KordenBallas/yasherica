@@ -9,13 +9,14 @@
 // tags only. npc_name injected on fresh start.
 
 VAR npc_name = ""
+VAR quest_accepted = false
 
 === start ===
 # speaker: {npc_name}
-You meet the raider again, grain still on his back. "You again. Listen - my own village starves too. Run a sack to my kin and I'll pay you in good iron."
-* [Run grain for the raider.]
+Ты снова встречаешь налётчика — мешок всё ещё у него за спиной. «Опять ты. Слушай: моя деревня тоже голодает. Доставь мешок моим родичам, и я заплачу добрым железом.»
+* [Отнести зерно для налётчика.]
     # fact: world.raider_offer_taken Set true
     # fact: actor.$self.looted_barn Set false
     # offer-quest: raider-run
-    "Smart. Loyalty's worth more than bread." He marks the road for you.
+    «Умно. Верность дороже хлеба.» Он отмечает тебе дорогу.
 - -> END
