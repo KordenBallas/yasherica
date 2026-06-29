@@ -1,5 +1,4 @@
 using System.Linq;
-using Narrative.Director.Core;
 using Narrative.Dialogue;
 using UnityEngine;
 using Zenject;
@@ -7,19 +6,20 @@ using Zenject;
 namespace Platform
 {
     /// <summary>
-    /// Entry adapter for a narrative platform: runs the planner's committed encounter through the
-    /// data-driven engine. On enter it reads the platform's <see cref="NpcContent"/> (its minted actor +
-    /// planned story) and asks <see cref="EncounterDirector.BeginPlanned"/> to cast and start the
-    /// <see cref="DialogueRunner"/>; the bound <c>EncounterCardHandPresenter</c> drives the card-hand view. Routes
-    /// the runner's outcomes back to the platform: combat → spawn enemy + CombatActiveState; a normal
-    /// dialogue end (no combat) → completed. The post-combat resume + completion is owned by
-    /// CombatActiveState (the runner is a singleton suspended across the combat state).
+    /// Entry adapter for a narrative platform: runs the NPC's committed encounter through the data-driven
+    /// engine. Reached on demand when the player presses F in range (NpcEncounterStarter transitions the
+    /// platform here — landing no longer auto-starts it). On enter it reads the platform's
+    /// <see cref="NpcContent"/> and starts the <see cref="DialogueRunner"/> with the casting computed at
+    /// placement (reused so the intent shown and the encounter that plays match). The bound
+    /// <c>EncounterCardHandPresenter</c> drives the card-hand view. Routes the runner's outcomes back to the
+    /// platform: combat → spawn enemy + CombatActiveState; a normal dialogue end (no combat) → completed.
+    /// The post-combat resume + completion is owned by CombatActiveState (the runner is a singleton
+    /// suspended across the combat state).
     /// </summary>
     public class DialogueActiveState : PlatformStateBase
     {
         public class Factory : PlaceholderFactory<DialogueActiveState> { }
 
-        private readonly EncounterDirector _encounterDirector;
         private readonly DialogueRunner _runner;
         private readonly IPlatformStateFactory _stateFactory;
 
@@ -29,11 +29,9 @@ namespace Platform
 
         [Inject]
         public DialogueActiveState(
-            EncounterDirector encounterDirector,
             DialogueRunner runner,
             IPlatformStateFactory stateFactory)
         {
-            _encounterDirector = encounterDirector;
             _runner = runner;
             _stateFactory = stateFactory;
         }
@@ -44,9 +42,9 @@ namespace Platform
             _combatTriggered = false;
             _npc = platform.Contents.OfType<NpcContent>().FirstOrDefault();
 
-            if (_npc?.Actor == null || _npc.PlannedStory == null)
+            if (_npc?.Actor == null || _npc.Casting == null)
             {
-                Debug.LogWarning($"[DialogueActiveState] No planned encounter on platform {platform.Id}");
+                Debug.LogWarning($"[DialogueActiveState] No castable encounter on platform {platform.Id}");
                 TransitionToCompleted();
                 return;
             }
@@ -54,12 +52,9 @@ namespace Platform
             _runner.OnCombatTriggered += HandleCombatTriggered;
             _runner.OnDialogueEnded += HandleDialogueEnded;
 
-            if (!_encounterDirector.BeginPlanned(_npc.PlannedStory, _npc.Actor))
-            {
-                Debug.LogWarning($"[DialogueActiveState] Encounter could not start (story '{_npc.PlannedStory.StoryId}') on platform {platform.Id}");
-                Unsubscribe();
-                TransitionToCompleted();
-            }
+            // Reuse the placement-time casting (NPC Proximity Interaction): the intent the player saw and
+            // the encounter that runs are guaranteed to match, and the seeded picks are not redrawn.
+            _runner.Begin(_npc.Casting);
         }
 
         public override void OnExit(IPlatform platform)

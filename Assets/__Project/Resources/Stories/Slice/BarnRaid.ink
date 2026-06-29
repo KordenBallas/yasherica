@@ -32,10 +32,17 @@ VAR combat_won = false
 # start-combat: enemy_bandit_brute
 -> resolve
 
+// IMPORTANT (Ink async-combat gotcha): a plain line MUST sit between `# start-combat` and any
+// `{ combat_won }` branch. start-combat suspends the runner via a tag, but Ink's Continue look-ahead
+// would otherwise evaluate the conditional in the SAME step (while combat_won is still the default
+// false) and lock the lose branch before combat runs. The stop line below forces the branch to be
+// evaluated only after the runner resumes with the real result.
 === resolve ===
+Пыль оседает.
 { combat_won:
     # fact: world.grain_recovered Set true
     # fact: actor.$self.looted_barn Set false
+    # complete-quest: qst_barn_bounty
     Ты вырываешь зерно. Утрата амбара возмещена.
 - else:
     Налётчик оставляет тебя глотать пыль.

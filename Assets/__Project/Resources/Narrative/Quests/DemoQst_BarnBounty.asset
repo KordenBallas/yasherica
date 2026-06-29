@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Yasherica::Narrative.Quests.Data.QuestDefinition
   _questId: qst_barn_bounty
   _displayName: Награда фермера
-  _summary: Верни украденное у фермера зерно у [[Налётчиков]] и получи награду.
+  _summary: Победи [[Налётчика]], забравшего у фермера зерно, и получи награду.
   _objectives:
   - _objectiveId: obj_return_grain
-    _description: Верни украденное зерно фермеру.
-    _kind: 2
+    _description: Победи налётчика.
+    _kind: 1
     _targetCount: 1
     _completionEffects: []
   _questTags:

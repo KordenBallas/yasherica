@@ -9,15 +9,36 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
-- **NPC Proximity Interaction (product requirement authored — not yet implemented):** new verified
+- **NPC Proximity Interaction (implemented — `npc-proximity-interaction.md`):** approaching an NPC is now
+  deliberate. Talkable NPCs show an **F** prompt inside a global interaction radius and open their
+  conversation on **F**; hostile NPCs start their battle on their own when the player crosses a global
+  aggro radius — no prompt, no dialogue. **Intent is derived from the placement-time casting + story** (no
+  authored hostility flag): a filled quest slot → quest-bearer (`?`), else a **required (non-optional)
+  combat slot** → hostile (`!`), else plain (no marker). An *optional* combat slot is a dialogue branch
+  (e.g. the raider you can fight or bribe), so that NPC stays talkable rather than auto-engaging.
+  Always-visible billboarded `?`/`!` markers and a **name label** sit above
+  each NPC. New pure-C# core (`NpcIntentResolver`, `ProximityEvaluator`) with edit-mode tests
+  (`NpcIntentResolverTests`, `ProximityEvaluatorTests`); `NpcInteractionConfig` SO for the two radii
+  (`Resources/Narrative/NpcInteractionConfig`, code defaults if absent); a dev radius overlay (**F2**,
+  editor/dev-build only). Wired via `NpcInteractionInstaller`. Demo: `DemoStory_BarnVictim` → `?`,
+  `DemoStory_BarnRaid` → plain/talkable (fight-or-bribe is a dialogue choice — its combat slot is
+  optional), dialogue-only stories → plain. The auto-aggro `!` path needs a story with a **required**
+  combat slot; none ships in the demo (adding an always-eligible one perturbs the seeded streaming
+  threads — see the system doc §6).
+- **NPC Proximity Interaction (product requirement authored):** new verified
   product-owner brief `product-requirements/npc-proximity-interaction.md` replacing the implicit
-  land-on-platform encounter trigger with **proximity + button**: walking into an NPC's interaction
-  radius shows an **F** prompt that opens the dialogue; hostile NPCs **auto-start the battle** on
-  entering their aggro radius (no prompt, no talk); always-visible `?` (has-quest) / `!` (hostile)
-  markers float above NPCs; both radii are **global config values** with a toggleable **dev debug
-  overlay** that draws the circles in play mode for tuning. Brief only — no engine/asset change in
-  this entry; the code track owns implementation. Added to the briefs index in
-  `product-requirements/README.md`.
+  land-on-platform encounter trigger with **proximity + button**. NPC **intent is derived from the
+  fact-state** (no authored hostility flag) into three states: **quest-bearer** (`?`, F prompt →
+  dialogue), **hostile** (`!`, auto-battle on entering the aggro radius), and **plain** (no marker, F
+  prompt → chat). An NPC is hostile when the facts leave it **no quest to offer** *and* it has **an
+  enemy available** — typically a fact-gated story variant whose quest line is closed to the player
+  while a combat slot is filled; the same character reads as `?`/talkable under friendlier facts. All
+  three signals already exist pre-dialogue (`IPreconditionEvaluator` story eligibility at plan time,
+  `Casting.OptionalQuest`, `Casting.CombatAllowed`/`OptionalEnemyId`); the code track computes the
+  casting at spawn time and carries it. Always-visible markers; both radii are **global config
+  values** with a toggleable **dev debug overlay** that draws the circles in play mode for tuning.
+  Brief only — no engine/asset change in this entry; the code track owns implementation. Added to the
+  briefs index in `product-requirements/README.md`.
 - **Data-Driven Procedural Narrative (deeper demo fact-web — director fact-analysis coverage):** the demo
   slice grows from one thread to **two parallel threads** so the director's eligibility analysis is
   exercised across previously-untested paths (content/asset-only — no engine change). New `frog_marsh`
@@ -76,6 +97,25 @@ Every functional change appends an entry **in the same change as the code** (CLA
   `narrative-procedural.md` §2.7/§6; `quest-subsystem.md` §6.
 
 ### Fixed
+- **Narrative / Combat (post-combat dialogue branch never ran — quest never closed, grateful farmer never
+  appeared):** a `# start-combat` encounter that branches on `combat_won` (e.g. `BarnRaid.ink`'s `resolve`)
+  always took the **lose** branch. The runner suspends on the `start-combat` *tag*, which is processed
+  *after* `DialogueSession.Continue()`, but Ink's look-ahead in that same `Continue()` already evaluated the
+  following `{ combat_won }` conditional with the default `false` and locked the branch — so the win branch
+  (which sets `grain_recovered` and fires `# complete-quest`) was unreachable, and `ReportCombatResult(true)`
+  on resume came too late. Fixed by inserting a plain stop line at the start of `resolve` (before the
+  conditional) so the branch is evaluated only after the runner resumes with the real result; documented the
+  authoring rule in the `.ink`. Verified end-to-end via runtime logs (win branch + `complete-quest -> Completed`).
+- **Narrative / NPC Proximity (subsequent quests didn't record; threads mis-sequenced):** the streaming
+  planner generated the next window on platform **entry**, but proximity defers an encounter's fact-writes to
+  the player's F-press, so windows were planned against stale facts (re-placing already-offered quest stories
+  whose re-offer no-ops, and placing closed/no-quest variants). `RunStreamingCoordinator` now advances on
+  platform **exit**, so an engaging player's choices are written before the next window is planned.
+- **Quests (cross-encounter completion + Defeat-type bounty):** `DialogueRunner.HandleCompleteQuest` now
+  resolves the target quest by the tag's id from the live `ILiveQuestRegistry` when the current casting does
+  not carry it, so an encounter can close a quest offered elsewhere. Made the barn bounty (`qst_barn_bounty`,
+  now a **Defeat** objective) complete on the raider's defeat via `# complete-quest` in `BarnRaid.ink`'s
+  combat-won branch — no delivery NPC required (the grateful farmer remains a fallback).
 - **Data-Driven Procedural Narrative / Quests (offer-quest stories crashed on accept):** accepting a quest
   from an NPC threw `[InkStoryManager] Failed to set variable 'quest_accepted': Cannot assign to a variable
   that hasn't been declared`. `DialogueRunner.HandleOfferQuest` always injects the runner-side
@@ -85,6 +125,12 @@ Every functional change appends an entry **in the same change as the code** (CLA
   content/asset-only, no engine change.
 
 ### Changed
+- **NPC encounters no longer auto-start on land (NPC Proximity Interaction R2):** `PlatformStateFactory`
+  no longer maps NPC content to `DialogueActiveState` when a platform is entered; it adds
+  `CreateDialogueState()` for the on-demand F path. `DialogueActiveState` now **reuses the placement-time
+  casting** (`DialogueRunner.Begin(NpcContent.Casting)`) instead of re-casting via
+  `EncounterDirector.BeginPlanned`, so the casting is computed once (deterministic) and the shown intent
+  matches the encounter that plays. `RunStreamingCoordinator` casts + resolves intent at window generation.
 - **Encounter Dialogue UI (Continue gate removed — lines auto-reveal into choices, R6):** the encounter
   no longer gates each line behind a **Continue** button. A narration line now shows **alone** (no cards
   while it types); once it finishes revealing the presenter **auto-advances** so the choice cards appear

@@ -110,8 +110,17 @@ Deferred design (from `narrative-procedural.md` §6):
     `ScenarioGenerator`/`IScenarioGenerator`/`PlatformGraphGenerator`/`IPlatformGraphGenerator`/`GameContext`
     one-shot pipeline + their bindings. *(See CHANGELOG.)* `DialogueContent` kept (unused, not
     narrative-coupled); `StoryPlatformData`/`ScenarioData` data classes kept (`GraphNode.StoryData`).
+- [ ] `[content]` **World content density — a rare, breathing world** (brief
+    `product-requirements/world-content-density.md`). The director must stop filling windows to the
+    narrative weight budget; the world gains **four content kinds** — empty/traversal (the majority),
+    simple low-tier loot, **ambient aggressive monsters** (standalone, no quest attached, drawn from a
+    per-biome pool at flat difficulty), and **rare** NPC quests (~1 per ~10 platforms, spaced apart) —
+    all governed by an **SO density config** (quest rarity + min spacing, monster/loot/empty budgets) the
+    designer tunes without code. Empties become deliberate budgeted breath, not leftover padding.
+    Deterministic (same seed → same world). **Subsumes the "Streaming-path loot + biome" item below.**
 - [ ] `[content]` **Streaming-path loot + biome.** The streaming generator places empty fillers (no loot)
     and a fixed biome (Forest); fold loot platforms and progression/biome selection into the planner.
+    *(Now part of the "World content density" item above — simple loot is one of its four content kinds.)*
 - [ ] `[arch]` **Director pacing — thread balancing.** Cross-window thread continuity/quotas beyond the
   planner's within-window thread preference (ties into R8 first-class threads).
 - [ ] `[content]` **Demo fact-web sharpeners.** The deeper two-thread demo (`narrative-procedural.md` §4)
@@ -323,9 +332,55 @@ New work (no system doc yet — author `platform-generation.md` when implemented
   hex field meeting combat requirements; loot-only or empty platforms can be smaller. Drive from
   `GraphNode.ContentTypes` / `StoryPlatformData` in `AreaGenerator` rather than the current random
   `platformSizeMin/Max`.
+- [ ] `[content]` **Content drives footprint & landscape (setting scale).** Beyond per-platform size:
+  a content piece declares a **setting scale** (e.g. solo / camp / village / city) so the world
+  reserves the right **footprint** — a camp occupies a camp-sized platform with camp textures, a city
+  spans **several platforms** that read as one continuous place (vision §4: city ~5, village ~2, camp
+  1). The deferred companion to the "World content density" brief; its own design pass (footprint
+  vocabulary + biome/race landscape). *(needs a design discussion before a brief)*
 - [ ] `[content]` **M3 — Biome-driven platform appearance & features.** Platform generation consumes
   the level biome (`LevelTheme`: Forest/Desert/Mountain/Cave) for mesh treatment, materials, and
   which hex-aligned features may appear, in addition to the narrative content above.
+
+---
+
+## NPC Interaction & Encounter Triggering
+
+Implemented — system doc `npc-proximity-interaction.md` (brief
+`product-requirements/npc-proximity-interaction.md`):
+- [x] **Proximity interaction trigger (replaces land-on-platform).** F prompt in an interaction radius,
+  nearest-NPC targeting; landing no longer auto-starts encounters (`PlatformStateFactory` +
+  `NpcProximityPresenter` + `NpcEncounterStarter`).
+- [x] **Derived NPC intent (quest-bearer / hostile / plain), pre-dialogue.** `RunStreamingCoordinator`
+  casts at window generation and carries the `Casting` + `NpcIntent` on `NpcContent`; the encounter reuses
+  that casting. (`NpcIntentResolver`)
+- [x] **Aggro-on-approach for hostile NPCs.** Crossing the aggro radius spawns `EnemyContent` → combat,
+  no dialogue.
+- [x] **Always-visible intent markers** + **name label**, billboarded (`NpcOverheadView`).
+- [x] **Global interaction/aggro radius config** SO (`NpcInteractionConfig`) + `NpcInteractionInstaller`.
+- [x] **Toggleable dev debug overlay** for the radii (`NpcRadiusDebugView`, F2, editor/dev-build only).
+
+Open / follow-ups:
+- [ ] `[arch]` **Live fact-driven marker refresh.** The `?` currently clears when the encounter is started
+  (consumed), not by per-frame re-evaluation of quest availability against the fact store.
+- [ ] `[arch]` **Per-NPC / per-archetype radius overrides.** Global values only today.
+- [x] **No-quest-but-talkable-with-optional-fight now expressible.** Hostility requires a **required**
+  (non-optional) combat slot; an optional combat slot is a dialogue branch, so the NPC stays talkable
+  (e.g. `DemoStory_BarnRaid`'s fight-or-bribe raider). Resolved in `NpcIntentResolver`.
+- [ ] `[content]` **No forced-combat NPC in the demo.** All demo combat is a dialogue branch, so the
+  auto-aggro `!` path has no demo subject. A required-combat story would supply one, but see the next
+  item — an always-eligible combat story currently perturbs the seeded threads.
+- [ ] `[arch]` **Streaming planner does not enforce thread ordering / cross-window continuity (R8).**
+  Fact-ordered threads (frog passport→elder, barn accept→combat→complete) rely on a placement order the
+  budgeted seeded planner does not guarantee. Proximity made this worse: encounters now write their facts
+  on the player's F-press, not on landing, so the planner — which advances **one window ahead** — can
+  plan against stale facts and re-place an already-offered quest story (the re-offer no-ops) or a
+  closed/no-quest variant. **Mitigated** by advancing the window on platform **exit** instead of entry
+  (`RunStreamingCoordinator`), so an engaging player's choices are written before the next window is
+  planned; but the look-ahead is still loose (only the exited platform's facts are guaranteed current).
+  The real fix is dependency-aware planning (plan/re-plan a window's narrative against the facts as the
+  player reaches it).
+- [ ] `[content]` **Marker/name art polish + animation.** Currently plain 3D-TMP glyphs built in code.
 
 ---
 

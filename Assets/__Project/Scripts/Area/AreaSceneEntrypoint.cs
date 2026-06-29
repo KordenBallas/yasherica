@@ -7,8 +7,11 @@ using Combat.Player;
 using CharacterSystem.Runtime;
 using Core.Logging;
 using Narrative.Actors.Data;
+using Narrative.Casting.Core;
 using Narrative.Director.Core;
 using Narrative.Facts.Core;
+using Narrative.Interaction;
+using Narrative.Interaction.Core;
 using Zenject;
 
 public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
@@ -72,6 +75,14 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
     [Inject]
     private IFactStore _factStore;
     [Inject]
+    private ICastingFactory _castingFactory;
+    [Inject]
+    private IFragmentLibrary _fragmentLibrary;
+    [Inject]
+    private NpcIntentResolver _intentResolver;
+    [Inject]
+    private INpcInteractionService _interactionService;
+    [Inject]
     private IGameLogger _logger;
 
     private IPlayer _localPlayer;
@@ -116,7 +127,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
             new PlatformGraphData(), noiseMap, _platformFactory, _lootRollService, theme, config);
 
         coordinator = new RunStreamingCoordinator(
-            _windowPlanner, _archetypeCatalog, _modularFactory, _factStore, areaGenerator, _logger);
+            _windowPlanner, _archetypeCatalog, _modularFactory, _factStore, _castingFactory,
+            _fragmentLibrary, _intentResolver, _interactionService, areaGenerator, _logger);
 
         IPlatform entry = coordinator.Begin();
 

@@ -58,6 +58,9 @@ namespace Core.DI
             InstallPlatformBindings();
             InstallCombatBindings();
 
+            // NPC proximity interaction (F-prompt talk, aggro-on-approach, intent markers, name labels).
+            NpcInteractionInstaller.Install(Container);
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             // Developer state overlay (quests + director facts). Editor/dev-build only; never ships.
             DevToolsInstaller.Install(Container);

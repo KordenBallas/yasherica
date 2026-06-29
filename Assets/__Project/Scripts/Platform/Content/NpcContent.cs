@@ -1,6 +1,9 @@
 using CharacterSystem.Runtime;
 using Narrative.Actors.Core;
 using Narrative.Actors.Data;
+using Narrative.Casting.Core;
+using Narrative.Interaction;
+using Narrative.Interaction.Core;
 using Narrative.Stories.Core;
 using UnityEngine;
 
@@ -8,8 +11,9 @@ namespace Platform
 {
     /// <summary>
     /// Platform content for a planner-placed NPC: carries the run-stable <see cref="NpcInstance"/>, its
-    /// archetype (the visual source), and the committed story the entry adapter runs. Spawns the modular
-    /// character body on initialize.
+    /// archetype (the visual source), the committed story, and the placement-time <see cref="Casting"/> +
+    /// <see cref="NpcIntent"/> the proximity system reads. Spawns the modular character body on initialize
+    /// and binds itself into the interaction system (overhead view + registry handle).
     /// </summary>
     public class NpcContent : PlatformContentBase
     {
@@ -24,6 +28,19 @@ namespace Platform
         /// <summary>The story the planner committed for this encounter; run by the entry adapter.</summary>
         public StoryTemplateData PlannedStory { get; }
 
+        /// <summary>
+        /// The casting computed once at placement against the live facts, reused by the encounter so the
+        /// seeded picks stay deterministic and the shown intent matches what actually plays. May be null
+        /// if the story could not be cast.
+        /// </summary>
+        public Casting Casting { get; }
+
+        /// <summary>The intent derived from <see cref="Casting"/> at placement (quest-bearer / hostile / plain).</summary>
+        public NpcIntent Intent { get; }
+
+        /// <summary>The platform that owns this NPC's encounter; set on initialize.</summary>
+        public IPlatform OwningPlatform { get; private set; }
+
         /// <summary>Portrait for the dialogue view, from the archetype.</summary>
         public Sprite Portrait => Archetype != null ? Archetype.Portrait : null;
 
@@ -31,14 +48,19 @@ namespace Platform
         public GameObject NpcVisual { get; private set; }
 
         private readonly IModularCharacterFactory _modularFactory;
+        private readonly INpcInteractionService _interactionService;
 
         public NpcContent(NpcArchetype archetype, NpcInstance actor, StoryTemplateData plannedStory,
-            IModularCharacterFactory modularFactory)
+            Casting casting, NpcIntent intent, IModularCharacterFactory modularFactory,
+            INpcInteractionService interactionService)
         {
             Archetype = archetype;
             Actor = actor;
             PlannedStory = plannedStory;
+            Casting = casting;
+            Intent = intent;
             _modularFactory = modularFactory;
+            _interactionService = interactionService;
         }
 
         public override void Initialize(IPlatform platform)
@@ -49,7 +71,9 @@ namespace Platform
                 return;
             }
 
+            OwningPlatform = platform;
             SpawnModularVisual(platform);
+            _interactionService?.Bind(this);
         }
 
         private void SpawnModularVisual(IPlatform platform)
@@ -73,6 +97,8 @@ namespace Platform
 
         public void DestroyNpcVisual()
         {
+            _interactionService?.Unbind(this);
+
             if (NpcVisual != null)
             {
                 UnityEngine.Object.Destroy(NpcVisual);

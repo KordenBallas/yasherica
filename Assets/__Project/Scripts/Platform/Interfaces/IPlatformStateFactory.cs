@@ -22,6 +22,12 @@ namespace Platform
         IPlatformState CreateIdleState(IPlatform platform);
 
         /// <summary>
+        /// Creates the dialogue state for an NPC encounter started on demand (the F-prompt path), since
+        /// NPC content no longer auto-starts a dialogue on land.
+        /// </summary>
+        IPlatformState CreateDialogueState();
+
+        /// <summary>
         /// Creates a completed state for platforms that have finished their content.
         /// </summary>
         IPlatformState CreateCompletedState();

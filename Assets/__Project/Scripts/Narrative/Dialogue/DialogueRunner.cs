@@ -260,7 +260,7 @@ namespace Narrative.Dialogue
                         HandleAdvanceObjective(tag.Argument);
                         break;
                     case DialogueTagKind.CompleteQuest:
-                        HandleCompleteQuest();
+                        HandleCompleteQuest(tag.Argument);
                         break;
                     case DialogueTagKind.FailQuest:
                         HandleFailQuest();
@@ -317,17 +317,43 @@ namespace Narrative.Dialogue
             ApplyQuestEffects(_activeQuest.AdvanceObjective(parts[0], amount));
         }
 
-        /// <summary>Completes the active quest, applies its on-complete effects, and records the transition.</summary>
-        private void HandleCompleteQuest()
+        /// <summary>
+        /// Completes a quest, applies its on-complete effects, and records the transition. Resolves the
+        /// target by the tag's quest id from the live registry when the current casting does not carry it,
+        /// so an encounter can close a quest offered elsewhere — e.g. defeating the raider closes the
+        /// bounty the player took from the farmer, without the raid story carrying a quest slot.
+        /// </summary>
+        private void HandleCompleteQuest(string questId)
         {
-            if (_activeQuest == null)
+            var quest = ResolveQuestForCompletion(questId);
+            if (quest == null)
             {
-                _logger?.Warning("[DialogueRunner] complete-quest with no active quest - ignored.");
+                _logger?.Warning($"[DialogueRunner] complete-quest '{questId}' with no matching active/registered quest - ignored.");
                 return;
             }
 
-            ApplyQuestEffects(_activeQuest.Complete());
-            OnQuestCompleted?.Invoke(_activeQuest.Data.QuestId);
+            _activeQuest = quest; // so the platform-completion reward granter sees the completed quest
+            ApplyQuestEffects(quest.Complete());
+            OnQuestCompleted?.Invoke(quest.Data.QuestId);
+        }
+
+        /// <summary>
+        /// The active quest when it matches the tag (or the tag gave no id); otherwise the live registry's
+        /// instance for the id; otherwise null.
+        /// </summary>
+        private QuestInstance ResolveQuestForCompletion(string questId)
+        {
+            if (_activeQuest != null && (string.IsNullOrEmpty(questId) || _activeQuest.Data.QuestId == questId))
+            {
+                return _activeQuest;
+            }
+
+            if (!string.IsNullOrEmpty(questId) && _questRegistry != null && _questRegistry.TryGet(questId, out var live))
+            {
+                return live;
+            }
+
+            return _activeQuest;
         }
 
         /// <summary>Fails the active quest, applies its on-fail effects, and records the transition.</summary>

@@ -51,12 +51,9 @@ namespace Platform
                 return _combatActiveStateFactory.Create();
             }
 
-            // Check for NPC content -> Dialogue state
-            if (HasContentType(platform, ContentType.Npc))
-            {
-                Debug.Log($"[PlatformStateFactory] Creating DialogueActiveState for platform {platform.Id}");
-                return _dialogueActiveStateFactory.Create();
-            }
+            // NPC content no longer auto-starts a dialogue on land (NPC Proximity Interaction R4): the
+            // player must walk into range and press F (handled by NpcEncounterStarter, which transitions
+            // into the dialogue state via CreateDialogueState). Landing on an NPC platform is neutral.
 
             // Check for pure dialogue content -> Dialogue state
             if (HasContentType(platform, ContentType.Dialogue))
@@ -110,6 +107,11 @@ namespace Platform
             // Default: generic idle state
             Debug.Log($"[PlatformStateFactory] Creating PlatformIdleState for platform {platform.Id}");
             return _idleStateFactory.Create();
+        }
+
+        public IPlatformState CreateDialogueState()
+        {
+            return _dialogueActiveStateFactory.Create();
         }
 
         public IPlatformState CreateCompletedState()

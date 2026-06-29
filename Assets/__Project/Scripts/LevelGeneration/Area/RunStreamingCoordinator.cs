@@ -5,8 +5,11 @@ using CharacterSystem.Runtime;
 using Core.Events;
 using Core.Logging;
 using Narrative.Actors.Data;
+using Narrative.Casting.Core;
 using Narrative.Director.Core;
 using Narrative.Facts.Core;
+using Narrative.Interaction;
+using Narrative.Interaction.Core;
 using Platform;
 
 namespace LevelGeneration
@@ -25,6 +28,10 @@ namespace LevelGeneration
         private readonly INpcArchetypeCatalog _archetypeCatalog;
         private readonly IModularCharacterFactory _modularFactory;
         private readonly IFactStore _facts;
+        private readonly ICastingFactory _castingFactory;
+        private readonly IFragmentLibrary _fragmentLibrary;
+        private readonly NpcIntentResolver _intentResolver;
+        private readonly INpcInteractionService _interactionService;
         private readonly AreaGenerator _areaGenerator;
         private readonly IGameLogger _logger;
 
@@ -38,6 +45,10 @@ namespace LevelGeneration
             INpcArchetypeCatalog archetypeCatalog,
             IModularCharacterFactory modularFactory,
             IFactStore facts,
+            ICastingFactory castingFactory,
+            IFragmentLibrary fragmentLibrary,
+            NpcIntentResolver intentResolver,
+            INpcInteractionService interactionService,
             AreaGenerator areaGenerator,
             IGameLogger logger = null)
         {
@@ -45,6 +56,10 @@ namespace LevelGeneration
             _archetypeCatalog = archetypeCatalog;
             _modularFactory = modularFactory;
             _facts = facts;
+            _castingFactory = castingFactory;
+            _fragmentLibrary = fragmentLibrary;
+            _intentResolver = intentResolver;
+            _interactionService = interactionService;
             _areaGenerator = areaGenerator;
             _logger = logger;
         }
@@ -57,16 +72,22 @@ namespace LevelGeneration
 
             if (!_subscribed)
             {
-                PlatformEvents.OnPlatformEntered += OnPlatformEntered;
+                // Advance on EXIT of a frontier platform, not entry: a proximity encounter (and its
+                // fact writes — quest-offered flags, the marsh passport, etc.) runs on the player's F
+                // press, which has happened by the time they leave the platform. Planning the next window
+                // on exit therefore sees the player's resolved choices, restoring the fact ordering the
+                // old auto-on-land encounters gave the streaming planner. (Layout is a linear chain
+                // appended to a persistent cursor, so the later trigger does not strand the player.)
+                PlatformEvents.OnPlatformExited += OnPlatformExited;
                 _subscribed = true;
             }
 
             return _areaGenerator.EntryPlatform;
         }
 
-        private void OnPlatformEntered(IPlatform platform)
+        private void OnPlatformExited(IPlatform platform)
         {
-            // Entering any platform of the latest window locks it and opens the next.
+            // Leaving any platform of the latest window locks it and opens the next.
             if (platform != null && _frontier.Contains(platform.Id))
             {
                 GenerateNextWindow();
@@ -98,10 +119,18 @@ namespace LevelGeneration
                 if (planned.Kind == PlannedPlatformKind.Story && planned.Actor != null)
                 {
                     var archetype = _archetypeCatalog.Get(planned.Actor.ArchetypeId);
+
+                    // Cast once, here, against the live facts: this is the "encounter placed" moment the
+                    // intent is evaluated at (R3). The casting is reused by the encounter so the seeded
+                    // fragment/name picks stay deterministic and the shown marker matches what plays.
+                    var casting = _castingFactory.Cast(planned.Story, planned.Actor, _fragmentLibrary);
+                    var intent = _intentResolver.Resolve(casting, planned.Story);
+
                     node.ContentTypes = new List<PlatformContentType> { PlatformContentType.Npc };
                     node.PrebuiltContent = new List<IPlatformContent>
                     {
-                        new NpcContent(archetype, planned.Actor, planned.Story, _modularFactory)
+                        new NpcContent(archetype, planned.Actor, planned.Story, casting, intent,
+                            _modularFactory, _interactionService)
                     };
                 }
                 else
@@ -119,7 +148,7 @@ namespace LevelGeneration
         {
             if (_subscribed)
             {
-                PlatformEvents.OnPlatformEntered -= OnPlatformEntered;
+                PlatformEvents.OnPlatformExited -= OnPlatformExited;
                 _subscribed = false;
             }
         }

@@ -21,6 +21,7 @@ Older documentation elsewhere in the repository may be stale; prefer this folder
 | [Quest Subsystem](quest-subsystem.md) | Requirements and design of the quest fragment, lifecycle, and rewards: offer/advance/complete/fail driven by Ink tags, fact effects gated against the quest's own footprint, progression-record bridge, and item rewards granted on completion |
 | [Encounter Dialogue UI](encounter-dialogue-ui.md) | Requirements and design of the Hades-style encounter presentation: bottom-centre dialogue box with portrait + name, word-by-word line reveal (tap to complete), quest/attack/exit cards labelled with the job, and author-marked `[[ ]]` keyword highlighting — a presentation layer over the unchanged conversation engine |
 | [Developer Tools](dev-tools.md) | The in-game developer overlay (editor / dev-build only): a key-toggled IMGUI panel with generic sections — quest statuses and director facts — built by a pure-C# presenter from live game state |
+| [NPC Proximity Interaction](npc-proximity-interaction.md) | Approaching an NPC is deliberate: an **F** prompt + dialogue in an interaction radius for talkable NPCs, auto-battle in an aggro radius for hostile ones, always-visible `?`/`!` intent markers (derived from the placement-time casting, not an authored flag) and a name label above each NPC, two global radii config + a dev overlay |
 
 ## Product requirement briefs
 
