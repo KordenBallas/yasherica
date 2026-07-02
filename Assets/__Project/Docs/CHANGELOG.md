@@ -9,6 +9,21 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Platform & Area Generation — `PlatformShapeConfig` SO + one-source-of-truth hex tiling (phase 2
+  of the platform-hex rework):** new data-only SO **`PlatformShapeConfig`**
+  (`Create → Level Generation → Platform Shape Config`; asset at
+  `Resources/LevelGeneration/PlatformShapeConfig.asset`) carrying the hex tiling (cell size 2,
+  flat-top), the four per-content-kind `ShapeProfileData` blocks (Empty 2–4 / Loot 3–5 /
+  Combat 12–18 / NPC 4–7 cells + 0–8 compactness), the **battlefield minimum (12 cells)**, the rim
+  tunables (width 1.2 / jitter 35% / drop 0.4), and the body/layout values that will move off
+  `AreaGeneratorConfig` (thickness / gap / height deviation) plus the muted-tiling `_cellInset`.
+  `PlatformShapeConfigMapper` is the only SO→Core bridge (null → code defaults, identical to an
+  unedited asset — asserted by `PlatformShapeConfigMapperTests`). `AreaInstaller` binds the mapped
+  `PlatformShapeSettings` (inspector field with a Resources fallback) and now builds **`CombatConfig`
+  from those settings** instead of the hardcoded `2f`/`Flat` literals, so the combat grid and the
+  future hex ground share one authored source for cell size/orientation (value-identical today).
+
+### Added
 - **Platform & Area Generation — hex-surface domain (phase 1 of the platform-hex rework; verified
   brief `product-requirements/platform-hex-surface-and-shape.md`; ROADMAP Track B step 2, M3):**
   the pure-C# foundation that makes a platform's top surface and its combat grid one thing. New in

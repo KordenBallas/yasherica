@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc93c7fc84d34271ba732c6816b40c93, type: 3}
+  m_Name: PlatformShapeConfig
+  m_EditorClassIdentifier: Yasherica::LevelGeneration.Data.PlatformShapeConfig
+  _hexCellSize: 2
+  _hexOrientation: 0
+  _emptyProfile:
+    _minCells: 2
+    _maxCells: 4
+    _compactness: 3
+  _lootProfile:
+    _minCells: 3
+    _maxCells: 5
+    _compactness: 3
+  _combatProfile:
+    _minCells: 12
+    _maxCells: 18
+    _compactness: 6
+  _npcProfile:
+    _minCells: 4
+    _maxCells: 7
+    _compactness: 3
+  _battlefieldMinimumCells: 12
+  _rimWidth: 1.2
+  _rimJitterPercent: 35
+  _rimDropHeight: 0.4
+  _platformThickness: 1
+  _gapBetweenPlatforms: 2
+  _heightDeviation: 1.5
+  _cellInset: 0.06

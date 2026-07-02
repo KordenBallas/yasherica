@@ -29,10 +29,16 @@ namespace Core.DI
     /// </summary>
     public class AreaInstaller : MonoInstaller
     {
+        /// <summary>The default ability queue depth (the third <see cref="CombatConfig"/> argument).</summary>
+        private const int MaxAbilityQueueSizeDefault = 3;
+
         [Header("Configuration ScriptableObjects")]
         [SerializeField] private CombatMovementConfig _movementConfig;
         [SerializeField] private InputConfig _inputConfig;
         [SerializeField] private HexDirectionConfig _hexDirectionConfig;
+        [Tooltip("Platform size/shape + hex tiling dials; auto-loads from " +
+                 "Resources/LevelGeneration/PlatformShapeConfig when unset")]
+        [SerializeField] private LevelGeneration.Data.PlatformShapeConfig _platformShapeConfig;
 
         [Header("Data Definitions (Optional - for data-driven system)")]
         [Tooltip("Status effect definitions for the data-driven system")]
@@ -162,11 +168,29 @@ namespace Core.DI
             Container.BindInstance(_inputConfig).AsSingle();
             Container.BindInstance(_hexDirectionConfig).AsSingle();
 
-            // Combat configuration (legacy)
+            // Platform size/shape settings (the platform-hex brief): the one source of truth for the
+            // hex tiling — the surface generation consumes it directly and CombatConfig is built FROM
+            // it below, so the ground and the combat grid can never disagree on cell size/orientation.
+            if (_platformShapeConfig == null)
+            {
+                _platformShapeConfig = Resources.Load<LevelGeneration.Data.PlatformShapeConfig>(
+                    "LevelGeneration/PlatformShapeConfig");
+                if (_platformShapeConfig == null)
+                {
+                    Debug.LogWarning("[AreaInstaller] PlatformShapeConfig not assigned and not found at " +
+                                     "Resources/LevelGeneration/PlatformShapeConfig — using code defaults.");
+                }
+            }
+
+            var shapeSettings = LevelGeneration.Data.PlatformShapeConfigMapper.ToSettings(_platformShapeConfig);
+            Container.Bind<LevelGeneration.Surface.PlatformShapeSettings>()
+                .FromInstance(shapeSettings)
+                .AsSingle();
+
             Container.Bind<CombatConfig>().AsSingle().WithArguments(
-                2f,  // hexCellSize - default value
-                HexOrientation.Flat,  // hexOrientation - default value
-                3  // maxAbilityQueueSize - default value
+                shapeSettings.HexSize,
+                shapeSettings.Orientation,
+                MaxAbilityQueueSizeDefault
             );
         }
 
