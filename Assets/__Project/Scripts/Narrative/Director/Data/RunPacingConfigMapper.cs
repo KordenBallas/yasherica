@@ -13,16 +13,10 @@ namespace Narrative.Director.Data
         {
             if (config == null)
             {
-                return new RunPacingSettings(windowSize: 4, narrativeBudgetPerWindow: 30,
-                    minCombatPerWindow: 1, maxCombatPerWindow: 2, lookAheadWindows: 1);
+                return new RunPacingSettings(windowSize: 4, lookAheadWindows: 1);
             }
 
-            return new RunPacingSettings(
-                config.WindowSize,
-                config.NarrativeBudgetPerWindow,
-                config.MinCombatPerWindow,
-                config.MaxCombatPerWindow,
-                config.LookAheadWindows);
+            return new RunPacingSettings(config.WindowSize, config.LookAheadWindows);
         }
     }
 }

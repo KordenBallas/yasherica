@@ -266,16 +266,29 @@ namespace Core.DI
             }
 
             // Enemy combat integration
-            // Auto-load enemy definitions from Resources if not manually assigned
+            // Auto-load enemy definitions from Resources if not manually assigned. Both authoring
+            // locations are loaded (combat enemies + narrative-slice story enemies) so every enemy the
+            // planner can place — story combat slots and ambient biome-pool monsters alike — resolves
+            // in the combat data provider. Deduped by enemy id (first location wins).
             List<EnemyDefinition> enemyDefs = _enemyDefinitions;
             if (enemyDefs == null || enemyDefs.Count == 0)
             {
-                var loadedEnemies = Resources.LoadAll<EnemyDefinition>("Enemies/Definitions");
-                enemyDefs = new List<EnemyDefinition>(loadedEnemies);
+                enemyDefs = new List<EnemyDefinition>();
+                var seenIds = new HashSet<int>();
+                foreach (var folder in new[] { "Enemies/Definitions", "Narrative/Enemies" })
+                {
+                    foreach (var enemy in Resources.LoadAll<EnemyDefinition>(folder))
+                    {
+                        if (enemy != null && seenIds.Add(enemy.EnemyId))
+                        {
+                            enemyDefs.Add(enemy);
+                        }
+                    }
+                }
 
                 if (enemyDefs.Count > 0)
                 {
-                    Debug.Log($"[AreaInstaller] Auto-loaded {enemyDefs.Count} enemy definitions from Resources/Enemies/Definitions");
+                    Debug.Log($"[AreaInstaller] Auto-loaded {enemyDefs.Count} enemy definitions from Resources (Enemies/Definitions + Narrative/Enemies)");
                 }
                 else
                 {

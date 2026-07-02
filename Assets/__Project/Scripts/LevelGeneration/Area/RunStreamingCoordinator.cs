@@ -20,7 +20,9 @@ namespace LevelGeneration
     /// locks that window and plans + generates the next one against the **live** fact store (R7), so the
     /// player's choices reshape what comes next but never what they're standing on. Each planned story
     /// platform is realised as an <see cref="NpcContent"/> carrying the planner's minted actor and
-    /// committed story; the entry adapter runs it through the data-driven engine.
+    /// committed story; an ambient-combat platform as an <see cref="EnemyContent"/> with the planner's
+    /// biome-pool pick; a loot platform via the area generator's biome table roll; the entry adapter
+    /// runs story encounters through the data-driven engine.
     /// </summary>
     public sealed class RunStreamingCoordinator : IDisposable
     {
@@ -132,6 +134,23 @@ namespace LevelGeneration
                         new NpcContent(archetype, planned.Actor, planned.Story, casting, intent,
                             _modularFactory, _interactionService)
                     };
+                }
+                else if (planned.Kind == PlannedPlatformKind.Combat)
+                {
+                    // Ambient monster (Combat·wild-beast): the planner picked the enemy from the biome
+                    // pool; the content-driven state factory routes this to the combat states — a fight
+                    // with no quest or dialogue attached.
+                    node.ContentTypes = new List<PlatformContentType> { PlatformContentType.Enemy };
+                    node.PrebuiltContent = new List<IPlatformContent>
+                    {
+                        new EnemyContent { EnemyId = planned.EnemyId }
+                    };
+                }
+                else if (planned.Kind == PlannedPlatformKind.Loot)
+                {
+                    // Simple loot (Loot·scattered): the area generator rolls the biome platform table
+                    // deterministically for this node and the spawn coordinator places the pickups.
+                    node.ContentTypes = new List<PlatformContentType> { PlatformContentType.Loot };
                 }
                 else
                 {

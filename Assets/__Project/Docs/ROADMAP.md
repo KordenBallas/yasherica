@@ -45,8 +45,10 @@ a step is a prerequisite brief, not a design gap. See `product-requirements/READ
    (`quest-offer-card.md`) — reuses the card grammar from step 2 (see `## Quests`).
 
 **Track B — World / Platforms** (hard sequential chain)
-1. **World content density** (`world-content-density.md`) — the world foundation; defines the
-   content-kind vocabulary.
+1. **World content density — DONE** (`world-content-density.md`): the density-first allocator (four
+   content kinds, one SO density config, per-biome monster pool, streaming loot) shipped — see
+   `## Data-Driven Procedural Narrative` + `narrative-procedural.md` §2.6. Remaining polish: biome
+   selection along the run, loot-chance dead-API cleanup (below).
 2. **Platform hex surface & shape** (`platform-hex-surface-and-shape.md`) — content-aware sizing uses
    the content kinds from step 1 (the hex-surface + organic-edge half is independent of it).
 3. In parallel after step 2: **Sites & landscape** (`world-sites-and-landscape.md`, also needs step 1)
@@ -181,17 +183,22 @@ Deferred design (from `narrative-procedural.md` §6):
     `ScenarioGenerator`/`IScenarioGenerator`/`PlatformGraphGenerator`/`IPlatformGraphGenerator`/`GameContext`
     one-shot pipeline + their bindings. *(See CHANGELOG.)* `DialogueContent` kept (unused, not
     narrative-coupled); `StoryPlatformData`/`ScenarioData` data classes kept (`GraphNode.StoryData`).
-- [ ] `[content]` **World content density — a rare, breathing world** (brief
-    `product-requirements/world-content-density.md`). The director must stop filling windows to the
-    narrative weight budget; the world gains **four content kinds** — empty/traversal (the majority),
-    simple low-tier loot, **ambient aggressive monsters** (standalone, no quest attached, drawn from a
-    per-biome pool at flat difficulty), and **rare** NPC quests (~1 per ~10 platforms, spaced apart) —
-    all governed by an **SO density config** (quest rarity + min spacing, monster/loot/empty budgets) the
-    designer tunes without code. Empties become deliberate budgeted breath, not leftover padding.
-    Deterministic (same seed → same world). **Subsumes the "Streaming-path loot + biome" item below.**
-- [ ] `[content]` **Streaming-path loot + biome.** The streaming generator places empty fillers (no loot)
-    and a fixed biome (Forest); fold loot platforms and progression/biome selection into the planner.
-    *(Now part of the "World content density" item above — simple loot is one of its four content kinds.)*
+- [x] `[content]` **World content density — a rare, breathing world** (brief
+    `product-requirements/world-content-density.md`). *(Done — `WorldContentAllocator` allocates each
+    window slot one of the four content kinds (Empty/Loot·scattered/Combat·wild-beast/
+    NPC·quest-bearer): quests are a seeded 1-in-N roll behind a hard min-spacing carried across
+    windows; ambient slots split by weights from the one `WorldContentDensityConfig` SO; ambient
+    monsters draw from per-biome `BiomeMonsterPoolDefinition` pools at flat difficulty; loot platforms
+    roll the biome platform table on the streaming path. Deterministic. See CHANGELOG;
+    `narrative-procedural.md` §2.6. Subsumed the "Streaming-path loot" item; the biome half remains
+    below.)*
+- [ ] `[content]` **Biome selection along the run.** The streaming generator still runs a fixed biome
+    (`AreaSceneEntrypoint` hardcodes Forest); fold progression/biome selection into the planner so the
+    biome (and with it the monster pool + loot table) changes as the run advances.
+- [ ] `[debt]` **Remove the dead platform-loot chance API.** Loot-platform *presence* is owned by the
+    density allocator now; `LootRollService.ShouldPlaceLootOnPlatform` and
+    `BiomeLootDefinition._platformLootChance` have no callers — delete them (and their
+    `BiomeLootData` field) on the next loot pass. *(loot)*
 - [ ] `[arch]` **Director pacing — thread balancing.** Cross-window thread continuity/quotas beyond the
   planner's within-window thread preference (ties into R8 first-class threads).
 - [ ] `[content]` **Demo fact-web sharpeners.** The deeper two-thread demo (`narrative-procedural.md` §4)
@@ -206,8 +213,9 @@ Deferred design (from `narrative-procedural.md` §6):
   `quest-subsystem.md`.)*
 - [ ] `[arch]` **Window/horizon save-state.** `RunNarrativeSnapshot` does not yet capture the streaming
   planner's window/committed-horizon state, the `ILiveActorRegistry` live-actor set (recurring-actor
-  continuity, D11), **nor the `ILiveQuestRegistry` live-quest set** (cross-dialogue quest continuity, R8);
-  add all three (ties to R14 file IO).
+  continuity, D11), **nor the `ILiveQuestRegistry` live-quest set** (cross-dialogue quest continuity, R8),
+  **nor the `WorldContentAllocator` quest-spacing counter** (world-content-density spacing across a
+  reload); add all four (ties to R14 file IO).
 - [ ] `[arch]` **R11 — Reactive-rule cascade layer.** Optional central layer that derives cross-category
   cascades from fact reads/writes; cascades are explicit authored effects until then.
 - [ ] `[arch]` **OR/boolean precondition composition.** Preconditions are AND-only; add OR/grouping.
@@ -376,7 +384,9 @@ Known limitations (from `loot-subsystem.md` §4):
 - [x] `[content]` Explicit Ink "quest completed" signal — *(Done for the new engine — quests complete on
   an explicit `complete-quest:` Ink tag, not on walking away; rewards are granted for a `Completed` quest
   only. See `quest-subsystem.md`; CHANGELOG.)*
-- [ ] `[arch]` Filler platforms (beyond scenario requirements) never carry loot; only requirement-driven ones roll it.
+- [x] `[arch]` Filler platforms (beyond scenario requirements) never carry loot. *(Resolved by
+  world-content-density — loot platforms are a first-class content kind the density allocator places
+  on the streaming path; see CHANGELOG, `narrative-procedural.md` §2.6.)*
 - [ ] `[arch]` Non-item `RewardType`s have no receiving system (see Cross-cutting).
 - [ ] `[arch]` Inventory capacity feedback (R11) is unreachable while inventory is unlimited;
   `UnlimitedCapacityPolicy` is the rebinding point.

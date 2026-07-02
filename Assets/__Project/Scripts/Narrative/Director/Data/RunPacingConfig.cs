@@ -3,9 +3,10 @@ using UnityEngine;
 namespace Narrative.Director.Data
 {
     /// <summary>
-    /// ScriptableObject pacing budget for the windowed director (P2). Configuration data only — the
+    /// ScriptableObject window mechanics for the windowed director. Configuration data only — the
     /// planner consumes the mapped Core <c>RunPacingSettings</c>, never this SO. A "window" is the next
-    /// <see cref="WindowSize"/> platforms ahead of the player.
+    /// <see cref="WindowSize"/> platforms ahead of the player. World fullness (quest rarity, ambient
+    /// monster/loot/empty mix) lives on <c>WorldContentDensityConfig</c>, not here.
     /// </summary>
     [CreateAssetMenu(fileName = "RunPacingConfig", menuName = "Narrative/Director/Run Pacing Config")]
     public class RunPacingConfig : ScriptableObject
@@ -18,23 +19,7 @@ namespace Narrative.Director.Data
         [Min(1)]
         [SerializeField] private int _lookAheadWindows = 1;
 
-        [Header("Narrative Budget")]
-        [Tooltip("Maximum sum of selected story weights per window")]
-        [Min(0)]
-        [SerializeField] private int _narrativeBudgetPerWindow = 30;
-
-        [Header("Combat Budget (separate dimension)")]
-        [Tooltip("Minimum combat-bearing encounters per window")]
-        [Min(0)]
-        [SerializeField] private int _minCombatPerWindow = 1;
-        [Tooltip("Maximum combat-bearing encounters per window")]
-        [Min(0)]
-        [SerializeField] private int _maxCombatPerWindow = 2;
-
         public int WindowSize => _windowSize;
         public int LookAheadWindows => _lookAheadWindows;
-        public int NarrativeBudgetPerWindow => _narrativeBudgetPerWindow;
-        public int MinCombatPerWindow => _minCombatPerWindow;
-        public int MaxCombatPerWindow => _maxCombatPerWindow;
     }
 }

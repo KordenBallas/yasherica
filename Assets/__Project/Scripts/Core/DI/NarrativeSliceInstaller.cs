@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CharacterProgression.Core;
+using Combat.Data;
 using Combat.Data.Definitions;
 using Core.Logging;
 using Narrative;
@@ -52,6 +53,10 @@ namespace Core.DI
 
         [Header("Director Pacing")]
         [SerializeField] private RunPacingConfig _runPacingConfig;
+
+        [Header("World Content Density")]
+        [SerializeField] private WorldContentDensityConfig _worldContentDensityConfig;
+        [SerializeField] private List<BiomeMonsterPoolDefinition> _biomeMonsterPools = new List<BiomeMonsterPoolDefinition>();
 
         public override void InstallBindings()
         {
@@ -139,9 +144,33 @@ namespace Core.DI
 
         private void InstallPlanner()
         {
-            // Pacing budget (story-first windowed director). Falls back to defaults if no config wired.
+            // Window mechanics (windowed director). Falls back to defaults if no config wired.
             Container.Bind<RunPacingSettings>()
                 .FromInstance(RunPacingConfigMapper.ToSettings(_runPacingConfig))
+                .AsSingle();
+
+            // World fullness (quest rarity/spacing + ambient empty/loot/combat mix). One asset, mapped
+            // to the UnityEngine-free settings record at install time.
+            Container.Bind<WorldContentDensitySettings>()
+                .FromInstance(WorldContentDensityConfigMapper.ToSettings(_worldContentDensityConfig))
+                .AsSingle();
+
+            // Ambient monster pools per biome (Combat·wild-beast, flat difficulty).
+            Container.Bind<IBiomeMonsterPoolCatalog>()
+                .To<BiomeMonsterPoolCatalog>()
+                .FromMethod(ctx => new BiomeMonsterPoolCatalog(
+                    BiomeMonsterPoolMapper.ToPools(_biomeMonsterPools, ctx.Container.Resolve<IGameLogger>())))
+                .AsSingle();
+
+            // Run-scoped slot allocator: owns the quest-spacing counter across windows and shares the
+            // director's seeded stream so allocation is replay-deterministic (B2).
+            Container.Bind<WorldContentAllocator>()
+                .FromMethod(ctx => new WorldContentAllocator(
+                    ctx.Container.Resolve<WorldContentDensitySettings>(),
+                    ctx.Container.Resolve<IBiomeMonsterPoolCatalog>(),
+                    ctx.Container.Resolve<Loot.Core.ICurrentThemeProvider>(),
+                    ctx.Container.Resolve<IRandomSource>(),
+                    ctx.Container.Resolve<IGameLogger>()))
                 .AsSingle();
 
             // id -> archetype SO, so the spawn layer can read the visual assembly/portrait.
@@ -159,6 +188,7 @@ namespace Core.DI
                     ctx.Container.Resolve<ILiveActorRegistry>(),
                     ctx.Container.Resolve<IRandomSource>(),
                     ctx.Container.Resolve<RunPacingSettings>(),
+                    ctx.Container.Resolve<WorldContentAllocator>(),
                     ctx.Container.Resolve<IGameLogger>()))
                 .AsSingle();
         }
@@ -326,6 +356,18 @@ namespace Core.DI
             if (IsEmpty(_storyTemplates))
             {
                 _storyTemplates = new List<StoryTemplate>(Resources.LoadAll<StoryTemplate>("Narrative/Stories"));
+            }
+
+            if (_worldContentDensityConfig == null)
+            {
+                _worldContentDensityConfig =
+                    Resources.Load<WorldContentDensityConfig>("Narrative/WorldContentDensityConfig");
+            }
+
+            if (IsEmpty(_biomeMonsterPools))
+            {
+                _biomeMonsterPools = new List<BiomeMonsterPoolDefinition>(
+                    Resources.LoadAll<BiomeMonsterPoolDefinition>("Combat/MonsterPools"));
             }
         }
 

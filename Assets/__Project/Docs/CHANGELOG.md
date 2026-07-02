@@ -9,6 +9,42 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Narrative/World — world content density: a rare, breathing world (verified brief
+  `product-requirements/world-content-density.md`; `narrative-procedural.md` §2.6; ROADMAP Track B
+  step 1):** the streaming director stops filling windows to the narrative weight budget; each
+  platform slot is allocated one of the **four content kinds** (`design/world/content-kinds.md`) —
+  **Empty/traversal** (the budgeted majority), **Loot·scattered** (simple low-tier finds from the
+  biome `_platformTable`, rolled deterministically by `AreaGenerator` and spawned by the existing
+  pickup runtime — the streaming loot path is live), **Combat·wild-beast** (ambient aggressive
+  monsters drawn from a per-biome pool at flat difficulty, spawned as `EnemyContent` with no quest or
+  dialogue — the main combat source), and **NPC·quest-bearer** (rare: a seeded
+  1-in-`AveragePlatformsPerQuest` roll behind a hard `MinPlatformsBetweenQuests` spacing carried
+  across windows; an unfillable quest slot degrades to the ambient draw without resetting spacing).
+  New pure-C# `WorldContentAllocator` + `WorldContentDensitySettings` +
+  `IBiomeMonsterPoolCatalog`/`BiomeMonsterPoolCatalog` (`Narrative.Director.Core`); new SOs
+  **`WorldContentDensityConfig`** (the one world-fullness asset —
+  `Resources/Narrative/WorldContentDensityConfig.asset`, defaults 1-in-10 / spacing 4 /
+  empty 65 / loot 15 / combat 20) and **`BiomeMonsterPoolDefinition`**
+  (`Resources/Combat/MonsterPools/MonsterPool_Forest.asset`, seeded with the test enemy + the bandit
+  brute) with mappers, bound in `NarrativeSliceInstaller`. `PlannedPlatform` gains
+  `AmbientCombat(enemyId)`/`LootDrop()` (the reserved `Combat`/`Loot` kinds are now emitted);
+  `RunStreamingCoordinator` maps them to `EnemyContent`/`PlatformContentType.Loot` nodes.
+  `AreaInstaller` now auto-loads enemy definitions from **both** `Resources/Enemies/Definitions` and
+  `Resources/Narrative/Enemies` (deduped by id) so pooled and story enemies resolve in combat.
+  Tests: new `WorldContentAllocatorTests` (9); `RunWindowPlannerTests` reworked to the density model
+  (ambient emission, cross-window spacing, all-kind same-seed determinism).
+
+### Changed
+- **Narrative — `RunPacingConfig`/`RunPacingSettings` slimmed to window mechanics** (`_windowSize`,
+  `_lookAheadWindows`): `_narrativeBudgetPerWindow`, `_minCombatPerWindow` and `_maxCombatPerWindow`
+  are **removed** — superseded by `WorldContentDensityConfig` (no `RunPacingConfig.asset` existed, so
+  no asset migration). `RunWindowPlanner` drops the two-phase budget fill; story selection (thread
+  preference + seeded tie-break, eligibility, recasting) is unchanged and runs only for quest slots.
+  **Determinism note:** the allocator's extra seeded draws shift the shared PRNG stream, so the same
+  seed produces a *different* world than pre-change builds (same-seed-same-world still holds within a
+  build). `StoryTemplate.Weight` is currently unread (kept for future pacing use).
+
+### Added
 - **Mutation — mutation choice cards: the unseal menu is a hand of cards (verified brief
   `product-requirements/mutation-choice-cards.md`; `mutation-subsystem.md` §2.4; ROADMAP Track A
   step 2):** each variant is a **card** — front face = the part pictured centre (its `ChoiceIcon`)

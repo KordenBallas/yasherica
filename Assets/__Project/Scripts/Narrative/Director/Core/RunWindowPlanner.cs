@@ -8,18 +8,17 @@ using Narrative.Stories.Core;
 namespace Narrative.Director.Core
 {
     /// <summary>
-    /// Default <see cref="IRunWindowPlanner"/>: a story-first, budgeted window planner (P2).
+    /// Default <see cref="IRunWindowPlanner"/>: a density-first window planner (the
+    /// world-content-density brief). Per window it (1) filters stories to those eligible against the
+    /// live store (R6/R7) per the eligibility rules below (world-only vs. actor-scoped casting query);
+    /// (2) asks the <see cref="WorldContentAllocator"/> for each slot's content kind — Empty/traversal
+    /// (the majority), simple Loot, ambient Combat from the biome pool, or a rare, spaced Quest slot;
+    /// (3) fills only the Quest slots from the eligible stories. There is no narrative weight budget and
+    /// no combat quota: quests are governed by rarity + minimum spacing, ambient monsters are the main
+    /// combat source, and a story that happens to carry a combat slot is the tolerated exception.
     ///
-    /// Per window it (1) filters stories to those eligible against the live store (R6/R7) per the
-    /// eligibility rules below (world-only vs. actor-scoped casting query); (2) places combat-bearing stories until
-    /// <see cref="RunPacingSettings.MinCombatPerWindow"/> is met; (3) fills the remaining platforms from
-    /// any eligible story while the narrative weight stays within
-    /// <see cref="RunPacingSettings.NarrativeBudgetPerWindow"/> and combat stays under
-    /// <see cref="RunPacingSettings.MaxCombatPerWindow"/>; (4) pads to <see cref="RunPacingSettings.WindowSize"/>
-    /// with empty fillers. Combat is its own budget dimension, independent of narrative weight.
-    ///
-    /// Selection prefers continuing a thread already chosen this window, then a seeded pick among ties so
-    /// results are deterministic and save-replayable (B2).
+    /// Story selection prefers continuing a thread already chosen this window, then a seeded pick among
+    /// ties so results are deterministic and save-replayable (B2).
     ///
     /// Eligibility resolves over **world/global *and* actor/faction-scoped facts** (D16). A story whose
     /// preconditions reference no context token (<c>$self</c>/<c>$faction</c>/…) is gated on world facts
@@ -48,6 +47,7 @@ namespace Narrative.Director.Core
         private readonly ILiveActorRegistry _liveActors;
         private readonly IRandomSource _random;
         private readonly RunPacingSettings _settings;
+        private readonly WorldContentAllocator _allocator;
         private readonly IGameLogger _logger;
 
         public RunWindowPlanner(
@@ -58,6 +58,7 @@ namespace Narrative.Director.Core
             ILiveActorRegistry liveActors,
             IRandomSource random,
             RunPacingSettings settings,
+            WorldContentAllocator allocator,
             IGameLogger logger = null)
         {
             _stories = stories ?? System.Array.Empty<StoryTemplateData>();
@@ -67,6 +68,7 @@ namespace Narrative.Director.Core
             _liveActors = liveActors ?? new LiveActorRegistry();
             _random = random;
             _settings = settings;
+            _allocator = allocator;
             _logger = logger;
         }
 
@@ -96,34 +98,55 @@ namespace Narrative.Director.Core
             var eligible = BuildEligible(facts);
             var usedStoryIds = new HashSet<string>();
             var activeThreads = new HashSet<string>();
-            int usedWeight = 0;
-            int combatCount = 0;
 
-            // Phase 1: satisfy the minimum combat budget first.
-            while (combatCount < _settings.MinCombatPerWindow && platforms.Count < _settings.WindowSize)
+            for (int slot = 0; slot < _settings.WindowSize; slot++)
             {
-                var pick = ChooseStory(eligible, usedStoryIds, activeThreads, usedWeight, combatCount, requireCombat: true);
-                if (pick == null)
+                // The allocator gets the live availability so a quest slot that cannot be filled (story
+                // pool exhausted this window) degrades into the ambient draw instead of a dead platform,
+                // and the spacing counter keeps running.
+                var allocation = _allocator.AllocateSlot(HasUnusedEligible(eligible, usedStoryIds));
+                switch (allocation.Kind)
                 {
-                    break;
+                    case WorldSlotKind.Quest:
+                        var pick = ChooseStory(eligible, usedStoryIds, activeThreads);
+                        if (pick == null)
+                        {
+                            // questAvailable was true, so this is unreachable; guard for safety.
+                            platforms.Add(PlannedPlatform.EmptyFiller());
+                            break;
+                        }
+
+                        Place(pick.Value, platforms, usedStoryIds, activeThreads);
+                        break;
+
+                    case WorldSlotKind.Combat:
+                        platforms.Add(PlannedPlatform.AmbientCombat(allocation.EnemyId));
+                        break;
+
+                    case WorldSlotKind.Loot:
+                        platforms.Add(PlannedPlatform.LootDrop());
+                        break;
+
+                    default:
+                        platforms.Add(PlannedPlatform.EmptyFiller());
+                        break;
                 }
-
-                Place(pick.Value, platforms, usedStoryIds, activeThreads, ref usedWeight, ref combatCount);
-            }
-
-            // Phase 2: fill the window from any eligible story within the budgets.
-            while (platforms.Count < _settings.WindowSize)
-            {
-                var pick = ChooseStory(eligible, usedStoryIds, activeThreads, usedWeight, combatCount, requireCombat: false);
-                if (pick == null)
-                {
-                    break;
-                }
-
-                Place(pick.Value, platforms, usedStoryIds, activeThreads, ref usedWeight, ref combatCount);
             }
 
             return PadAndBuild(windowIndex, platforms);
+        }
+
+        private static bool HasUnusedEligible(IReadOnlyList<EligibleStory> eligible, HashSet<string> usedStoryIds)
+        {
+            for (int i = 0; i < eligible.Count; i++)
+            {
+                if (!usedStoryIds.Contains(eligible[i].Story.StoryId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private List<EligibleStory> BuildEligible(IFactStore facts)
@@ -223,30 +246,13 @@ namespace Narrative.Director.Core
         }
 
         private EligibleStory? ChooseStory(IReadOnlyList<EligibleStory> eligible, HashSet<string> usedStoryIds,
-            HashSet<string> activeThreads, int usedWeight, int combatCount, bool requireCombat)
+            HashSet<string> activeThreads)
         {
             var candidates = new List<EligibleStory>();
             for (int i = 0; i < eligible.Count; i++)
             {
                 var entry = eligible[i];
-                var story = entry.Story;
-                if (usedStoryIds.Contains(story.StoryId))
-                {
-                    continue;
-                }
-
-                if (usedWeight + story.Weight > _settings.NarrativeBudgetPerWindow)
-                {
-                    continue;
-                }
-
-                bool isCombat = IsCombatBearing(story);
-                if (requireCombat && !isCombat)
-                {
-                    continue;
-                }
-
-                if (isCombat && combatCount >= _settings.MaxCombatPerWindow)
+                if (usedStoryIds.Contains(entry.Story.StoryId))
                 {
                     continue;
                 }
@@ -275,7 +281,7 @@ namespace Narrative.Director.Core
         }
 
         private void Place(EligibleStory entry, List<PlannedPlatform> platforms, HashSet<string> usedStoryIds,
-            HashSet<string> activeThreads, ref int usedWeight, ref int combatCount)
+            HashSet<string> activeThreads)
         {
             var story = entry.Story;
 
@@ -288,15 +294,8 @@ namespace Narrative.Director.Core
                 _liveActors.Register(actor);
             }
 
-            bool isCombat = IsCombatBearing(story);
-
-            platforms.Add(PlannedPlatform.StoryEncounter(story, actor, isCombat));
+            platforms.Add(PlannedPlatform.StoryEncounter(story, actor, IsCombatBearing(story)));
             usedStoryIds.Add(story.StoryId);
-            usedWeight += story.Weight;
-            if (isCombat)
-            {
-                combatCount++;
-            }
 
             if (!string.IsNullOrEmpty(story.ThreadId))
             {

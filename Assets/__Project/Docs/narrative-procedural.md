@@ -111,8 +111,11 @@ Scripts/Core/DI/NarrativeSliceInstaller.cs
 `Core.DI.NarrativeSliceInstaller` (the only narrative installer in the Area scene since the legacy
 cutover) binds the fact store/evaluator/applier/resolver, the fragment library + storylets (mapped from
 inspector SO lists or auto-loaded from `Resources/Narrative/*`), the casting factory + director +
-windowed planner + serializable PRNG (seeded from the run seed via `LootSeed.Derive`), the actor-instance
-factory + encounter orchestrator (§2.5), the dialogue session/runner/tag-parser, the
+windowed planner + serializable PRNG (seeded from the run seed via `LootSeed.Derive`), the
+world-content-density settings + biome monster-pool catalog + run-scoped `WorldContentAllocator`
+(§2.6; mapped from `WorldContentDensityConfig` / `BiomeMonsterPoolDefinition` assets or auto-loaded
+from `Resources/Narrative/WorldContentDensityConfig` and `Resources/Combat/MonsterPools`), the
+actor-instance factory + encounter orchestrator (§2.5), the dialogue session/runner/tag-parser, the
 `IEncounterCardHandView` + `EncounterCardHandPresenter` (the card-hand UI, §2.7; instantiated from the
 `Resources` prefab), and `INarrativeSaveService`. A `NarrativeSliceBootstrap` `IInitializable` runs
 footprint derivation + typed-ref validation after build.
@@ -136,11 +139,16 @@ exercised has a single production entry point:
 `EncounterDirector` only resolves-and-begins; the platform-state adapter that triggers it and routes the
 runner's combat/quest/ended signals back into gameplay is `DialogueActiveState` (the legacy cutover is done).
 
-### 2.6 Windowed director (planner core — selection is story-first)
+### 2.6 Windowed director (planner core — allocation is density-first, selection is story-first)
 
-Story selection is **story-first and budgeted**, planned a window at a time (a window = the next
-`WindowSize` platforms ahead of the player). `RunWindowPlanner` (`IRunWindowPlanner`,
-`Narrative.Director.Core`) is pure C# and deterministic:
+The world is planned a window at a time (a window = the next `WindowSize` platforms ahead of the
+player) from the **four content kinds** of the world-content-density brief
+(`design/world/content-kinds.md` vocabulary): **Empty/traversal** (the deliberate majority),
+**Loot·scattered** (simple low-tier finds), **Combat·wild-beast** (ambient aggressive monsters from
+the biome pool — the main combat source), and **NPC·quest-bearer** (rare, spaced). There is **no
+narrative weight budget and no combat quota**: quest rarity + spacing governs stories, and a story
+that happens to carry a combat slot is the tolerated exception. `RunWindowPlanner`
+(`IRunWindowPlanner`, `Narrative.Director.Core`) is pure C# and deterministic:
 
 `PlanWindow(windowIndex, IFactStore) → WindowPlan`
 1. **Eligibility** — keep stories whose preconditions pass over the live store (R6/R7), resolved over
@@ -158,12 +166,20 @@ Story selection is **story-first and budgeted**, planned a window at a time (a w
      brand-new actor (no facts) can't satisfy a positive actor-scoped precondition, so the gate only
      opens once a qualifying actor already exists — a story meant to open for any fresh actor must use
      world/global preconditions.
-2. **Combat minimum** — place combat-bearing stories (those with a `Combat` slot) until
-   `MinCombatPerWindow` is met.
-3. **Narrative fill** — add eligible stories while the summed `StoryTemplate.Weight` stays within
-   `NarrativeBudgetPerWindow` and combat stays under `MaxCombatPerWindow`. Combat is a **separate budget
-   dimension** from narrative weight.
-4. **Pad** — fill the rest of the window with empty fillers.
+2. **Slot allocation** — for each of the window's `WindowSize` slots, `WorldContentAllocator`
+   (run-scoped, sharing the director's seeded stream) decides the content kind:
+   - **Quest gate first**: the spacing counter must exceed
+     `WorldContentDensitySettings.MinPlatformsBetweenQuests` (a **hard invariant carried across
+     window boundaries** — the counter is allocator state, so quests never cluster back-to-back), a
+     seeded 1-in-`AveragePlatformsPerQuest` roll must hit, and an unused eligible story must exist.
+     When any of these fails the slot **degrades into the ambient draw** and the counter keeps
+     running, so a quest lands at the next opportunity rather than being forfeited.
+   - **Ambient weighted draw** otherwise: an integer-weighted pick among Empty
+     (`EmptyWeight`) / Loot (`LootWeight`) / Combat (`CombatWeight`). A Combat slot draws its enemy
+     id from the current biome's `IBiomeMonsterPoolCatalog` pool at flat difficulty (an unauthored
+     pool downgrades the slot to Empty, warned once).
+3. **Story selection** — only for Quest slots: pick among the unused eligible stories (thread
+   preference + seeded tie-break, below) and place it with its actor.
 
 Selection prefers continuing a thread already chosen this window (coherence), then a seeded pick among
 ties so plans are save-replayable (B2). A **world-only** placed story gets an actor minted via
@@ -173,25 +189,34 @@ preferences only weight) — the planner prefers an `NpcArchetype` whose tags ov
 falls back to any archetype when none overlap. An **actor-scoped** placed story instead reuses the
 **pinned** actor resolved by the casting query above; the pin is a **hard pin** (D11) that bypasses the
 soft tag preference so an arc cannot be broken by casting a different archetype. Output `WindowPlan` is an
-ordered list of `PlannedPlatform` (`Story`/`Combat`/`Loot`/`Empty`) the level generator maps to platforms.
+ordered list of `PlannedPlatform` (`Story`/`Combat`/`Loot`/`Empty`; a `Combat` platform carries the
+biome-pool `EnemyId`) the level generator maps to platforms.
 
 `ILiveActorRegistry`/`LiveActorRegistry` (`Narrative.Actors.Core`, pure C#) is the run-scoped set of
 minted actors in deterministic registration order — the seam recurring-actor casting reads. It is bound
 `AsSingle` for the run; repopulating it on load is part of the deferred window/horizon save-state (§6).
 
 **Streaming & entry (now wired).** `RunStreamingCoordinator` (`LevelGeneration`) drives generation:
-`Begin()` generates window 0; on each `PlatformEvents.OnPlatformEntered` into the current frontier it
-locks that window and plans + generates the next against the live store. Each planned story platform is
+`Begin()` generates window 0; on each `PlatformEvents.OnPlatformExited` from a frontier platform it
+locks that window and plans + generates the next against the live store (exit, not entry, so an
+engaging player's fact writes land before the next window is planned). Each planned story platform is
 realised as an `NpcContent` carrying the minted actor + committed story (its visual spawns from the
 archetype assembly via `IModularCharacterFactory`; `INpcArchetypeCatalog` resolves id → archetype SO).
-On entry, `DialogueActiveState` calls `EncounterDirector.BeginPlanned(story, actor)` (cast + begin, no
-re-selection) and routes outcomes: combat → `EnemyContent` + `CombatActiveState`, then
-`CombatActiveState` feeds `DialogueRunner.ReportCombatResult` so post-combat lines/facts replay before
-the platform completes; a normal end completes the platform. `AreaSceneEntrypoint` drives the coordinator
-instead of the legacy generator.
+An **ambient combat** platform is realised as an `EnemyContent` with the planner's biome-pool
+`EnemyId` — the content-driven state factory routes it to the combat states, a fight with no quest or
+dialogue attached. A **loot** platform maps to `PlatformContentType.Loot`: `AreaGenerator` rolls the
+biome `_platformTable` deterministically (`LootRollContext(theme, "platform:<nodeId>")`) and
+`PlatformLootSpawnCoordinator` spawns the pickups. On entry, `DialogueActiveState` calls
+`EncounterDirector.BeginPlanned(story, actor)` (cast + begin, no re-selection) and routes outcomes:
+combat → `EnemyContent` + `CombatActiveState`, then `CombatActiveState` feeds
+`DialogueRunner.ReportCombatResult` so post-combat lines/facts replay before the platform completes; a
+normal end completes the platform. `AreaSceneEntrypoint` drives the coordinator instead of the legacy
+generator.
 
-Open points this stage: loot is not placed on the streaming path (fillers are empty), biome is fixed
-(Forest). An archetype with no `_assembly` runs its dialogue but spawns no visible NPC body (logged warning).
+Open points this stage: biome is fixed (Forest — biome selection along the run is a separate item).
+The quest-spacing counter is allocator state and is not yet save-captured (rides the window/horizon
+save-state item, §6). An archetype with no `_assembly` runs its dialogue but spawns no visible NPC
+body (logged warning).
 
 ### 2.7 Encounter card-hand (presentation, MVP)
 
@@ -291,10 +316,41 @@ authored here.
 
 ### `RunPacingConfig`  (asset menu: `Create → Narrative → Director → Run Pacing Config`)
 
-The windowed director's pacing budget (consumed as the Core `RunPacingSettings` via
+The windowed director's window mechanics (consumed as the Core `RunPacingSettings` via
 `RunPacingConfigMapper`, never directly). `_windowSize` (platforms per planning window),
-`_lookAheadWindows`, `_narrativeBudgetPerWindow` (max summed story weight), `_minCombatPerWindow` /
-`_maxCombatPerWindow` (combat is a separate budget dimension).
+`_lookAheadWindows`. The former narrative/combat budget fields were superseded by
+`WorldContentDensityConfig` (below). No asset is currently authored — the mapper's defaults
+(`4` / `1`) run.
+
+### `WorldContentDensityConfig`  (asset menu: `Create → Narrative → Director → World Content Density Config`)
+
+The **one asset governing world fullness** (the world-content-density brief; consumed as the Core
+`WorldContentDensitySettings` via `WorldContentDensityConfigMapper`, never directly). Shipped asset:
+`Resources/Narrative/WorldContentDensityConfig.asset` (the installer's auto-load path).
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `_averagePlatformsPerQuest` | int ≥ 1 | 10 | ~1 quest per N platforms (a seeded 1-in-N roll per slot) |
+| `_minPlatformsBetweenQuests` | int ≥ 0 | 4 | hard minimum platforms between two quests; 1+ forbids back-to-back |
+| `_emptyWeight` | int ≥ 0 | 65 | ambient-draw share that stays empty/traversal (the world's breath) |
+| `_lootWeight` | int ≥ 0 | 15 | ambient-draw share carrying a simple low-tier loot find |
+| `_combatWeight` | int ≥ 0 | 20 | ambient-draw share carrying an ambient monster from the biome pool |
+
+### `BiomeMonsterPoolDefinition`  (asset menu: `Create → Combat → Enemies → Biome Monster Pool`)
+
+One ambient-monster pool per biome theme (flat difficulty; consumed as an enemy-id map via
+`BiomeMonsterPoolMapper` → `BiomeMonsterPoolCatalog`, never directly). Shipped asset:
+`Resources/Combat/MonsterPools/MonsterPool_Forest.asset` (the installer's auto-load folder; first
+authored pool per theme wins, duplicates are warned and ignored).
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `_theme` | `LevelTheme` | the biome this pool belongs to (Forest/Desert/Mountain/Cave) |
+| `_enemies` | `List<EnemyDefinition>` | the enemies an ambient combat platform in this biome may spawn |
+
+Pooled enemies must resolve in the combat `IEnemyDataProvider`; `AreaInstaller` auto-loads
+`Resources/Enemies/Definitions` **and** `Resources/Narrative/Enemies` (deduped by enemy id) so both
+authoring locations work.
 
 **Authoring structs:** `FactPredicateSerial` (`namespace`, `subjectToken`, `key`, `op` `ComparisonOp`,
 typed value), `FactEffectSerial` (same with `op` `FactEffectOp`), `FactKeyShape` (namespace, subject
@@ -336,6 +392,20 @@ A designer assembles the vertical slice (or new narrative content) entirely from
    preconditions, optional story-level effects, tags, and a thread label.
 2. Add the archetype, dialogue, quest, enemy, and story to the `NarrativeSliceInstaller` lists in the
    scene; assign the `FactKeyRegistry`.
+
+### Tune world fullness (density)
+1. Open `Resources/Narrative/WorldContentDensityConfig.asset` (or `Create → Narrative → Director →
+   World Content Density Config` and place it at that path for auto-load).
+2. Dial quest rarity (`_averagePlatformsPerQuest`), quest spacing (`_minPlatformsBetweenQuests`), and
+   the ambient empty/loot/combat mix (`_emptyWeight`/`_lootWeight`/`_combatWeight`). No code change;
+   the same run seed still produces the same world.
+
+### Add an ambient monster / a biome monster pool
+1. Author the enemy as an `EnemyDefinition` under `Resources/Enemies/Definitions` (or
+   `Resources/Narrative/Enemies`) — id, HP, abilities, AI profile, loot slots.
+2. Add it to the biome's `BiomeMonsterPoolDefinition` `_enemies` list. New biome pool:
+   `Create → Combat → Enemies → Biome Monster Pool` under `Resources/Combat/MonsterPools/`, set
+   `_theme`. One pool per theme (duplicates are ignored with a warning).
 
 ### Ready-made Demo content
 
@@ -442,7 +512,7 @@ slots are optional but a slot-dependent tag firing against an empty slot fails c
 
 ## 5. Tests
 
-Edit-mode suites in `Assets/__Project/Tests/EditMode/` (132 pure-C# tests, runnable without the editor):
+Edit-mode suites in `Assets/__Project/Tests/EditMode/` (142 pure-C# tests, runnable without the editor):
 
 - `FactStoreTests` — store ops + B4 presence/default + namespace isolation + stable snapshot + validation.
 - `FactVocabularyTests`, `TypedFactsTests` — conversion, Core registry, typed accessors, drift check (D3).
@@ -456,7 +526,12 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/` (132 pure-C# tests, runna
 - `EncounterDirectorTests` — eligible→cast→begin, none-eligible/uncastable/null→false, and the R7
   fact-coupling proof **through the orchestrator** (one encounter's fact write changes the next's eligibility).
 - `RunDirectorTests` — eligibility filtering and **`CrossStorylet_ChoiceInOneThreadChangesEligibilityInAnother_ViaFacts`** (the executable R7 proof).
-- `RunWindowPlannerTests` — budget cap, combat min/max, determinism, R7 eligibility shift across windows,
+- `WorldContentAllocatorTests` — the density allocator: per-kind weight extremes, quest gate
+  (every-slot / spacing invariant / unavailable-degrades-without-reset), biome-pool enemy pick +
+  empty-pool downgrade, all-zero weights, same-seed identical sequence.
+- `RunWindowPlannerTests` — window padding, ambient Loot/Combat emission per density weights (with the
+  biome-pool `EnemyId`), quest spacing held across consecutive windows, same-seed identical plans
+  across all kinds, R7 eligibility shift across windows,
   archetype match/skip, actor assignment, and the **D11+D16 raider-arc proof**
   (`RecurringActor_RecastIntoMotiveStory_ByActorScopedFact`): an actor-scoped fact written after window N
   makes a motive story eligible in window N+1 and recasts the *same* `NpcInstance`; plus
@@ -500,6 +575,11 @@ verified by entering the slice scene; the Ink→JSON compile and `.asset` wiring
   D11) holds the run's minted actors in memory; `RunNarrativeSnapshot` does not yet persist/repopulate
   it, so a mid-run save would lose recurring-actor continuity. Folds into the window/horizon save-state
   item (ROADMAP).
+- **Quest-spacing counter is not yet save-captured.** `WorldContentAllocator` carries
+  `platformsSinceQuest` across windows in memory only; a mid-run save/reload would reset quest spacing.
+  Folds into the same window/horizon save-state item (ROADMAP).
+- **Biome is fixed (Forest).** `AreaSceneEntrypoint` hardcodes `LevelTheme.Forest`; biome selection
+  along the run (and with it which monster pool / loot table plays) is a separate follow-up (ROADMAP).
 - **Remaining director gaps (design handoff `narrative-director-requirements.md`).** Beyond the
   Priority-1 actor/faction eligibility (D16) + recurring-actor casting (D11) delivered here, the
   director still owes: D7 spine reserved lane + per-run reveal cap, D13/D14 first-class threads with

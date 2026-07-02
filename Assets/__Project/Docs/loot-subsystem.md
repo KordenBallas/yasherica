@@ -5,11 +5,17 @@
 > slots, `NpcAssignment.Rewards`, `RewardDefinition`, `NarrativeInstaller`, `ScenarioGenerator`,
 > `PlatformGraphGenerator` (see ROADMAP "Delete legacy (Phase 3)"). Consequences: (1) the **live**
 > quest-reward path is in `quest-subsystem.md` — `QuestRewardGranter` grants the active quest's fixed
-> `QuestRewardCore` (id+count), **no roll**; the §2 description of the granter is wrong. (2) The roll
-> engine (`LootRollService`) still exists but is **dormant on the streaming path** — loot platforms are
-> not generated yet (ROADMAP "Streaming-path loot + biome", open). Treat §1.6 (R6), §2 "Generation
-> integration"/"Runtime hooks", and the granter description as **outdated** until this doc is refreshed
-> (ROADMAP `[debt]`). The seed/`WeightedPicker`/biome-table **Core** is still valid.
+> `QuestRewardCore` (id+count), **no roll**; the §2 description of the granter is wrong. (2) **Platform
+> loot is live on the streaming path (world-content-density, 2026-07-02):** loot-platform *presence* is
+> now decided by the density planner (`WorldContentAllocator` ambient draw, `narrative-procedural.md`
+> §2.6) — `PlannedPlatformKind.Loot` maps to `PlatformContentType.Loot` and
+> `AreaGenerator.CreateLootContent(nodeId)` rolls the biome `_platformTable` deterministically; the
+> pickup runtime (`PlatformLootSpawnCoordinator`/`WorldArtifactView`) is unchanged. Consequently
+> `ShouldPlaceLootOnPlatform` and `BiomeLootDefinition._platformLootChance` are **dead on the active
+> path** (no callers — presence lives in the density config; removal is a ROADMAP cleanup). Treat §1.6
+> (R6), the §2 "Generation integration" gating description, and the granter description as **outdated**
+> until this doc is refreshed (ROADMAP `[debt]`). The seed/`WeightedPicker`/biome-table **Core** is
+> still valid.
 
 Status: current as of 2026-06-12.
 

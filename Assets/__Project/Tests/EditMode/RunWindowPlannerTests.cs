@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Core.Logging;
+using LevelGeneration;
+using Loot.Core;
 using Narrative.Actors.Core;
 using Narrative.Director.Core;
 using Narrative.Facts.Core;
@@ -19,6 +21,20 @@ namespace Tests.EditMode
             public void Warning(LogCategory category, string message) { }
             public void Error(LogCategory category, string message) { }
         }
+
+        private sealed class FakeThemeProvider : ICurrentThemeProvider
+        {
+            private LevelTheme _theme = LevelTheme.Forest;
+            public LevelTheme CurrentTheme => _theme;
+            public void SetTheme(LevelTheme theme) => _theme = theme;
+        }
+
+        /// <summary>Every slot with an eligible story becomes a quest slot (avg 1, no spacing) and
+        /// ambient slots stay empty — reproducing the pre-density "fill with stories, pad empty"
+        /// behavior most eligibility/recasting tests were written against.</summary>
+        private static readonly WorldContentDensitySettings QuestEverywhere =
+            new WorldContentDensitySettings(averagePlatformsPerQuest: 1, minPlatformsBetweenQuests: 0,
+                emptyWeight: 0, lootWeight: 0, combatWeight: 0);
 
         private FactStore _store;
         private PreconditionEvaluator _evaluator;
@@ -83,72 +99,125 @@ namespace Tests.EditMode
             new NpcArchetypeData(id, new[] { "Name" }, "faction", 0, tags);
 
         private RunWindowPlanner Planner(RunPacingSettings settings, IReadOnlyList<StoryTemplateData> stories,
-            IReadOnlyList<NpcArchetypeData> archetypes, ulong seed = 7)
+            IReadOnlyList<NpcArchetypeData> archetypes, ulong seed = 7,
+            WorldContentDensitySettings density = null, IBiomeMonsterPoolCatalog monsterPools = null)
         {
             var random = new DeterministicRandom(seed);
             var actorFactory = new ActorInstanceFactory(random);
             // The registry lives with the planner so a minted actor stays queryable across windows (D11).
             var liveActors = new LiveActorRegistry();
-            return new RunWindowPlanner(stories, archetypes, _evaluator, actorFactory, liveActors, random, settings, _logger);
+            // The allocator shares the planner's seeded stream and carries quest spacing across windows.
+            var allocator = new WorldContentAllocator(density ?? QuestEverywhere,
+                monsterPools ?? new BiomeMonsterPoolCatalog(null), new FakeThemeProvider(), random, _logger);
+            return new RunWindowPlanner(stories, archetypes, _evaluator, actorFactory, liveActors, random,
+                settings, allocator, _logger);
         }
 
         private static int StoryCount(WindowPlan plan) =>
             plan.Platforms.Count(p => p.Kind == PlannedPlatformKind.Story);
 
         [Test]
-        public void NarrativeBudget_StopsFillAtCap()
+        public void PlanIsAlwaysPaddedToWindowSize()
         {
-            var settings = new RunPacingSettings(windowSize: 5, narrativeBudgetPerWindow: 30,
-                minCombatPerWindow: 0, maxCombatPerWindow: 0, lookAheadWindows: 1);
-            var stories = new[]
-            {
-                Story("s1", 20, new[] { "bandit" }),
-                Story("s2", 20, new[] { "bandit" }),
-                Story("s3", 20, new[] { "bandit" })
-            };
-            var plan = Planner(settings, stories, new[] { Archetype("a", "bandit") }).PlanWindow(0, _store);
+            var settings = new RunPacingSettings(windowSize: 5, lookAheadWindows: 1);
+            var plan = Planner(settings, new[] { Story("s1", 20, new[] { "bandit" }) },
+                new[] { Archetype("a", "bandit") }).PlanWindow(0, _store);
 
             Assert.AreEqual(5, plan.Platforms.Count);     // padded to window size
-            Assert.AreEqual(1, StoryCount(plan));         // 20 + 20 would exceed the 30 budget
+            Assert.AreEqual(1, StoryCount(plan));         // one eligible story, rest empty/ambient
         }
 
         [Test]
-        public void CombatBudget_MeetsMinimum()
+        public void AmbientMix_EmitsLootAndCombatKinds_FromDensityWeights()
         {
-            var settings = new RunPacingSettings(windowSize: 3, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 1, maxCombatPerWindow: 3, lookAheadWindows: 1);
-            var stories = new[]
+            // No stories at all: every slot is an ambient draw. Loot and combat kinds must appear per the
+            // configured weights, and combat platforms carry the biome-pool enemy id.
+            var settings = new RunPacingSettings(windowSize: 12, lookAheadWindows: 1);
+            var density = new WorldContentDensitySettings(averagePlatformsPerQuest: 100,
+                minPlatformsBetweenQuests: 0, emptyWeight: 0, lootWeight: 1, combatWeight: 1);
+            var pool = new BiomeMonsterPoolCatalog(new Dictionary<LevelTheme, IReadOnlyList<int>>
             {
-                Story("peace1", 10, new[] { "bandit" }),
-                Story("peace2", 10, new[] { "bandit" }),
-                Story("fight1", 10, new[] { "bandit" }, combat: true)
-            };
-            var plan = Planner(settings, stories, new[] { Archetype("a", "bandit") }).PlanWindow(0, _store);
+                { LevelTheme.Forest, new[] { 7 } }
+            });
 
-            Assert.GreaterOrEqual(plan.CombatCount, 1);
+            var plan = Planner(settings, Array.Empty<StoryTemplateData>(), Array.Empty<NpcArchetypeData>(),
+                density: density, monsterPools: pool).PlanWindow(0, _store);
+
+            Assert.AreEqual(12, plan.Platforms.Count);
+            Assert.IsTrue(plan.Platforms.Any(p => p.Kind == PlannedPlatformKind.Loot));
+            var combats = plan.Platforms.Where(p => p.Kind == PlannedPlatformKind.Combat).ToList();
+            Assert.IsTrue(combats.Count > 0);
+            foreach (var combat in combats)
+            {
+                Assert.AreEqual(7, combat.EnemyId);   // from the Forest pool
+                Assert.IsTrue(combat.IsCombat);
+                Assert.IsNull(combat.Story);          // ambient: no story, no dialogue
+            }
         }
 
         [Test]
-        public void CombatBudget_DoesNotExceedMaximum()
+        public void QuestSpacing_HeldAcrossConsecutiveWindows()
         {
-            var settings = new RunPacingSettings(windowSize: 4, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
-            var stories = new[]
-            {
-                Story("fight1", 10, new[] { "bandit" }, combat: true),
-                Story("fight2", 10, new[] { "bandit" }, combat: true),
-                Story("fight3", 10, new[] { "bandit" }, combat: true)
-            };
-            var plan = Planner(settings, stories, new[] { Archetype("a", "bandit") }).PlanWindow(0, _store);
+            // The spacing counter is allocator state, not window state: with min spacing 2 no two story
+            // platforms may sit closer than 3 slots apart across the whole run, window boundaries included.
+            const int spacing = 2;
+            var settings = new RunPacingSettings(windowSize: 3, lookAheadWindows: 1);
+            var density = new WorldContentDensitySettings(averagePlatformsPerQuest: 1,
+                minPlatformsBetweenQuests: spacing, emptyWeight: 1, lootWeight: 0, combatWeight: 0);
+            var stories = Enumerable.Range(1, 6).Select(i => Story($"s{i}", 10, new[] { "bandit" })).ToArray();
+            var planner = Planner(settings, stories, new[] { Archetype("a", "bandit") }, density: density);
 
-            Assert.LessOrEqual(plan.CombatCount, 1);
+            var questSlots = new List<int>();
+            for (int window = 0; window < 4; window++)
+            {
+                var plan = planner.PlanWindow(window, _store);
+                for (int i = 0; i < plan.Platforms.Count; i++)
+                {
+                    if (plan.Platforms[i].Kind == PlannedPlatformKind.Story)
+                    {
+                        questSlots.Add(window * 3 + i);
+                    }
+                }
+            }
+
+            Assert.GreaterOrEqual(questSlots.Count, 2, "Expected at least two quests over four windows.");
+            for (int i = 1; i < questSlots.Count; i++)
+            {
+                Assert.Greater(questSlots[i] - questSlots[i - 1], spacing,
+                    $"Quests at run slots {questSlots[i - 1]} and {questSlots[i]} violate the min spacing.");
+            }
+        }
+
+        [Test]
+        public void SameSeed_TwoWindowPlansIdentical_AcrossAllKinds()
+        {
+            var settings = new RunPacingSettings(windowSize: 6, lookAheadWindows: 1);
+            var density = new WorldContentDensitySettings(averagePlatformsPerQuest: 2,
+                minPlatformsBetweenQuests: 1, emptyWeight: 1, lootWeight: 1, combatWeight: 1);
+            var pool = new BiomeMonsterPoolCatalog(new Dictionary<LevelTheme, IReadOnlyList<int>>
+            {
+                { LevelTheme.Forest, new[] { 5, 9 } }
+            });
+            var stories = Enumerable.Range(1, 4).Select(i => Story($"s{i}", 10, new[] { "bandit" })).ToArray();
+            var archetypes = new[] { Archetype("a", "bandit") };
+
+            var plannerA = Planner(settings, stories, archetypes, seed: 42, density: density, monsterPools: pool);
+            var plannerB = Planner(settings, stories, archetypes, seed: 42, density: density, monsterPools: pool);
+
+            for (int window = 0; window < 2; window++)
+            {
+                var planA = plannerA.PlanWindow(window, _store);
+                var planB = plannerB.PlanWindow(window, _store);
+                var sigA = planA.Platforms.Select(p => $"{p.Kind}:{p.Story?.StoryId}:{p.EnemyId}").ToArray();
+                var sigB = planB.Platforms.Select(p => $"{p.Kind}:{p.Story?.StoryId}:{p.EnemyId}").ToArray();
+                CollectionAssert.AreEqual(sigA, sigB, $"Window {window} diverged for the same seed.");
+            }
         }
 
         [Test]
         public void SameSeedAndFacts_ProduceIdenticalPlan()
         {
-            var settings = new RunPacingSettings(windowSize: 4, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 4, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 4, lookAheadWindows: 1);
             var stories = new[]
             {
                 Story("s1", 10, new[] { "bandit" }),
@@ -169,8 +238,7 @@ namespace Tests.EditMode
         public void PreconditionWrittenByPriorPlay_ChangesEligibilityNextWindow()
         {
             // R7: a story gated on world.pass_cleared == true is excluded until the fact is written.
-            var settings = new RunPacingSettings(windowSize: 2, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 2, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 2, lookAheadWindows: 1);
             var caravan = Story("caravan", 10, new[] { "bandit" }, precondition: PassCleared(true));
             var planner = Planner(settings, new[] { caravan }, new[] { Archetype("a", "bandit") });
 
@@ -187,8 +255,7 @@ namespace Tests.EditMode
         {
             // Actor matching is a soft preference: a story whose tags don't overlap any archetype is still
             // placed by falling back to any available archetype.
-            var settings = new RunPacingSettings(windowSize: 2, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 2, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 2, lookAheadWindows: 1);
             var ghostStory = Story("ghost", 10, new[] { "ghost" }); // no archetype carries "ghost"
             var plan = Planner(settings, new[] { ghostStory }, new[] { Archetype("a", "bandit") }).PlanWindow(0, _store);
 
@@ -198,8 +265,7 @@ namespace Tests.EditMode
         [Test]
         public void NoArchetypesAtAll_PlacesNothing()
         {
-            var settings = new RunPacingSettings(windowSize: 2, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 2, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 2, lookAheadWindows: 1);
             var plan = Planner(settings, new[] { Story("s1", 10, new[] { "bandit" }) },
                 Array.Empty<NpcArchetypeData>()).PlanWindow(0, _store);
 
@@ -209,8 +275,7 @@ namespace Tests.EditMode
         [Test]
         public void OverlappingArchetypePreferredOverNonMatching()
         {
-            var settings = new RunPacingSettings(windowSize: 1, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 1, lookAheadWindows: 1);
             var archetypes = new[] { Archetype("arch_match", "bandit"), Archetype("arch_other", "beast") };
             var plan = Planner(settings, new[] { Story("s1", 10, new[] { "bandit" }) }, archetypes).PlanWindow(0, _store);
 
@@ -221,8 +286,7 @@ namespace Tests.EditMode
         [Test]
         public void PlacedStory_GetsAnAssignedActor()
         {
-            var settings = new RunPacingSettings(windowSize: 1, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 1, lookAheadWindows: 1);
             var plan = Planner(settings, new[] { Story("s1", 10, new[] { "bandit" }) },
                 new[] { Archetype("arch_bandit", "bandit") }).PlanWindow(0, _store);
 
@@ -237,8 +301,7 @@ namespace Tests.EditMode
             // The raider-arc acceptance scenario (D11 + D16): window N places the barn story and mints a
             // raider; resolving it writes actor.<raiderId>.looted_barn. Window N+1 a "raider motive" story
             // becomes eligible *by that actor-scoped fact* and the *same* raider instance is recast.
-            var settings = new RunPacingSettings(windowSize: 1, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 1, lookAheadWindows: 1);
             var barn = Story("barn", 10, new[] { "raider" }, precondition: PassCleared(false));
             // "motive" tags overlap no archetype: a placement here proves the actor pin overrides the P1 tag preference.
             var motive = Story("motive", 10, new[] { "motive" }, precondition: LootedBarn(true));
@@ -267,8 +330,7 @@ namespace Tests.EditMode
             // preconditions partition the outcome space - grain_recovered (A/C) and looted_barn (B) are
             // mutually exclusive by the raider choice - so every play resolves to a single story. For the
             // let-go combos the recast raider must be the *same* NpcInstance from window 1 (recurring actor).
-            var settings = new RunPacingSettings(windowSize: 2, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 2, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 2, lookAheadWindows: 1);
             var archetypes = new[]
             {
                 Archetype("arch_villager", "villager", "farmer"),
@@ -337,8 +399,7 @@ namespace Tests.EditMode
         {
             // Item 1 is required: an actor-scoped gate cannot pass under the world-only context the planner
             // used before this change (no live actor exists to satisfy $self), even with world facts set.
-            var settings = new RunPacingSettings(windowSize: 1, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 1, lookAheadWindows: 1);
             var motive = Story("motive", 10, new[] { "motive" }, precondition: LootedBarn(true));
             _store.Set(FactKey.Global(FactNamespace.World, "pass_cleared"), FactValue.FromBool(true));
 
@@ -351,8 +412,7 @@ namespace Tests.EditMode
         public void WrongActor_DoesNotSatisfyActorScopedGate()
         {
             // Two raiders are minted; only one looted the barn. The motive recast must pick that one.
-            var settings = new RunPacingSettings(windowSize: 2, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 2, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 2, lookAheadWindows: 1);
             var barnA = Story("barnA", 10, new[] { "raider" }, precondition: PassCleared(false));
             var barnB = Story("barnB", 10, new[] { "raider" }, precondition: PassCleared(false));
             var motive = Story("motive", 10, new[] { "motive" }, precondition: LootedBarn(true));
@@ -377,8 +437,7 @@ namespace Tests.EditMode
             // D15/D16 passport gating (frog_marsh thread): two stories on OPPOSITE values of one world fact
             // (reads_as_frogfolk). While false only the closed-door story is eligible; flipping the passport
             // true swaps it for the open-door (quest-offering) story. The passport flip in miniature.
-            var settings = new RunPacingSettings(windowSize: 1, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 1, lookAheadWindows: 1);
             var closed = Story("frog_closed", 10, new[] { "frogfolk" },
                 precondition: World("reads_as_frogfolk", false), thread: "frog_marsh");
             var open = Story("frog_open", 10, new[] { "frogfolk" },
@@ -402,8 +461,7 @@ namespace Tests.EditMode
             // (world.barn_quest_accepted == true), and the raid leaves the raider at large. A couple
             // platforms later the SAME raider, recast by his actor-scoped fact, becomes eligible to make the
             // mutually-exclusive counter-offer - opposed facts on one shared-actor thread, separated in time.
-            var settings = new RunPacingSettings(windowSize: 1, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 1, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 1, lookAheadWindows: 1);
             var raid = Story("story_barn_raid", 10, new[] { "raider" },
                 precondition: World("barn_raided", false), thread: "barn_raid");
             var counter = Story("story_raider_motive", 10, new[] { "motive" },
@@ -431,8 +489,7 @@ namespace Tests.EditMode
             // Multi-thread (D12/D14): a barn_raid opener and a frog_marsh opener are both eligible at once, so
             // a single window holds beats from two DISTINCT threads. Exercises the planner's concurrent-thread
             // selection (the within-window "continue the started thread" preference operates over real threads).
-            var settings = new RunPacingSettings(windowSize: 4, narrativeBudgetPerWindow: 100,
-                minCombatPerWindow: 0, maxCombatPerWindow: 0, lookAheadWindows: 1);
+            var settings = new RunPacingSettings(windowSize: 4, lookAheadWindows: 1);
             var barn = Story("story_barn_victim", 10, new[] { "villager" },
                 precondition: World("barn_quest_offered", false), thread: "barn_raid");
             var frog = Story("story_frog_elder_closed", 10, new[] { "frogfolk" },
