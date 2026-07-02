@@ -9,6 +9,31 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Platform & Area Generation — hex-surface domain (phase 1 of the platform-hex rework; verified
+  brief `product-requirements/platform-hex-surface-and-shape.md`; ROADMAP Track B step 2, M3):**
+  the pure-C# foundation that makes a platform's top surface and its combat grid one thing. New in
+  `Combat.Battlefield` Core: **`HexMetrics`** (shared axial↔local math — exact port of the legacy
+  `FlatHexGrid`/`PointyHexGrid` center formulas, edge-aligned neighbor order, cube rounding) and
+  **`PlatformHexSurface`** (the immutable source of truth: whole-cell set, centroid-recentered local
+  cell positions, `CenterCell`, the walkable hex-union `Outline`, the index-aligned
+  `SubdividedOutline`/`RimRing` pair, and the empty `BlockedCells` seam reserved for biome features).
+  New in `LevelGeneration.Surface`: **`PlatformSurfaceGenerator`** (deterministic weighted blob
+  growth to a per-profile cell count with a 0–8 `Compactness` dial, hole-filling so the interior is
+  complete whole cells — brief §3, and a `guaranteedMinCells` floor for combat platforms — brief §6),
+  **`HexOutlineExtractor`** (border-segment stitching via quantized endpoints into one CCW loop),
+  **`PlatformRimBuilder`** (subdivided outline pushed outward by a jittered rim width + tangential
+  wobble — the organic silhouette, dressing only), **`PlatformShapeSettings`**/**`ShapeProfile`**
+  (UnityEngine-free dials: hex size/orientation, four per-content-kind profiles, battlefield minimum
+  **12 cells**, rim tunables, and the layout values that will move off `AreaGeneratorConfig`), and
+  **`PlatformContentKind`**(+`Resolver` deriving Empty/Loot/Combat/Npc from what `GraphNode` already
+  carries — `Type == Combat` wins, covering ambient monsters and story-with-required-combat). All
+  seeded via `IRandomSource`; same seed → same cells/outline/rim (brief §8). Nothing consumes the
+  domain yet — the generation/combat cutover is the next phases. Tests: `HexMetricsTests`,
+  `HexOutlineExtractorTests`, `PlatformRimBuilderTests`, `PlatformSurfaceGeneratorTests`,
+  `PlatformShapeSettingsTests`, `PlatformContentKindResolverTests` (38 total; the pure-C# 32 verified
+  green outside Unity).
+
+### Added
 - **Narrative/World — world content density: a rare, breathing world (verified brief
   `product-requirements/world-content-density.md`; `narrative-procedural.md` §2.6; ROADMAP Track B
   step 1):** the streaming director stops filling windows to the narrative weight budget; each
