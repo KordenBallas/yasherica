@@ -67,11 +67,11 @@
 | Layer | Responsibility | Key files |
 |---|---|---|
 | Core (pure C#) | Blank data/instances, the capped rack, socketing state, variant scoring, trend seam, character port | `Scripts/Mutation/Core/`: `PartBlankData.cs`, `IPartBlankDataSource.cs`, `BlankInstance.cs`, `IBlankRack.cs`/`BlankRack.cs`, `ISocketingModel.cs`/`SocketingModel.cs`, `IBlankVariantBuilder.cs`/`BlankVariantBuilder.cs`, `VariantScoringParameters.cs`, `MutationOption.cs`, `MutationCandidatePart.cs`, `SocketingTrend.cs`/`ISocketingTrendSource.cs`/`SocketingTrendEvaluator.cs`, `IMutationCharacter.cs` |
-| Data (SO + bridges) | Authoring assets and the SO→Core catalogs | `Scripts/Mutation/Data/Definitions/`: `PartBlankDefinition.cs`, `ArchetypeDefinition.cs`, `MutationConfig.cs`; `Scripts/Mutation/Data/`: `PartBlankCatalog.cs` (`IPartBlankCatalog`), `ArchetypeCatalog.cs` (`IArchetypeCatalog`), `MutationPartCatalog.cs` (`IMutationPartCatalog`) |
+| Data (SO + bridges) | Authoring assets and the SO→Core catalogs; per-part card display data | `Scripts/Mutation/Data/Definitions/`: `PartBlankDefinition.cs`, `ArchetypeDefinition.cs`, `MutationConfig.cs`, `MutationPreviewSettings.cs`; `Scripts/Mutation/Data/`: `PartBlankCatalog.cs` (`IPartBlankCatalog`), `ArchetypeCatalog.cs` (`IArchetypeCatalog`), `MutationPartCatalog.cs` (`IMutationPartCatalog`), `MutationPartCardData.cs`, `MutationAbilityInfo.cs` |
 | Application | Startup authoring validation | `Scripts/Mutation/Application/MutationContentValidator.cs` |
 | Presenter (pure C#) | Rack rendering + socketing gestures; the unseal variant choice | `Scripts/Mutation/Presenter/BlankRackPresenter.cs`, `MutationVariantPresenter.cs` |
-| View (thin MonoBehaviour) | Rack entries/sockets on the inventory stage; the variant card panel | `Scripts/Mutation/View/`: `IBlankRackView.cs`/`BlankRackView.cs`, `BlankEntryView.cs`, `SocketView.cs`, `BlankRackViewData.cs`, `IMutationChoiceView.cs`/`MutationChoiceView.cs`, `MutationChoiceButton.cs`, `MutationChoiceViewData.cs` |
-| Infrastructure | Adapter onto the live modular character | `Scripts/Mutation/Infrastructure/ModularCharacterMutationAdapter.cs` |
+| View (thin MonoBehaviour) | Rack entries/sockets on the inventory stage; the mutation card hand (front/back faces, tooltip, model popover) | `Scripts/Mutation/View/`: `IBlankRackView.cs`/`BlankRackView.cs`, `BlankEntryView.cs`, `SocketView.cs`, `BlankRackViewData.cs`, `IMutationChoiceView.cs`/`MutationChoiceView.cs`, `MutationCardView.cs`, `MutationAbilityIconView.cs`, `PointerHoverRelay.cs`, `AbilityTooltipView.cs`, `ModelPreviewPopoverView.cs`, `IMutationModelPreview.cs`, `MutationChoiceViewData.cs`/`MutationCardFaceViewData.cs`/`MutationAbilityIconViewData.cs` |
+| Infrastructure | Adapters onto the live modular character; the preview rig | `Scripts/Mutation/Infrastructure/ModularCharacterMutationAdapter.cs`, `MutationModelPreviewRig.cs` |
 
 Cross-system reuse: the variant builder and trend evaluator consume the **Inventory** fusion grammar
 (`EmergentFusionCalculator`, `TraitFusionRuleSet`, `FusionSettings`, `IArtifactTraitSource` — see
@@ -117,20 +117,51 @@ of the cauldron, layer `InventoryFocus`): three `BlankAnchor`s and a disabled `B
   `TrySocket` / filled-socket clicks → `TryUnsocket`. Rejections (full/committed blank, item not in
   the inventory — e.g. a dragged *staged* crafting bubble) are logged and no-op.
 
-### 2.4 Unseal variant choice
+### 2.4 Unseal variant choice — the mutation card hand
 
-`MutationVariantPresenter` (pure C#, NonLazy) reuses the `IMutationChoiceView` panel
-(`MutationChoicePanel/Button` prefabs) as the variant-card menu:
+`MutationVariantPresenter` (pure C#, NonLazy) drives the `IMutationChoiceView` card hand
+(`MutationChoicePanel` + `MutationCard` + `MutationAbilityIcon` prefabs), per the verified brief
+`product-requirements/mutation-choice-cards.md`:
 
 1. **Trigger** — `ISocketingModel.OnBlankReady`. Blanks that ripen while a menu is showing queue and
    open after the pick.
 2. **Build** — socketed profiles (via `IArtifactTraitSource`) → `IBlankVariantBuilder` against
    `IMutationPartCatalog.AllCandidates`, excluding the part equipped in the blank's slot; top
-   `MutationConfig.MaxVariantOptions`. Card tint = the blank's species archetype `Tint`; icon = the
-   part's `ChoiceIcon`.
-3. **Pick** — `IMutationCharacter.SwapPart`; on success `ConsumeSockets` + `IBlankRack.Remove` +
+   `MutationConfig.MaxVariantOptions`.
+3. **Card data** — `ToViewData` enriches each option through `IMutationPartCatalog.TryGetCardData`
+   (name, `ChoiceIcon`, rarity tier, and the granted **abilities** — resolved via the combat
+   `IPartAbilityResolver` so the card lists exactly the ability set combat composes):
+   - **Front face**: the offered part's picture + its active/passive **ability icons** (no stat
+     blocks; crafting traits stay hidden — hidden input, revealed outcome).
+   - **Back face** (`HasReplacedPart`): the part currently equipped in the blank's slot + *its*
+     abilities, resolved via `IMutationCharacter.TryGetEquippedPartId`. An empty slot **or a
+     not-yet-assembled rig** renders the bare-slot back ("nothing replaced").
+   - **Card grammar**: tint = the blank's species archetype `Tint` (belonging; shared by all
+     variants in one menu); frame **glow brightness scales with rarity tier** (potency —
+     placeholder treatment, `MutationCardView._glowBaseIntensity/_glowPerTier`).
+   - A part with no catalog card data degrades to the option label + no abilities (logged).
+4. **View interactivity** (presentation-only, inside the view layer — the presenter contract is
+   unchanged; `IMutationChoiceView.OnChoiceSelected` now means *confirmed* pick):
+   - **Two-step commit** — the first click **selects** a card (highlight + "choose again to graft"
+     hint); a second click on the same card confirms. Clicking another card re-selects, never
+     confirms. Selection survives a failed swap, so the retry is the documented second click.
+   - **Flip** — the corner FLIP button toggles front/back locally; it never changes selection.
+   - **Ability tooltip** — hovering an ability icon shows its name + description
+     (`AbilityTooltipView`, panel-owned, canvas-clamped).
+   - **Mini-model popover** — hovering the part picture asks `IMutationModelPreview` for a live
+     render of the hero wearing the offered part (`ModelPreviewPopoverView`, a RawImage showing the
+     rig's RenderTexture). If no assembled hero exists yet the popover simply does not open.
+5. **Pick** — `IMutationCharacter.SwapPart`; on success `ConsumeSockets` + `IBlankRack.Remove` +
    hide. A failed swap keeps the cards up. An empty menu (nothing authored for the slot) is logged
    and skipped — the validator warns about such blanks at startup.
+
+**The preview rig** (`MutationModelPreviewRig`, Infrastructure): a hidden clone of the modular hero
+built per request via `IModularCharacterFactory.Create(ModularCharacterVisual.Assembly, …)` at
+`MutationPreviewSettings.RigWorldOffset` (far below the world, so no gameplay camera sees it — no
+extra layer needed). The clone replays the live hero's `EquippedParts` snapshot, swaps in the
+offered part, and a dedicated camera (enabled only while showing) renders it to a RenderTexture.
+Rebuilt per hover (no stale swap state), destroyed on hide; the RT is released with the rig. All
+geometry/light tunables live in `MutationConfig.Preview` (§3).
 
 ### 2.5 DI wiring
 
@@ -139,10 +170,13 @@ of the cauldron, layer `InventoryFocus`): three `BlankAnchor`s and a disabled `B
 - `IArchetypeCatalog` → `ArchetypeCatalog` (definitions auto-load from `Resources/Mutation/Archetypes`).
 - `MutationConfig` bound via `BindInstance` (auto-load from `Resources/Mutation/MutationConfig`;
   missing config fails fast).
-- `IMutationPartCatalog` → `MutationPartCatalog` (builds candidates from the CharacterSystem
-  `IPartCatalog`).
+- `IMutationPartCatalog` → `MutationPartCatalog` (builds candidates + per-part card data from the
+  CharacterSystem `IPartCatalog`; constructor-injects the combat `IPartAbilityResolver` — bound by
+  `AreaInstaller` on the shared `SceneContext` — so card ability lists match combat's composition).
 - `ModularCharacterVisual` `FromComponentInHierarchy`; `IMutationCharacter` →
   `ModularCharacterMutationAdapter`.
+- `IMutationModelPreview` → `MutationModelPreviewRig` `FromNewComponentOnNewGameObject`
+  (`MutationPreviewRig`), lazy — only created when the card view injects it.
 - `IMutationChoiceView` → `MutationChoiceView` `FromComponentInNewPrefab`
   (`Resources/Prefabs/UI/MutationChoicePanel`, inspector override supported). If the prefab is
   missing the installer **logs a warning and skips** the view + `MutationVariantPresenter` (the rest
@@ -203,6 +237,24 @@ Single asset loaded from `Resources/Mutation/MutationConfig.asset`.
 | `MaxVariantOptions` | int | How many variants an unsealed blank offers at most. | `3`; `[Min(1)]` |
 | `TierUnlockPerRarityTier` | float | Socketed target tier required per rarity tier before rare variants are favoured. | `1`; `[Min(0)]` |
 | `StartingBlanks` | `PartBlankDefinition[]` | Blanks seeded into the rack at startup (dev seed until blanks drop as loot). | shipped: skull / claw-arm / haunch |
+| `Preview` | `MutationPreviewSettings` | Card mini-model preview rig tunables (below). | field-initializer defaults; existing assets need no edit |
+
+#### `MutationPreviewSettings`  (serializable block on `MutationConfig`)
+
+| Field | Type | Meaning | Default |
+|---|---|---|---|
+| `TextureSize` | int | Square RenderTexture resolution of the preview. | `256`; `[Min(32)]` |
+| `RigWorldOffset` | Vector3 | Where the rig lives in world space — far away so no gameplay camera sees it. | `(0, -500, 0)` |
+| `CameraDistance` | float | Camera forward offset from the model anchor. | `2.5`; `[Min(0.1)]` |
+| `CameraHeight` | float | Camera height offset from the model anchor. | `1.4` |
+| `LookAtHeight` | float | Height on the model the camera looks at (roughly the chest). | `0.9` |
+| `FieldOfView` | float | Preview camera vertical FOV. | `30`; `[Range(1,120)]` |
+| `FarClipPlane` | float | Preview camera far clip — small, so the rig sees only the model. | `25`; `[Min(1)]` |
+| `BackgroundColor` | Color | Solid background behind the model. | dark `(0.09, 0.09, 0.11)` |
+| `ModelYawDegrees` | float | Yaw applied to the preview model so it faces the camera (placeholder art faces -Z). | `180` |
+| `LightLocalPosition` | Vector3 | Point light position relative to the model anchor. | `(1.5, 2, 1.5)` |
+| `LightRange` | float | Preview point light range. | `8`; `[Min(0)]` |
+| `LightIntensity` | float | Preview point light intensity. | `1.2`; `[Min(0)]` |
 
 ### Per-part mutation data on `PartDefinition`  (CharacterSystem — `Create → Character System/Part`)
 
@@ -213,9 +265,10 @@ The variant data lives on the body part itself (see `character-system.md` for th
 | Field | Type | Meaning | Default / notes |
 |---|---|---|---|
 | `TraitAffinities` | `TraitAffinity[]` | Per-trait affinity (`TraitId` referencing an Inventory `TraitDefinition.Id` + `Weight` 0..1) scored against the socketed reagents at unseal. Duplicate ids summed; empty ids / weights ≤ 0 dropped. | empty → part scores 0 as a variant (still offered — no zero filter) |
-| `Rarity` | `MutationRarity` | Rarity tier (`Common`…`Mythical`, ordinal 0..5); higher tiers are favoured once the socketed tier is high enough. | `Common` |
-| `ChoiceIcon` | Sprite | Icon shown on the variant card when this part is offered. | none |
+| `Rarity` | `MutationRarity` | Rarity tier (`Common`…`Mythical`, ordinal 0..5); higher tiers are favoured once the socketed tier is high enough. **Also drives the card's potency glow brightness.** | `Common` |
+| `ChoiceIcon` | Sprite | The part picture at the centre of the mutation card. | none |
 | `DisplayName` | string | Friendly label on the card (general `PartDefinition` field). | empty → falls back to the asset name |
+| `ActiveAbilities` / `PassiveAbilities` | ability SO lists | The abilities the part grants (general `PartDefinition` fields, `ability-subsystem.md`). Their `Name`/`Description`/`Icon` surface on the card as **ability icons + hover tooltips** — a part authored with abilities and an icon automatically yields a complete card, no extra authoring. | empty → the card shows no ability row |
 
 `MutationContentValidator` warns at startup if a part trait affinity names an empty/unknown trait
 id, or if a blank has a broken slot, an unknown species archetype, or fewer than two candidate
@@ -257,12 +310,17 @@ options (menu size), rarity weight + tier-unlock (how hard rare variants gate on
 The trait vocabulary and fusion rules the sockets speak are Inventory content
 (`inventory-subsystem.md` §4).
 
-### Wire the variant card panel
+### The mutation card panel (authored prefabs — no editor tool)
 
-Run **Tools → Mutation → Setup Stage-Up Choice UI** once: it builds
-`Resources/Prefabs/UI/MutationChoicePanel.prefab` + `MutationChoiceButton.prefab`; the installer
-instantiates the panel at runtime (no scene wiring). Until the prefab exists the unseal choice is
-disabled (one startup warning, no crash). The rack itself is authored into `InventoryStage.prefab`
+The card hand is authored as source-of-truth prefabs under `Resources/Prefabs/UI/`:
+`MutationChoicePanel.prefab` (the panel + the shared ability tooltip + the model popover),
+`MutationCard.prefab` (front/back faces, flip button, selection highlight, confirm hint), and
+`MutationAbilityIcon.prefab` (one ability icon + passive marker). The installer instantiates the
+panel at runtime (no scene wiring); if the panel prefab is missing the unseal choice is disabled
+(one startup warning, no crash). The former **Tools → Mutation → Setup Stage-Up Choice UI**
+generator is deleted — rerunning it would have overwritten the authored card. A designer never
+touches these prefabs to add content: a `PartDefinition` with abilities + a `ChoiceIcon` yields a
+complete card automatically. The rack itself is authored into `InventoryStage.prefab`
 (`BlankRackArea`) — no editor tool needed.
 
 ---
@@ -285,12 +343,18 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
 - `SocketingTrendEvaluatorTests` — socket changes raise the combined post-grammar trend; the fusion
   grammar applies; unsocketing re-raises; `Dispose` unsubscribes.
 - `MutationPartCatalogTests` — maps slot/part/rarity/trait-affinity from a `PartDefinition`
-  (aggregation rules; display-name fallback; icon lookup; null catalog throws).
+  (aggregation rules; display-name fallback; icon lookup; null catalog/resolver throws). Card data:
+  name/icon/tier + granted abilities (actives before passives, `IsPassive` flags) resolved through
+  the **real** `PartAbilityResolver` (pinning combat parity incl. asset-ref dedupe); no abilities →
+  empty list; unknown/empty id → false.
 - `MutationVariantPresenterTests` — a partially filled blank shows nothing; filling the last socket
   shows the variant cards (slot-filtered); a pick swaps, consumes the reagents, spends the blank,
   and hides; a failed swap keeps cards + blank + reagents; the equipped part is excluded;
   trait-less reagents still yield a menu; a blank ripening while a menu shows queues and opens
-  after the pick.
+  after the pick. Card data: the front face carries the catalog's abilities + tier + slot/part ids;
+  an occupied slot yields the replaced part's back face; an empty slot (or an unassembled rig, or a
+  replaced part without card data) reads as "nothing replaced"; an offered part without card data
+  falls back to the option label.
 
 The fusion grammar the sockets reuse is covered by the Inventory suites
 (`EmergentFusionCalculatorTests`, `TraitFusionRuleSetTests`, `ArtifactTraitProfileTests`).
@@ -318,5 +382,14 @@ The fusion grammar the sockets reuse is covered by the Inventory suites
   A future cleanup could host this on a Mutation-layer companion SO keyed by part id.
 - **Part-derived abilities are pulled at combat start**, not pushed by the swap
   (ability-subsystem.md §2.6) — unchanged from M1.
-- The variant card panel prefab must be built once (menu tool, §4); until then the unseal choice is
-  disabled (a startup warning, no crash).
+- **Bare-slot back face when the rig is unassembled.** `TryGetEquippedPartId` returns false before
+  the hero rig assembles (it builds in `Start`), so a card built in that window shows "nothing
+  replaced" even for an occupied slot — a startup-seed corner case (unseal normally happens far
+  later). A replaced part with no catalog card data degrades the same way.
+- **Preview model is an unanimated bind pose** — reads as a silhouette; an idle pose is a ROADMAP
+  polish item. The rig lives at a fixed far world offset (`Preview.RigWorldOffset`); future content
+  placed there would collide with it.
+- **Placeholder card visuals.** The potency glow is frame **brightness** by rarity tier (no glow
+  shader); the flip is an instant face toggle (no animation); the tooltip is mutation-local
+  (a shared UI tooltip service is a ROADMAP backlog item). Exact card art/VFX are the
+  render-look/tech-art call per the brief.

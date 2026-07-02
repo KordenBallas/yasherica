@@ -31,11 +31,15 @@ namespace Mutation.Data.Definitions
         [Tooltip("Blanks seeded into the rack at startup (dev seed until blanks drop as loot)")]
         [SerializeField] private List<PartBlankDefinition> _startingBlanks;
 
+        [Header("Card mini-model preview")]
+        [SerializeField] private MutationPreviewSettings _preview = new MutationPreviewSettings();
+
         public float RarityWeight => _rarityWeight;
         public int BlankRackCapacity => _blankRackCapacity;
         public int MaxVariantOptions => _maxVariantOptions;
         public float TierUnlockPerRarityTier => _tierUnlockPerRarityTier;
         public IReadOnlyList<PartBlankDefinition> StartingBlanks =>
             _startingBlanks ?? (IReadOnlyList<PartBlankDefinition>)System.Array.Empty<PartBlankDefinition>();
+        public MutationPreviewSettings Preview => _preview ?? (_preview = new MutationPreviewSettings());
     }
 }

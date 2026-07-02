@@ -207,8 +207,61 @@ namespace Mutation.Presenter
                 tint = archetype.Tint;
             }
 
-            _partCatalog.TryGetIcon(option.PartId, out var icon);
-            return new MutationChoiceViewData(option.DisplayName, icon, tint);
+            var front = BuildFace(option.PartId, option.DisplayName, out var rarityTier);
+
+            // The back face is the part this mutation would replace. An empty slot and a
+            // not-yet-assembled rig both read as "nothing replaced" (bare-slot back face).
+            var hasReplacedPart = false;
+            var back = default(MutationCardFaceViewData);
+            if (_character.TryGetEquippedPartId(option.SlotId, out var replacedId)
+                && !string.IsNullOrEmpty(replacedId)
+                && _partCatalog.TryGetCardData(replacedId, out var replacedCard))
+            {
+                hasReplacedPart = true;
+                back = ToFace(replacedCard);
+            }
+
+            return new MutationChoiceViewData(
+                option.SlotId,
+                option.PartId,
+                front,
+                hasReplacedPart,
+                back,
+                tint,
+                rarityTier);
+        }
+
+        private MutationCardFaceViewData BuildFace(
+            string partId, string fallbackName, out int rarityTier)
+        {
+            if (_partCatalog.TryGetCardData(partId, out var card))
+            {
+                rarityTier = card.RarityTier;
+                return ToFace(card);
+            }
+
+            // Content gap: the offered part has no catalog card data; degrade to the
+            // option's label so the card still renders.
+            _logger.Warning(LogCategory.Mutation,
+                $"[MutationVariantPresenter] No card data for part '{partId}'; " +
+                "showing the option label only.");
+            _partCatalog.TryGetIcon(partId, out var icon);
+            rarityTier = 0;
+            return new MutationCardFaceViewData(
+                fallbackName, icon, Array.Empty<MutationAbilityIconViewData>());
+        }
+
+        private static MutationCardFaceViewData ToFace(MutationPartCardData card)
+        {
+            var abilities = new MutationAbilityIconViewData[card.Abilities.Count];
+            for (int i = 0; i < card.Abilities.Count; i++)
+            {
+                var ability = card.Abilities[i];
+                abilities[i] = new MutationAbilityIconViewData(
+                    ability.Name, ability.Description, ability.Icon, ability.IsPassive);
+            }
+
+            return new MutationCardFaceViewData(card.DisplayName, card.Icon, abilities);
         }
     }
 }

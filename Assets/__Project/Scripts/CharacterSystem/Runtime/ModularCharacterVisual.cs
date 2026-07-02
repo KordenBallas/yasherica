@@ -35,6 +35,9 @@ namespace CharacterSystem.Runtime
 
         public IModularCharacter Character { get; private set; }
 
+        /// <summary>The authored assembly this visual builds from (e.g. for preview clones).</summary>
+        public CharacterAssemblyDefinition Assembly => _assembly;
+
         /// <summary>The assembled rig's Animator, available after <see cref="Start"/> (null until then).</summary>
         public Animator Animator { get; private set; }
 

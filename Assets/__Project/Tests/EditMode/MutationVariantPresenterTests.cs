@@ -83,10 +83,36 @@ namespace Tests.EditMode
         private sealed class FakePartCatalog : IMutationPartCatalog
         {
             private readonly List<MutationCandidatePart> _candidates = new List<MutationCandidatePart>();
+            private readonly Dictionary<string, MutationPartCardData> _cards =
+                new Dictionary<string, MutationPartCardData>();
 
             public IReadOnlyList<MutationCandidatePart> AllCandidates => _candidates;
 
             public void Add(string slot, string part, params (string traitId, float weight)[] traitAffinity)
+            {
+                Add(slot, part, 0, null, traitAffinity);
+            }
+
+            public void Add(
+                string slot,
+                string part,
+                int rarityTier,
+                MutationAbilityInfo[] abilities,
+                params (string traitId, float weight)[] traitAffinity)
+            {
+                var traits = new Dictionary<string, float>();
+                foreach (var (traitId, weight) in traitAffinity)
+                {
+                    traits[traitId] = weight;
+                }
+
+                _candidates.Add(new MutationCandidatePart(slot, part, part, rarityTier, traits));
+                _cards[part] = new MutationPartCardData(part, null, rarityTier, abilities);
+            }
+
+            // A candidate the scoring can offer but with no card data - the content-gap
+            // fallback path.
+            public void AddCardless(string slot, string part, params (string traitId, float weight)[] traitAffinity)
             {
                 var traits = new Dictionary<string, float>();
                 foreach (var (traitId, weight) in traitAffinity)
@@ -97,10 +123,28 @@ namespace Tests.EditMode
                 _candidates.Add(new MutationCandidatePart(slot, part, part, 0, traits));
             }
 
+            // Card data for a part that is not offered as a candidate (e.g. the equipped
+            // part the back face resolves).
+            public void AddCardOnly(string part, params MutationAbilityInfo[] abilities)
+            {
+                _cards[part] = new MutationPartCardData(part, null, 0, abilities);
+            }
+
             public bool TryGetIcon(string partId, out Sprite icon)
             {
                 icon = null;
                 return false;
+            }
+
+            public bool TryGetCardData(string partId, out MutationPartCardData cardData)
+            {
+                if (string.IsNullOrEmpty(partId))
+                {
+                    cardData = null;
+                    return false;
+                }
+
+                return _cards.TryGetValue(partId, out cardData);
             }
         }
 
@@ -248,7 +292,7 @@ namespace Tests.EditMode
             SocketBoth();
 
             Assert.AreEqual(1, _view.LastShown.Count);
-            Assert.AreEqual("part.head.club", _view.LastShown[0].DisplayName);
+            Assert.AreEqual("part.head.club", _view.LastShown[0].Front.PartName);
         }
 
         [Test]
@@ -282,8 +326,87 @@ namespace Tests.EditMode
             _view.RaiseSelected(0); // resolve the skull
 
             Assert.AreEqual(2, _view.ShowChoicesCalls);
-            Assert.AreEqual("part.arm.claw", _view.LastShown[0].DisplayName);
+            Assert.AreEqual("part.arm.claw", _view.LastShown[0].Front.PartName);
             Assert.IsTrue(_view.Visible);
+        }
+
+        [Test]
+        public void FrontFace_CarriesCardAbilitiesAndTier()
+        {
+            _partCatalog.Add("slot.head", "part.head.fang", rarityTier: 3,
+                abilities: new[]
+                {
+                    new MutationAbilityInfo("Bite", "A venomous bite.", null, isPassive: false),
+                    new MutationAbilityInfo("Scales", "Thick hide.", null, isPassive: true)
+                },
+                ("sharp", 0.7f));
+
+            SocketBoth();
+
+            var card = _view.LastShown[0];
+            Assert.AreEqual("slot.head", card.SlotId);
+            Assert.AreEqual("part.head.fang", card.PartId);
+            Assert.AreEqual(3, card.RarityTier);
+            Assert.AreEqual("part.head.fang", card.Front.PartName);
+            Assert.AreEqual(2, card.Front.Abilities.Count);
+            Assert.AreEqual("Bite", card.Front.Abilities[0].Name);
+            Assert.AreEqual("A venomous bite.", card.Front.Abilities[0].Description);
+            Assert.IsFalse(card.Front.Abilities[0].IsPassive);
+            Assert.AreEqual("Scales", card.Front.Abilities[1].Name);
+            Assert.IsTrue(card.Front.Abilities[1].IsPassive);
+        }
+
+        [Test]
+        public void OccupiedSlot_BackFaceCarriesReplacedPart()
+        {
+            _character.Equip("slot.head", "part.head.old");
+            _partCatalog.AddCardOnly("part.head.old",
+                new MutationAbilityInfo("Headbutt", "A dull blow.", null, isPassive: false));
+            _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
+
+            SocketBoth();
+
+            var card = _view.LastShown[0];
+            Assert.IsTrue(card.HasReplacedPart);
+            Assert.AreEqual("part.head.old", card.Back.PartName);
+            Assert.AreEqual(1, card.Back.Abilities.Count);
+            Assert.AreEqual("Headbutt", card.Back.Abilities[0].Name);
+        }
+
+        [Test]
+        public void EmptySlot_ReadsAsNothingReplaced()
+        {
+            // Nothing equipped in slot.head; the rig-not-assembled case takes the same
+            // path (TryGetEquippedPartId returns false for both).
+            _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
+
+            SocketBoth();
+
+            Assert.IsFalse(_view.LastShown[0].HasReplacedPart);
+        }
+
+        [Test]
+        public void ReplacedPartWithoutCardData_ReadsAsNothingReplaced()
+        {
+            _character.Equip("slot.head", "part.head.unknown"); // no card data authored
+            _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
+
+            SocketBoth();
+
+            Assert.IsFalse(_view.LastShown[0].HasReplacedPart);
+        }
+
+        [Test]
+        public void OfferedPartWithoutCardData_FallsBackToOptionLabel()
+        {
+            _partCatalog.AddCardless("slot.head", "part.head.raw", ("sharp", 0.7f));
+
+            SocketBoth();
+
+            var card = _view.LastShown[0];
+            Assert.AreEqual("part.head.raw", card.Front.PartName);
+            Assert.AreEqual(0, card.Front.Abilities.Count);
+            Assert.AreEqual(0, card.RarityTier);
         }
     }
 }

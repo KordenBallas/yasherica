@@ -31,13 +31,18 @@ track the order is a hard prerequisite chain. All briefs are PO-level and ready 
 a step is a prerequisite brief, not a design gap. See `product-requirements/README.md` for each.
 
 **Track A — Crafting / Mutation**
-1. Finish **Socketed Blanks** (`crafting-mutation-socketed-blanks.md`) — artifact traits + tier +
-   two-tier fusion are **done**; remaining: the **Part-Blank item + operating table + unseal menu +
-   scarce blank rack**, plus completing the feeding/tally/digestion **migration**.
-2. **Mutation choice cards** (`mutation-choice-cards.md`) — renders the unseal menu; needs step 1.
-3. *(unblocked by the artifact tier from step 1)* quest-as-reward **reward-by-tier** + the
-   **quest-offer card** (`quest-offer-card.md`) tier-glow / belonging / mystery-reward-slot treatment
-   (see `## Quests`).
+1. **Socketed Blanks core loop — DONE** (`crafting-mutation-socketed-blanks.md`): artifact traits +
+   tier + two-tier fusion, the Part-Blank item + operating table + unseal menu + scarce blank rack,
+   and the feeding removal all shipped (see `## Crafting & Mutation` + `mutation-subsystem.md`).
+   Remaining polish (Known limitations): blank **loot drops**, **tier-glow** on rack bubbles,
+   **cauldron-voice** trend consumer, residual archetype-weight cleanup.
+2. **Mutation choice cards — DONE** (`mutation-choice-cards.md`): the unseal menu is the real card
+   hand (part image + ability icons + flip before→after + ability tooltip + mini-model popover +
+   two-step commit); the card's tier-glow landed as a placeholder brightness treatment (see
+   `## Mutation Subsystem` + CHANGELOG). Remaining polish: glow/flip VFX (tech-art), rack-bubble
+   tier-glow.
+3. *(unblocked by the artifact tier)* quest-as-reward **reward-by-tier** + the **quest-offer card**
+   (`quest-offer-card.md`) — reuses the card grammar from step 2 (see `## Quests`).
 
 **Track B — World / Platforms** (hard sequential chain)
 1. **World content density** (`world-content-density.md`) — the world foundation; defines the
@@ -577,33 +582,16 @@ New work:
   `MutationConfig.RarityWeight` / `RarityUnlockPointsPerTier`. Hosting decision: on `PartDefinition`
   (single-asset authoring) — the layering trade-off is recorded as a known limitation in
   `mutation-subsystem.md` §6 rather than being eliminated. See CHANGELOG.)*
-- [ ] `[arch]` **Mutation choice cards (the unseal variant menu).** *(Verified PO brief:
-  `product-requirements/mutation-choice-cards.md`.)* The stage-up/unseal choice is a **hand of
-  cards**, one per variant mutation. **Card front (visual-first):** the body part pictured centre,
-  its granted active+passive abilities as **icons** beneath — no stat blocks. **Flip** (corner
-  control) → the **replaced part + its abilities** (before→after on demand; "nothing replaced" for an
-  empty slot). **Hover an ability icon** → name+description tooltip. **Hover the part picture** →
-  a context popover with a **mini-model of the hero wearing the new part**. Shared card grammar
-  (**glow = potency/tier, colour = belonging**); variants share the blank's belonging colour and
-  differ by ability/potency. **Crafting traits stay hidden** (only abilities shown). Picking
-  **commits** (Socketed Blanks commit-on-unseal). Extends `MutationChoiceViewData` / the
-  `MutationOption → ToViewData` mapping in `MutationChoicePresenter` with per-option ability info
-  (resolve old part via `IMutationCharacter.TryGetEquippedPartId(slotId)`, new via the option's
-  `PartId`; read `PartDefinition.ActiveAbilities`/`PassiveAbilities`); reuse the
-  `PartAbilityResolver`/`PartAbilitySet` gather+dedupe so the panel matches the combat set. Presenter
-  pure-C#, view thin (MVP §3). *(mutation + crafting UI)*
-  - Extend `MutationChoiceViewData` (today `DisplayName`/`Icon`/`Tint`) and the
-    `MutationOption → ToViewData` mapping in `MutationChoicePresenter` to carry per-option
-    ability info. Resolve the **old** part via `IMutationCharacter.TryGetEquippedPartId(slotId)`
-    and the **new** part via the option's `PartId`; read `PartDefinition.ActiveAbilities` /
-    `PassiveAbilities`, surfacing each ability's `Name`/`Description`/`Icon` (both
-    `AbilityDefinition` and `PassiveAbilityDefinition` expose these).
-  - Reuse the `PartAbilityResolver` / `PartAbilitySet` gather+dedupe shape so the panel
-    reflects exactly the ability set combat will compose. Keep the presenter pure-C# and
-    the view thin (MVP §3); ability metadata is read-only display data.
-  - Depends on the **M2 part-driven archetype affinity** item (which moves ability
-    references + choice icon onto parts). Complements the backlog "Mutation preview on the
-    live character model" item (model preview vs. ability readout).
+- [x] `[arch]` **Mutation choice cards (the unseal variant menu).** *(Done — verified PO brief
+  `product-requirements/mutation-choice-cards.md` shipped in full: card front (part picture +
+  active/passive ability icons, resolved via the combat `IPartAbilityResolver` for combat parity),
+  corner flip → replaced part / "nothing replaced", ability-icon hover tooltip, part-picture hover
+  → mini 3D hero-model popover (`MutationModelPreviewRig`, RenderTexture at a far world offset,
+  tunables in `MutationConfig.Preview`), card grammar colour=belonging / glow-brightness=tier
+  (placeholder glow treatment — VFX polish below), and a two-step select→confirm commit. Prefabs
+  hand-authored (`MutationCard`/`MutationAbilityIcon`/reworked `MutationChoicePanel`); the
+  `MutationChoiceUISetup` editor generator is deleted. See CHANGELOG; `mutation-subsystem.md`
+  §2.4.)* *(mutation + crafting UI)*
 
 ---
 
@@ -791,9 +779,15 @@ See `dev-tools.md` for the implemented overlay.
 - [ ] `[arch]` Run-state persistence/save-load (needed once the progression record + per-run
   mutation state matter across sessions).
 - [ ] `[content]` Mutation preview on the live character model before the player confirms a choice.
-  *(A **mini-model** popover on hovering a mutation card is covered by
+  *(The **mini-model** popover on hovering a mutation card **shipped** with
   `product-requirements/mutation-choice-cards.md`; this backlog item is the **full live-hero**
   in-world preview beyond that.)*
+- [ ] `[debt]` Generalise the mutation card's `AbilityTooltipView` into a shared UI tooltip
+  service once a second consumer appears (it is deliberately mutation-local today — KISS).
+- [ ] `[content]` Mutation card VFX polish (tech-art): a real tier-glow shader (today: frame
+  brightness by rarity), a flip animation (today: instant face toggle), tooltip styling.
+- [ ] `[content]` Animated idle pose for the mutation card's mini-model preview (today: unanimated
+  bind pose); consider a persistent re-swap clone if per-hover assembly ever stutters.
 - [ ] `[arch]` Enemy-intent telegraph (show enemies' planned abilities) for combat readability.
   *(Now delivered by the ghost telegraph — enemy queued-ability icons + hover-to-replay ghost — in
   `product-requirements/combat-ability-ghost-telegraph.md` / Combat Experience; kept here only for the

@@ -35,7 +35,7 @@ namespace Core.DI
         [SerializeField] private List<PartBlankDefinition> _blankDefinitions;
 
         [Header("Stage-up choice UI (auto-loaded from Resources when empty)")]
-        [Tooltip("MutationChoicePanel prefab (built by Tools → Mutation → Setup Stage-Up Choice UI)")]
+        [Tooltip("MutationChoicePanel prefab (the authored card-hand panel under Resources/Prefabs/UI)")]
         [SerializeField] private GameObject _choicePanelPrefab;
 
         public override void InstallBindings()
@@ -111,6 +111,14 @@ namespace Core.DI
             Container.Bind<ModularCharacterVisual>().FromComponentInHierarchy().AsSingle();
             Container.Bind<IMutationCharacter>().To<ModularCharacterMutationAdapter>().AsSingle();
 
+            // The card's mini-model popover: a hidden hero clone rendered to a RenderTexture at a
+            // far world offset. Lazy - only resolved when the card view injects it.
+            Container.Bind<IMutationModelPreview>()
+                .To<MutationModelPreviewRig>()
+                .FromNewComponentOnNewGameObject()
+                .WithGameObjectName("MutationPreviewRig")
+                .AsSingle();
+
             // The choice panel is instantiated from a prefab (mirrors InventoryInstaller's HUD view),
             // so it needs no scene authoring. If the prefab is missing the feature stays off and the
             // rest of the scene runs normally - never crash the SceneContext over an unbuilt panel.
@@ -121,8 +129,7 @@ namespace Core.DI
             {
                 Debug.LogWarning(
                     "[MutationInstaller] No MutationChoicePanel prefab assigned or found at " +
-                    $"Resources/{ChoicePanelResourcePath} (run Tools → Mutation → Setup Stage-Up " +
-                    "Choice UI). Stage-up mutation choice is disabled this run.");
+                    $"Resources/{ChoicePanelResourcePath}. Stage-up mutation choice is disabled this run.");
                 return;
             }
 

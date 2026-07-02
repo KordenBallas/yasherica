@@ -8,7 +8,37 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Added
+- **Mutation — mutation choice cards: the unseal menu is a hand of cards (verified brief
+  `product-requirements/mutation-choice-cards.md`; `mutation-subsystem.md` §2.4; ROADMAP Track A
+  step 2):** each variant is a **card** — front face = the part pictured centre (its `ChoiceIcon`)
+  + the granted active/passive **ability icons** beneath (no stat blocks; crafting traits stay
+  hidden); a corner **FLIP** button shows the **replaced part** + its abilities on the back
+  ("nothing replaced" for an empty slot); **hovering an ability icon** opens a name+description
+  tooltip (`AbilityTooltipView` — first tooltip in the project, deliberately mutation-local);
+  **hovering the part picture** opens a **mini 3D model popover** of the hero wearing the offered
+  part (`MutationModelPreviewRig`: a hidden hero clone built via `IModularCharacterFactory` at
+  `MutationPreviewSettings.RigWorldOffset`, camera → RenderTexture → RawImage; new `Preview`
+  settings block on `MutationConfig`, all tunables authored). **Card grammar:** colour = the
+  blank's species archetype tint (belonging), frame **glow brightness = rarity tier** (potency,
+  placeholder treatment — the ROADMAP tier-glow polish folds in here). **Two-step commit:** the
+  first click selects (highlight + "choose again to graft" hint), a second click on the same card
+  grafts — a deliberate confirmation, not an idle tap. Data path: `IMutationPartCatalog` gains
+  `TryGetCardData` (per-part `MutationPartCardData`: name/icon/tier/abilities), resolved through
+  the combat `IPartAbilityResolver` (single-part query) so the card lists **exactly** the ability
+  set combat composes; `MutationChoiceViewData` now carries front/back `MutationCardFaceViewData` +
+  slot/part ids + tier; the old part resolves via `IMutationCharacter.TryGetEquippedPartId`.
+  Presenter contract unchanged (`OnChoiceSelected` = confirmed pick); flip/tooltip/popover/selection
+  are view-layer presentation. Prefabs hand-authored: `MutationChoicePanel.prefab` reworked in place
+  (+tooltip/popover nodes), `MutationChoiceButton.prefab` → **`MutationCard.prefab`** (GUID stable),
+  new `MutationAbilityIcon.prefab`. `ModularCharacterVisual` gains a read-only `Assembly` accessor.
+  Tests: `MutationPartCatalogTests` card-data cases (real-resolver parity incl. dedupe);
+  `MutationVariantPresenterTests` front/back/tier/empty-slot/fallback cases.
+
 ### Removed
+- **Mutation — `MutationChoiceUISetup` editor generator deleted** (`Tools → Mutation → Setup
+  Stage-Up Choice UI`): the card prefabs are hand-authored source of truth now; rerunning the
+  generator would have overwritten them with the legacy `Text` button layout.
 - **Mutation/Inventory — the feed→tally→digestion→stage-up loop is deleted (Socketed Blanks
   migration, brief §18; ROADMAP "Crafting & Mutation"):** mutations are obtained only through
   blanks now. Deleted: `FeedingSession`/`IFeedingSession`, `FeedingPresenter`,

@@ -17,5 +17,11 @@ namespace Mutation.Data
 
         /// <summary>The icon authored on <paramref name="partId"/>'s part, if any.</summary>
         bool TryGetIcon(string partId, out Sprite icon);
+
+        /// <summary>
+        /// Card-face display data (name, icon, rarity tier, granted abilities) for any
+        /// catalog part — the mutation card's front and back faces both read this.
+        /// </summary>
+        bool TryGetCardData(string partId, out MutationPartCardData cardData);
     }
 }
