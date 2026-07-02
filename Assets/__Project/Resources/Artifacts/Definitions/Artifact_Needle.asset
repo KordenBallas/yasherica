@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 778844f6deec403eb287e8dbca5efc96, type: 3}
+  m_Name: Artifact_Needle
+  m_EditorClassIdentifier:
+  _id: needle
+  _displayName: Needle
+  _description: A thin swallowed needle. Sharp, and looking for a purpose.
+  _icon: {fileID: 21300000, guid: b704c66b39e056149aa4d68cb2726585, type: 3}
+  _bubbleTint: {r: 0.75, g: 0.75, b: 0.8, a: 1}
+  _substanceTraits: []
+  _propertyTraits:
+  - {fileID: 11400000, guid: f0617283946a5bc7d8e9f001a2b3c4d6, type: 2}
+  _tier: 0

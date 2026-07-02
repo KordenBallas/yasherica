@@ -21,3 +21,8 @@ MonoBehaviour:
   - LowerLeg.L
   - Foot.L
   _contributedSockets: []
+  _traitAffinities:
+  - _traitId: heavy
+    _weight: 0.5
+  - _traitId: stone
+    _weight: 0.3

@@ -9,9 +9,9 @@ namespace Inventory.View
     /// shadow-casting sprite quads inside. The rear layers sit slightly behind the
     /// front one and darken progressively, so the flat icon reads as a volume.
     /// Used both inside the pot and in the crafting slots above it.
-    /// Clicks arrive from <see cref="StageClickRouter"/> via <see cref="NotifyClicked"/>.
+    /// Clicks arrive from <see cref="StageDragRouter"/> via <see cref="NotifyClicked"/>.
     /// </summary>
-    public class BubbleView : MonoBehaviour
+    public class BubbleView : MonoBehaviour, IStageClickable
     {
         // URP Lit shader properties.
         private static readonly int BaseMapProperty = Shader.PropertyToID("_BaseMap");
@@ -34,7 +34,15 @@ namespace Inventory.View
 
         public int InstanceId { get; private set; }
 
+        /// <summary>True while the drag router moves this bubble; the pot's drift skips it.</summary>
+        public bool IsDragged { get; private set; }
+
         public event Action<int> OnClicked;
+
+        public void SetDragged(bool dragged)
+        {
+            IsDragged = dragged;
+        }
 
         public void Configure(int instanceId, Sprite icon, Color tint, in ArtifactDepthSettings depth)
         {

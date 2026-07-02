@@ -10,7 +10,7 @@ namespace Inventory.View
     /// <summary>
     /// World-space adapter for the crafting area above the pot rim: staged artifacts
     /// in slot anchors, the merge travel animation, the crafted result with its
-    /// pop-in, success/fail smoke puffs, and the drop-into-pot animations.
+    /// pop-in, the success smoke puff, and the drop-into-pot animations.
     /// </summary>
     public class CraftingSlotsView : MonoBehaviour, ICraftingSlotsView
     {
@@ -26,7 +26,6 @@ namespace Inventory.View
 
         [Header("Effects")]
         [SerializeField] private ParticleSystem _successPuff;
-        [SerializeField] private ParticleSystem _failPuff;
 
         [Header("Animation")]
         [Tooltip("Scale curve for the crafted result popping in; keys above 1 give an overshoot bounce")]
@@ -82,34 +81,6 @@ namespace Inventory.View
             _mergeCoroutine = StartCoroutine(AnimateMerge());
         }
 
-        public void PlayCraftFailure(int returnedInstanceId)
-        {
-            StopMerge();
-
-            for (int i = _stagedViews.Count - 1; i >= 0; i--)
-            {
-                var view = _stagedViews[i];
-                if (view == null)
-                {
-                    _stagedViews.RemoveAt(i);
-                    continue;
-                }
-
-                if (view.InstanceId == returnedInstanceId)
-                {
-                    _stagedViews.RemoveAt(i);
-                    view.OnClicked -= HandleStagedItemClicked;
-                    view.SetInteractable(false);
-                    _droppingViews.Add(view);
-                    StartCoroutine(AnimateDropIntoPot(view));
-                }
-                else
-                {
-                    StartCoroutine(AnimateReturnToSlot(view));
-                }
-            }
-        }
-
         public void ShowResult(ArtifactViewData result)
         {
             ClearResultImmediate();
@@ -144,23 +115,13 @@ namespace Inventory.View
 
         public void PlaySuccessPuff()
         {
-            PlayPuff(_successPuff);
-        }
-
-        public void PlayFailPuff()
-        {
-            PlayPuff(_failPuff);
-        }
-
-        private void PlayPuff(ParticleSystem puff)
-        {
-            if (puff == null)
+            if (_successPuff == null)
             {
                 return;
             }
 
-            puff.transform.position = _resultAnchor.position;
-            puff.Play();
+            _successPuff.transform.position = _resultAnchor.position;
+            _successPuff.Play();
         }
 
         private BubbleView SpawnItem(ArtifactViewData data, Transform anchor)
@@ -274,29 +235,6 @@ namespace Inventory.View
 
             _mergeCoroutine = null;
             OnMergeCompleted?.Invoke();
-        }
-
-        private IEnumerator AnimateReturnToSlot(BubbleView view)
-        {
-            float duration = _config != null ? _config.FailReturnDuration : 0f;
-            Vector3 startPosition = view.transform.localPosition;
-
-            float elapsed = 0f;
-            while (elapsed < duration && view != null)
-            {
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                t = t * t * (3f - 2f * t);
-
-                // The view stays parented to its slot anchor, so home is local zero.
-                view.transform.localPosition = Vector3.Lerp(startPosition, Vector3.zero, t);
-                yield return null;
-            }
-
-            if (view != null)
-            {
-                view.transform.localPosition = Vector3.zero;
-            }
         }
 
         private IEnumerator AnimateResultPop(Transform target)

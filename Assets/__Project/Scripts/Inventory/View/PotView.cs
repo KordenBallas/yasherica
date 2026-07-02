@@ -145,7 +145,8 @@ namespace Inventory.View
 
                 foreach (var bubble in _spawnedBubbles)
                 {
-                    if (bubble.View == null)
+                    // A bubble mid-drag follows the pointer (drag router), not the drift.
+                    if (bubble.View == null || bubble.View.IsDragged)
                     {
                         continue;
                     }

@@ -15,13 +15,13 @@ namespace CharacterSystem.Data.Definitions
     /// user-approved coupling (M1) that violates CLAUDE.md §2 layering; it is tracked as debt
     /// in the ROADMAP.
     ///
-    /// A part also carries its mutation data: a per-archetype affinity vector, a rarity tier, and
-    /// the icon shown on the mutation choice button. The mutation scoring ranks every part against
-    /// the cumulative feed tally from this data (see mutation-subsystem.md). Hosting Mutation-layer
-    /// concepts (archetype affinity, rarity) here is a deliberate, user-approved decision (M2) for
-    /// single-asset authoring; the layering trade-off is tracked in the ROADMAP, mirroring the
-    /// accepted Combat coupling above. Affinity/rarity reference no Mutation type (id string + plain
-    /// enum), so the mutation Core stays decoupled from this layer.
+    /// A part also carries its mutation data: a per-trait affinity vector, a rarity tier, and the
+    /// icon shown on the unseal variant card. The variant scoring ranks every part of a blank's
+    /// slot against the socketed reagents from this data (see mutation-subsystem.md §2.6). Hosting
+    /// Mutation-layer concepts (trait affinity, rarity) here is a deliberate, user-approved
+    /// decision (M2) for single-asset authoring; the layering trade-off is tracked in the ROADMAP,
+    /// mirroring the accepted Combat coupling above. Affinity/rarity reference no Mutation type
+    /// (id string + plain enum), so the mutation Core stays decoupled from this layer.
     /// </summary>
     [CreateAssetMenu(fileName = "PartDefinition", menuName = "Character System/Part")]
     public class PartDefinition : ScriptableObject
@@ -48,10 +48,10 @@ namespace CharacterSystem.Data.Definitions
         [SerializeField] private List<PassiveAbilityDefinition> _passiveAbilities;
 
         [Header("Mutation (part-driven affinity)")]
-        [Tooltip("Per-archetype affinity (0..1) used to score this part against the feed tally at a stage-up.")]
-        [SerializeField] private List<ArchetypeAffinity> _archetypeAffinities;
+        [Tooltip("Per-trait affinity (0..1) used to score this part as an unseal variant against the socketed reagents' traits (Socketed Blanks).")]
+        [SerializeField] private List<TraitAffinity> _traitAffinities;
 
-        [Tooltip("Rarity tier; rarer parts are favoured only once enough archetype points are accumulated.")]
+        [Tooltip("Rarity tier; rarer parts are favoured only once the socketed potency is high enough.")]
         [SerializeField] private MutationRarity _rarity = MutationRarity.Common;
 
         [Tooltip("Icon shown on the mutation choice button when this part is offered.")]
@@ -66,7 +66,7 @@ namespace CharacterSystem.Data.Definitions
         public IReadOnlyList<SocketDefinition> ContributedSockets => _contributedSockets ?? (IReadOnlyList<SocketDefinition>)System.Array.Empty<SocketDefinition>();
         public IReadOnlyList<AbilityDefinition> ActiveAbilities => _activeAbilities ?? (IReadOnlyList<AbilityDefinition>)System.Array.Empty<AbilityDefinition>();
         public IReadOnlyList<PassiveAbilityDefinition> PassiveAbilities => _passiveAbilities ?? (IReadOnlyList<PassiveAbilityDefinition>)System.Array.Empty<PassiveAbilityDefinition>();
-        public IReadOnlyList<ArchetypeAffinity> ArchetypeAffinities => _archetypeAffinities ?? (IReadOnlyList<ArchetypeAffinity>)System.Array.Empty<ArchetypeAffinity>();
+        public IReadOnlyList<TraitAffinity> TraitAffinities => _traitAffinities ?? (IReadOnlyList<TraitAffinity>)System.Array.Empty<TraitAffinity>();
         public MutationRarity Rarity => _rarity;
         public Sprite ChoiceIcon => _choiceIcon;
     }

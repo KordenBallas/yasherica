@@ -22,10 +22,10 @@ MonoBehaviour:
   - LowerArm.L
   - Hand.L
   _contributedSockets: []
-  _archetypeAffinities:
-  - _archetypeId: avian
-    _weight: 0.7
-  - _archetypeId: insect
+  _traitAffinities:
+  - _traitId: sharp
     _weight: 0.6
+  - _traitId: focusing
+    _weight: 0.5
   _rarity: 1
   _choiceIcon: {fileID: 0}

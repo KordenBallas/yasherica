@@ -17,6 +17,7 @@ MonoBehaviour:
   _description: A gulp of spring water, still cool somehow.
   _icon: {fileID: 21300000, guid: 7b91db00169a706408821b318ae7af9a, type: 3}
   _bubbleTint: {r: 0.4, g: 0.7, b: 1, a: 1}
-  _archetypeWeights:
-  - _archetypeId: aquatic
-    _weight: 1
+  _substanceTraits:
+  - {fileID: 11400000, guid: b2d3f4e5061728394a5b6c7d8e9f01a2, type: 2}
+  _propertyTraits: []
+  _tier: 0

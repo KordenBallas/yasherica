@@ -8,14 +8,13 @@ using UnityEngine;
 namespace Mutation.Data
 {
     /// <summary>
-    /// Builds the candidate-part list the mutation scoring consumes from the authored character
+    /// Builds the candidate-part list the variant scoring consumes from the authored character
     /// <see cref="PartDefinition"/>s. The only bridge from the character Data layer into the
     /// UnityEngine-free <see cref="MutationCandidatePart"/> records: it copies the slot/part ids,
-    /// the per-archetype affinity (summing duplicate ids, dropping empty ids and non-positive
-    /// weights), the rarity as an int tier, and the dominant-affinity archetype id (for the choice
-    /// tint). The choice icon stays in the Data layer (served by <see cref="TryGetIcon"/>) so Core
-    /// holds no Unity types. The part's display label is its authored
-    /// <see cref="PartDefinition.DisplayName"/>, falling back to the asset name when blank.
+    /// the per-trait affinity (summing duplicate ids, dropping empty ids and non-positive weights),
+    /// and the rarity as an int tier. The choice icon stays in the Data layer (served by
+    /// <see cref="TryGetIcon"/>) so Core holds no Unity types. The part's display label is its
+    /// authored <see cref="PartDefinition.DisplayName"/>, falling back to the asset name when blank.
     /// </summary>
     public class MutationPartCatalog : IMutationPartCatalog
     {
@@ -43,16 +42,15 @@ namespace Mutation.Data
                 }
 
                 var slotId = part.Slot != null ? part.Slot.Id : null;
-                var affinity = BuildAffinity(part.ArchetypeAffinities, out var dominantArchetypeId);
+                var traitAffinity = BuildTraitAffinity(part.TraitAffinities);
                 var displayName = string.IsNullOrEmpty(part.DisplayName) ? part.name : part.DisplayName;
 
                 _candidates.Add(new MutationCandidatePart(
                     slotId,
                     part.Id,
                     displayName,
-                    affinity,
                     (int)part.Rarity,
-                    dominantArchetypeId));
+                    traitAffinity));
 
                 if (part.ChoiceIcon != null && !_iconByPart.ContainsKey(part.Id))
                 {
@@ -72,11 +70,10 @@ namespace Mutation.Data
             return _iconByPart.TryGetValue(partId, out icon);
         }
 
-        private static IReadOnlyDictionary<string, float> BuildAffinity(
-            IReadOnlyList<ArchetypeAffinity> affinities,
-            out string dominantArchetypeId)
+        // Aggregation rules: sum duplicates, drop empty ids and non-positive weights.
+        private static IReadOnlyDictionary<string, float> BuildTraitAffinity(
+            IReadOnlyList<TraitAffinity> affinities)
         {
-            dominantArchetypeId = null;
             if (affinities == null || affinities.Count == 0)
             {
                 return EmptyAffinity;
@@ -90,7 +87,7 @@ namespace Mutation.Data
                     continue;
                 }
 
-                var id = affinity.ArchetypeId != null ? affinity.ArchetypeId.Trim() : null;
+                var id = affinity.TraitId != null ? affinity.TraitId.Trim() : null;
                 if (string.IsNullOrEmpty(id) || affinity.Weight <= 0f)
                 {
                     continue;
@@ -100,26 +97,7 @@ namespace Mutation.Data
                 map[id] = existing + affinity.Weight;
             }
 
-            dominantArchetypeId = Dominant(map);
             return map;
-        }
-
-        // Highest-weight archetype, with an ordinal-id tie-break so the tint is deterministic.
-        private static string Dominant(Dictionary<string, float> map)
-        {
-            string best = null;
-            var bestWeight = float.NegativeInfinity;
-            foreach (var entry in map)
-            {
-                if (entry.Value > bestWeight ||
-                    (entry.Value == bestWeight && string.CompareOrdinal(entry.Key, best) < 0))
-                {
-                    best = entry.Key;
-                    bestWeight = entry.Value;
-                }
-            }
-
-            return best;
         }
 
         private static readonly IReadOnlyDictionary<string, float> EmptyAffinity =

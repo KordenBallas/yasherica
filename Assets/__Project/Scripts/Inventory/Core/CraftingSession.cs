@@ -6,16 +6,16 @@ namespace Inventory.Core
     /// <summary>
     /// State machine implementing the magic pot crafting rules:
     /// staging N items enters the Crafting state and waits for ResolveCraft (so the
-    /// presentation can animate the merge first); success consumes the inputs and
-    /// produces a detached result; failure returns ONLY the last selected item to the
-    /// inventory while the earlier selections stay staged. Unstaging during Crafting
-    /// cancels the pending combine.
+    /// presentation can animate the merge first); resolving consumes the inputs and
+    /// produces a detached result - every combine yields something (signature recipe
+    /// or emergent fusion), there is no fail path. Unstaging during Crafting cancels
+    /// the pending combine.
     /// </summary>
     public class CraftingSession : ICraftingSession
     {
         private const int MinimumItemsToCombine = 2;
 
-        private readonly IRecipeBook _recipeBook;
+        private readonly IFusionResolver _fusionResolver;
         private readonly IInventoryModel _inventory;
         private readonly int _itemsToCombine;
         private readonly List<ArtifactInstance> _stagedItems = new List<ArtifactInstance>();
@@ -26,15 +26,14 @@ namespace Inventory.Core
 
         public event Action<ArtifactInstance> OnItemStaged;
         public event Action<IReadOnlyList<ArtifactInstance>> OnCraftingStarted;
-        public event Action<ArtifactInstance> OnCraftSucceeded;
-        public event Action<ArtifactInstance> OnCraftFailed;
+        public event Action<ArtifactInstance, bool> OnCraftSucceeded;
         public event Action<ArtifactInstance> OnItemUnstaged;
         public event Action<ArtifactInstance> OnResultCollected;
         public event Action<IReadOnlyList<ArtifactInstance>> OnSessionCleared;
 
-        public CraftingSession(IRecipeBook recipeBook, IInventoryModel inventory, int itemsToCombine)
+        public CraftingSession(IFusionResolver fusionResolver, IInventoryModel inventory, int itemsToCombine)
         {
-            _recipeBook = recipeBook ?? throw new ArgumentNullException(nameof(recipeBook));
+            _fusionResolver = fusionResolver ?? throw new ArgumentNullException(nameof(fusionResolver));
             _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
 
             if (itemsToCombine < MinimumItemsToCombine)
@@ -166,22 +165,11 @@ namespace Inventory.Core
                 inputIds[i] = _stagedItems[i].DefinitionId;
             }
 
-            if (_recipeBook.TryMatch(inputIds, out string outputDefinitionId))
-            {
-                _stagedItems.Clear();
-                PendingResult = _inventory.CreateDetachedInstance(outputDefinitionId);
-                State = CraftingState.ResultReady;
-                OnCraftSucceeded?.Invoke(PendingResult);
-            }
-            else
-            {
-                // Failure rule: only the most recent selection drops back into the pot.
-                var returnedItem = _stagedItems[_stagedItems.Count - 1];
-                _stagedItems.RemoveAt(_stagedItems.Count - 1);
-                State = _stagedItems.Count > 0 ? CraftingState.Selecting : CraftingState.Idle;
-                _inventory.Return(returnedItem);
-                OnCraftFailed?.Invoke(returnedItem);
-            }
+            var result = _fusionResolver.Resolve(inputIds);
+            _stagedItems.Clear();
+            PendingResult = _inventory.CreateDetachedInstance(result.OutputDefinitionId);
+            State = CraftingState.ResultReady;
+            OnCraftSucceeded?.Invoke(PendingResult, result.IsSignature);
         }
     }
 }

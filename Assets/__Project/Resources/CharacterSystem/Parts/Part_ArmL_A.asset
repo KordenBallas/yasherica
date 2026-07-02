@@ -21,3 +21,6 @@ MonoBehaviour:
   - LowerArm.L
   - Hand.L
   _contributedSockets: []
+  _traitAffinities:
+  - _traitId: heavy
+    _weight: 0.5

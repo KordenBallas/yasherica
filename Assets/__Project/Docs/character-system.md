@@ -93,7 +93,7 @@ The Animator is never rebound: parts never add or remove bones (the rig prefab a
 | `SlotDefinition` | id, display name |
 | `SocketDefinition` | id, parent bone name, local position/rotation/scale |
 | `SkeletonDefinition` | id, rig prefab (bones + Animator + `CharacterRig`), authoritative bone-name list, Tier-1 sockets |
-| `PartDefinition` | id, **display name** (friendly UI label; falls back to the asset name when blank), slot, target skeleton, part prefab (one SkinnedMeshRenderer), bone names in mesh-index order, contributed Tier-2 sockets, **granted active abilities + passive abilities** (Combat SOs — see note), **mutation data: `ArchetypeAffinities` (`ArchetypeAffinity[]`: archetype id + 0..1 weight), `Rarity` (`MutationRarity` enum, `Common`…`Mythical`), `ChoiceIcon` (Sprite)** — see mutation-subsystem.md |
+| `PartDefinition` | id, **display name** (friendly UI label; falls back to the asset name when blank), slot, target skeleton, part prefab (one SkinnedMeshRenderer), bone names in mesh-index order, contributed Tier-2 sockets, **granted active abilities + passive abilities** (Combat SOs — see note), **mutation data: `TraitAffinities` (`TraitAffinity[]`: trait id + 0..1 weight, scored against the socketed reagents at unseal), `Rarity` (`MutationRarity` enum, `Common`…`Mythical`), `ChoiceIcon` (Sprite)** — see mutation-subsystem.md |
 | `AttachmentDefinition` | id, prefab, target socket id, extra local TRS offset |
 | `CharacterAssemblyDefinition` | id, skeleton, one part per slot, optional default attachments |
 
@@ -101,7 +101,7 @@ The Animator is never rebound: parts never add or remove bones (the rig prefab a
 
 > **Layering note (debt):** `PartDefinition`'s ability fields reference the `Combat.Data.Definitions` layer, so the CharacterSystem data layer depends on Combat. This is a deliberate, user-approved M1 coupling that breaks the inward-only layering rule (CLAUDE.md §2); it is tracked in the ROADMAP.
 >
-> **Mutation data (M2, accepted):** `PartDefinition` also carries the per-part mutation affinity, rarity, and choice icon, so the Mutation subsystem can score parts without per-archetype set assets. `ArchetypeAffinity` references archetypes by id string and `MutationRarity` is a plain enum, so this adds no type dependency on the Mutation layer — but the *concepts* of archetype affinity and rarity now sit in the character layer. This was a deliberate user decision (single-asset authoring over strict layering); see mutation-subsystem.md §6 and the ROADMAP.
+> **Mutation data (M2, accepted; trait-based since Socketed Blanks):** `PartDefinition` also carries the per-part trait affinity, rarity, and choice icon, so the Mutation subsystem can score parts as unseal variants without companion assets. `TraitAffinity` references traits by id string (the Inventory layer's `TraitDefinition.Id`) and `MutationRarity` is a plain enum, so this adds no type dependency on the Mutation/Inventory layers — but the *concepts* of trait affinity and rarity sit in the character layer. This was a deliberate user decision (single-asset authoring over strict layering); see mutation-subsystem.md §6 and the ROADMAP.
 
 ### 2.5 Zenject wiring
 

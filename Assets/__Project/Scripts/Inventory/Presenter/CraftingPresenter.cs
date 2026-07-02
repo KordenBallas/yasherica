@@ -21,7 +21,6 @@ namespace Inventory.Presenter
         private readonly ICraftingSlotsView _slotsView;
         private readonly IPotView _potView;
         private readonly IArtifactCatalog _artifactCatalog;
-        private readonly IInventoryModeState _modeState;
         private readonly IGameLogger _logger;
 
         public CraftingPresenter(
@@ -29,14 +28,12 @@ namespace Inventory.Presenter
             ICraftingSlotsView slotsView,
             IPotView potView,
             IArtifactCatalog artifactCatalog,
-            IInventoryModeState modeState,
             IGameLogger logger)
         {
             _session = session;
             _slotsView = slotsView;
             _potView = potView;
             _artifactCatalog = artifactCatalog;
-            _modeState = modeState;
             _logger = logger;
         }
 
@@ -49,11 +46,9 @@ namespace Inventory.Presenter
             _session.OnItemStaged += HandleItemStaged;
             _session.OnCraftingStarted += HandleCraftingStarted;
             _session.OnCraftSucceeded += HandleCraftSucceeded;
-            _session.OnCraftFailed += HandleCraftFailed;
             _session.OnItemUnstaged += HandleItemUnstaged;
             _session.OnResultCollected += HandleResultCollected;
             _session.OnSessionCleared += HandleSessionCleared;
-            _modeState.OnModeChanged += HandleModeChanged;
         }
 
         public void Dispose()
@@ -65,30 +60,13 @@ namespace Inventory.Presenter
             _session.OnItemStaged -= HandleItemStaged;
             _session.OnCraftingStarted -= HandleCraftingStarted;
             _session.OnCraftSucceeded -= HandleCraftSucceeded;
-            _session.OnCraftFailed -= HandleCraftFailed;
             _session.OnItemUnstaged -= HandleItemUnstaged;
             _session.OnResultCollected -= HandleResultCollected;
             _session.OnSessionCleared -= HandleSessionCleared;
-            _modeState.OnModeChanged -= HandleModeChanged;
-        }
-
-        private void HandleModeChanged(InventoryMode mode)
-        {
-            // Switching away from crafting drops any staged items back into the pot.
-            if (mode != InventoryMode.Crafting)
-            {
-                _session.ReturnAll();
-            }
         }
 
         private void HandleBubbleClicked(int instanceId)
         {
-            // Feeding owns clicks in feeding mode; this presenter only crafts.
-            if (_modeState.Mode != InventoryMode.Crafting)
-            {
-                return;
-            }
-
             if (!_session.TrySelect(instanceId))
             {
                 _logger.Info(LogCategory.Inventory,$"[CraftingPresenter] Selection of instance {instanceId} rejected.");
@@ -133,20 +111,13 @@ namespace Inventory.Presenter
             RefreshStagedItems();
         }
 
-        private void HandleCraftSucceeded(ArtifactInstance result)
+        private void HandleCraftSucceeded(ArtifactInstance result, bool isSignature)
         {
+            // isSignature is not surfaced visually yet; a signature-vs-emergent
+            // effect differentiation is a ROADMAP polish item.
             RefreshStagedItems();
             _slotsView.PlaySuccessPuff();
             _slotsView.ShowResult(ToViewData(result));
-        }
-
-        private void HandleCraftFailed(ArtifactInstance returned)
-        {
-            // The view reconciles its own staged list here: the returned item's
-            // bubble drops into the pot while the survivors glide back to their
-            // slots, so no full staged refresh is wanted.
-            _slotsView.PlayFailPuff();
-            _slotsView.PlayCraftFailure(returned.InstanceId);
         }
 
         private void HandleResultCollected(ArtifactInstance _)

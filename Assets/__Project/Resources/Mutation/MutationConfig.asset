@@ -12,7 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44cb75d958a74af6a37c444802e5e163, type: 3}
   m_Name: MutationConfig
   m_EditorClassIdentifier:
-  _digestionThreshold: 5
-  _maxMutationOptions: 3
   _rarityWeight: 0.5
-  _rarityUnlockPointsPerTier: 10
+  _blankRackCapacity: 3
+  _maxVariantOptions: 3
+  _tierUnlockPerRarityTier: 1
+  _startingBlanks:
+  - {fileID: 11400000, guid: 6d7e8f90a1b2c3d4e5f60718293a4b5e, type: 2}
+  - {fileID: 11400000, guid: 7e8f90a1b2c3d4e5f60718293a4b5c6f, type: 2}
+  - {fileID: 11400000, guid: 8f90a1b2c3d4e5f60718293a4b5c6d70, type: 2}

@@ -24,14 +24,12 @@ MonoBehaviour:
   _activeAbilities:
   - {fileID: 11400000, guid: 304de35687ec0e24b9605534d6569c62, type: 2}
   _passiveAbilities: []
-  _archetypeAffinities:
-  - _archetypeId: reptile
+  _traitAffinities:
+  - _traitId: chitin
     _weight: 0.8
-  - _archetypeId: insect
-    _weight: 0.6
-  - _archetypeId: avian
+  - _traitId: sharp
     _weight: 0.5
-  - _archetypeId: mammal
-    _weight: 0.5
+  - _traitId: fiery
+    _weight: 0.3
   _rarity: 2
   _choiceIcon: {fileID: 21300000, guid: cb97c2fe68cf51849a36258bb004f45b, type: 3}

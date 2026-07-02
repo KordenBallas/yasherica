@@ -8,7 +8,104 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Removed
+- **Mutation/Inventory — the feed→tally→digestion→stage-up loop is deleted (Socketed Blanks
+  migration, brief §18; ROADMAP "Crafting & Mutation"):** mutations are obtained only through
+  blanks now. Deleted: `FeedingSession`/`IFeedingSession`, `FeedingPresenter`,
+  `IFeedingView`/`FeedingView`/`ArchetypeReadoutEntry`, the `InventoryMode`/`IInventoryModeState`
+  mode switch (crafting and the operating table share one screen), the `FeedingUISetup` editor
+  tool, `IMutationTally`/`MutationTally`, `IDigestionProgress`/`DigestionProgress`,
+  `ArtifactArchetypeProfile`, `IMutationOptionBuilder`/`MutationOptionBuilder`,
+  `MutationScoringParameters`, `ArtifactArchetypeMapper`, `ArchetypeWeight`, `ArchetypeAffinity`,
+  and their test fixtures. Trimmed: `ArtifactDefinition._archetypeWeights` (species lives on the
+  blank now), `PartDefinition._archetypeAffinities` (trait affinities remain),
+  `MutationConfig._digestionThreshold`/`_maxMutationOptions`/`_rarityUnlockPointsPerTier`,
+  `InventoryConfig` feeding + fail-return fields, the HUD feed toggle
+  (`IInventoryHudView`/prefab subtree), `IInventoryStageView.SetFeedingFraming`, and the
+  `FeedingArea` + `PuffFail` subtrees in `InventoryStage.prefab` (all internal references
+  validated). `MutationCandidatePart` is trait-only; `MutationContentValidator` validates trait
+  affinities + blanks (artifact traits are the Inventory validator's job).
+  `ArchetypeDefinition`/`IArchetypeCatalog` stay — blanks' species markers and card tints consume
+  them. Docs: `mutation-subsystem.md` fully rewritten around Socketed Blanks;
+  `inventory-subsystem.md` R24–R26 removed and rewired to the one-screen layout;
+  `character-system.md` PartDefinition reference updated.
+
 ### Added
+- **Mutation/Inventory — operating-table UI: the Socketed Blanks loop is playable (Phase 3;
+  `mutation-subsystem.md` §2.7–§2.8; ROADMAP "Crafting & Mutation"):** the open cauldron screen now
+  hosts crafting **and** the operating table (no mode switch). A world-space **blank rack** sits
+  left of the cauldron (`BlankRackArea` authored into `InventoryStage.prefab`: anchors + disabled
+  entry/socket templates; `BlankRackView`/`BlankEntryView`/`SocketView` + pure-C#
+  `BlankRackPresenter` seeding `MutationConfig.StartingBlanks`). **Drag & drop:** `StageClickRouter`
+  became **`StageDragRouter`** (same meta GUID — prefab wiring untouched): sub-threshold
+  press/release = click (`IStageClickable`); dragging a pot bubble moves it on its camera plane
+  (pot drift skips `BubbleView.IsDragged`; its collider disables so the release raycast sees the
+  socket) and releasing over a socket (`IArtifactDropTarget`) sockets the artifact; clicking a
+  filled socket unsockets it. **Filling the last socket unseals**: `MutationVariantPresenter`
+  (renamed from `MutationChoicePresenter`; now triggered by `ISocketingModel.OnBlankReady`, with a
+  ready-queue) shows the variant cards on the existing `MutationChoicePanel`, and the pick installs
+  via `IMutationCharacter.SwapPart`, consumes the reagents (`ConsumeSockets`), and spends the blank
+  (`IBlankRack.Remove`); a failed swap keeps the cards up. Socket state persists across
+  inventory open/close (multi-track incubation). Demo content: `Trait_Wood`; raw `Artifact_Stick`/
+  `Artifact_Needle` and crafted `Artifact_Mace` (stone+wood/heavy, t2) / `Artifact_Stinger`
+  (chitin/sharp+toxic, t2) with signature recipes rock+stick→mace, needle+bacteria→stinger;
+  starting inventory extended. Tests: `MutationVariantPresenterTests` (replaces
+  `MutationChoicePresenterTests`) — fill→cards→pick→swap+consume+spend, failure keeps state,
+  equipped excluded, raw-only still offers, ready-queue.
+
+### Changed
+- **Mutation — the feeding loop is now a dead end (pending removal):** the digestion ready signal
+  has no consumer since the stage-up choice presenter became the unseal variant presenter. Feeding
+  still fills the tally/digestion bars; the whole path is deleted in the Socketed Blanks migration
+  phase (ROADMAP).
+- **Mutation — Socketed Blanks domain (Phase 2, not yet player-facing; `mutation-subsystem.md` §2.6;
+  ROADMAP "Crafting & Mutation"):** the pure-C# heart of the new mutation source. New
+  `PartBlankDefinition` SO (*Create → Mutation → Part Blank*, auto-loaded from
+  `Resources/Mutation/Blanks/`; slot + species/passport archetype + socket count; 3 shipped:
+  skull/claw-arm/haunch) with `PartBlankCatalog` (`IPartBlankCatalog`/`IPartBlankDataSource`).
+  Domain: `BlankRack` (capped by `MutationConfig.BlankRackCapacity` — the multi-track incubation
+  tension), `SocketingModel` (socket pulls the artifact from the inventory, unsocket returns it,
+  **filling the last socket raises `OnBlankReady` and commits** — no rearrange after full;
+  `ConsumeSockets` destroys reagents on pick, `ReturnAll` refunds on close), `BlankVariantBuilder`
+  (unseal menu: socketed profiles combined through the **same cauldron fusion grammar** so sockets
+  interact, then non-equipped parts of the blank's slot scored by trait-affinity overlap × a
+  tier-driven rarity gate; deterministic, no zero-score filter), and the cauldron-voice **seam**
+  `SocketingTrendEvaluator`/`ISocketingTrendSource` (post-grammar trend per socket change; no
+  consumer yet). `PartDefinition` gains `TraitAffinities` (new `TraitAffinity` beside
+  `ArchetypeAffinity`), carried into `MutationCandidatePart.TraitAffinity` by `MutationPartCatalog`;
+  the 6 Head/ArmL/LegL part assets are trait-tagged. `MutationConfig` gains
+  `BlankRackCapacity`/`MaxVariantOptions`/`TierUnlockPerRarityTier`/`StartingBlanks`;
+  `MutationContentValidator` now also checks part trait affinities and blanks (slot, species,
+  ≥2 candidates per slot). Wired in `MutationInstaller`. Edit-mode tests: `BlankRackTests`,
+  `SocketingModelTests`, `BlankVariantBuilderTests`, `SocketingTrendEvaluatorTests` (+
+  `MutationPartCatalogTests` trait cases) — 88 domain tests green. The feeding loop remains the
+  live mutation source until the operating-table UI lands (next phase).
+- **Inventory/Crafting — artifact trait model + two-tier emergent fusion (Socketed Blanks Phase 1;
+  `inventory-subsystem.md` R16–R17; ROADMAP "Crafting & Mutation"):** artifacts now carry **function**
+  — `Substance`/`Property` trait tags (new `TraitDefinition` SO, *Create → Inventory → Trait*,
+  auto-loaded from `Resources/Artifacts/Traits/`; shipped vocabulary: stone/water/fire/chitin/rot +
+  sharp/heavy/toxic/focusing/fiery) and an integer **tier** (0 = raw find). The cauldron combine is
+  now **two-tier and never fails**: an authored signature `RecipeDefinition` wins; otherwise a pure-C#
+  emergent grammar (`EmergentFusionCalculator`: trait union → authored `FusionRuleDefinition`s applied
+  in ordinal rule-id order (combine/transmute, cascading) → tier from max input + rule deltas +
+  amplify-on-duplicates) computes a target profile and `ArtifactByTraitSelector` deterministically
+  picks the best-matching authored artifact (inputs excluded; ordinal tie-break). New
+  `IFusionResolver`/`FusionResolver`, `IArtifactTraitSource`/`ArtifactTraitIndex` (SO→Core bridge),
+  `ITraitCatalog`/`TraitCatalog`, `FusionRuleSetBuilder`, `FusionSettings` (tunables on
+  `InventoryConfig`), and a startup `ArtifactContentValidator` (broken/misplaced trait refs,
+  trait-less artifacts, unreachable rule outputs). The 7 shipped artifacts are trait-tagged; 2 demo
+  fusion rules ship (`heat_hardens`, `rot_spreads`). Edit-mode tests: `ArtifactTraitProfileTests`,
+  `TraitFusionRuleSetTests`, `EmergentFusionCalculatorTests`, `ArtifactByTraitSelectorTests`,
+  `FusionResolverTests` (57 domain tests green incl. the reworked `CraftingSessionTests`).
+
+### Changed
+- **Inventory/Crafting — craft failure path removed (R18 retired):** `CraftingSession` resolves through
+  `IFusionResolver` and always succeeds; `OnCraftFailed`, the last-item-return rule, the dark fail
+  puff, and the glide-back animation are gone (`ICraftingSession`, `CraftingPresenter`,
+  `ICraftingSlotsView.PlayCraftFailure/PlayFailPuff`, `CraftingSlotsView`). `OnCraftSucceeded` now
+  reports `(result, isSignature)`; presentation does not differentiate signature vs emergent yet
+  (ROADMAP polish item). `ArtifactDefinition._archetypeWeights` stays temporarily (legacy feeding
+  path) until the Socketed Blanks migration phase removes it.
 - **Per-system logging (implemented — `logging.md`):** runtime logs can now be muted or raised
   **per system** so a feature can be tested without the flood of unrelated logs. New pure-C# core
   (`LogCategory`, `LogLevel`, `LogLevelPolicy` with edit-mode `LogLevelPolicyTests`), a `LoggingConfig`

@@ -14,13 +14,15 @@ namespace Inventory.Data.Definitions
         [Tooltip("How many staged artifacts trigger a combine attempt")]
         [SerializeField, Min(2)] private int _itemsToCombine = 2;
 
-        [Header("Feeding")]
-        [Tooltip("How many artifacts fit in the feeding tray below the pot before feeding")]
-        [SerializeField, Min(1)] private int _feedingSlotCount = 3;
-        [Tooltip("How far the stage camera drops (local units) to reveal the feeding slots below the pot")]
-        [SerializeField, Min(0f)] private float _feedingCameraDrop = 0.5f;
-        [Tooltip("Time the stage camera takes to move between crafting and feeding framing")]
-        [SerializeField, Min(0f)] private float _feedingFramingDuration = 0.4f;
+        [Header("Fusion (emergent grammar tunables)")]
+        [Tooltip("Tier bonus per trait that appears in two or more combined inputs (amplify)")]
+        [SerializeField, Min(0)] private int _amplifyTierBonus = 1;
+        [Tooltip("Score weight per trait shared between the fusion target and a candidate artifact")]
+        [SerializeField, Min(0f)] private float _traitOverlapWeight = 1f;
+        [Tooltip("Score penalty per candidate trait absent from the fusion target")]
+        [SerializeField, Min(0f)] private float _traitMismatchWeight = 0.25f;
+        [Tooltip("Score penalty per point of tier distance between target and candidate")]
+        [SerializeField, Min(0f)] private float _tierProximityWeight = 0.5f;
 
         [Header("Starting Inventory (dev seed until a loot system exists)")]
         [SerializeField] private List<ArtifactDefinition> _startingInventory;
@@ -70,17 +72,16 @@ namespace Inventory.Data.Definitions
         [SerializeField, Min(0f)] private float _cameraTransitionTime = 1.0f;
         [Tooltip("Travel time of staged artifacts merging toward the result anchor")]
         [SerializeField, Min(0f)] private float _mergeDuration = 0.45f;
-        [Tooltip("Travel time of a surviving artifact gliding back to its slot after a failed craft")]
-        [SerializeField, Min(0f)] private float _failReturnDuration = 0.3f;
         [Tooltip("Scale-in time of the crafted result popping above the pot")]
         [SerializeField, Min(0f)] private float _resultPopDuration = 0.35f;
         [Tooltip("Travel time of a collected result dropping into the pot")]
         [SerializeField, Min(0f)] private float _resultDropDuration = 0.4f;
 
         public int ItemsToCombine => _itemsToCombine;
-        public int FeedingSlotCount => _feedingSlotCount;
-        public float FeedingCameraDrop => _feedingCameraDrop;
-        public float FeedingFramingDuration => _feedingFramingDuration;
+        public int AmplifyTierBonus => _amplifyTierBonus;
+        public float TraitOverlapWeight => _traitOverlapWeight;
+        public float TraitMismatchWeight => _traitMismatchWeight;
+        public float TierProximityWeight => _tierProximityWeight;
         public IReadOnlyList<ArtifactDefinition> StartingInventory => _startingInventory;
         public float MinBubbleRadius => _minBubbleRadius;
         public float MaxBubbleRadius => _maxBubbleRadius;
@@ -100,7 +101,6 @@ namespace Inventory.Data.Definitions
         public float FacingRotationDuration => _facingRotationDuration;
         public float CameraTransitionTime => _cameraTransitionTime;
         public float MergeDuration => _mergeDuration;
-        public float FailReturnDuration => _failReturnDuration;
         public float ResultPopDuration => _resultPopDuration;
         public float ResultDropDuration => _resultDropDuration;
     }

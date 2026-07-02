@@ -5,7 +5,7 @@ namespace Inventory.View
 {
     /// <summary>
     /// Adapter contract for the crafting area above the pot: staged artifacts,
-    /// the merge animation, the crafted result, and the success/fail effects.
+    /// the merge animation, the crafted result, and the success effects.
     /// </summary>
     public interface ICraftingSlotsView
     {
@@ -29,18 +29,11 @@ namespace Inventory.View
         /// </summary>
         void PlayMergeAnimation();
 
-        /// <summary>
-        /// Failure resolution: the bubble with the returned id drops into the pot;
-        /// the remaining staged bubbles glide back to their slot anchors.
-        /// </summary>
-        void PlayCraftFailure(int returnedInstanceId);
-
         void ShowResult(ArtifactViewData result);
 
         /// <param name="collected">True plays the drop-into-pot animation before clearing.</param>
         void ClearResult(bool collected);
 
         void PlaySuccessPuff();
-        void PlayFailPuff();
     }
 }

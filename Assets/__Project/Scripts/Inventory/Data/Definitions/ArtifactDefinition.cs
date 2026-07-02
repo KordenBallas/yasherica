@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Mutation.Data.Definitions;
 using UnityEngine;
 
 namespace Inventory.Data.Definitions
@@ -24,16 +23,21 @@ namespace Inventory.Data.Definitions
         [Tooltip("Tint of the bubble carrying this artifact inside the pot")]
         [SerializeField] private Color _bubbleTint = Color.white;
 
-        [Header("Mutation")]
-        [Tooltip("How eating this artifact pushes the character toward each creature archetype. " +
-                 "Each entry references an ArchetypeDefinition by id; duplicate ids are summed.")]
-        [SerializeField] private ArchetypeWeight[] _archetypeWeights;
+        [Header("Function Traits")]
+        [Tooltip("What the artifact is made of (Substance-axis traits, e.g. stone, rot)")]
+        [SerializeField] private TraitDefinition[] _substanceTraits;
+        [Tooltip("What the artifact does (Property-axis traits, e.g. sharp, toxic)")]
+        [SerializeField] private TraitDefinition[] _propertyTraits;
+        [Tooltip("Potency: 0 = raw find, higher = crafted/refined")]
+        [SerializeField, Min(0)] private int _tier;
 
         public string Id => _id;
         public string DisplayName => _displayName;
         public string Description => _description;
         public Sprite Icon => _icon;
         public Color BubbleTint => _bubbleTint;
-        public IReadOnlyList<ArchetypeWeight> ArchetypeWeights => _archetypeWeights;
+        public IReadOnlyList<TraitDefinition> SubstanceTraits => _substanceTraits;
+        public IReadOnlyList<TraitDefinition> PropertyTraits => _propertyTraits;
+        public int Tier => _tier;
     }
 }

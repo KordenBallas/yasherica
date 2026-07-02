@@ -23,10 +23,12 @@ namespace Inventory.Core
         /// <summary>Raised when enough items are staged and the combine awaits ResolveCraft.</summary>
         event Action<IReadOnlyList<ArtifactInstance>> OnCraftingStarted;
 
-        event Action<ArtifactInstance> OnCraftSucceeded;
-
-        /// <summary>Raised on a failed combine with the item returned to the inventory.</summary>
-        event Action<ArtifactInstance> OnCraftFailed;
+        /// <summary>
+        /// Raised when a combine resolves with the crafted result. The flag tells
+        /// whether it matched an authored signature recipe (vs an emergent fusion).
+        /// Every combine resolves - there is no fail path.
+        /// </summary>
+        event Action<ArtifactInstance, bool> OnCraftSucceeded;
 
         /// <summary>Raised when a staged item is returned to the inventory by TryUnstage.</summary>
         event Action<ArtifactInstance> OnItemUnstaged;
@@ -42,9 +44,10 @@ namespace Inventory.Core
         bool TrySelect(int instanceId);
 
         /// <summary>
-        /// Resolves the pending combine against the recipe book. Only valid in the
-        /// Crafting state; returns false otherwise (e.g. the craft was cancelled
-        /// before the merge animation completed).
+        /// Resolves the pending combine through the fusion resolver (signature
+        /// recipe first, else emergent). Only valid in the Crafting state; returns
+        /// false otherwise (e.g. the craft was cancelled before the merge
+        /// animation completed).
         /// </summary>
         bool ResolveCraft();
 

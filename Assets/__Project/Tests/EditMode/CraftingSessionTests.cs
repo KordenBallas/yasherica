@@ -16,11 +16,33 @@ namespace Tests.EditMode
         public void SetUp()
         {
             _inventory = new InventoryModel();
+            _session = new CraftingSession(CreateResolver(), _inventory, ItemsToCombine);
+        }
+
+        /// <summary>
+        /// Real resolver over a hand-built pool: fire+water is the authored
+        /// signature (snake); fire+rock has no signature and emergently resolves
+        /// to magma (the best non-input trait match).
+        /// </summary>
+        private static FusionResolver CreateResolver()
+        {
             var recipes = new List<RecipeData>
             {
                 new RecipeData(new[] { "fire", "water" }, "snake")
             };
-            _session = new CraftingSession(new RecipeBook(recipes), _inventory, ItemsToCombine);
+            var traitSource = new FakeArtifactTraitSource()
+                .Add("fire", 0, "fire", "fiery")
+                .Add("water", 0, "water")
+                .Add("rock", 0, "stone", "heavy")
+                .Add("magma", 1, "fire", "stone");
+
+            return new FusionResolver(
+                new RecipeBook(recipes),
+                traitSource,
+                new EmergentFusionCalculator(),
+                new ArtifactByTraitSelector(),
+                TraitFusionRuleSet.Empty,
+                new FusionSettings(1, 1f, 0.25f, 0.5f));
         }
 
         private void SelectAndResolve(int firstInstanceId, int secondInstanceId)
@@ -34,7 +56,7 @@ namespace Tests.EditMode
         public void Constructor_ItemsToCombineBelowTwo_Throws()
         {
             Assert.Throws<System.ArgumentOutOfRangeException>(
-                () => new CraftingSession(new RecipeBook(new List<RecipeData>()), _inventory, 1));
+                () => new CraftingSession(CreateResolver(), _inventory, 1));
         }
 
         [Test]
@@ -68,8 +90,7 @@ namespace Tests.EditMode
             IReadOnlyList<ArtifactInstance> craftingItems = null;
             bool resolvedEarly = false;
             _session.OnCraftingStarted += items => craftingItems = items;
-            _session.OnCraftSucceeded += _ => resolvedEarly = true;
-            _session.OnCraftFailed += _ => resolvedEarly = true;
+            _session.OnCraftSucceeded += (_, __) => resolvedEarly = true;
 
             _session.TrySelect(fire.InstanceId);
             _session.TrySelect(water.InstanceId);
@@ -99,19 +120,25 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void ResolveCraft_AfterNthItem_SuccessProducesResult()
+        public void ResolveCraft_SignatureMatch_ProducesRecipeResult()
         {
             var fire = _inventory.Add("fire");
             var water = _inventory.Add("water");
 
             ArtifactInstance result = null;
-            _session.OnCraftSucceeded += i => result = i;
+            bool signature = false;
+            _session.OnCraftSucceeded += (i, isSignature) =>
+            {
+                result = i;
+                signature = isSignature;
+            };
 
             SelectAndResolve(fire.InstanceId, water.InstanceId);
 
             Assert.AreEqual(CraftingState.ResultReady, _session.State);
             Assert.IsNotNull(result);
             Assert.AreEqual("snake", result.DefinitionId);
+            Assert.IsTrue(signature);
             Assert.AreSame(result, _session.PendingResult);
             // Inputs are consumed: neither staged nor back in the inventory.
             Assert.AreEqual(0, _session.StagedItems.Count);
@@ -119,37 +146,28 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void ResolveCraft_Failure_ReturnsOnlyLastSelectedItemToInventory()
+        public void ResolveCraft_NoSignature_ProducesEmergentResult()
         {
             var fire = _inventory.Add("fire");
             var rock = _inventory.Add("rock");
 
-            ArtifactInstance returned = null;
-            _session.OnCraftFailed += i => returned = i;
+            ArtifactInstance result = null;
+            bool signature = true;
+            _session.OnCraftSucceeded += (i, isSignature) =>
+            {
+                result = i;
+                signature = isSignature;
+            };
 
             SelectAndResolve(fire.InstanceId, rock.InstanceId);
 
-            Assert.AreEqual(CraftingState.Selecting, _session.State);
-            Assert.AreSame(rock, returned);
-            Assert.AreEqual(1, _inventory.Items.Count);
-            Assert.AreSame(rock, _inventory.Items[0]);
-            Assert.AreEqual(1, _session.StagedItems.Count);
-            Assert.AreSame(fire, _session.StagedItems[0]);
-        }
-
-        [Test]
-        public void ResolveCraft_FailureThenValidSecondItem_Succeeds()
-        {
-            var fire = _inventory.Add("fire");
-            var rock = _inventory.Add("rock");
-            var water = _inventory.Add("water");
-
-            SelectAndResolve(fire.InstanceId, rock.InstanceId);
-
-            Assert.IsTrue(_session.TrySelect(water.InstanceId));
-            Assert.IsTrue(_session.ResolveCraft());
+            // No fail path: the emergent grammar still yields a result.
             Assert.AreEqual(CraftingState.ResultReady, _session.State);
-            Assert.AreEqual("snake", _session.PendingResult.DefinitionId);
+            Assert.IsNotNull(result);
+            Assert.AreEqual("magma", result.DefinitionId);
+            Assert.IsFalse(signature);
+            Assert.AreEqual(0, _session.StagedItems.Count);
+            Assert.AreEqual(0, _inventory.Items.Count);
         }
 
         [Test]

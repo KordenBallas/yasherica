@@ -20,6 +20,8 @@ namespace Core.DI
     {
         private const string ArtifactDefinitionsResourcePath = "Artifacts/Definitions";
         private const string RecipeDefinitionsResourcePath = "Artifacts/Recipes";
+        private const string TraitDefinitionsResourcePath = "Artifacts/Traits";
+        private const string FusionRuleDefinitionsResourcePath = "Artifacts/FusionRules";
 
         [Header("Configuration")]
         [SerializeField] private InventoryConfig _config;
@@ -27,6 +29,8 @@ namespace Core.DI
         [Header("Data Definitions (auto-loaded from Resources when empty)")]
         [SerializeField] private List<ArtifactDefinition> _artifactDefinitions;
         [SerializeField] private List<RecipeDefinition> _recipeDefinitions;
+        [SerializeField] private List<TraitDefinition> _traitDefinitions;
+        [SerializeField] private List<FusionRuleDefinition> _fusionRuleDefinitions;
 
         [Header("HUD")]
         [SerializeField] private InventoryHudView _hudView;
@@ -70,20 +74,39 @@ namespace Core.DI
                 .FromMethod(ctx => ctx.Container.Resolve<RecipeBookBuilder>()
                     .Build(recipes as IReadOnlyList<RecipeDefinition>))
                 .AsSingle();
+
+            var traits = LoadDefinitions(_traitDefinitions, TraitDefinitionsResourcePath);
+            Container.Bind<ITraitCatalog>()
+                .To<TraitCatalog>()
+                .AsSingle()
+                .WithArguments(traits as IReadOnlyList<TraitDefinition>);
+
+            Container.Bind<IArtifactTraitSource>().To<ArtifactTraitIndex>().AsSingle();
+
+            var fusionRules = LoadDefinitions(_fusionRuleDefinitions, FusionRuleDefinitionsResourcePath);
+            Container.Bind<FusionRuleSetBuilder>().AsSingle();
+            Container.Bind<TraitFusionRuleSet>()
+                .FromMethod(ctx => ctx.Container.Resolve<FusionRuleSetBuilder>()
+                    .Build(fusionRules as IReadOnlyList<FusionRuleDefinition>))
+                .AsSingle();
+
+            Container.BindInstance(new FusionSettings(
+                _config.AmplifyTierBonus,
+                _config.TraitOverlapWeight,
+                _config.TraitMismatchWeight,
+                _config.TierProximityWeight)).AsSingle();
         }
 
         private void InstallDomain()
         {
             Container.Bind<IInventoryModel>().To<InventoryModel>().AsSingle();
+            Container.Bind<EmergentFusionCalculator>().AsSingle();
+            Container.Bind<ArtifactByTraitSelector>().AsSingle();
+            Container.Bind<IFusionResolver>().To<FusionResolver>().AsSingle();
             Container.Bind<ICraftingSession>()
                 .To<CraftingSession>()
                 .AsSingle()
                 .WithArguments(_config.ItemsToCombine);
-            Container.Bind<IFeedingSession>()
-                .To<FeedingSession>()
-                .AsSingle()
-                .WithArguments(_config.FeedingSlotCount);
-            Container.Bind<IInventoryModeState>().To<InventoryModeState>().AsSingle();
             Container.Bind<BubbleLayoutCalculator>().AsSingle();
         }
 
@@ -99,11 +122,6 @@ namespace Core.DI
 
             Container.Bind<ICraftingSlotsView>()
                 .To<CraftingSlotsView>()
-                .FromComponentInHierarchy()
-                .AsSingle();
-
-            Container.Bind<IFeedingView>()
-                .To<FeedingView>()
                 .FromComponentInHierarchy()
                 .AsSingle();
 
@@ -158,7 +176,7 @@ namespace Core.DI
             // BindInterfacesTo gives Zenject IInitializable/IDisposable lifecycle control.
             Container.BindInterfacesAndSelfTo<InventoryPresenter>().AsSingle().NonLazy();
             Container.BindInterfacesAndSelfTo<CraftingPresenter>().AsSingle().NonLazy();
-            Container.BindInterfacesAndSelfTo<FeedingPresenter>().AsSingle().NonLazy();
+            Container.BindInterfacesTo<Inventory.Application.ArtifactContentValidator>().AsSingle().NonLazy();
         }
 
         private List<TDefinition> LoadDefinitions<TDefinition>(List<TDefinition> assigned, string resourcePath)

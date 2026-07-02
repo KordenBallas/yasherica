@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Mutation.Data.Definitions
@@ -9,28 +10,32 @@ namespace Mutation.Data.Definitions
     [CreateAssetMenu(fileName = "MutationConfig", menuName = "Mutation/Mutation Config")]
     public class MutationConfig : ScriptableObject
     {
-        [Header("Digestion")]
-        [Tooltip("Artifacts that must be fed in a stage before the character is ready to mutate")]
-        [Min(1)]
-        [SerializeField] private int _digestionThreshold = 5;
-
-        [Header("Stage-up choice")]
-        [Tooltip("How many mutation options to offer at a stage-up (fewer if too few parts score positively)")]
-        [Min(1)]
-        [SerializeField] private int _maxMutationOptions = 3;
-
-        [Header("Scoring")]
-        [Tooltip("How strongly a part's rarity tier boosts its score once unlocked by accumulated points")]
+        [Header("Variant scoring")]
+        [Tooltip("How strongly a part's rarity tier boosts its variant score once unlocked by socketed potency")]
         [Min(0f)]
         [SerializeField] private float _rarityWeight = 0.5f;
 
-        [Tooltip("Accumulated archetype points required per rarity tier before that tier is favoured")]
-        [Min(0f)]
-        [SerializeField] private float _rarityUnlockPointsPerTier = 10f;
+        [Header("Socketed Blanks")]
+        [Tooltip("How many Part-Blanks the rack holds at once (the multi-track incubation cap)")]
+        [Min(1)]
+        [SerializeField] private int _blankRackCapacity = 3;
 
-        public int DigestionThreshold => _digestionThreshold;
-        public int MaxMutationOptions => _maxMutationOptions;
+        [Tooltip("How many variant mutations an unsealed blank offers at most")]
+        [Min(1)]
+        [SerializeField] private int _maxVariantOptions = 3;
+
+        [Tooltip("Socketed target tier required per rarity tier before rare variants are favoured")]
+        [Min(0f)]
+        [SerializeField] private float _tierUnlockPerRarityTier = 1f;
+
+        [Tooltip("Blanks seeded into the rack at startup (dev seed until blanks drop as loot)")]
+        [SerializeField] private List<PartBlankDefinition> _startingBlanks;
+
         public float RarityWeight => _rarityWeight;
-        public float RarityUnlockPointsPerTier => _rarityUnlockPointsPerTier;
+        public int BlankRackCapacity => _blankRackCapacity;
+        public int MaxVariantOptions => _maxVariantOptions;
+        public float TierUnlockPerRarityTier => _tierUnlockPerRarityTier;
+        public IReadOnlyList<PartBlankDefinition> StartingBlanks =>
+            _startingBlanks ?? (IReadOnlyList<PartBlankDefinition>)System.Array.Empty<PartBlankDefinition>();
     }
 }

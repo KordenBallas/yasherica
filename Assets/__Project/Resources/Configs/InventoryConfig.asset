@@ -13,12 +13,21 @@ MonoBehaviour:
   m_Name: InventoryConfig
   m_EditorClassIdentifier:
   _itemsToCombine: 2
+  _amplifyTierBonus: 1
+  _traitOverlapWeight: 1
+  _traitMismatchWeight: 0.25
+  _tierProximityWeight: 0.5
   _startingInventory:
   - {fileID: 11400000, guid: d1830ad55165404c96284e81fffcad5a, type: 2}
   - {fileID: 11400000, guid: 8484a611a6954e0e8eba84283067abdf, type: 2}
   - {fileID: 11400000, guid: 6f9c88a8779d45219bad912ec3be9e15, type: 2}
   - {fileID: 11400000, guid: 61988621db1049a491dcee1777c48fc6, type: 2}
   - {fileID: 11400000, guid: d1830ad55165404c96284e81fffcad5a, type: 2}
+  - {fileID: 11400000, guid: 6e7f80912a3b4c5d6e7f80912a3b4c5e, type: 2}
+  - {fileID: 11400000, guid: 6e7f80912a3b4c5d6e7f80912a3b4c5e, type: 2}
+  - {fileID: 11400000, guid: 7f80912a3b4c5d6e7f80912a3b4c5d6f, type: 2}
+  - {fileID: 11400000, guid: 6f9c88a8779d45219bad912ec3be9e15, type: 2}
+  - {fileID: 11400000, guid: 61988621db1049a491dcee1777c48fc6, type: 2}
   _minBubbleRadius: 0.05
   _maxBubbleRadius: 0.13
   _radiusFalloff: 0.35
@@ -37,6 +46,5 @@ MonoBehaviour:
   _facingRotationDuration: 0.4
   _cameraTransitionTime: 1
   _mergeDuration: 0.45
-  _failReturnDuration: 0.3
   _resultPopDuration: 0.35
   _resultDropDuration: 0.4

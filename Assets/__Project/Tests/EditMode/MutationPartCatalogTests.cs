@@ -45,7 +45,7 @@ namespace Tests.EditMode
             SlotDefinition slot = null,
             MutationRarity rarity = MutationRarity.Common,
             Sprite icon = null,
-            params ArchetypeAffinity[] affinities)
+            params TraitAffinity[] traitAffinities)
         {
             var part = ScriptableObject.CreateInstance<PartDefinition>();
             part.name = id;
@@ -54,7 +54,7 @@ namespace Tests.EditMode
             SetPrivate(part, "_slot", slot);
             SetPrivate(part, "_rarity", rarity);
             SetPrivate(part, "_choiceIcon", icon);
-            SetPrivate(part, "_archetypeAffinities", new List<ArchetypeAffinity>(affinities));
+            SetPrivate(part, "_traitAffinities", new List<TraitAffinity>(traitAffinities));
             return part;
         }
 
@@ -77,12 +77,12 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void MapsSlotPartRarityAndAffinity()
+        public void MapsSlotPartRarityAndTraitAffinity()
         {
             var slot = NewSlot("slot.head");
             var part = NewPart("part.head.r", slot, MutationRarity.Rare, null,
-                new ArchetypeAffinity("reptile", 0.8f),
-                new ArchetypeAffinity("aquatic", 0.2f));
+                new TraitAffinity("sharp", 0.8f),
+                new TraitAffinity("toxic", 0.2f));
 
             var catalog = new MutationPartCatalog(PartCatalog(part));
             var candidate = Find(catalog, "part.head.r");
@@ -91,15 +91,15 @@ namespace Tests.EditMode
             Assert.AreEqual("slot.head", candidate.SlotId);
             Assert.AreEqual("part.head.r", candidate.DisplayName); // no authored name -> asset name fallback
             Assert.AreEqual((int)MutationRarity.Rare, candidate.RarityTier);
-            Assert.AreEqual(0.8f, candidate.Affinity["reptile"]);
-            Assert.AreEqual(0.2f, candidate.Affinity["aquatic"]);
+            Assert.AreEqual(0.8f, candidate.TraitAffinity["sharp"]);
+            Assert.AreEqual(0.2f, candidate.TraitAffinity["toxic"]);
         }
 
         [Test]
         public void UsesAuthoredDisplayName_WhenSet()
         {
             var part = NewPart("part.head.b", NewSlot("slot.head"), MutationRarity.Common, null,
-                new ArchetypeAffinity("reptile", 1f));
+                new TraitAffinity("sharp", 1f));
             SetPrivate(part, "_displayName", "Reptilian Head");
 
             var catalog = new MutationPartCatalog(PartCatalog(part));
@@ -111,7 +111,7 @@ namespace Tests.EditMode
         public void FallsBackToAssetName_WhenDisplayNameBlank()
         {
             var part = NewPart("part.plain", NewSlot("slot.head"), MutationRarity.Common, null,
-                new ArchetypeAffinity("reptile", 1f));
+                new TraitAffinity("sharp", 1f));
             part.name = "Part_Plain_Asset";
             SetPrivate(part, "_displayName", "");
 
@@ -121,31 +121,29 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void DominantArchetypeIsHighestWeight()
-        {
-            var part = NewPart("part.x", null, MutationRarity.Common, null,
-                new ArchetypeAffinity("aquatic", 0.3f),
-                new ArchetypeAffinity("reptile", 0.9f));
-
-            var catalog = new MutationPartCatalog(PartCatalog(part));
-
-            Assert.AreEqual("reptile", Find(catalog, "part.x").DominantArchetypeId);
-        }
-
-        [Test]
         public void DropsEmptyIdsAndNonPositiveWeightsAndSumsDuplicates()
         {
             var part = NewPart("part.x", null, MutationRarity.Common, null,
-                new ArchetypeAffinity("reptile", 0.3f),
-                new ArchetypeAffinity("reptile", 0.4f), // summed -> 0.7
-                new ArchetypeAffinity("", 0.5f),         // empty id dropped
-                new ArchetypeAffinity("aquatic", 0f));   // non-positive dropped
+                new TraitAffinity("sharp", 0.4f),
+                new TraitAffinity("sharp", 0.3f),  // summed -> 0.7
+                new TraitAffinity("", 0.5f),       // empty id dropped
+                new TraitAffinity("toxic", 0f));   // non-positive dropped
 
             var catalog = new MutationPartCatalog(PartCatalog(part));
             var candidate = Find(catalog, "part.x");
 
-            Assert.AreEqual(1, candidate.Affinity.Count);
-            Assert.AreEqual(0.7f, candidate.Affinity["reptile"], 0.0001f);
+            Assert.AreEqual(1, candidate.TraitAffinity.Count);
+            Assert.AreEqual(0.7f, candidate.TraitAffinity["sharp"], 0.0001f);
+        }
+
+        [Test]
+        public void NoTraitAffinities_YieldsEmptyMap()
+        {
+            var part = NewPart("part.plain");
+
+            var catalog = new MutationPartCatalog(PartCatalog(part));
+
+            Assert.AreEqual(0, Find(catalog, "part.plain").TraitAffinity.Count);
         }
 
         [Test]

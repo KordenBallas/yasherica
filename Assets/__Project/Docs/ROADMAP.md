@@ -18,10 +18,45 @@ Suggested tags: `[content]` data/authoring, `[arch]` structural, `[debt]` cleanu
 Suggested sequencing. Only M1 is firm; the rest is a recommended order, not a commitment.
 - **M1 — Mutation core loop.** Artifact archetype attributes → per-stage tally → feeding/digestion
   UI → stage-up mutation choice → body-part swap → part-granted abilities (active + passive).
+  *(The feeding/digestion half is now superseded by Socketed Blanks — Track A / `## Crafting & Mutation`.)*
 - **M2 — Progression + Quests + progression-driven narrative.**
 - **M3 — Platform/hex rework + content-aware platform shape.**
 - **M4 — Combat readability (ability telegraphing) + smarter enemy AI.**
 - **M5 — Production character art/animation workflow + world/landscape visuals.**
+
+### Verified-brief build order (`product-requirements/`)
+
+The verified PO briefs group into **three independent tracks** that can run in parallel; **within** a
+track the order is a hard prerequisite chain. All briefs are PO-level and ready to build — what gates
+a step is a prerequisite brief, not a design gap. See `product-requirements/README.md` for each.
+
+**Track A — Crafting / Mutation**
+1. Finish **Socketed Blanks** (`crafting-mutation-socketed-blanks.md`) — artifact traits + tier +
+   two-tier fusion are **done**; remaining: the **Part-Blank item + operating table + unseal menu +
+   scarce blank rack**, plus completing the feeding/tally/digestion **migration**.
+2. **Mutation choice cards** (`mutation-choice-cards.md`) — renders the unseal menu; needs step 1.
+3. *(unblocked by the artifact tier from step 1)* quest-as-reward **reward-by-tier** + the
+   **quest-offer card** (`quest-offer-card.md`) tier-glow / belonging / mystery-reward-slot treatment
+   (see `## Quests`).
+
+**Track B — World / Platforms** (hard sequential chain)
+1. **World content density** (`world-content-density.md`) — the world foundation; defines the
+   content-kind vocabulary.
+2. **Platform hex surface & shape** (`platform-hex-surface-and-shape.md`) — content-aware sizing uses
+   the content kinds from step 1 (the hex-surface + organic-edge half is independent of it).
+3. In parallel after step 2: **Sites & landscape** (`world-sites-and-landscape.md`, also needs step 1)
+   and **Biome visual styles** (`biome-visual-styles.md`).
+
+**Track C — Combat (one epic — build together, not piecemeal)**
+1. **Hero facing** (`combat-hero-facing.md`) + **enemy intent phase** (`combat-turn-intent-phase.md`) —
+   the structural reshape (facing-relative aiming + Plan→Act→Resolve with locked enemy intent).
+2. **Ability ghost telegraph** (`combat-ability-ghost-telegraph.md`) — presentation on top (needs the
+   intent phase for the enemy half, and facing for direction).
+   > Half-states misbehave (facing without the intent phase; ghost without intent), so take Track C as a
+   > single combat pass, well-tested. It reshapes `TurnManager` (round-robin → phase model) + the aiming
+   > model together.
+
+Tracks A / B / C are independent and can proceed in parallel; Track A already has work in flight.
 
 ---
 
@@ -312,6 +347,14 @@ Quest-as-reward (priority — `design/narrative/quest-as-reward.md`, `quest-subs
   present **multiple quest-offer cards at once** (several resolution paths to one situation), same tier +
   "different currency, not more". Today a story carries one Quest slot; let a story/casting carry several
   offers and the card hand present them. Distinct from the time-separated cross-actor fork above. *(quests + narrative)*
+- [ ] `[content]` **Quest-offer card visual treatment.** *(Verified PO brief:
+  `product-requirements/quest-offer-card.md`.)* Upgrade the encounter card-hand's placeholder per-type
+  tint into the **ornate framed offer card**: the job (title+summary, already shipped) + a **mystery
+  reward slot** that **glows by tier**, is **tinted by belonging colour**, and shows the item as a
+  **hidden silhouette/"?"** (exact item never named). **Inspect** reveals the quest detail (reward
+  stays hidden). Reuses the artifact / mutation-card grammar (glow=tier, colour=belonging). **Now
+  unblocked** by the shipped artifact tier; the honest glow still assumes the "reward rolled by
+  tier+archetype-bias" item above. *(quests + narrative)*
 - [ ] `[arch]` **Attack card — the Monster verb.** A combat card present on **eligible NPCs only** (NPC
   may also self-initiate) that, on pick: closes the actor's thread (director D13), routes corpse-loot to
   the **separate** combat/mutation loot channel (`LootRollService` — never balance the fork on it), writes
@@ -393,9 +436,16 @@ multi-platform Site footprints are separate briefs (below / Sites).
   recipes + content-kinds catalog; builds on the density brief). Design background:
   `design/world/sites-and-landscape.md` + `content-kinds.md`. *(Engine concern for the code track:
   reserving a multi-platform Site block across a director planning window; balance numbers.)*
-- [ ] `[content]` **M3 — Biome-driven platform appearance & features.** Platform generation consumes
-  the level biome (`LevelTheme`: Forest/Desert/Mountain/Cave) for mesh treatment, materials, and
-  which hex-aligned features may appear, in addition to the narrative content above.
+- [ ] `[content]` **M3 — Biome-driven platform appearance & features.** *(Verified PO brief:
+  `product-requirements/biome-visual-styles.md`.)* A **per-biome appearance config** — one SO per
+  `LevelTheme` (Forest/Desert/Mountain/Cave), mirroring the existing `BiomeLootDefinition` pattern —
+  defines ground material/mesh treatment, **palette key** (a muted key modulation of the master
+  palette, `design/art/render-look.md` §2), light, and a **feature pool**. Features place on **whole
+  hex cells** (platform brief); each is **decorative or blocking** (blocking = the cell is unavailable;
+  no cover/LoS), and blocking must not drop a combat platform below its battlefield minimum. Replaces
+  the single global `AreaGeneratorConfig.platformMaterial`. Data-authored (new biome / feature = no
+  code), deterministic. Biome = base layer only; **site dressing** and **biome placement along the
+  run** are separate. *(platform + world)*
 
 ---
 
@@ -513,11 +563,12 @@ The M1 core loop (see `mutation-subsystem.md` for the implemented data surface):
   part is excluded; the redundant swap cache was removed. See CHANGELOG; `mutation-subsystem.md` §2.4.)*
 
 New work:
-> **Superseded source of mutations (2026-07-02).** The feed→tally→stage-up flow below is being
-> replaced by **Socketed Blanks** (see `## Crafting & Mutation`, brief
-> `product-requirements/crafting-mutation-socketed-blanks.md`): mutations now come from socketing
-> artifacts into a Part-Blank and unsealing a **variant menu**. The M4 ability-aware panels item
-> below becomes the **mutation cards** shown on that unseal menu.
+> **Superseded source of mutations (2026-07-02) — cutover complete.** The feed→tally→stage-up flow
+> below **was replaced and deleted**; mutations come from **Socketed Blanks** (see
+> `## Crafting & Mutation`, brief `product-requirements/crafting-mutation-socketed-blanks.md`):
+> socketing artifacts into a Part-Blank and unsealing a **variant menu**. The checked M1/M2 items
+> below are history of the removed loop (their substance lives in the CHANGELOG). The M4
+> ability-aware panels item below becomes the **mutation cards** shown on that unseal menu.
 - [x] `[arch]` **M2 — Part-driven archetype affinity + scored mutation selection.** *(Done — archetype
   affinity, rarity (`MutationRarity`), and choice icon now live on `PartDefinition`; `MutationPartCatalog`
   builds `MutationCandidatePart`s from the part catalog; `MutationOptionBuilder` scores all candidates
@@ -595,14 +646,45 @@ Known limitations (from `character-locomotion.md` §6):
 ## Combat Experience
 
 Enhancements to the implemented combat (extend `ability-subsystem.md` / a new combat-UI doc when built):
-- [ ] `[arch]` **M4 — Ability-queue display.** Show the unit's queued abilities (the existing
-  `Unit.AbilityQueue` / `ScheduledAbility`) on the combat HUD with order and per-ability state.
-- [ ] `[arch]` **M4 — Ability telegraphing on the battlefield.** Communicate each ability's
-  direction and nature (advance/jump-forward, single-target damage, area damage, hook/pull, ring)
-  on the grid so the player can make a weighted decision on their turn. Group ability effects into
-  categories and surface the grouping in the battlefield/combat UI.
+
+**Verified PO build brief: `product-requirements/combat-ability-ghost-telegraph.md`** — one mechanism
+unifying the first two items below **and** the backlog "Enemy-intent telegraph": a **ghost preview of
+an ability's full outcome** plays once on queue-submit (caster action + affected-unit
+displacement/damage, against the **current** board) then fades; each unit (player **and** enemy) shows
+its **queued abilities as icons above it**; **hovering an icon replays that ability's ghost**
+(including enemy icons → read enemy intent).
+- [ ] `[arch]` **M4 — Ability-queue display (icons above the unit).** Show each unit's queued
+  abilities (`Unit.AbilityQueue` / `ScheduledAbility`) as ordered **icons above the unit** (not only a
+  HUD list), for both player and enemy units — the hover-to-replay anchor. (brief §5)
+- [ ] `[arch]` **M4 — Ability ghost telegraph.** Replace the "where"-only affected-cell highlight-only
+  telegraph with a **ghost of the full outcome** on submit (and on icon-hover replay): caster ghost via
+  the ability's `AnimationTrigger` + affected-unit displacement/damage ghosts, computed against the
+  current board. Existing aim-time cell highlight (`CombatAbilityPresenter.ShowAffectedCells`) stays as
+  the "where" layer. Category iconography (advance/jump/area/hook/ring) is an optional supplement, not
+  the primary telegraph. **Open:** ability data must express displacement (push/pull/dash) so the ghost
+  can show resulting positions; queue-simulation preview is a later upgrade. (brief §1–§4, §6–§7)
+- [ ] `[arch]` **M4 — Hero/unit facing drives ability direction (global facing).** *(Verified PO
+  brief: `product-requirements/combat-hero-facing.md`.)* Directional abilities fire relative to the
+  **unit's facing**, not a per-ability baked direction: **one facing for the whole queue** — turning
+  the unit **re-points the entire volley + all its ghosts**. Facing is **free/unlimited** to change;
+  ring abilities are unaffected; enemies carry a **committed facing** in their intent (locked).
+  Reuse the existing direction input (`CombatAbilityPresenter.UpdateAimDirection`) to **rotate the
+  unit** instead of baking `AbilityTarget.ForDirection` per schedule; `AbilityTarget` for directional
+  abilities becomes facing-relative and a `Facing` state moves onto the unit. Anatomy legibility
+  (Pillar 4). Per-ability aiming is intentionally dropped; "turn as a queued step" (multi-directional
+  volley) is a deferred escape hatch. *(combat; pairs with the intent phase + ghost telegraph)*
 - [ ] `[arch]` **M4 — Smarter ability-using enemy AI.** Improve `TacticalAI` to choose and aim
   abilities well (target selection, area value, direction), beyond the current scoring.
+- [ ] `[arch]` **M4 — Turn structure: enemy intent phase (Plan → Act → Resolve).** *(Verified PO
+  brief: `product-requirements/combat-turn-intent-phase.md`.)* The **structure prerequisite** for the
+  ghost telegraph's enemy-intent half. Replace the round-robin, decide-and-act-instantly flow
+  (`TurnManager` per-player + `AITurnController` deciding+executing on the AI's turn) with a **phase
+  round**: (1) **Plan** — every enemy decides up front and **reveals a locked plan**; (2) **Act** —
+  the player queues/executes seeing those plans; (3) **Resolve** — enemy committed actions **fire as
+  shown** (locked: they whiff if the player dodged, they do not re-target). **Resolution order:
+  player then enemies** (initiative-based order deferred). The AI **scoring** (`TacticalAI`) is
+  unchanged — only decide-timing (up front) + commitment (lock+reveal) change. Deterministic per seed.
+  *(combat; prerequisite of the Ability ghost telegraph above)*
 
 ## Inventory Subsystem
 
@@ -610,9 +692,10 @@ Enhancements to the implemented combat (extend `ability-subsystem.md` / a new co
   pot artifacts are selected into a feeding tray with a cumulative archetype-attribute readout, the
   current digestion progress, and the dominant archetype(s) this stage; the Feed button maps each
   artifact via `ArtifactArchetypeMapper.ToProfile` into `IMutationTally.Add` and advances
-  `IDigestionProgress`. *(Done — see CHANGELOG; `inventory-subsystem.md` R24–R26; `mutation-subsystem.md`.)*
-  **Superseded (2026-07-02):** the Socketed Blanks model replaces feeding with operating-table
-  socketing — see the migration items in `## Crafting & Mutation` (retire/convert this UI).
+  `IDigestionProgress`. *(Done — see CHANGELOG.)*
+  **Superseded and removed (2026-07-02):** the Socketed Blanks model replaced feeding with
+  operating-table socketing and the feeding UI was deleted — see the migration items in
+  `## Crafting & Mutation` and the CHANGELOG `Removed` entry.
 - [ ] _seed remaining items from `inventory-subsystem.md` "Known limitations" on next pass._
 
 ---
@@ -626,42 +709,62 @@ The model: **Part-Blanks** carry form/species + sockets; **artifacts** carry fun
 species tag) with a raw→crafted quality gradient; the **cauldron** fuses artifacts and a separate
 **operating table** sockets artifacts into a blank and **unseals** it into a mutation. Feeding is cut.
 
-- [ ] `[arch]` **Artifact trait model (incl. tier).** Add to `ArtifactDefinition`: **substance** +
-  **property** trait tags and a **tier/potency** axis (traits hidden from UI; read from the fiction).
-  Note **archetype/species moves OFF the artifact onto the Part-Blank** — an artifact carries
-  function, not race. Still the **prerequisite for the quest-as-reward reward economy** (the reward
-  card's tier glow + belonging color and roll-by-`tier + archetype-bias` need tier data on the
-  artifact). (`ArtifactDefinition` has no tier today.)
-- [ ] `[arch]` **Two-tier emergent artifact fusion (no failure).** In the cauldron, match a signature
-  `RecipeDefinition` first, else compute an emergent result from input traits
-  (combine/amplify/transmute); every combine yields something. Reuses `RecipeBook`/`RecipeDefinition`
-  as the signature layer. (Unchanged from the prior design — this is the cauldron's artifact→artifact
-  layer.)
-- [ ] `[arch]` **Part-Blank item type + operating table (the new mutation source).** A **Part-Blank**
-  (skull/tail/wings/arms/legs) = a socketed recipe carrying a **form + species/passport marker**, a
-  **socket count**, and a **ripen threshold**. A separate **operating-table** surface sockets crafted
-  artifacts into a blank; crossing the threshold **unseals** it into a **small menu of variant
-  mutations**; the player picks one, the socketed artifacts are consumed and the rest discarded
-  (**commit-on-unseal**); the chosen part installs via the existing `SwapPart`. Resolution =
-  readable *direction* + partly-hidden variant menu + **slot interaction** (emergent third property),
-  **not** a deterministic inputs→part map (anti-recipe-table). *(crafting + mutation + inventory)*
-- [ ] `[content]` **Separate scarce Blank Rack.** A limited inventory for blanks (the multi-track
-  cap = how many organs incubate at once), distinct from the cauldron's artifact inventory; do not
-  mix blanks into the cauldron. *(inventory)*
+- [x] `[arch]` **Artifact trait model (incl. tier).** *(Done — `ArtifactDefinition` carries
+  Substance/Property `TraitDefinition` refs + an int tier; the trait vocabulary is an authorable SO
+  set (`Resources/Artifacts/Traits/`, 10 shipped); startup validation via `ArtifactContentValidator`.
+  Archetype weights remain temporarily for the legacy feeding path and go with the migration below.
+  See CHANGELOG; `inventory-subsystem.md` §4.)*
+- [x] `[arch]` **Two-tier emergent artifact fusion (no failure).** *(Done — `FusionResolver`:
+  signature `RecipeBook` match first, else `EmergentFusionCalculator` (trait union → authored
+  `FusionRuleDefinition`s in ordinal rule-id order → amplify/tier) + `ArtifactByTraitSelector`
+  deterministically picks the best authored artifact (inputs excluded); the craft fail path is
+  deleted. See CHANGELOG; `inventory-subsystem.md` R16–R17, §2.2.)*
+- [ ] `[content]` **Signature-vs-emergent craft presentation.** `OnCraftSucceeded` reports
+  `isSignature` but the puff/pop-in is identical for both; give signature results a distinct effect
+  so authored highlights read as special. *(inventory)*
+- [ ] `[content]` **Emergent-fusion authoring density.** With only 7 authored artifacts the
+  nearest-match emergent output can read semantically odd (unrelated inputs snap to the least-bad
+  artifact); author more artifacts across the trait space so emergent results stay legible.
+  *(inventory)*
+- [x] `[arch]` **Part-Blank item type + operating table (the new mutation source).** *(Done —
+  domain: `PartBlankDefinition` SO + `PartBlankCatalog`; `BlankRack`; `SocketingModel`
+  (socket/unsocket over the inventory; ripen threshold = all sockets filled; filling the last
+  socket raises `OnBlankReady` and commits); `BlankVariantBuilder` (variant menu = authored
+  `PartDefinition`s of the blank's slot, trait-affinity-scored against the socketed profile run
+  through the cauldron's fusion grammar — slot interaction included; deterministic). UI: the rack
+  left of the cauldron on the one inventory screen (`BlankRackView`/`BlankRackPresenter`,
+  `InventoryStage.prefab` `BlankRackArea`), drag-to-socket via `StageDragRouter`, variant cards on
+  the reused choice panel via `MutationVariantPresenter`, install via `SwapPart` +
+  consume-on-pick. See CHANGELOG; `mutation-subsystem.md` §2.6–§2.8.)*
+  *(crafting + mutation + inventory)*
+- [ ] `[content]` **Operating-table polish.** The rack is a placeholder look (tinted quads,
+  code-built TMP labels, no blank icons authored); no drag ghost effects, no unseal animation, no
+  tier-glow on bubbles ("tier by glow" PO axis). A confirm step before the auto-unseal commit is a
+  possible later tweak (today the last drop is the commit — user decision). *(mutation + inventory)*
+- [x] `[content]` **Separate scarce Blank Rack.** *(Done — `IBlankRack`/`BlankRack`, capped by
+  `MutationConfig.BlankRackCapacity` (default 3), its own instance-id space, never mixed into the
+  cauldron's artifact inventory; seeded from `MutationConfig.StartingBlanks` (dev seed — blank loot
+  drops are a follow-up below). See CHANGELOG; `mutation-subsystem.md` §2.6.)*
+- [ ] `[content]` **Blank drops as loot.** Blanks currently only enter the rack via the
+  `MutationConfig.StartingBlanks` dev seed; fold Part-Blank drops into the loot path (monster
+  remains, finds, relics — `design/crafting/model.md`). *(loot + mutation)*
 - [ ] `[content]` **Cauldron-voice trend telegraph on socketing.** As artifacts are socketed, the
   cauldron voice hints at the *trend* (not the exact menu) — the hint channel that replaces a stats
-  panel (`design/narrative/cauldron-voice.md`). *(crafting + narrative)*
+  panel (`design/narrative/cauldron-voice.md`). **The domain seam is in place** —
+  `ISocketingTrendSource`/`SocketingTrendEvaluator` publishes the post-grammar trait trend per
+  socket change (`mutation-subsystem.md` §2.6); this item is the bark *delivery* that subscribes
+  to it. *(crafting + narrative)*
 
 Migration — retire the old feed loop (the Socketed Blanks brief §18 replaces it):
-- [ ] `[arch]` **Remove the feed→tally→stage-up mutation coupling.** Delete the trait-tally coupling
-  plan and the shipped archetype-tally scoring path as the mutation source: the per-stage
-  `IMutationTally` / `IDigestionProgress` feed accumulation and the `MutationOptionBuilder`
-  archetype-scored stage-up choice are **superseded** by socket→unseal. Decide per piece whether to
-  remove or repurpose (e.g. the variant-menu offer can reuse the stage-up choice presenter shell).
-  *(mutation)*
-- [ ] `[arch]` **Retire the feeding/digestion UI.** The shipped feeding-tray/digestion cauldron mode
-  (`inventory-subsystem.md` R24–R26; Inventory "Feeding / digestion UI" below) is replaced by the
-  operating-table socketing UI; remove or convert it. *(inventory)*
+- [x] `[arch]` **Remove the feed→tally→stage-up mutation coupling.** *(Done — `IMutationTally`/
+  `IDigestionProgress`/`ArtifactArchetypeProfile`/`MutationOptionBuilder`/`ArtifactArchetypeMapper`/
+  `ArchetypeWeight`/`ArchetypeAffinity` deleted; the variant menu reuses the choice presenter shell
+  as `MutationVariantPresenter`; `MutationCandidatePart` is trait-only; species now lives on the
+  blank (`ArchetypeDefinition` kept for markers/tints). See CHANGELOG; `mutation-subsystem.md`.)*
+- [x] `[arch]` **Retire the feeding/digestion UI.** *(Done — feeding session/presenter/view, the
+  mode switch, the HUD feed toggle, the stage `FeedingArea`/feeding camera framing, and the
+  `FeedingUISetup` editor tool are deleted; crafting and the operating table share one screen.
+  See CHANGELOG; `inventory-subsystem.md`.)*
 - [ ] `[content]` **Deferred — cauldron-will stochastic surprise.** Volatile/high-tier inputs adding
   a readable, non-griefing twist at unseal; stays deferred (as with the corruption meter). *(crafting)*
 
@@ -673,9 +776,10 @@ See `dev-tools.md` for the implemented overlay.
 - [x] `[arch]` **Dev state overlay (quests + director facts).** *(Done — key-toggled IMGUI overlay
   (F1, editor/dev-build only) with generic sections; `DevStatePresenter`/`IDevStateSource` +
   `DevOverlayView` + `DevToolsInstaller`. See CHANGELOG; `dev-tools.md`.)*
-- [ ] `[content]` **More dev sections.** Inventory contents, mutation feed tally / digestion progress,
-  the streaming planner's window/committed-horizon + `ILiveActorRegistry` live actors, and live quest
-  objective progress (advanced/target) read from `ILiveQuestRegistry.LiveQuests`.
+- [ ] `[content]` **More dev sections.** Inventory contents, the blank rack / socketing state
+  (racked blanks, socketed reagents, the current trend), the streaming planner's
+  window/committed-horizon + `ILiveActorRegistry` live actors, and live quest objective progress
+  (advanced/target) read from `ILiveQuestRegistry.LiveQuests`.
 - [ ] `[arch]` **Mutating dev controls.** Beyond read-out: force a fact value, force a quest to
   complete/fail, or grant an artifact from the overlay (currently read-only).
 - [ ] `[arch]` **Configurable toggle key.** The toggle is hardcoded to F1; make it configurable.
@@ -691,6 +795,9 @@ See `dev-tools.md` for the implemented overlay.
   `product-requirements/mutation-choice-cards.md`; this backlog item is the **full live-hero**
   in-world preview beyond that.)*
 - [ ] `[arch]` Enemy-intent telegraph (show enemies' planned abilities) for combat readability.
+  *(Now delivered by the ghost telegraph — enemy queued-ability icons + hover-to-replay ghost — in
+  `product-requirements/combat-ability-ghost-telegraph.md` / Combat Experience; kept here only for the
+  turn-flow dependency that surfaces the enemy plan ahead of resolution.)*
 - [ ] `[content]` Biome ↔ archetype affinity: bias biome loot so a biome nudges the player toward
   certain archetypes, tightening the biome → artifact → mutation loop.
 - [ ] `[content]` Quest log UI surfacing the progression record (active/completed/failed).

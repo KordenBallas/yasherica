@@ -13,17 +13,17 @@ using Zenject;
 namespace Core.DI
 {
     /// <summary>
-    /// Zenject installer for the mutation subsystem. Binds the archetype catalog (the authorable set
-    /// of creature archetypes), the per-stage mutation tally and digestion progress, the stage-up
-    /// mutation choice (part catalog + scoring builder + presenter + view, with an adapter onto the
-    /// live modular character), and a startup validator that warns about bad authoring. The feeding UI
-    /// (InventoryInstaller) fills the tally; the stage-up choice consumes the ready signal and resets
-    /// it. Mutation options are scored from the body parts' archetype-affinity/rarity data
-    /// (CharacterSystem PartDefinition), so this installer no longer loads per-archetype part sets.
+    /// Zenject installer for the mutation subsystem (Socketed Blanks). Binds the archetype catalog
+    /// (species/passport markers + card tints), the blank catalog/rack/socketing domain, the unseal
+    /// variant choice (part catalog + variant builder + presenter + card view, with an adapter onto
+    /// the live modular character), the cauldron-voice trend seam, and a startup validator that
+    /// warns about bad authoring. The variant builder reuses the InventoryInstaller's fusion
+    /// grammar so socket interaction and cauldron fusion speak the same language.
     /// </summary>
     public class MutationInstaller : MonoInstaller
     {
         private const string ArchetypeDefinitionsResourcePath = "Mutation/Archetypes";
+        private const string BlankDefinitionsResourcePath = "Mutation/Blanks";
         private const string MutationConfigResourcePath = "Mutation/MutationConfig";
         private const string ChoicePanelResourcePath = "Prefabs/UI/MutationChoicePanel";
 
@@ -32,6 +32,7 @@ namespace Core.DI
 
         [Header("Data Definitions (auto-loaded from Resources when empty)")]
         [SerializeField] private List<ArchetypeDefinition> _archetypeDefinitions;
+        [SerializeField] private List<PartBlankDefinition> _blankDefinitions;
 
         [Header("Stage-up choice UI (auto-loaded from Resources when empty)")]
         [Tooltip("MutationChoicePanel prefab (built by Tools → Mutation → Setup Stage-Up Choice UI)")]
@@ -51,31 +52,58 @@ namespace Core.DI
             var config = LoadConfig();
             Container.BindInstance(config).AsSingle();
 
-            // Per-stage tally shared by the feeding UI and the (future) stage-up mutation choice.
-            // Not NonLazy: it has no startup side effect, created when its first consumer resolves.
-            Container.BindInterfacesAndSelfTo<MutationTally>().AsSingle();
-
-            // Per-stage digestion progress: how close the player is to a mutation this stage.
-            // Threshold comes from authored data (no magic numbers - CLAUDE.md §11).
-            Container.BindInterfacesAndSelfTo<DigestionProgress>()
-                .AsSingle()
-                .WithArguments(config.DigestionThreshold);
-
-            InstallStageUpChoice();
+            InstallVariantChoice();
+            InstallSocketedBlanks(config);
 
             // NonLazy so the authoring validation always runs at startup. Validates the parts'
-            // mutation affinities against the archetype catalog (CharacterSystem part catalog).
+            // mutation affinities against the archetype catalog (CharacterSystem part catalog),
+            // the parts' trait affinities against the trait catalog, and the blanks.
             Container.BindInterfacesAndSelfTo<MutationContentValidator>()
                 .AsSingle()
                 .NonLazy();
         }
 
-        private void InstallStageUpChoice()
+        private void InstallSocketedBlanks(MutationConfig config)
         {
-            // Every candidate part (built from the CharacterSystem part catalog), plus the
-            // deterministic scoring builder that ranks them against the feed tally.
+            // The blank catalog serves both the Core port (socket counts, slots) and the
+            // data-layer icon lookup from one instance.
+            var blanks = LoadBlankDefinitions();
+            Container.Bind(typeof(IPartBlankCatalog), typeof(IPartBlankDataSource))
+                .To<PartBlankCatalog>()
+                .AsSingle()
+                .WithArguments(blanks as IReadOnlyList<PartBlankDefinition>);
+
+            // The rack cap IS the multi-track incubation tension - authored, not magic.
+            Container.Bind<IBlankRack>()
+                .To<BlankRack>()
+                .AsSingle()
+                .WithArguments(config.BlankRackCapacity);
+
+            Container.Bind<ISocketingModel>().To<SocketingModel>().AsSingle();
+
+            // The variant builder reuses the cauldron's fusion grammar (InventoryInstaller
+            // bindings: EmergentFusionCalculator, TraitFusionRuleSet, FusionSettings) so
+            // socket interaction and cauldron fusion speak the same language.
+            Container.Bind<IBlankVariantBuilder>().To<BlankVariantBuilder>().AsSingle();
+
+            // The rack view lives on the InventoryStage scene instance, left of the
+            // cauldron; the presenter seeds the starting blanks and drives it.
+            Container.Bind<IBlankRackView>()
+                .To<BlankRackView>()
+                .FromComponentInHierarchy()
+                .AsSingle();
+            Container.BindInterfacesAndSelfTo<BlankRackPresenter>().AsSingle().NonLazy();
+
+            // The cauldron-voice seam: computes the socketed trend; no consumer yet
+            // (narrative bark delivery is a separate ROADMAP item). NonLazy so the
+            // subscription exists as soon as socketing does.
+            Container.BindInterfacesAndSelfTo<SocketingTrendEvaluator>().AsSingle().NonLazy();
+        }
+
+        private void InstallVariantChoice()
+        {
+            // Every candidate part (built from the CharacterSystem part catalog).
             Container.BindInterfacesAndSelfTo<MutationPartCatalog>().AsSingle();
-            Container.Bind<IMutationOptionBuilder>().To<MutationOptionBuilder>().AsSingle();
 
             // The live character is a scene/prefab component; the adapter resolves its assembled
             // character lazily so an unassembled rig just fails the swap (no MonoBehaviour in Core).
@@ -103,8 +131,8 @@ namespace Core.DI
                 .FromComponentInNewPrefab(panelPrefab)
                 .AsSingle();
 
-            // NonLazy so it subscribes to the digestion ready signal at startup (mirrors FeedingPresenter).
-            Container.BindInterfacesAndSelfTo<MutationChoicePresenter>().AsSingle().NonLazy();
+            // NonLazy so it subscribes to the blank-ready (unseal) signal at startup.
+            Container.BindInterfacesAndSelfTo<MutationVariantPresenter>().AsSingle().NonLazy();
         }
 
         private MutationConfig LoadConfig()
@@ -123,6 +151,29 @@ namespace Core.DI
             }
 
             Debug.Log($"[MutationInstaller] Auto-loaded MutationConfig from Resources/{MutationConfigResourcePath}");
+            return loaded;
+        }
+
+        private List<PartBlankDefinition> LoadBlankDefinitions()
+        {
+            if (_blankDefinitions != null && _blankDefinitions.Count > 0)
+            {
+                return _blankDefinitions;
+            }
+
+            var loaded = new List<PartBlankDefinition>(
+                Resources.LoadAll<PartBlankDefinition>(BlankDefinitionsResourcePath));
+            if (loaded.Count > 0)
+            {
+                Debug.Log($"[MutationInstaller] Auto-loaded {loaded.Count} PartBlankDefinition " +
+                          $"assets from Resources/{BlankDefinitionsResourcePath}");
+            }
+            else
+            {
+                Debug.LogWarning("[MutationInstaller] No PartBlankDefinition assets found in Inspector " +
+                                 $"or Resources/{BlankDefinitionsResourcePath}");
+            }
+
             return loaded;
         }
 

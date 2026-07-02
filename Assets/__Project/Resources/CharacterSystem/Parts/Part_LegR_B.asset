@@ -22,10 +22,12 @@ MonoBehaviour:
   - LowerLeg.R
   - Foot.R
   _contributedSockets: []
-  _archetypeAffinities:
-  - _archetypeId: aquatic
+  _traitAffinities:
+  - _traitId: sharp
     _weight: 0.7
-  - _archetypeId: mammal
-    _weight: 0.6
+  - _traitId: chitin
+    _weight: 0.5
+  - _traitId: toxic
+    _weight: 0.3
   _rarity: 0
   _choiceIcon: {fileID: 0}
