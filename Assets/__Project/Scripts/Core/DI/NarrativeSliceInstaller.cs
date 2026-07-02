@@ -58,6 +58,9 @@ namespace Core.DI
         [SerializeField] private WorldContentDensityConfig _worldContentDensityConfig;
         [SerializeField] private List<BiomeMonsterPoolDefinition> _biomeMonsterPools = new List<BiomeMonsterPoolDefinition>();
 
+        [Header("World Sites")]
+        [SerializeField] private List<World.Sites.Data.SiteDefinition> _siteDefinitions = new List<World.Sites.Data.SiteDefinition>();
+
         public override void InstallBindings()
         {
             // IGameLogger is provided by LoggingInstaller (installed by AreaInstaller); we only resolve
@@ -161,6 +164,15 @@ namespace Core.DI
                 .FromMethod(ctx => new BiomeMonsterPoolCatalog(
                     BiomeMonsterPoolMapper.ToPools(_biomeMonsterPools, ctx.Container.Resolve<IGameLogger>())))
                 .AsSingle();
+
+            // The authored site vocabulary (world-sites brief), family defaults merged at install time.
+            // An empty catalog keeps the allocation path a pure passthrough (no sites in the world).
+            Container.Bind<World.Sites.Core.ISiteCatalog>()
+                .FromMethod(ctx => World.Sites.Data.SiteCatalogMapper.ToCatalog(
+                    _siteDefinitions, ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
+
+            Container.Bind<World.Sites.Core.SiteBlockBuilder>().AsSingle();
 
             // Run-scoped slot allocator: owns the quest-spacing counter across windows and shares the
             // director's seeded stream so allocation is replay-deterministic (B2).
@@ -368,6 +380,12 @@ namespace Core.DI
             {
                 _biomeMonsterPools = new List<BiomeMonsterPoolDefinition>(
                     Resources.LoadAll<BiomeMonsterPoolDefinition>("Combat/MonsterPools"));
+            }
+
+            if (IsEmpty(_siteDefinitions))
+            {
+                _siteDefinitions = new List<World.Sites.Data.SiteDefinition>(
+                    Resources.LoadAll<World.Sites.Data.SiteDefinition>("World/Sites"));
             }
         }
 

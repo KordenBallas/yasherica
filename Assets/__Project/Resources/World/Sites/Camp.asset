@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3e2bb3c09d8b40f599c30263db78022f, type: 3}
+  m_Name: Camp
+  m_EditorClassIdentifier: Yasherica::World.Sites.Data.SiteDefinition
+  _siteId: camp
+  _displayName: Bandit Camp
+  _family: {fileID: 11400000, guid: 2813f621025d40ad851c678b14884bd0, type: 2}
+  _footprintMin: 1
+  _footprintMax: 2
+  _triggerWeight: 3
+  _dressingThemeId: camp-kit
+  _overrideAnchorBeats: 1
+  _anchorBeats:
+  - _kind: 2
+    _flavor: bandit
+  _overrideFillBudget: 1
+  _fillBudgetMin: 0
+  _fillBudgetMax: 1
+  _overrideFillTable: 1
+  _fillTable:
+  - _kind: 1
+    _flavor: stash
+    _weight: 1

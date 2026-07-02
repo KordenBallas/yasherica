@@ -5,9 +5,9 @@
 > recipe in the shared `base·flavor` content vocabulary; everything else stays Wild. Builds on the
 > world-content-density allocator (see `narrative-procedural.md` §2.6). PO brief:
 > `product-requirements/world-sites-and-landscape.md`.
-> Status: current as of 2026-07-03 — **phase 1 of 4** (domain model + reservation logic landed and
-> tested; not yet bound in DI — the run still behaves exactly as before). §6 lists what each next
-> phase adds.
+> Status: current as of 2026-07-03 — **phase 2 of 4** (domain model + reservation logic + the SO
+> schema, mapper, and authored Camp/Village/City/Ruin/Lair assets; the allocator is still not
+> swapped into the planner — the run behaves exactly as before). §6 lists what each next phase adds.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -65,6 +65,7 @@ From the verified PO brief (`product-requirements/world-sites-and-landscape.md`)
 ```
 Scripts/World/Sites/
   Core/                 — pure C# site domain (no UnityEngine)
+  Data/                 — SiteDefinition/SiteFamilyDefinition SOs + SiteCatalogMapper (the only SO -> Core bridge)
 Scripts/Narrative/Director/Core/
   IWorldSlotAllocator.cs      — the planner's allocation seam (site-aware)
   SiteAwareSlotAllocator.cs   — wraps the untouched WorldContentAllocator
@@ -121,24 +122,101 @@ A site Combat fill picks its enemy from the biome monster pool (flavor-filtered 
 
 ### 2.4 DI wiring
 
-> **Not yet bound (phase 1).** Nothing constructs `SiteAwareSlotAllocator` at runtime yet; the
-> planner still depends on `WorldContentAllocator` directly. Phase 3 swaps the planner to
-> `IWorldSlotAllocator` in `NarrativeSliceInstaller`. Until then the run is behavior-identical.
+`NarrativeSliceInstaller` (`Scripts/Core/DI/NarrativeSliceInstaller.cs`):
+- `ISiteCatalog` — built once at install by `SiteCatalogMapper.ToCatalog(_siteDefinitions, logger)`;
+  the inspector list falls back to `Resources.LoadAll<SiteDefinition>("World/Sites")` (the project's
+  auto-load convention). Family assets ride in through each site's `_family` reference.
+- `SiteBlockBuilder` — bound `AsSingle` (stateless).
+- The three site dials ride the existing `WorldContentDensitySettings` binding (mapped from
+  `WorldContentDensityConfig`).
+
+> **Allocator not yet swapped (phase 2).** The planner still depends on `WorldContentAllocator`
+> directly; nothing constructs `SiteAwareSlotAllocator` at runtime. Phase 3 swaps the planner to
+> `IWorldSlotAllocator`. Until then the run is behavior-identical.
 
 ---
 
 ## 3. ScriptableObject Reference
 
-> **None yet (phase 1).** The `SiteFamilyDefinition` / `SiteDefinition` SO schema and the
-> `WorldContentDensityConfig` field extension land in phase 2 (§6).
+### `SiteFamilyDefinition`  (asset menu: `Create → World → Sites → Site Family`)
+
+Loaded indirectly — referenced by each `SiteDefinition._family`. Authored assets:
+`Resources/World/Sites/Families/{SettlementFamily,LandmarkFamily}.asset`.
+
+| Field | Type | Meaning | Default / notes |
+|---|---|---|---|
+| `_familyId` | string | Stable family id (`settlement` / `landmark`) | recorded on the mapped site |
+| `_defaultAnchorBeats` | List<ContentBeatEntry> | The family's default anchor beat(s) — kind + flavor. The **first** anchor's kind decides the trigger channel (Npc → quest roll; Combat/Loot → ambient roll) | Settlement: `NPC·quest-bearer`; Landmark: `Combat·den-monster` |
+| `_defaultFillBudgetMin/Max` | int | Default per-instance fill-budget roll range | Settlement 1–1; Landmark 0–1 |
+| `_defaultFillTable` | List<WeightedBeatEntry> | Default weighted fill table (kind + flavor + weight). **Never list corpse-loot** — it is a Combat outcome | Settlement: townsfolk 3 / scattered 1; Landmark: den-monster 2 / scattered 1 |
+
+### `SiteDefinition`  (asset menu: `Create → World → Sites → Site Definition`)
+
+Loaded from `Resources/World/Sites/` (or the `NarrativeSliceInstaller` "World Sites" list).
+Authored assets: `Camp / Village / City / Ruin / Lair`.
+
+| Field | Type | Meaning | Default / notes |
+|---|---|---|---|
+| `_siteId` | string | Stable id — referenced by `site:<id>` story tags and the dressing pass | empty = skipped (warned) |
+| `_displayName` | string | Designer-facing label | unused by the engine |
+| `_family` | SiteFamilyDefinition | The family whose defaults this site inherits | null + no anchor override = skipped (warned) |
+| `_footprintMin/Max` | int | Contiguous platform-count range the block reserves | City 4–5, Village 2–3, Camp/Ruin/Lair 1–2 |
+| `_triggerWeight` | int | Relative weight among same-channel sites when a trigger lands | 0 = only via a `site:` tag |
+| `_dressingThemeId` | string | Dressing-theme key stamped on every block platform (M5 seam) | inert today |
+| `_overrideAnchorBeats` + `_anchorBeats` | bool + List<ContentBeatEntry> | Toggle **on** = replace the family anchors (e.g. Camp → `Combat·bandit`) | off = inherit |
+| `_overrideFillBudget` + `_fillBudgetMin/Max` | bool + int | Toggle **on** = the site's own budget roll range (e.g. City 2–3) | off = inherit |
+| `_overrideFillTable` + `_fillTable` | bool + List<WeightedBeatEntry> | Toggle **on** = the site's own weighted fill table (e.g. City: townsfolk 5 / market 3 / guard 2) | off = inherit |
+
+`ContentBeatEntry` = `_kind` (`Empty/Loot/Combat/Npc`) + `_flavor` (open string).
+`WeightedBeatEntry` = the same + `_weight` (relative, ≥0).
+
+**Validation (mapper, warn + skip):** missing `_siteId`; duplicate `_siteId` (first asset wins); no
+effective anchor beat (no family and no override — a site needs a reason to exist).
+
+### `WorldContentDensityConfig` — site dials (extension)
+
+The one world-fullness asset (`Resources/Narrative/WorldContentDensityConfig.asset`) gains:
+
+| Field | Type | Meaning | Default |
+|---|---|---|---|
+| `_averagePlatformsPerAmbientSite` | int | ~1 ambient-channel site per this many platforms; **0 disables ambient sites** | 14 |
+| `_minPlatformsBetweenSites` | int | Hard minimum platforms between one block's end and the next site | 6 |
+| `_wildQuestWeight` | int | Weight of "no settlement" in the quest-channel roll (the lone wanderer); rolls against the quest sites' `_triggerWeight`s | 40 (≈40% wild vs Village 40 / City 20) |
 
 ---
 
 ## 4. Adding Content
 
-> **Not yet authorable (phase 1).** The asset-only recipes (*Add a site*, *Add a content flavor*,
-> *Add a townsfolk story*, *Make a story demand a site*) arrive with the phase-2 SO schema and the
-> phase-4 content pass (§6).
+### Add a site
+
+1. (Optional) pick or author its family: `Create → World → Sites → Site Family` under
+   `Resources/World/Sites/Families/` — id + default anchors + default fill budget/table.
+2. `Create → World → Sites → Site Definition` under `Resources/World/Sites/`; set `_siteId`,
+   `_family`, footprint range, `_triggerWeight`, `_dressingThemeId`.
+3. Override only the delta: toggle `_overrideAnchorBeats` / `_overrideFillBudget` /
+   `_overrideFillTable` and fill the overriding values; everything left off inherits the family.
+4. Remember: the **first anchor's kind** picks the trigger channel — an `Npc` anchor makes it a
+   quest-pulled settlement; `Combat`/`Loot` makes it an ambient landmark-style trigger.
+5. No code, no installer edit — the asset auto-loads from `Resources/World/Sites`.
+
+### Revise a whole family
+
+Edit the family asset's defaults — every site of that family that doesn't override the field shifts
+with it (e.g. make all Settlements fill one extra beat by raising the family budget).
+
+### Make a story demand a site
+
+Add a `site:<id>` entry to the `StoryTemplate`'s story tags. When that story is picked for a landed
+quest slot, the site is reserved as a hard request (no roll). An unknown id warns and stays Wild.
+
+### Add a content flavor / a townsfolk story
+
+> **Phase 3/4 (§6).** Flavored monster pools, loot `BiasTags`, and townsfolk chatter stories are not
+> consumed yet; these recipes land with those phases.
+
+**Authoring constraints / gotchas:** a duplicate `_siteId` is skipped (first wins); a site with no
+family and no anchor override is skipped; corpse-loot must never appear in a fill table (it is the
+outcome of a Combat beat); `NPC·quest-bearer` is an **anchor**, not a fill flavor (see §6).
 
 ---
 
@@ -156,8 +234,13 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
   zero-weight sites stay Wild; zero wild-weight always settles; empty-pool site combat downgrades
   to Empty keeping the stamp; same-seed identical site sequences; catalog channel split +
   `NpcFillFlavors` derivation.
+- `SiteCatalogMapperTests` (7) — family inheritance; override toggles replace only their delta;
+  trigger channel derives from the overridden anchor (Camp → Ambient despite family Settlement);
+  no-anchor / missing-id / duplicate-id skipped; `NpcFillFlavors` from effective fill tables;
+  null/empty input → empty catalog. *(Unity edit-mode — exercises the SO layer.)*
 
-Run outside Unity via the bundled-Roslyn workaround (`Temp/domaintests/run_sites.ps1`).
+The pure-C# suites run outside Unity via the bundled-Roslyn workaround
+(`Temp/domaintests/run_sites.ps1`); the mapper suite needs the editor's edit-mode runner.
 
 ---
 
@@ -165,11 +248,7 @@ Run outside Unity via the bundled-Roslyn workaround (`Temp/domaintests/run_sites
 
 Phased delivery (the PO brief's sequencing — each phase ships code + tests + docs together):
 
-- **Phase 2 (next): SO schema + assets.** `SiteFamilyDefinition` (family-default recipe) +
-  `SiteDefinition` (per-site override with explicit inherit toggles), `SiteCatalogMapper` (the one
-  Data→Core bridge, family merge + validation), the three new `WorldContentDensityConfig` fields,
-  catalog binding, and the authored Camp/Village/City/Ruin/Lair assets.
-- **Phase 3: reservation goes live.** Planner depends on `IWorldSlotAllocator`; the `Npc` slot kind
+- **Phase 3 (next): reservation goes live.** Planner depends on `IWorldSlotAllocator`; the `Npc` slot kind
   picks a flavor-tagged world-only story (and such stories are excluded from quest picks via
   `ISiteCatalog.NpcFillFlavors`); `TryReserveSettlement` stamps the quest platform;
   flavor-filtered monster pools (`Combat·bandit/guard/den-monster` via `EnemyDefinition.EnemyTags`,

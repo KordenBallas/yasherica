@@ -17,3 +17,6 @@ MonoBehaviour:
   _emptyWeight: 65
   _lootWeight: 15
   _combatWeight: 20
+  _averagePlatformsPerAmbientSite: 14
+  _minPlatformsBetweenSites: 6
+  _wildQuestWeight: 40

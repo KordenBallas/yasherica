@@ -22,7 +22,10 @@ namespace Narrative.Director.Data
                 config.MinPlatformsBetweenQuests,
                 config.EmptyWeight,
                 config.LootWeight,
-                config.CombatWeight);
+                config.CombatWeight,
+                config.AveragePlatformsPerAmbientSite,
+                config.MinPlatformsBetweenSites,
+                config.WildQuestWeight);
         }
     }
 }

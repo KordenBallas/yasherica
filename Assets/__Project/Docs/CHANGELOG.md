@@ -9,6 +9,23 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **World Sites — SO schema, mapper, and the authored site vocabulary (phase 2 of the world-sites
+  brief; R6/R7):** new `World.Sites.Data` — `SiteFamilyDefinition` (`Create → World → Sites → Site
+  Family`: family-default anchors + fill budget/table) and `SiteDefinition` (`… → Site Definition`:
+  id, family ref, footprint range, trigger weight, dressing theme, and **explicit override
+  toggles** — off = inherit, so a later-added attribute defaults to "inherit" and existing assets
+  stay valid). `SiteCatalogMapper` is the one Data→Core bridge: merges family default + site delta
+  into effective `SiteDefinitionData`, validates (missing/duplicate id, no effective anchor →
+  warn + skip). `WorldContentDensityConfig` gains the three site dials
+  (`_averagePlatformsPerAmbientSite` 14 / `_minPlatformsBetweenSites` 6 / `_wildQuestWeight` 40) —
+  mapper passes them through. `NarrativeSliceInstaller` binds `ISiteCatalog` (inspector list,
+  auto-load fallback `Resources/World/Sites`) + `SiteBlockBuilder`; **the allocator is not yet
+  swapped — behavior-identical until phase 3.** Authored assets: `SettlementFamily`/`LandmarkFamily`
+  + `Camp` (anchor `Combat·bandit`, ambient channel), `Village` (inherits the settlement default),
+  `City` (fill 2–3: townsfolk 5 / market 3 / guard 2), `Ruin` (anchor `Loot·relic`), `Lair`
+  (inherits landmark); quest-channel weights Village 40 / City 20 vs Wild 40 (≈40% lone-wanderer
+  quests, PO decision). Tests: `SiteCatalogMapperTests` (7). Doc: `world-sites.md` §3/§4 (SO
+  reference + "Add a site" / "Revise a family" / "site:<id>" recipes). *(world/sites)*
 - **World Sites — site domain + block reservation (phase 1 of the world-sites brief; R1–R10):**
   new pure-C# `World.Sites.Core` — the shared `base·flavor` content vocabulary (`ContentBaseKind`
   Empty/Loot/Combat/Npc × open flavor strings, `ContentBeat`/`WeightedBeat`), `SiteDefinitionData`

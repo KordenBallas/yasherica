@@ -30,10 +30,24 @@ namespace Narrative.Director.Data
         [Min(0)]
         [SerializeField] private int _combatWeight = 20;
 
+        [Header("Sites (world-sites brief)")]
+        [Tooltip("~1 ambient-channel site (camp/ruin/lair) per this many platforms; 0 disables them")]
+        [Min(0)]
+        [SerializeField] private int _averagePlatformsPerAmbientSite = 14;
+        [Tooltip("Hard minimum platforms between one site block's end and the next site")]
+        [Min(0)]
+        [SerializeField] private int _minPlatformsBetweenSites = 6;
+        [Tooltip("Weight of 'no settlement' when a landed quest rolls against the quest-channel site weights (a lone wanderer)")]
+        [Min(0)]
+        [SerializeField] private int _wildQuestWeight = 40;
+
         public int AveragePlatformsPerQuest => _averagePlatformsPerQuest;
         public int MinPlatformsBetweenQuests => _minPlatformsBetweenQuests;
         public int EmptyWeight => _emptyWeight;
         public int LootWeight => _lootWeight;
         public int CombatWeight => _combatWeight;
+        public int AveragePlatformsPerAmbientSite => _averagePlatformsPerAmbientSite;
+        public int MinPlatformsBetweenSites => _minPlatformsBetweenSites;
+        public int WildQuestWeight => _wildQuestWeight;
     }
 }
