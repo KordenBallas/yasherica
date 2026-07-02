@@ -345,10 +345,9 @@ namespace Core.DI
 
         private void InstallBattlefieldBindings()
         {
-            Container.BindFactory<FlatHexGrid, FlatHexGrid.Factory>();
-            Container.BindFactory<PointyHexGrid, PointyHexGrid.Factory>();
+            // The battlefield builds its SurfaceHexGrid directly from the platform's hex surface;
+            // the legacy per-orientation grid factories are gone with the scan grids.
             Container.BindFactory<IBattlefield, BattlefieldFactory>().To<Combat.Battlefield.Battlefield>();
-            Container.Bind<IHexGridFactory>().To<HexGridFactory>().AsSingle();
         }
 
         private void InstallCoreSystemBindings()

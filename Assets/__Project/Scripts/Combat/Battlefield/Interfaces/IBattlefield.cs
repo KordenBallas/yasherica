@@ -11,7 +11,7 @@ namespace Combat.Battlefield
         Vector3 Center { get; }
         IHexGrid Grid { get; } // Expose grid for accessing GetCellPosition
 
-        void Initialize(List<Vector3> boundary, Vector3 center, float hexSize, HexOrientation orientation, HexDirectionConfig hexConfig);
+        void Initialize(PlatformHexSurface surface, Vector3 center, HexDirectionConfig hexConfig);
         void Activate();
         void Deactivate();
         void Clear();

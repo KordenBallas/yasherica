@@ -49,10 +49,13 @@ a step is a prerequisite brief, not a design gap. See `product-requirements/READ
    content kinds, one SO density config, per-biome monster pool, streaming loot) shipped — see
    `## Data-Driven Procedural Narrative` + `narrative-procedural.md` §2.6. Remaining polish: biome
    selection along the run, loot-chance dead-API cleanup (below).
-2. **Platform hex surface & shape** (`platform-hex-surface-and-shape.md`) — content-aware sizing uses
-   the content kinds from step 1 (the hex-surface + organic-edge half is independent of it).
+2. **Platform hex surface & shape — DONE** (`platform-hex-surface-and-shape.md`): hex-composed
+   surface = combat grid (one source of truth), organic non-walkable rim, per-content-kind size
+   profiles + battlefield minimum, deterministic — see `platform-generation.md` +
+   `## Platform & Area Generation`. Remaining polish: muted→crisp shader treatment, arena-scale
+   camera pass, `ContentSpawner` on concave islands (below).
 3. In parallel after step 2: **Sites & landscape** (`world-sites-and-landscape.md`, also needs step 1)
-   and **Biome visual styles** (`biome-visual-styles.md`).
+   and **Biome visual styles** (`biome-visual-styles.md`) — both now unblocked.
 
 **Track C — Combat (one epic — build together, not piecemeal)**
 1. **Hero facing** (`combat-hero-facing.md`) + **enemy intent phase** (`combat-turn-intent-phase.md`) —
@@ -405,31 +408,42 @@ Known limitations (from `loot-subsystem.md` §4):
 
 ## Platform & Area Generation
 
-New work (no system doc yet — author `platform-generation.md` when implemented):
+System doc: `platform-generation.md`.
 
-**Verified PO build brief for the three M3 items below:
-`product-requirements/platform-hex-surface-and-shape.md`** (hex-composed surface = combat grid,
-muted-in-traversal / crisp-in-combat; whole-hex interior + organic decorative rim; per-content-kind
-size profiles with a battlefield minimum; biome features occupy whole cells). Biome *styling* and
-multi-platform Site footprints are separate briefs (below / Sites).
-- [ ] `[arch]` **M3 — Hex-composed platform top surface.** Build the platform top-surface mesh from
-  the battlefield hex tiling so the combat grid lays perfectly on the platform. The current rect +
-  edge-jitter interior (`PlatformMeshBuilder`, `AreaGeneratorConfig.edgeVertexCount` / `edgeJitter`)
-  is replaced by a hex-cell field; the combat grid (`PointyHexGrid`,
-  `HexGridBase.CalculateCellsInBoundary`) is derived from the same source of truth instead of being
-  re-snapped at combat time. **Feel:** tiling visually **muted in traversal, crisp in combat** — the
-  cells are emphasized on combat entry, not a grid appearing from nowhere (brief §1–§2).
-- [ ] `[arch]` **M3 — Natural edges over a complete hex interior.** Every full hex cell lies on the
-  top surface (combat never clipped); beyond the last full cell is a **non-walkable organic
-  decorative rim** (the island silhouette). Rim thickness/irregularity is a tunable. Biome features
-  (river, mountains) **occupy whole hex cells** and align to the grid so a combat obstacle matches
-  the cells exactly (feature *styling* per biome is the separate biome-appearance item). (brief §3–§4, §9)
-- [ ] `[arch]` **M3 — Content-aware platform size & shape.** Platform extent/form is chosen from its
-  content via a **per-content-kind size/shape profile** (Empty / Loot / Combat / NPC), authored as
-  data — replacing the random `platformSizeMin/Max`. Combat-capable content (enemy, or NPC that
-  `CanBecomeEnemy`) **guarantees at least the battlefield minimum** of whole cells; loot-only / empty
-  platforms are visibly smaller. Drive from `GraphNode.ContentTypes` / `StoryPlatformData` in
-  `AreaGenerator`. Deterministic (same seed → same platforms). (brief §5–§8)
+**The three M3 platform-hex items shipped** (verified brief
+`product-requirements/platform-hex-surface-and-shape.md`; see the doc + CHANGELOG):
+- [x] `[arch]` **M3 — Hex-composed platform top surface.** *(Done — the surface is composed of whole
+  hex cells (`PlatformHexSurface`, grown by `PlatformSurfaceGenerator`); the combat grid is derived
+  1:1 from it (`SurfaceHexGrid` — the scan grids `FlatHexGrid`/`PointyHexGrid`/`HexGridFactory` are
+  deleted); muted-in-traversal is a geometry MVP (per-cell shallow domes → valley seams, `CellInset`
+  dial), crisp-in-combat stays the cell-outline visuals. See CHANGELOG; `platform-generation.md`.)*
+- [x] `[arch]` **M3 — Natural edges over a complete hex interior.** *(Done — hole-filled whole-cell
+  interior; jittered non-walkable rim ring (width/jitter/drop tunables) beyond the walkable outline;
+  wall colliders sit on the outline so the rim is physically unreachable. Whole-cell biome-feature
+  alignment has its data seam (`PlatformHexSurface.BlockedCells`, unused) — the feature content is
+  the biome-visual-styles brief. See CHANGELOG; `platform-generation.md`.)*
+- [x] `[arch]` **M3 — Content-aware platform size & shape.** *(Done — per-content-kind
+  `ShapeProfile`s + battlefield minimum (12 cells) on the one `PlatformShapeConfig` SO; kind resolved
+  from the graph node (`Type == Combat` covers ambient + story-with-required-combat); per-platform
+  seeded streams (`LootSeed.Derive(runSeed, "platform-shape:{id}")`) make same-seed→same-platforms
+  hold, replacing the last `UnityEngine.Random` uses on the platform path. See CHANGELOG;
+  `platform-generation.md`.)*
+
+Follow-ups from the platform-hex rework (doc §6):
+- [ ] `[content]` **Muted→crisp render treatment (tech-art).** Replace the geometry-MVP dome seams
+  with the real shader/VFX emphasis on combat entry (ties the render-look bible + M4 telegraph VFX
+  language). *(platform + tech-art)*
+- [ ] `[arch]` **Camera/entry pass at arena scale.** Combat platforms are now ~14–18u across
+  (intended); verify camera framing, `CombatEntryAnimator`, and hop feel in play mode and tune.
+  *(platform + camera)*
+- [ ] `[arch]` **`ContentSpawner` placement on concave islands.** Content still spawns relative to
+  the platform center, which can sit off-cell on a concave union; place on `Surface.CenterCell` (the
+  character spawn already does). *(platform)*
+- [ ] `[debt]` **Extract a neutral `Core.Hex` namespace.** `HexCoordinates`/`HexOrientation`/
+  `HexMetrics`/`PlatformHexSurface` live in `Combat.Battlefield` and are consumed by
+  LevelGeneration/Platform; the rename sweep (~43 files) was deferred (no compiler in env). Also lift
+  `IRandomSource`/`DeterministicRandom` out of `Narrative.Director.Core` for the same reason.
+  *(platform + combat)*
 - [ ] `[content]` **Sites & landscape — content-driven footprint (setting scale).** Two axes:
   **Biome** (`LevelTheme`, ground/race homeland) × **Site** (settlement scale on top: wild / camp /
   village / city). Content-first: a settlement-scale beat pulls a **Site** into being (ambient content

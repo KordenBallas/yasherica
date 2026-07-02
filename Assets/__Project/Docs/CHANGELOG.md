@@ -9,6 +9,30 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Changed
+- **Combat/Platform — the combat grid is now derived from the platform's hex surface (phase 4,
+  completing the platform-hex rework; brief §1 / R1):** new `SurfaceHexGrid : IHexGrid` takes its
+  cells and local positions **1:1 from `PlatformHexSurface`** — `IsCellInBoundary` is set
+  membership and `WorldToHex` is the exact inverse of cell placement; no boundary scan, no re-fit,
+  no re-snap: the battlefield cells ARE the ground tiles. Signature cutover:
+  `IHexGrid.Initialize(surface, center)`, `IBattlefield`/`Battlefield.Initialize(surface, center,
+  hexConfig)` (hex size/orientation ride on the surface), `ICombatController.InitializeBattlefield
+  (surface, center)`, `CombatActiveState` passes `Visual.Surface`; `CombatController`(+Factory)
+  drop their now-unused `CombatConfig` dependency (`ActionValidator` keeps it for the queue size).
+  `IHexGrid` gains `GetCellPosition` (local offset), removing the `HexGridBase` pattern-matches in
+  `Battlefield`/`BattlefieldView`. Cell visuals (`BattlefieldView`/`HexCellView`), cell states, and
+  all combat rules are untouched — the grid they render now coincides with the ground by
+  construction. Tests: new `SurfaceHexGridTests` (6). New system doc **`platform-generation.md`**
+  (added to `Docs/README.md`); the three M3 ROADMAP items are checked off with follow-ups filed
+  (muted→crisp tech-art pass, arena-scale camera pass, `ContentSpawner` on concave islands,
+  `Core.Hex` extraction debt).
+
+### Removed
+- **Combat — the boundary-scan hex grids:** `FlatHexGrid`, `PointyHexGrid`, `HexGridBase`
+  (bbox-scan + point-in-polygon `CalculateCellsInBoundary`), `HexGridFactory`/`IHexGridFactory`,
+  and their `AreaInstaller` factory bindings. Their center/rounding math lives on as `HexMetrics`
+  (exact port, test-pinned by `HexMetricsTests`).
+
+### Changed
 - **Platform & Area Generation — traversal cutover to hex-composed platforms (phase 3 of the
   platform-hex rework; brief §1–§8):** platforms are no longer random ellipse blobs.
   `AreaGenerator.CreatePlatformFromNode` grows each platform's `PlatformHexSurface` from a

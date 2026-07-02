@@ -46,28 +46,21 @@ namespace Combat.Battlefield
         public Vector3 Center => center;
         public IHexGrid Grid => grid;
 
-        public void Initialize(List<Vector3> boundary, Vector3 center, float hexSize, HexOrientation orientation, HexDirectionConfig hexConfig)
+        public void Initialize(PlatformHexSurface surface, Vector3 center, HexDirectionConfig hexConfig)
         {
-            this.hexSize = hexSize;
+            // The surface is the single source of truth: cell size/orientation ride on it, and the
+            // grid's cells are exactly the tiles the platform ground was built from (brief §1).
+            this.hexSize = surface.HexSize;
             this.center = center;
             this.hexConfig = hexConfig;
 
-            // Create grid based on orientation
-            if (orientation == HexOrientation.Flat)
-            {
-                grid = new FlatHexGrid();
-            }
-            else
-            {
-                grid = new PointyHexGrid();
-            }
-            
-            grid.Initialize(boundary, center, hexSize);
-            
+            grid = new SurfaceHexGrid();
+            grid.Initialize(surface, center);
+
             // Pre-create all cells in boundary
             PreCreateCellsInBoundary();
         }
-        
+
         private void PreCreateCellsInBoundary()
         {
             cells.Clear();
@@ -75,11 +68,7 @@ namespace Combat.Battlefield
             var cellsInBoundary = grid.GetCellsInBoundary();
             foreach (var coords in cellsInBoundary)
             {
-                // Get local position (offset from center) and convert to world for storage
-                Vector3 localPos = grid is HexGridBase gridBase
-                    ? gridBase.GetCellPosition(coords)
-                    : (grid.HexToWorld(coords) - center);
-                Vector3 worldPos = localPos + center;
+                Vector3 worldPos = grid.GetCellPosition(coords) + center;
                 var cell = new HexCell(coords, worldPos);
 
                 // Initialize state machine with idle state

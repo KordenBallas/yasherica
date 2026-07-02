@@ -94,11 +94,12 @@ namespace Platform
             // Subscribe to combat end event
             _controller.OnGameEnded += HandleCombatEnded;
 
-            // Initialize combat battlefield with platform geometry
-            if (platform.Visual?.TopBoundary != null && platform.Visual.TopBoundary.Count > 0)
+            // Initialize combat battlefield from the platform's hex surface — the grid IS the ground
+            // tiles, never re-fitted (brief §1).
+            if (platform.Visual?.Surface != null && platform.Visual.Surface.Cells.Count > 0)
             {
                 _controller.InitializeBattlefield(
-                    platform.Visual.TopBoundary,
+                    platform.Visual.Surface,
                     platform.Visual.Position);
 
                 _logger.Info(LogCategory.Platform,$"[CombatActiveState] Initialized battlefield for platform {platform.Id}");

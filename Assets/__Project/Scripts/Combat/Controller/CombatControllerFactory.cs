@@ -21,7 +21,6 @@ namespace Combat.Controller
         private readonly IDamageSystem _damageSystem;
         private readonly StatusEffectTriggerProcessor _triggerProcessor;
         private readonly BattlefieldFactory _battlefieldFactory;
-        private readonly CombatConfig _config;
         private readonly HexDirectionConfig _hexConfig;
         private readonly IGameLogger _logger;
 
@@ -33,7 +32,6 @@ namespace Combat.Controller
             IDamageSystem damageSystem,
             StatusEffectTriggerProcessor triggerProcessor,
             BattlefieldFactory battlefieldFactory,
-            CombatConfig config,
             HexDirectionConfig hexConfig,
             IGameLogger logger)
         {
@@ -43,7 +41,6 @@ namespace Combat.Controller
             _damageSystem = damageSystem;
             _triggerProcessor = triggerProcessor;
             _battlefieldFactory = battlefieldFactory;
-            _config = config;
             _hexConfig = hexConfig;
             _logger = logger;
         }
@@ -57,7 +54,6 @@ namespace Combat.Controller
                 _damageSystem,
                 _triggerProcessor,
                 _battlefieldFactory,
-                _config,
                 _hexConfig,
                 _logger);
         }

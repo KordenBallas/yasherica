@@ -112,17 +112,7 @@ namespace Combat.Battlefield
                 if (cell == null) continue;
                 
                 // Get local position (offset from center) from grid
-                Vector3 localPos;
-                if (battlefield.Grid is HexGridBase gridBase)
-                {
-                    localPos = gridBase.GetCellPosition(coords);
-                }
-                else
-                {
-                    // Fallback: convert world to local
-                    Vector3 worldPos = battlefield.HexToWorld(coords);
-                    localPos = worldPos - battlefieldCenter;
-                }
+                Vector3 localPos = battlefield.Grid.GetCellPosition(coords);
                 
                 // Set Y to height offset
                 localPos.y = cellHeightOffset;

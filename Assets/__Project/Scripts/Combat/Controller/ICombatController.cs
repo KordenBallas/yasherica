@@ -46,9 +46,10 @@ namespace Combat.Controller
         void Update();
         
         /// <summary>
-        /// Initializes the battlefield with geometric data from platform.
+        /// Initializes the battlefield from the platform's hex surface (the combat grid is derived
+        /// from the same cells the ground was built from — never re-fitted).
         /// </summary>
-        void InitializeBattlefield(List<Vector3> boundary, Vector3 center);
+        void InitializeBattlefield(Combat.Battlefield.PlatformHexSurface surface, Vector3 center);
         
         /// <summary>
         /// Cleans up battlefield when combat ends or platform is exited.

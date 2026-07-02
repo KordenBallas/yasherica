@@ -23,7 +23,6 @@ namespace Combat.Controller
         private readonly IDamageSystem _damageSystem;
         private readonly StatusEffectTriggerProcessor _triggerProcessor;
         private readonly BattlefieldFactory _battlefieldFactory;
-        private readonly CombatConfig _config;
         private readonly HexDirectionConfig _hexConfig;
         private readonly List<IWinCondition> _winConditions;
         private readonly IGameLogger _logger;
@@ -46,7 +45,6 @@ namespace Combat.Controller
             IDamageSystem damageSystem,
             StatusEffectTriggerProcessor triggerProcessor,
             BattlefieldFactory battlefieldFactory,
-            CombatConfig config,
             HexDirectionConfig hexConfig,
             IGameLogger logger)
         {
@@ -56,7 +54,6 @@ namespace Combat.Controller
             _damageSystem = damageSystem;
             _triggerProcessor = triggerProcessor;
             _battlefieldFactory = battlefieldFactory;
-            _config = config;
             _hexConfig = hexConfig;
             _winConditions = new List<IWinCondition>();
             _logger = logger;
@@ -355,19 +352,14 @@ namespace Combat.Controller
         }
         
         /// <summary>
-        /// Initializes the battlefield with geometric data from platform.
+        /// Initializes the battlefield from the platform's hex surface.
         /// Called by CombatActiveState when platform is entered.
-        /// Uses Combat configuration for hex size and orientation.
+        /// Hex size and orientation ride on the surface itself (one source of truth).
         /// </summary>
-        public void InitializeBattlefield(List<Vector3> boundary, Vector3 center)
+        public void InitializeBattlefield(PlatformHexSurface surface, Vector3 center)
         {
             _battlefield = _battlefieldFactory.Create();
-            _battlefield.Initialize(
-                boundary,
-                center,
-                _config.HexCellSize,
-                _config.HexOrientation,
-                _hexConfig);
+            _battlefield.Initialize(surface, center, _hexConfig);
             _battlefield.Activate();
 
             // Inject battlefield into existing state if state already exists
