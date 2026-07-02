@@ -1,5 +1,7 @@
 using Combat.Core;
+using Core.Logging;
 using UnityEngine;
+using Zenject;
 
 namespace Combat.View
 {
@@ -14,6 +16,7 @@ namespace Combat.View
         [SerializeField] private GameObject _healEffectPrefab;
         [SerializeField] private GameObject _poisonEffectPrefab;
         [SerializeField] private GameObject _stunEffectPrefab;
+        [Inject] private IGameLogger _logger;
         
         /// <summary>
         /// Plays damage effect at a position.
@@ -71,7 +74,7 @@ namespace Combat.View
         private void ShowFloatingText(Vector3 position, string text, Color color)
         {
             // This is a placeholder for actual floating text implementation
-            Debug.Log($"Floating text at {position}: {text}");
+            _logger?.Info(LogCategory.Combat,$"Floating text at {position}: {text}");
         }
         
         /// <summary>
@@ -80,7 +83,7 @@ namespace Combat.View
         public void PlayMovementTrail(Vector3 from, Vector3 to)
         {
             // Placeholder for movement trail effect
-            Debug.Log($"Movement trail from {from} to {to}");
+            _logger?.Info(LogCategory.Combat,$"Movement trail from {from} to {to}");
         }
     }
 }

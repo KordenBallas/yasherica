@@ -4,6 +4,7 @@ using Combat.Core;
 using Combat.Core.StatusEffects;
 using Combat.Execution;
 using Combat.TurnManagement;
+using Core.Logging;
 using Zenject;
 
 namespace Combat.Controller
@@ -22,6 +23,7 @@ namespace Combat.Controller
         private readonly BattlefieldFactory _battlefieldFactory;
         private readonly CombatConfig _config;
         private readonly HexDirectionConfig _hexConfig;
+        private readonly IGameLogger _logger;
 
         [Inject]
         public CombatControllerFactory(
@@ -32,7 +34,8 @@ namespace Combat.Controller
             StatusEffectTriggerProcessor triggerProcessor,
             BattlefieldFactory battlefieldFactory,
             CombatConfig config,
-            HexDirectionConfig hexConfig)
+            HexDirectionConfig hexConfig,
+            IGameLogger logger)
         {
             _actionValidator = actionValidator;
             _actionExecutor = actionExecutor;
@@ -42,6 +45,7 @@ namespace Combat.Controller
             _battlefieldFactory = battlefieldFactory;
             _config = config;
             _hexConfig = hexConfig;
+            _logger = logger;
         }
 
         public ICombatController Create()
@@ -54,7 +58,8 @@ namespace Combat.Controller
                 _triggerProcessor,
                 _battlefieldFactory,
                 _config,
-                _hexConfig);
+                _hexConfig,
+                _logger);
         }
     }
 }

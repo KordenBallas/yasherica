@@ -1,5 +1,6 @@
 using Combat.Core;
 using Combat.Config;
+using Core.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using Combat.Battlefield;
@@ -20,10 +21,12 @@ namespace Combat.Player
         };
 
         private readonly System.Random _random;
+        private readonly IGameLogger _logger;
 
-        public SimpleRandomAI(int? seed = null)
+        public SimpleRandomAI(int? seed = null, IGameLogger logger = null)
         {
             _random = seed.HasValue ? new System.Random(seed.Value) : new System.Random();
+            _logger = logger;
         }
 
         public IAction DecideAction(ICombatState gameState, IUnit unit)
@@ -35,7 +38,7 @@ namespace Combat.Player
 
             int index = _random.Next(validActions.Count);
             IAction action = validActions[index];
-            Debug.Log($"[SimpleRandomAI] Decided to perform {action.Type}.");
+            _logger?.Info(LogCategory.Combat,$"[SimpleRandomAI] Decided to perform {action.Type}.");
             return action;
         }
 
@@ -60,7 +63,7 @@ namespace Combat.Player
 
             actions.Add(new EndUnitTurnAction(unit.Owner, unit.Id));
 
-            Debug.Log($"[SimpleRandomAI] Identified {actions.Count} valid actions.");
+            _logger?.Info(LogCategory.Combat,$"[SimpleRandomAI] Identified {actions.Count} valid actions.");
             return actions;
         }
 

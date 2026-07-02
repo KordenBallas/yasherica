@@ -7,6 +7,7 @@ using Combat.Integration;
 using Combat.Input;
 using Combat.Player;
 using Core.Camera;
+using Core.Logging;
 using Narrative.Dialogue;
 using System.Collections.Generic;
 using UnityEngine;
@@ -37,6 +38,7 @@ namespace Platform
         private readonly CombatActivityTracker _combatActivityTracker;
         private readonly Loot.Application.IEnemyLootDropper _enemyLootDropper;
         private readonly DialogueRunner _dialogueRunner;
+        private readonly IGameLogger _logger;
 
         private IPlatform _platform;
         private ICombatController _controller;
@@ -54,7 +56,8 @@ namespace Platform
             IEnemyDataProvider enemyDataProvider,
             CombatActivityTracker combatActivityTracker,
             Loot.Application.IEnemyLootDropper enemyLootDropper,
-            DialogueRunner dialogueRunner)
+            DialogueRunner dialogueRunner,
+            IGameLogger logger)
         {
             _controllerFactory = controllerFactory;
             _cameraService = cameraService;
@@ -68,6 +71,7 @@ namespace Platform
             _combatActivityTracker = combatActivityTracker;
             _enemyLootDropper = enemyLootDropper;
             _dialogueRunner = dialogueRunner;
+            _logger = logger;
         }
 
         public override void OnEnter(IPlatform platform)
@@ -76,7 +80,7 @@ namespace Platform
 
             _combatActivityTracker?.SetCombatActive(true);
 
-            Debug.Log($"[CombatActiveState] Entering combat active state for platform {platform.Id}");
+            _logger.Info(LogCategory.Platform,$"[CombatActiveState] Entering combat active state for platform {platform.Id}");
 
             // Get existing controller from platform or create new one
             _controller = platform.GetCombatController();
@@ -84,7 +88,7 @@ namespace Platform
             {
                 _controller = _controllerFactory.Create();
                 platform.SetCombatController(_controller);
-                Debug.Log($"[CombatActiveState] Created new CombatController for platform {platform.Id}");
+                _logger.Info(LogCategory.Platform,$"[CombatActiveState] Created new CombatController for platform {platform.Id}");
             }
 
             // Subscribe to combat end event
@@ -97,7 +101,7 @@ namespace Platform
                     platform.Visual.TopBoundary,
                     platform.Visual.Position);
 
-                Debug.Log($"[CombatActiveState] Initialized battlefield for platform {platform.Id}");
+                _logger.Info(LogCategory.Platform,$"[CombatActiveState] Initialized battlefield for platform {platform.Id}");
 
                 // Create and initialize BattlefieldView for visualization
                 InitializeBattlefieldView(platform);
@@ -115,16 +119,16 @@ namespace Platform
                     if (mono != null)
                     {
                         _aiTurnController.Initialize(_controller, mono);
-                        Debug.Log("[CombatActiveState] AITurnController initialized with correct controller instance (before combat start)");
+                        _logger.Info(LogCategory.Platform,"[CombatActiveState] AITurnController initialized with correct controller instance (before combat start)");
                     }
                     else
                     {
-                        Debug.LogWarning("[CombatActiveState] Cannot initialize AITurnController: no MonoBehaviour on platform");
+                        _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot initialize AITurnController: no MonoBehaviour on platform");
                     }
                 }
                 else if (_aiTurnController == null)
                 {
-                    Debug.LogWarning("[CombatActiveState] AITurnController not provided - AI turns will not work!");
+                    _logger.Warning(LogCategory.Platform,"[CombatActiveState] AITurnController not provided - AI turns will not work!");
                 }
 
                 // Collect all players (human + AI enemies)
@@ -140,7 +144,7 @@ namespace Platform
                     }
                     else
                     {
-                        Debug.LogWarning("[CombatActiveState] No local player registered");
+                        _logger.Warning(LogCategory.Platform,"[CombatActiveState] No local player registered");
                     }
                 }
 
@@ -152,7 +156,7 @@ namespace Platform
                         enemyContent.EnemyPlayer != null)
                     {
                         allPlayers.Add(enemyContent.EnemyPlayer);
-                        Debug.Log($"[CombatActiveState] Added enemy player {enemyContent.EnemyPlayer.Name} (ID: {enemyContent.EnemyPlayer.Id}) to turn order");
+                        _logger.Info(LogCategory.Platform,$"[CombatActiveState] Added enemy player {enemyContent.EnemyPlayer.Name} (ID: {enemyContent.EnemyPlayer.Id}) to turn order");
                     }
                 }
 
@@ -172,21 +176,21 @@ namespace Platform
 
                     // Initialize combat controller with turn system
                     _controller.Initialize(initialState, allPlayers);
-                    Debug.Log($"[CombatActiveState] CombatController initialized with {allPlayers.Count} players");
+                    _logger.Info(LogCategory.Platform,$"[CombatActiveState] CombatController initialized with {allPlayers.Count} players");
 
                     // Verify turn manager state
                     if (_controller.TurnManager != null)
                     {
-                        Debug.Log($"[CombatActiveState] Turn system ready - Current Player: {_controller.TurnManager.CurrentPlayer?.Id ?? -1}, Turn: {_controller.TurnManager.CurrentTurnNumber}");
+                        _logger.Info(LogCategory.Platform,$"[CombatActiveState] Turn system ready - Current Player: {_controller.TurnManager.CurrentPlayer?.Id ?? -1}, Turn: {_controller.TurnManager.CurrentTurnNumber}");
                     }
                     else
                     {
-                        Debug.LogWarning("[CombatActiveState] TurnManager is null after initialization!");
+                        _logger.Warning(LogCategory.Platform,"[CombatActiveState] TurnManager is null after initialization!");
                     }
                 }
                 else
                 {
-                    Debug.LogWarning("[CombatActiveState] Cannot initialize combat: no players available");
+                    _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot initialize combat: no players available");
                 }
 
                 // Initialize character for combat
@@ -205,22 +209,22 @@ namespace Platform
                                     player,
                                     _controller.Battlefield,
                                     _controller));
-                                Debug.Log("[CombatActiveState] Started character combat initialization");
+                                _logger.Info(LogCategory.Platform,"[CombatActiveState] Started character combat initialization");
                             }
                             else
                             {
-                                Debug.LogWarning("[CombatActiveState] Cannot start coroutine: no MonoBehaviour on platform");
+                                _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot start coroutine: no MonoBehaviour on platform");
                             }
                         }
                     }
                     else
                     {
-                        Debug.LogWarning("[CombatActiveState] Cannot initialize character: player or battlefield is null");
+                        _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot initialize character: player or battlefield is null");
                     }
                 }
                 else
                 {
-                    Debug.LogWarning("[CombatActiveState] Character combat system dependencies not provided");
+                    _logger.Warning(LogCategory.Platform,"[CombatActiveState] Character combat system dependencies not provided");
                 }
 
                 // Initialize enemies for combat
@@ -230,11 +234,11 @@ namespace Platform
                     if (mono != null)
                     {
                         mono.StartCoroutine(InitializeEnemiesForCombat(platform));
-                        Debug.Log("[CombatActiveState] Started enemy combat initialization");
+                        _logger.Info(LogCategory.Platform,"[CombatActiveState] Started enemy combat initialization");
                     }
                     else
                     {
-                        Debug.LogWarning("[CombatActiveState] Cannot start enemy integration: no MonoBehaviour on platform");
+                        _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot start enemy integration: no MonoBehaviour on platform");
                     }
                 }
 
@@ -249,13 +253,13 @@ namespace Platform
             }
             else
             {
-                Debug.LogWarning($"[CombatActiveState] Cannot initialize battlefield: invalid platform geometry");
+                _logger.Warning(LogCategory.Platform,$"[CombatActiveState] Cannot initialize battlefield: invalid platform geometry");
             }
         }
 
         private void HandleCombatEnded(IPlayer winner, CombatPhase phase)
         {
-            Debug.Log($"[CombatActiveState] Combat ended - Phase: {phase}, Winner: {winner?.Name ?? "None"}");
+            _logger.Info(LogCategory.Platform,$"[CombatActiveState] Combat ended - Phase: {phase}, Winner: {winner?.Name ?? "None"}");
 
             // Drop loot BEFORE the state change: OnExit destroys dead enemy
             // GameObjects, losing their death positions.
@@ -280,7 +284,7 @@ namespace Platform
             // Get platform GameObject from Visual
             if (platform.Visual?.GameObject == null)
             {
-                Debug.LogWarning($"[CombatActiveState] Cannot create BattlefieldView: platform GameObject is null");
+                _logger.Warning(LogCategory.Platform,$"[CombatActiveState] Cannot create BattlefieldView: platform GameObject is null");
                 return;
             }
 
@@ -291,7 +295,7 @@ namespace Platform
             if (battlefieldView == null)
             {
                 battlefieldView = platformGO.AddComponent<BattlefieldView>();
-                Debug.Log($"[CombatActiveState] Added BattlefieldView component to platform {platform.Id}");
+                _logger.Info(LogCategory.Platform,$"[CombatActiveState] Added BattlefieldView component to platform {platform.Id}");
             }
 
             // Initialize view with battlefield
@@ -299,11 +303,11 @@ namespace Platform
             {
                 battlefieldView.Initialize(_controller.Battlefield);
                 _battlefieldView = battlefieldView;
-                Debug.Log($"[CombatActiveState] BattlefieldView initialized and hex grid should be visible");
+                _logger.Info(LogCategory.Platform,$"[CombatActiveState] BattlefieldView initialized and hex grid should be visible");
             }
             else
             {
-                Debug.LogWarning($"[CombatActiveState] Cannot initialize BattlefieldView: controller battlefield is null");
+                _logger.Warning(LogCategory.Platform,$"[CombatActiveState] Cannot initialize BattlefieldView: controller battlefield is null");
             }
         }
 
@@ -314,7 +318,7 @@ namespace Platform
         /// </summary>
         private void InstantiateUninstantiatedEnemies(IPlatform platform)
         {
-            Debug.Log("[CombatActiveState] Checking for uninstantiated enemies");
+            _logger.Info(LogCategory.Platform,"[CombatActiveState] Checking for uninstantiated enemies");
 
             foreach (var content in platform.Contents)
             {
@@ -331,13 +335,13 @@ namespace Platform
         /// </summary>
         private void InstantiateEnemy(IPlatform platform, EnemyContent enemyContent)
         {
-            Debug.Log($"[CombatActiveState] Instantiating enemy {enemyContent.EnemyId} from NPC transition");
+            _logger.Info(LogCategory.Platform,$"[CombatActiveState] Instantiating enemy {enemyContent.EnemyId} from NPC transition");
 
             // Get enemy data
             var enemyData = _enemyDataProvider.GetEnemyData(enemyContent.EnemyId);
             if (enemyData == null)
             {
-                Debug.LogError($"[CombatActiveState] Enemy data not found for enemy {enemyContent.EnemyId}");
+                _logger.Error(LogCategory.Platform,$"[CombatActiveState] Enemy data not found for enemy {enemyContent.EnemyId}");
                 return;
             }
 
@@ -351,7 +355,7 @@ namespace Platform
                 enemyPrefab = Resources.Load<GameObject>("Prefabs/Enemy");
                 if (enemyPrefab == null)
                 {
-                    Debug.LogError($"[CombatActiveState] Enemy prefab not found for enemy {enemyContent.EnemyId}");
+                    _logger.Error(LogCategory.Platform,$"[CombatActiveState] Enemy prefab not found for enemy {enemyContent.EnemyId}");
                     return;
                 }
             }
@@ -375,13 +379,13 @@ namespace Platform
             {
                 rb = enemyGO.AddComponent<Rigidbody>();
                 rb.constraints = RigidbodyConstraints.FreezeRotation;
-                Debug.Log($"[CombatActiveState] Added Rigidbody to enemy {enemyContent.EnemyId} for gravity simulation");
+                _logger.Info(LogCategory.Platform,$"[CombatActiveState] Added Rigidbody to enemy {enemyContent.EnemyId} for gravity simulation");
             }
 
             // Store in content
             enemyContent.InstantiateEnemy(enemyPlayer, combatComponent);
 
-            Debug.Log($"[CombatActiveState] Enemy {enemyContent.EnemyId} instantiated on platform {platform.Id}");
+            _logger.Info(LogCategory.Platform,$"[CombatActiveState] Enemy {enemyContent.EnemyId} instantiated on platform {platform.Id}");
         }
 
         /// <summary>
@@ -390,7 +394,7 @@ namespace Platform
         /// </summary>
         private System.Collections.IEnumerator InitializeEnemiesForCombat(IPlatform platform)
         {
-            Debug.Log("[CombatActiveState] Initializing enemies for combat");
+            _logger.Info(LogCategory.Platform,"[CombatActiveState] Initializing enemies for combat");
 
             int enemyCount = 0;
             foreach (var content in platform.Contents)
@@ -409,16 +413,16 @@ namespace Platform
                         platform.Visual.Position);
 
                     enemyCount++;
-                    Debug.Log($"[CombatActiveState] Enemy {enemyContent.EnemyId} integrated into combat");
+                    _logger.Info(LogCategory.Platform,$"[CombatActiveState] Enemy {enemyContent.EnemyId} integrated into combat");
                 }
             }
 
-            Debug.Log($"[CombatActiveState] Enemy integration complete: {enemyCount} enemies added to combat");
+            _logger.Info(LogCategory.Platform,$"[CombatActiveState] Enemy integration complete: {enemyCount} enemies added to combat");
         }
 
         public override void OnExit(IPlatform platform)
         {
-            Debug.Log($"[CombatActiveState] Exiting combat active state for platform {platform.Id}");
+            _logger.Info(LogCategory.Platform,$"[CombatActiveState] Exiting combat active state for platform {platform.Id}");
 
             _combatActivityTracker?.SetCombatActive(false);
 
@@ -432,7 +436,7 @@ namespace Platform
             if (_aiTurnController != null)
             {
                 _aiTurnController.Dispose();
-                Debug.Log("[CombatActiveState] AITurnController disposed");
+                _logger.Info(LogCategory.Platform,"[CombatActiveState] AITurnController disposed");
             }
 
             // Disable input controller if provided
@@ -452,7 +456,7 @@ namespace Platform
                     if (movementController != null)
                     {
                         movementController.enabled = true;
-                        Debug.Log("[CombatActiveState] Re-enabled CharacterMovementController");
+                        _logger.Info(LogCategory.Platform,"[CombatActiveState] Re-enabled CharacterMovementController");
                     }
 
                     // Destroy CharacterCombatCoordinator
@@ -460,13 +464,13 @@ namespace Platform
                     if (coordinator != null)
                     {
                         Object.Destroy(coordinator);
-                        Debug.Log("[CombatActiveState] Destroyed CharacterCombatCoordinator");
+                        _logger.Info(LogCategory.Platform,"[CombatActiveState] Destroyed CharacterCombatCoordinator");
                     }
 
                     // Note: We don't destroy CharacterCombatComponent as it may be reused
                     // It will be reinitialized on next combat entry
 
-                    Debug.Log("[CombatActiveState] Character combat cleanup complete");
+                    _logger.Info(LogCategory.Platform,"[CombatActiveState] Character combat cleanup complete");
                 }
             }
 
@@ -485,14 +489,14 @@ namespace Platform
                             if (rb != null)
                             {
                                 rb.isKinematic = false;
-                                Debug.Log($"[CombatActiveState] Restored enemy {enemyContent.EnemyId} Rigidbody to non-kinematic");
+                                _logger.Info(LogCategory.Platform,$"[CombatActiveState] Restored enemy {enemyContent.EnemyId} Rigidbody to non-kinematic");
                             }
                         }
                         // If enemy is dead, destroy the GameObject
                         else
                         {
                             Object.Destroy(enemyComponent.gameObject);
-                            Debug.Log($"[CombatActiveState] Destroyed dead enemy {enemyContent.EnemyId}");
+                            _logger.Info(LogCategory.Platform,$"[CombatActiveState] Destroyed dead enemy {enemyContent.EnemyId}");
                         }
                     }
                 }
@@ -504,14 +508,14 @@ namespace Platform
                 _battlefieldView.Clear();
                 Object.Destroy(_battlefieldView);
                 _battlefieldView = null;
-                Debug.Log($"[CombatActiveState] Destroyed BattlefieldView for platform {_platform?.Id}");
+                _logger.Info(LogCategory.Platform,$"[CombatActiveState] Destroyed BattlefieldView for platform {_platform?.Id}");
             }
 
             // Cleanup combat when leaving platform
             if (_controller != null)
             {
                 _controller.CleanupBattlefield();
-                Debug.Log($"[CombatActiveState] Cleaned up battlefield for platform {_platform?.Id}");
+                _logger.Info(LogCategory.Platform,$"[CombatActiveState] Cleaned up battlefield for platform {_platform?.Id}");
             }
 
             // Revert to isometric camera with smooth transition

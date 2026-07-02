@@ -3,6 +3,7 @@ using System.Linq;
 using Combat.Core;
 using Combat.Data.Definitions;
 using Combat.Data.Factories;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Data.Providers
@@ -14,17 +15,20 @@ namespace Combat.Data.Providers
     {
         private readonly Dictionary<int, IAbility> _abilities;
         private readonly List<IAbility> _allAbilities;
+        private readonly IGameLogger _logger;
 
         public ScriptableObjectAbilityProvider(
             IReadOnlyList<AbilityDefinition> abilityDefinitions,
-            IAbilityFactory abilityFactory)
+            IAbilityFactory abilityFactory,
+            IGameLogger logger)
         {
+            _logger = logger;
             _abilities = new Dictionary<int, IAbility>();
             _allAbilities = new List<IAbility>();
 
             if (abilityDefinitions == null || abilityDefinitions.Count == 0)
             {
-                Debug.LogWarning("[ScriptableObjectAbilityProvider] No ability definitions provided");
+                _logger.Warning(LogCategory.Combat,"[ScriptableObjectAbilityProvider] No ability definitions provided");
                 return;
             }
 
@@ -37,7 +41,7 @@ namespace Combat.Data.Providers
 
                 if (_abilities.ContainsKey(ability.Id))
                 {
-                    Debug.LogWarning(
+                    _logger.Warning(LogCategory.Combat,
                         $"[ScriptableObjectAbilityProvider] Duplicate ability ID {ability.Id}: " +
                         $"'{ability.Name}' conflicts with existing ability");
                     continue;
@@ -53,7 +57,7 @@ namespace Combat.Data.Providers
             if (_abilities.TryGetValue(abilityId, out var ability))
                 return ability;
 
-            Debug.LogWarning($"[ScriptableObjectAbilityProvider] Ability {abilityId} not found");
+            _logger.Warning(LogCategory.Combat,$"[ScriptableObjectAbilityProvider] Ability {abilityId} not found");
             return null;
         }
 

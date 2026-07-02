@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using Core.Logging;
 using UnityEngine;
+using Zenject;
 
 namespace Character
 {
@@ -11,18 +13,19 @@ namespace Character
     {
         private Transform _playerCharacter;
         private readonly List<Transform> _allCharacters = new();
+        [Inject] private IGameLogger _logger;
         
         public void RegisterCharacter(Transform character)
         {
             if (character == null)
             {
-                Debug.LogWarning("[CharacterRegistry] Attempted to register null character");
+                _logger?.Warning(LogCategory.Character,"[CharacterRegistry] Attempted to register null character");
                 return;
             }
             
             if (_allCharacters.Contains(character))
             {
-                Debug.LogWarning($"[CharacterRegistry] Character {character.name} is already registered");
+                _logger?.Warning(LogCategory.Character,$"[CharacterRegistry] Character {character.name} is already registered");
                 return;
             }
             
@@ -32,11 +35,11 @@ namespace Character
             if (character.CompareTag("Player"))
             {
                 _playerCharacter = character;
-                Debug.Log($"[CharacterRegistry] Registered player character: {character.name}");
+                _logger?.Info(LogCategory.Character,$"[CharacterRegistry] Registered player character: {character.name}");
             }
             else
             {
-                Debug.Log($"[CharacterRegistry] Registered character: {character.name}");
+                _logger?.Info(LogCategory.Character,$"[CharacterRegistry] Registered character: {character.name}");
             }
         }
         
@@ -50,7 +53,7 @@ namespace Character
                 {
                     _playerCharacter = null;
                 }
-                Debug.Log($"[CharacterRegistry] Unregistered character: {character.name}");
+                _logger?.Info(LogCategory.Character,$"[CharacterRegistry] Unregistered character: {character.name}");
             }
         }
         
@@ -58,7 +61,7 @@ namespace Character
         {
             if (_playerCharacter == null)
             {
-                Debug.LogWarning("[CharacterRegistry] No player character registered");
+                _logger?.Warning(LogCategory.Character,"[CharacterRegistry] No player character registered");
             }
             return _playerCharacter;
         }

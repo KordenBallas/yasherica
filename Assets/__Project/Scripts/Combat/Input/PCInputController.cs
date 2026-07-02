@@ -1,6 +1,7 @@
 using System;
 using Combat.Config;
 using Combat.Input.Commands;
+using Core.Logging;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Zenject;
@@ -15,6 +16,7 @@ namespace Combat.Input
     public class PCInputController : MonoBehaviour, IInputController
     {
         [Inject] private InputConfig _config;
+        [Inject] private IGameLogger _logger;
         [SerializeField] private Camera _camera;
         [SerializeField] private Transform _characterTransform;
 
@@ -198,7 +200,7 @@ namespace Combat.Input
             _heldAbilityIndex = null;
             _aimAborted = false;
             _lastDirection = null;
-            Debug.Log($"[PCInputController] Enabled (Movement: {_config.movementModeKey})");
+            _logger.Info(LogCategory.Combat,$"[PCInputController] Enabled (Movement: {_config.movementModeKey})");
         }
 
         public void Disable()
@@ -211,13 +213,13 @@ namespace Combat.Input
             _heldAbilityIndex = null;
             _aimAborted = false;
             _lastDirection = null;
-            Debug.Log("[PCInputController] Disabled");
+            _logger.Info(LogCategory.Combat,"[PCInputController] Disabled");
         }
 
         public void SetCharacterTransform(Transform characterTransform)
         {
             _characterTransform = characterTransform;
-            Debug.Log($"[PCInputController] SetCharacterTransform: {characterTransform?.name ?? "null"}");
+            _logger.Info(LogCategory.Combat,$"[PCInputController] SetCharacterTransform: {characterTransform?.name ?? "null"}");
         }
 
         private bool IsKeyPressed(KeyCode keyCode)
@@ -313,7 +315,7 @@ namespace Combat.Input
                 case KeyCode.Alpha8: return Key.Digit8;
                 case KeyCode.Alpha9: return Key.Digit9;
                 default:
-                    Debug.LogWarning($"[PCInputController] KeyCode {keyCode} not mapped");
+                    _logger.Warning(LogCategory.Combat,$"[PCInputController] KeyCode {keyCode} not mapped");
                     return Key.None;
             }
         }

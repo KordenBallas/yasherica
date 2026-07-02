@@ -174,7 +174,7 @@ namespace Narrative.Encounter
         {
             if (index < 0 || index >= _hand.Count)
             {
-                _logger?.Warning($"[EncounterCardHandPresenter] Card index {index} is out of range.");
+                _logger?.Warning(LogCategory.Narrative,$"[EncounterCardHandPresenter] Card index {index} is out of range.");
                 return;
             }
 

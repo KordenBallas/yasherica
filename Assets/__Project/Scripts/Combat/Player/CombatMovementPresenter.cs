@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Combat.Battlefield;
 using Combat.Controller;
 using Combat.Core;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Player
@@ -17,6 +18,7 @@ namespace Combat.Player
         private readonly IBattlefield _battlefield;
         private readonly HexCellController _cellController;
         private readonly IUnitPosition _playerUnit;
+        private readonly IGameLogger _logger;
 
         private HexCoordinates? _hoveredCell;
         private readonly HashSet<HexCoordinates> _highlightedCells = new();
@@ -25,12 +27,14 @@ namespace Combat.Player
             ICombatController combatController,
             IBattlefield battlefield,
             HexCellController cellController,
-            IUnitPosition playerUnit)
+            IUnitPosition playerUnit,
+            IGameLogger logger)
         {
             _combatController = combatController;
             _battlefield = battlefield;
             _cellController = cellController;
             _playerUnit = playerUnit;
+            _logger = logger;
         }
         
         /// <summary>
@@ -73,37 +77,37 @@ namespace Combat.Player
         /// </summary>
         public void TryMoveToCell(HexCoordinates targetCell)
         {
-            Debug.Log($"[CombatMovementPresenter] TryMoveToCell called for {targetCell}");
+            _logger.Info(LogCategory.Combat,$"[CombatMovementPresenter] TryMoveToCell called for {targetCell}");
             
             if (!IsValidMove(targetCell))
             {
-                Debug.LogWarning($"[CombatMovementPresenter] Invalid move to {targetCell}");
+                _logger.Warning(LogCategory.Combat,$"[CombatMovementPresenter] Invalid move to {targetCell}");
                 return;
             }
             
-            Debug.Log($"[CombatMovementPresenter] Move validation passed for {targetCell}");
+            _logger.Info(LogCategory.Combat,$"[CombatMovementPresenter] Move validation passed for {targetCell}");
             
             // Create and submit move action
             var unit = _playerUnit as IUnit;
             
             if (unit == null)
             {
-                Debug.LogError($"[CombatMovementPresenter] Failed to cast _playerUnit to IUnit (type: {_playerUnit?.GetType().Name ?? "null"})");
+                _logger.Error(LogCategory.Combat,$"[CombatMovementPresenter] Failed to cast _playerUnit to IUnit (type: {_playerUnit?.GetType().Name ?? "null"})");
                 return;
             }
             
-            Debug.Log($"[CombatMovementPresenter] Creating MoveAction for unit {unit.Id} to {targetCell}");
+            _logger.Info(LogCategory.Combat,$"[CombatMovementPresenter] Creating MoveAction for unit {unit.Id} to {targetCell}");
             
             var moveAction = new MoveAction(unit.Owner, unit.Id, targetCell);
             var result = _combatController.ProcessAction(moveAction);
             
             if (!result.Success)
             {
-                Debug.LogWarning($"[CombatMovementPresenter] Move failed: {result.ErrorMessage}");
+                _logger.Warning(LogCategory.Combat,$"[CombatMovementPresenter] Move failed: {result.ErrorMessage}");
             }
             else
             {
-                Debug.Log($"[CombatMovementPresenter] Move successful to {targetCell}");
+                _logger.Info(LogCategory.Combat,$"[CombatMovementPresenter] Move successful to {targetCell}");
             }
         }
         
@@ -114,7 +118,7 @@ namespace Combat.Player
             
             if (!inBoundary)
             {
-                Debug.Log($"[CombatMovementPresenter] IsValidMove: {target} is OUT of boundary");
+                _logger.Info(LogCategory.Combat,$"[CombatMovementPresenter] IsValidMove: {target} is OUT of boundary");
                 return false;
             }
             
@@ -122,7 +126,7 @@ namespace Combat.Player
             int distance = CalculateDistance(_playerUnit.Position, target);
             bool isAdjacent = distance == 1;
             
-            Debug.Log($"[CombatMovementPresenter] IsValidMove: {target} - InBoundary: {inBoundary}, Distance: {distance}, IsAdjacent: {isAdjacent}, CurrentPos: {_playerUnit.Position}");
+            _logger.Info(LogCategory.Combat,$"[CombatMovementPresenter] IsValidMove: {target} - InBoundary: {inBoundary}, Distance: {distance}, IsAdjacent: {isAdjacent}, CurrentPos: {_playerUnit.Position}");
             
             return isAdjacent;
         }

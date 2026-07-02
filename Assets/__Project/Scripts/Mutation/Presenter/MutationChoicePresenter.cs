@@ -87,7 +87,7 @@ namespace Mutation.Presenter
             {
                 // Ready, but no unequipped part scores positively against the feed tally. Keep
                 // feeding; do not reset.
-                _logger.Info(
+                _logger.Info(LogCategory.Mutation,
                     "[MutationChoicePresenter] Ready to mutate but no mutation options score against " +
                     "the current feed tally.");
                 return;
@@ -110,7 +110,7 @@ namespace Mutation.Presenter
         {
             if (index < 0 || index >= _offered.Count)
             {
-                _logger.Warning($"[MutationChoicePresenter] Choice index {index} is out of range.");
+                _logger.Warning(LogCategory.Mutation,$"[MutationChoicePresenter] Choice index {index} is out of range.");
                 return;
             }
 
@@ -118,7 +118,7 @@ namespace Mutation.Presenter
             if (!_character.SwapPart(option.SlotId, option.PartId))
             {
                 // Keep the choice up so the player can retry once the swap can be applied.
-                _logger.Error(
+                _logger.Error(LogCategory.Mutation,
                     $"[MutationChoicePresenter] Failed to swap part '{option.PartId}' into slot " +
                     $"'{option.SlotId}'.");
                 return;

@@ -48,13 +48,13 @@ namespace Inventory.Data
 
             if (definition.Output == null || string.IsNullOrEmpty(definition.Output.Id))
             {
-                _logger.Warning($"[RecipeBookBuilder] Recipe '{definition.name}' skipped: missing output artifact.");
+                _logger.Warning(LogCategory.Inventory,$"[RecipeBookBuilder] Recipe '{definition.name}' skipped: missing output artifact.");
                 return false;
             }
 
             if (definition.Inputs == null || definition.Inputs.Count == 0)
             {
-                _logger.Warning($"[RecipeBookBuilder] Recipe '{definition.name}' skipped: no input artifacts.");
+                _logger.Warning(LogCategory.Inventory,$"[RecipeBookBuilder] Recipe '{definition.name}' skipped: no input artifacts.");
                 return false;
             }
 
@@ -63,7 +63,7 @@ namespace Inventory.Data
             {
                 if (input == null || string.IsNullOrEmpty(input.Id))
                 {
-                    _logger.Warning($"[RecipeBookBuilder] Recipe '{definition.name}' skipped: invalid input artifact reference.");
+                    _logger.Warning(LogCategory.Inventory,$"[RecipeBookBuilder] Recipe '{definition.name}' skipped: invalid input artifact reference.");
                     return false;
                 }
 

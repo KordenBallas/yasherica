@@ -89,7 +89,7 @@ namespace Narrative.Director.Core
             var platforms = new List<PlannedPlatform>(_settings.WindowSize);
             if (facts == null)
             {
-                _logger?.Warning("[RunWindowPlanner] Null fact store - emitting an empty window.");
+                _logger?.Warning(LogCategory.Narrative,"[RunWindowPlanner] Null fact store - emitting an empty window.");
                 return PadAndBuild(windowIndex, platforms);
             }
 

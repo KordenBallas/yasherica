@@ -90,7 +90,7 @@ namespace Inventory.Presenter
 
             if (!_session.TrySelect(instanceId))
             {
-                _logger.Info($"[FeedingPresenter] Selection of instance {instanceId} rejected.");
+                _logger.Info(LogCategory.Inventory,$"[FeedingPresenter] Selection of instance {instanceId} rejected.");
             }
         }
 
@@ -98,7 +98,7 @@ namespace Inventory.Presenter
         {
             if (!_session.TryUnselect(instanceId))
             {
-                _logger.Info($"[FeedingPresenter] Unselecting of instance {instanceId} rejected.");
+                _logger.Info(LogCategory.Inventory,$"[FeedingPresenter] Unselecting of instance {instanceId} rejected.");
             }
         }
 
@@ -187,7 +187,7 @@ namespace Inventory.Presenter
                 return ArtifactArchetypeMapper.ToProfile(definition.ArchetypeWeights);
             }
 
-            _logger.Warning($"[FeedingPresenter] No artifact definition for id '{definitionId}'.");
+            _logger.Warning(LogCategory.Inventory,$"[FeedingPresenter] No artifact definition for id '{definitionId}'.");
             return ArtifactArchetypeProfile.Empty;
         }
 
@@ -198,7 +198,7 @@ namespace Inventory.Presenter
                 return new ArtifactViewData(instance.InstanceId, definition.Icon, definition.BubbleTint);
             }
 
-            _logger.Warning($"[FeedingPresenter] No artifact definition for id '{instance.DefinitionId}'.");
+            _logger.Warning(LogCategory.Inventory,$"[FeedingPresenter] No artifact definition for id '{instance.DefinitionId}'.");
             return new ArtifactViewData(instance.InstanceId, null, Color.white);
         }
     }

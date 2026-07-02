@@ -43,7 +43,7 @@ namespace Combat.Integration
 
                 if (!_partCatalog.TryGet(partId, out var part))
                 {
-                    _logger?.Warning($"[PartAbilityResolver] Unknown part id '{partId}'; no abilities granted.");
+                    _logger?.Warning(LogCategory.Combat,$"[PartAbilityResolver] Unknown part id '{partId}'; no abilities granted.");
                     continue;
                 }
 

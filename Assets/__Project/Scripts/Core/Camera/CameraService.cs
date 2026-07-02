@@ -1,6 +1,8 @@
 using System.Collections;
+using Core.Logging;
 using UnityEngine;
 using Unity.Cinemachine;
+using Zenject;
 
 namespace Core.Camera
 {
@@ -22,6 +24,8 @@ namespace Core.Camera
         [Header("Output")]
         [Tooltip("The camera the Cinemachine brain renders through (Main Camera)")]
         [SerializeField] private Transform _outputCameraTransform;
+
+        [Inject] private IGameLogger _logger;
 
         private const int ISOMETRIC_PRIORITY_ACTIVE = 10;
         private const int ISOMETRIC_PRIORITY_INACTIVE = 0;
@@ -51,7 +55,7 @@ namespace Core.Camera
             {
                 if (_outputCameraTransform == null)
                 {
-                    Debug.LogError("[CameraService] Output camera transform is not assigned!");
+                    _logger?.Error(LogCategory.Camera,"[CameraService] Output camera transform is not assigned!");
                     return Vector3.zero;
                 }
 
@@ -80,7 +84,7 @@ namespace Core.Camera
 
             if (_config == null)
             {
-                Debug.LogWarning("[CameraService] CameraConfig is not assigned. Using default values.");
+                _logger?.Warning(LogCategory.Camera,"[CameraService] CameraConfig is not assigned. Using default values.");
             }
         }
         
@@ -88,7 +92,7 @@ namespace Core.Camera
         {
             if (_combatCamera == null)
             {
-                Debug.LogError("[CameraService] Combat camera is not assigned!");
+                _logger?.Error(LogCategory.Camera,"[CameraService] Combat camera is not assigned!");
                 return;
             }
             
@@ -114,14 +118,14 @@ namespace Core.Camera
             }
             _rotationTransitionCoroutine = StartCoroutine(TransitionRotation(_combatCamera, targetRotation, duration));
             
-            Debug.Log($"[CameraService] Switching to combat camera (rotation: {targetRotation}, time: {duration}s)");
+            _logger?.Info(LogCategory.Camera,$"[CameraService] Switching to combat camera (rotation: {targetRotation}, time: {duration}s)");
         }
         
         public void SwitchToIsometricCamera(float transitionTime = -1f)
         {
             if (_isometricCamera == null)
             {
-                Debug.LogError("[CameraService] Isometric camera is not assigned!");
+                _logger?.Error(LogCategory.Camera,"[CameraService] Isometric camera is not assigned!");
                 return;
             }
             
@@ -147,7 +151,7 @@ namespace Core.Camera
             }
             _rotationTransitionCoroutine = StartCoroutine(TransitionRotation(_isometricCamera, targetRotation, duration));
             
-            Debug.Log($"[CameraService] Switching to isometric camera (rotation: {targetRotation}, time: {duration}s)");
+            _logger?.Info(LogCategory.Camera,$"[CameraService] Switching to isometric camera (rotation: {targetRotation}, time: {duration}s)");
         }
         
         public void SetBellyAnchor(Transform anchor)
@@ -159,13 +163,13 @@ namespace Core.Camera
         {
             if (_bellyCamera == null)
             {
-                Debug.LogError("[CameraService] Belly camera is not assigned!");
+                _logger?.Error(LogCategory.Camera,"[CameraService] Belly camera is not assigned!");
                 return;
             }
 
             if (_bellyAnchor == null)
             {
-                Debug.LogError("[CameraService] Belly camera anchor is not registered!");
+                _logger?.Error(LogCategory.Camera,"[CameraService] Belly camera anchor is not registered!");
                 return;
             }
 
@@ -192,7 +196,7 @@ namespace Core.Camera
             float duration = transitionTime >= 0 ? transitionTime : _config?.TransitionTime ?? 2f;
             StartBellyFollow(duration);
 
-            Debug.Log($"[CameraService] Switching to belly camera (time: {duration}s)");
+            _logger?.Info(LogCategory.Camera,$"[CameraService] Switching to belly camera (time: {duration}s)");
         }
 
         public void SwitchToPreviousCamera(float transitionTime = -1f)
@@ -289,7 +293,7 @@ namespace Core.Camera
             _isTransitioning = false;
             _rotationTransitionCoroutine = null;
             
-            Debug.Log($"[CameraService] Camera rotation transition completed to {targetRotation}");
+            _logger?.Info(LogCategory.Camera,$"[CameraService] Camera rotation transition completed to {targetRotation}");
         }
     }
 }

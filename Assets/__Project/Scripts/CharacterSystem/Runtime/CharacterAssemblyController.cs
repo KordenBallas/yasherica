@@ -55,13 +55,13 @@ namespace CharacterSystem.Runtime
         {
             if (!_partCatalog.TryGet(partId, out var part))
             {
-                _logger.Error($"[CharacterAssembly] Unknown part id '{partId}'.");
+                _logger.Error(LogCategory.CharacterSystem,$"[CharacterAssembly] Unknown part id '{partId}'.");
                 return false;
             }
 
             if (part.Slot == null || !string.Equals(part.Slot.Id, slotId, StringComparison.Ordinal))
             {
-                _logger.Error($"[CharacterAssembly] Part '{partId}' belongs to slot '{part.Slot?.Id}', not '{slotId}'.");
+                _logger.Error(LogCategory.CharacterSystem,$"[CharacterAssembly] Part '{partId}' belongs to slot '{part.Slot?.Id}', not '{slotId}'.");
                 return false;
             }
 
@@ -72,7 +72,7 @@ namespace CharacterSystem.Runtime
         {
             if (part == null)
             {
-                _logger.Error("[CharacterAssembly] Cannot swap a null part definition.");
+                _logger.Error(LogCategory.CharacterSystem,"[CharacterAssembly] Cannot swap a null part definition.");
                 return false;
             }
 
@@ -100,7 +100,7 @@ namespace CharacterSystem.Runtime
         {
             if (!_socketCatalog.Contains(socketId))
             {
-                _logger.Error($"[CharacterAssembly] Socket '{socketId}' is not available on this character.");
+                _logger.Error(LogCategory.CharacterSystem,$"[CharacterAssembly] Socket '{socketId}' is not available on this character.");
                 return null;
             }
 
@@ -111,13 +111,13 @@ namespace CharacterSystem.Runtime
         {
             if (attachment == null)
             {
-                _logger.Error("[CharacterAssembly] Cannot attach a null attachment definition.");
+                _logger.Error(LogCategory.CharacterSystem,"[CharacterAssembly] Cannot attach a null attachment definition.");
                 return null;
             }
 
             if (!_socketCatalog.Contains(attachment.SocketId))
             {
-                _logger.Error($"[CharacterAssembly] Attachment '{attachment.Id}' targets socket '{attachment.SocketId}' which is not available on this character.");
+                _logger.Error(LogCategory.CharacterSystem,$"[CharacterAssembly] Attachment '{attachment.Id}' targets socket '{attachment.SocketId}' which is not available on this character.");
                 return null;
             }
 
@@ -165,11 +165,11 @@ namespace CharacterSystem.Runtime
                 if (issue.Severity == ValidationSeverity.Error)
                 {
                     hasErrors = true;
-                    _logger.Error($"[CharacterAssembly] {issue}");
+                    _logger.Error(LogCategory.CharacterSystem,$"[CharacterAssembly] {issue}");
                 }
                 else
                 {
-                    _logger.Warning($"[CharacterAssembly] {issue}");
+                    _logger.Warning(LogCategory.CharacterSystem,$"[CharacterAssembly] {issue}");
                 }
             }
 

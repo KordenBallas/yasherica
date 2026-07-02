@@ -47,6 +47,7 @@ namespace Loot.View
             if (!_artifactCatalog.TryGet(loot.ArtifactId, out var definition))
             {
                 _logger.Warning(
+                    LogCategory.Loot,
                     $"[WorldArtifactSpawner] Unknown artifact id '{loot.ArtifactId}' - pickup skipped");
                 return;
             }
@@ -59,7 +60,7 @@ namespace Loot.View
             var presenter = new WorldArtifactPresenter(
                 view, loot, _inventory, _capacityPolicy, _characterRegistry, _logger, onCollected);
 
-            _logger.Info($"[WorldArtifactSpawner] Spawned '{loot.ArtifactId}' x{loot.Quantity} at {position}");
+            _logger.Info(LogCategory.Loot, $"[WorldArtifactSpawner] Spawned '{loot.ArtifactId}' x{loot.Quantity} at {position}");
         }
     }
 }

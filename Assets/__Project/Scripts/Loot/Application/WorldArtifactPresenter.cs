@@ -65,7 +65,7 @@ namespace Loot.Application
             {
                 // Unreachable while the inventory is unlimited; kept as the hook
                 // for a future bounded inventory.
-                _logger.Info($"[WorldArtifactPresenter] Inventory cannot accept '{_loot.ArtifactId}'");
+                _logger.Info(LogCategory.Loot, $"[WorldArtifactPresenter] Inventory cannot accept '{_loot.ArtifactId}'");
                 _view.PlayRejectFeedback();
                 _view.SetInteractable(true);
                 return;
@@ -89,7 +89,7 @@ namespace Loot.Application
                 _inventory.Add(_loot.ArtifactId);
             }
 
-            _logger.Info($"[WorldArtifactPresenter] Picked up {_loot.Quantity}x '{_loot.ArtifactId}'");
+            _logger.Info(LogCategory.Loot, $"[WorldArtifactPresenter] Picked up {_loot.Quantity}x '{_loot.ArtifactId}'");
             _onCollected?.Invoke();
             _view.DestroySelf();
         }

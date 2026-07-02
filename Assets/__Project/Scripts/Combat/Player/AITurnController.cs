@@ -1,7 +1,9 @@
 using System.Collections;
 using Combat.Controller;
 using Combat.Core;
+using Core.Logging;
 using UnityEngine;
+using Zenject;
 
 namespace Combat.Player
 {
@@ -14,6 +16,7 @@ namespace Combat.Player
     {
         private ICombatController _combatController;
         private MonoBehaviour _coroutineRunner;
+        [Inject] private IGameLogger _logger;
 
         public AITurnController()
         {
@@ -28,7 +31,7 @@ namespace Combat.Player
             _combatController = combatController;
             _coroutineRunner = coroutineRunner;
             _combatController.OnTurnStarted += OnTurnStarted;
-            Debug.Log("[AITurnController] Initialized and subscribed to OnTurnStarted");
+            _logger.Info(LogCategory.Combat,"[AITurnController] Initialized and subscribed to OnTurnStarted");
         }
 
         /// <summary>
@@ -39,50 +42,50 @@ namespace Combat.Player
             if (_combatController != null)
             {
                 _combatController.OnTurnStarted -= OnTurnStarted;
-                Debug.Log("[AITurnController] Disposed and unsubscribed from OnTurnStarted");
+                _logger.Info(LogCategory.Combat,"[AITurnController] Disposed and unsubscribed from OnTurnStarted");
             }
         }
 
         private void OnTurnStarted(IPlayer player)
         {
-            Debug.Log($"[AITurnController] OnTurnStarted - Player: {player.Name} (Type: {player.Type})");
+            _logger.Info(LogCategory.Combat,$"[AITurnController] OnTurnStarted - Player: {player.Name} (Type: {player.Type})");
 
             if (player.Type == PlayerType.AI)
             {
-                Debug.Log($"[AITurnController] AI player's turn - starting ProcessAITurn coroutine");
+                _logger.Info(LogCategory.Combat,$"[AITurnController] AI player's turn - starting ProcessAITurn coroutine");
                 if (_coroutineRunner != null)
                 {
                     _coroutineRunner.StartCoroutine(ProcessAITurn(player));
                 }
                 else
                 {
-                    Debug.LogError("[AITurnController] Cannot process AI turn - no coroutine runner available!");
+                    _logger.Error(LogCategory.Combat,"[AITurnController] Cannot process AI turn - no coroutine runner available!");
                 }
             }
             else
             {
-                Debug.Log($"[AITurnController] Human player's turn - no AI processing needed");
+                _logger.Info(LogCategory.Combat,$"[AITurnController] Human player's turn - no AI processing needed");
             }
         }
 
         private IEnumerator ProcessAITurn(IPlayer aiPlayer)
         {
-            Debug.Log($"[AITurnController] ProcessAITurn started for {aiPlayer.Name}");
+            _logger.Info(LogCategory.Combat,$"[AITurnController] ProcessAITurn started for {aiPlayer.Name}");
 
             var ai = aiPlayer as AIPlayer;
             if (ai == null)
             {
-                Debug.LogError($"[AITurnController] Player {aiPlayer.Name} is not an AIPlayer!");
+                _logger.Error(LogCategory.Combat,$"[AITurnController] Player {aiPlayer.Name} is not an AIPlayer!");
                 yield break;
             }
 
             // Get all active units for this AI player
             var activeUnits = _combatController.CombatState.GetActiveUnitsByPlayer(aiPlayer);
-            Debug.Log($"[AITurnController] AI has {activeUnits.Count} active unit(s)");
+            _logger.Info(LogCategory.Combat,$"[AITurnController] AI has {activeUnits.Count} active unit(s)");
 
             foreach (var unit in activeUnits)
             {
-                Debug.Log($"[AITurnController] Processing AI unit {unit.Id}");
+                _logger.Info(LogCategory.Combat,$"[AITurnController] Processing AI unit {unit.Id}");
 
                 // Wait a bit for visual feedback
                 yield return new WaitForSeconds(0.5f);
@@ -92,30 +95,30 @@ namespace Combat.Player
 
                 if (action != null)
                 {
-                    Debug.Log($"[AITurnController] AI decided action: {action.Type} for unit {unit.Id}");
+                    _logger.Info(LogCategory.Combat,$"[AITurnController] AI decided action: {action.Type} for unit {unit.Id}");
 
                     // Execute the action
                     var result = _combatController.ProcessAction(action);
 
                     if (result.Success)
                     {
-                        Debug.Log($"[AITurnController] AI action executed successfully");
+                        _logger.Info(LogCategory.Combat,$"[AITurnController] AI action executed successfully");
                     }
                     else
                     {
-                        Debug.LogWarning($"[AITurnController] AI action failed: {result.ErrorMessage}");
+                        _logger.Warning(LogCategory.Combat,$"[AITurnController] AI action failed: {result.ErrorMessage}");
                     }
                 }
                 else
                 {
-                    Debug.LogWarning($"[AITurnController] AI returned null action for unit {unit.Id}");
+                    _logger.Warning(LogCategory.Combat,$"[AITurnController] AI returned null action for unit {unit.Id}");
                 }
 
                 // Small delay between units
                 yield return new WaitForSeconds(0.3f);
             }
 
-            Debug.Log($"[AITurnController] ProcessAITurn completed for {aiPlayer.Name}");
+            _logger.Info(LogCategory.Combat,$"[AITurnController] ProcessAITurn completed for {aiPlayer.Name}");
         }
     }
 }

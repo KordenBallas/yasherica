@@ -8,6 +8,7 @@ using Combat.Data.Definitions;
 using Combat.Data.Providers;
 using Combat.Enemy;
 using Combat.Player;
+using Core.Logging;
 using UnityEngine;
 using Zenject;
 
@@ -24,6 +25,7 @@ namespace Combat.Integration
         private readonly CombatEntryAnimator _entryAnimator;
         private readonly IEnemyDataProvider _enemyDataProvider;
         private readonly DiContainer _container;
+        private readonly IGameLogger _logger;
 
         private static int _nextPlayerId = 100;  // Start enemy player IDs at 100
         private static int _nextUnitId = 2000;   // Start enemy unit IDs at 2000
@@ -31,11 +33,13 @@ namespace Combat.Integration
         public EnemyCombatIntegrator(
             CombatEntryAnimator entryAnimator,
             IEnemyDataProvider enemyDataProvider,
-            DiContainer container)
+            DiContainer container,
+            IGameLogger logger)
         {
             _entryAnimator = entryAnimator;
             _enemyDataProvider = enemyDataProvider;
             _container = container;
+            _logger = logger;
         }
 
         /// <summary>
@@ -63,7 +67,7 @@ namespace Combat.Integration
             string aiDescription = aiProfile != null
                 ? $"{enemyData.AIType} (Configurable)"
                 : enemyData.AIType.ToString();
-            Debug.Log($"[EnemyCombatIntegrator] Created AIPlayer: ID={playerId}, Name={enemyData.Name}, AI={aiDescription}");
+            _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Created AIPlayer: ID={playerId}, Name={enemyData.Name}, AI={aiDescription}");
 
             return player;
         }
@@ -76,15 +80,15 @@ namespace Combat.Integration
             // If we have an AI profile, use ConfigurableTacticalAI for Tactical personality
             if (profile != null && personality == AIPersonality.Tactical)
             {
-                return new ConfigurableTacticalAI(profile);
+                return new ConfigurableTacticalAI(profile, logger: _logger);
             }
 
             // Fallback to standard AI implementations
             return personality switch
             {
-                AIPersonality.SimpleRandom => new SimpleRandomAI(),
-                AIPersonality.Tactical => new TacticalAI(),
-                _ => new SimpleRandomAI()
+                AIPersonality.SimpleRandom => new SimpleRandomAI(logger: _logger),
+                AIPersonality.Tactical => new TacticalAI(logger: _logger),
+                _ => new SimpleRandomAI(logger: _logger)
             };
         }
 
@@ -101,36 +105,36 @@ namespace Combat.Integration
             ICombatController combatController,
             Vector3 platformCenter)
         {
-            Debug.Log($"[EnemyCombatIntegrator] Starting integration for enemy {enemyId}");
+            _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Starting integration for enemy {enemyId}");
 
             // Get enemy data
             EnemyData enemyData = _enemyDataProvider.GetEnemyData(enemyId);
 
             // Find closest battlefield cell to platform center
             HexCoordinates startCell = _entryAnimator.FindClosestCell(platformCenter, battlefield);
-            Debug.Log($"[EnemyCombatIntegrator] Found closest cell for enemy: {startCell}");
+            _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Found closest cell for enemy: {startCell}");
 
             // Reposition existing enemy GameObject to battlefield cell
             Vector3 worldPosition = battlefield.HexToWorld(startCell);
             existingComponent.transform.position = worldPosition;
-            Debug.Log($"[EnemyCombatIntegrator] Repositioned enemy {enemyId} to {worldPosition}");
+            _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Repositioned enemy {enemyId} to {worldPosition}");
 
             // Make Rigidbody kinematic during combat to prevent physics interference
             var rb = existingComponent.GetComponent<Rigidbody>();
             if (rb != null)
             {
                 rb.isKinematic = true;
-                Debug.Log($"[EnemyCombatIntegrator] Set enemy {enemyId} Rigidbody to kinematic for combat");
+                _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Set enemy {enemyId} Rigidbody to kinematic for combat");
             }
 
             // Initialize component for combat
             int unitId = _nextUnitId++;
             existingComponent.InitializeForCombat(unitId, enemyPlayer, startCell, combatController, enemyData);
-            Debug.Log($"[EnemyCombatIntegrator] Initialized EnemyCombatComponent for combat");
+            _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Initialized EnemyCombatComponent for combat");
 
             // Add internal Unit to combat state (NOT the MonoBehaviour component)
             combatController.AddUnit(existingComponent.InternalUnit);
-            Debug.Log($"[EnemyCombatIntegrator] Enemy {enemyId} integrated: UnitID={unitId}, Cell={startCell}, Position={worldPosition}");
+            _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Enemy {enemyId} integrated: UnitID={unitId}, Cell={startCell}, Position={worldPosition}");
 
             yield return null;
         }

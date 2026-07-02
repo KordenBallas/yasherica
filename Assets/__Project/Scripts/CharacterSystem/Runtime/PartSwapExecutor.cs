@@ -25,7 +25,7 @@ namespace CharacterSystem.Runtime
         {
             if (partPrefab == null)
             {
-                _logger.Error($"[PartSwapExecutor] Part '{part.PartId}' has no prefab assigned.");
+                _logger.Error(LogCategory.CharacterSystem,$"[PartSwapExecutor] Part '{part.PartId}' has no prefab assigned.");
                 return null;
             }
 
@@ -34,7 +34,7 @@ namespace CharacterSystem.Runtime
             {
                 if (!_rig.TryGetBone(part.BoneNames[i], out bones[i]))
                 {
-                    _logger.Error(
+                    _logger.Error(LogCategory.CharacterSystem,
                         $"[PartSwapExecutor] Part '{part.PartId}' needs bone '{part.BoneNames[i]}' which is missing on the rig. Swap aborted.");
                     return null;
                 }
@@ -49,7 +49,7 @@ namespace CharacterSystem.Runtime
             var renderer = instance.GetComponentInChildren<SkinnedMeshRenderer>();
             if (renderer == null)
             {
-                _logger.Error($"[PartSwapExecutor] Part prefab '{partPrefab.name}' contains no SkinnedMeshRenderer. Swap aborted.");
+                _logger.Error(LogCategory.CharacterSystem,$"[PartSwapExecutor] Part prefab '{partPrefab.name}' contains no SkinnedMeshRenderer. Swap aborted.");
                 Object.Destroy(instance);
                 return null;
             }

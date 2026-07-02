@@ -11,6 +11,7 @@ using Combat.Data.Definitions;
 using Combat.Data.Factories;
 using Combat.Input;
 using Combat.Player;
+using Core.Logging;
 using UnityEngine;
 using Zenject;
 
@@ -31,6 +32,7 @@ namespace Combat.Integration
         private readonly IStatusEffectFactory _statusEffectFactory;
         private readonly IPartAbilityResolver _partAbilityResolver;
         private readonly HeroDefinition _heroDefinition;
+        private readonly IGameLogger _logger;
         private List<AbilityDefinition> _characterAbilityDefinitions;
 
         // Passives are standing modifiers that last the whole combat: applied with an
@@ -46,7 +48,8 @@ namespace Combat.Integration
             IAbilityFactory abilityFactory,
             IStatusEffectFactory statusEffectFactory,
             IPartAbilityResolver partAbilityResolver,
-            HeroDefinition heroDefinition)
+            HeroDefinition heroDefinition,
+            IGameLogger logger)
         {
             _characterRegistry = characterRegistry;
             _entryAnimator = entryAnimator;
@@ -57,6 +60,7 @@ namespace Combat.Integration
             _statusEffectFactory = statusEffectFactory;
             _partAbilityResolver = partAbilityResolver;
             _heroDefinition = heroDefinition;
+            _logger = logger;
         }
         
         /// <summary>
@@ -72,11 +76,11 @@ namespace Combat.Integration
             Transform character = _characterRegistry.GetPlayerCharacter();
             if (character == null)
             {
-                Debug.LogError("[CharacterCombatInitializer] No player character found in registry");
+                _logger.Error(LogCategory.Combat,"[CharacterCombatInitializer] No player character found in registry");
                 yield break;
             }
             
-            Debug.Log($"[CharacterCombatInitializer] Initializing character {character.name} for combat");
+            _logger.Info(LogCategory.Combat,$"[CharacterCombatInitializer] Initializing character {character.name} for combat");
             
             // Find closest battlefield cell
             HexCoordinates startCell = _entryAnimator.FindClosestCell(character.position, battlefield);
@@ -89,7 +93,7 @@ namespace Combat.Integration
             if (combatComponent == null)
             {
                 combatComponent = character.gameObject.AddComponent<CharacterCombatComponent>();
-                Debug.Log("[CharacterCombatInitializer] Added CharacterCombatComponent");
+                _logger.Info(LogCategory.Combat,"[CharacterCombatInitializer] Added CharacterCombatComponent");
             }
             
             // Build the combat ability set from the player's equipped body parts: parts are the
@@ -113,7 +117,7 @@ namespace Combat.Integration
 
             if (abilityInstances.Count == 0)
             {
-                Debug.LogWarning("[CharacterCombatInitializer] No part-granted active abilities found; falling back to HeroDefinition abilities.");
+                _logger.Warning(LogCategory.Combat,"[CharacterCombatInitializer] No part-granted active abilities found; falling back to HeroDefinition abilities.");
                 if (_heroDefinition != null && _heroDefinition.Abilities != null)
                 {
                     foreach (var abilityDef in _heroDefinition.Abilities)
@@ -135,25 +139,25 @@ namespace Combat.Integration
                 passiveEffects.Add(_statusEffectFactory.CreateStatusEffect(passive.Modifier, PermanentEffectDuration));
             }
 
-            Debug.Log($"[CharacterCombatInitializer] Combat ability set: {abilityInstances.Count} active, {passiveEffects.Count} passive");
+            _logger.Info(LogCategory.Combat,$"[CharacterCombatInitializer] Combat ability set: {abilityInstances.Count} active, {passiveEffects.Count} passive");
 
             // Initialize component with abilities and standing passive modifiers
             int unitId = GenerateUnitId();
             int maxHP = _heroDefinition?.MaxHP ?? 100;
             combatComponent.InitializeForCombat(unitId, player, startCell, combatController, maxHP, abilityInstances, passiveEffects);
 
-            Debug.Log($"[CharacterCombatInitializer] Character initialized: ID={unitId}, Cell={startCell}, MaxHP={maxHP}");
+            _logger.Info(LogCategory.Combat,$"[CharacterCombatInitializer] Character initialized: ID={unitId}, Cell={startCell}, MaxHP={maxHP}");
 
             // Add internal Unit to combat state (NOT the MonoBehaviour component)
             combatController.AddUnit(combatComponent.InternalUnit);
-            Debug.Log($"[CharacterCombatInitializer] Added internal Unit (not component) to combat state");
+            _logger.Info(LogCategory.Combat,$"[CharacterCombatInitializer] Added internal Unit (not component) to combat state");
             
             // Disable CharacterMovementController
             var movementController = character.GetComponent<CharacterMovementController>();
             if (movementController != null)
             {
                 movementController.enabled = false;
-                Debug.Log("[CharacterCombatInitializer] Disabled CharacterMovementController");
+                _logger.Info(LogCategory.Combat,"[CharacterCombatInitializer] Disabled CharacterMovementController");
             }
             
             // Attach and initialize CharacterCombatCoordinator
@@ -161,7 +165,7 @@ namespace Combat.Integration
             if (coordinator == null)
             {
                 coordinator = character.gameObject.AddComponent<CharacterCombatCoordinator>();
-                Debug.Log("[CharacterCombatInitializer] Added CharacterCombatCoordinator component");
+                _logger.Info(LogCategory.Combat,"[CharacterCombatInitializer] Added CharacterCombatCoordinator component");
             }
             
             // Inject global dependencies (those with [Inject] attributes)
@@ -169,35 +173,35 @@ namespace Combat.Integration
             
             // Initialize coordinator with combat component and platform-scoped dependencies
             coordinator.Initialize(combatComponent, combatController, battlefield);
-            Debug.Log("[CharacterCombatInitializer] CharacterCombatCoordinator initialized and ready");
+            _logger.Info(LogCategory.Combat,"[CharacterCombatInitializer] CharacterCombatCoordinator initialized and ready");
             
             // Set character transform on input controller for direction calculations
             if (_inputController is Input.PCInputController pcInput)
             {
                 pcInput.SetCharacterTransform(character);
-                Debug.Log("[CharacterCombatInitializer] Character transform set on PCInputController");
+                _logger.Info(LogCategory.Combat,"[CharacterCombatInitializer] Character transform set on PCInputController");
             }
             else
             {
-                Debug.LogWarning($"[CharacterCombatInitializer] Input controller is not PCInputController, type: {_inputController?.GetType().Name ?? "null"}");
+                _logger.Warning(LogCategory.Combat,$"[CharacterCombatInitializer] Input controller is not PCInputController, type: {_inputController?.GetType().Name ?? "null"}");
             }
             
             // Verify combat setup
-            Debug.Log($"[CharacterCombatInitializer] Combat setup complete for {character.name}");
-            Debug.Log($"[CharacterCombatInitializer] Unit ID: {combatComponent.Id}, Owner: {combatComponent.Owner?.Id ?? -1}, Position: {combatComponent.Position}");
+            _logger.Info(LogCategory.Combat,$"[CharacterCombatInitializer] Combat setup complete for {character.name}");
+            _logger.Info(LogCategory.Combat,$"[CharacterCombatInitializer] Unit ID: {combatComponent.Id}, Owner: {combatComponent.Owner?.Id ?? -1}, Position: {combatComponent.Position}");
             
             if (combatController?.TurnManager != null)
             {
                 var currentPlayer = combatController.TurnManager.CurrentPlayer;
-                Debug.Log($"[CharacterCombatInitializer] Turn System Status:");
-                Debug.Log($"  - Current Player ID: {currentPlayer?.Id ?? -1}");
-                Debug.Log($"  - Character Owner ID: {combatComponent.Owner?.Id ?? -1}");
-                Debug.Log($"  - Is Player's Turn: {currentPlayer?.Id == combatComponent.Owner?.Id}");
-                Debug.Log($"  - Turn Number: {combatController.TurnManager.CurrentTurnNumber}");
+                _logger.Info(LogCategory.Combat,$"[CharacterCombatInitializer] Turn System Status:");
+                _logger.Info(LogCategory.Combat,$"  - Current Player ID: {currentPlayer?.Id ?? -1}");
+                _logger.Info(LogCategory.Combat,$"  - Character Owner ID: {combatComponent.Owner?.Id ?? -1}");
+                _logger.Info(LogCategory.Combat,$"  - Is Player's Turn: {currentPlayer?.Id == combatComponent.Owner?.Id}");
+                _logger.Info(LogCategory.Combat,$"  - Turn Number: {combatController.TurnManager.CurrentTurnNumber}");
             }
             else
             {
-                Debug.LogError("[CharacterCombatInitializer] TurnManager is NULL! Combat input will not work!");
+                _logger.Error(LogCategory.Combat,"[CharacterCombatInitializer] TurnManager is NULL! Combat input will not work!");
             }
         }
         

@@ -1,4 +1,5 @@
 using Combat.Core;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Battlefield
@@ -11,6 +12,7 @@ namespace Combat.Battlefield
     {
         private readonly IUnit occupyingUnit;
         private readonly Color baseColor;
+        private readonly IGameLogger _logger;
 
         public override HexCellStateType StateType => HexCellStateType.Occupied;
 
@@ -24,21 +26,22 @@ namespace Combat.Battlefield
         /// </summary>
         /// <param name="unit">The unit occupying this cell</param>
         /// <param name="color">Optional color override, defaults to light blue tint</param>
-        public HexCellOccupiedState(IUnit unit, Color? color = null)
+        public HexCellOccupiedState(IUnit unit, Color? color = null, IGameLogger logger = null)
         {
             occupyingUnit = unit;
             baseColor = color ?? new Color(0.8f, 0.8f, 1f, 0.3f); // Light blue tint
+            _logger = logger;
         }
 
         public override void OnEnter(IHexCell cell)
         {
             cell.IsActive = true;
-            Debug.Log($"[HexCellOccupiedState] Cell {cell.Coordinates} occupied by unit {occupyingUnit?.Id}");
+            _logger?.Info(LogCategory.Combat, $"[HexCellOccupiedState] Cell {cell.Coordinates} occupied by unit {occupyingUnit?.Id}");
         }
 
         public override void OnExit(IHexCell cell)
         {
-            Debug.Log($"[HexCellOccupiedState] Cell {cell.Coordinates} no longer occupied");
+            _logger?.Info(LogCategory.Combat, $"[HexCellOccupiedState] Cell {cell.Coordinates} no longer occupied");
         }
 
         public override Color GetColor()

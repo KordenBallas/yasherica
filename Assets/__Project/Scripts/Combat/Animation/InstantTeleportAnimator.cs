@@ -1,4 +1,5 @@
 using System.Collections;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Animation
@@ -9,11 +10,18 @@ namespace Combat.Animation
     /// </summary>
     public class InstantTeleportAnimator : ICharacterMovementAnimator
     {
+        private readonly IGameLogger _logger;
+
+        public InstantTeleportAnimator(IGameLogger logger = null)
+        {
+            _logger = logger;
+        }
+
         public IEnumerator AnimateMovement(Transform character, Vector3 from, Vector3 to)
         {
             if (character == null)
             {
-                Debug.LogWarning("[InstantTeleportAnimator] Character transform is null");
+                _logger?.Warning(LogCategory.Combat, "[InstantTeleportAnimator] Character transform is null");
                 yield break;
             }
             

@@ -4,6 +4,7 @@ using Combat.Battlefield;
 using Combat.Config;
 using Combat.Controller;
 using Combat.Core;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Player
@@ -20,6 +21,7 @@ namespace Combat.Player
         private readonly HexCellController _cellController;
         private readonly IAbilityShapeCalculator _shapeCalculator;
         private readonly IUnit _playerUnit;
+        private readonly IGameLogger _logger;
 
         private IAbilityInstance _selectedAbility;
         private HexDirection? _currentDirection;
@@ -30,13 +32,15 @@ namespace Combat.Player
             IBattlefield battlefield,
             HexCellController cellController,
             IAbilityShapeCalculator shapeCalculator,
-            IUnit playerUnit)
+            IUnit playerUnit,
+            IGameLogger logger)
         {
             _combatController = combatController;
             _battlefield = battlefield;
             _cellController = cellController;
             _shapeCalculator = shapeCalculator;
             _playerUnit = playerUnit;
+            _logger = logger;
         }
 
         /// <summary>
@@ -47,14 +51,14 @@ namespace Combat.Player
         {
             if (abilityIndex < 0 || abilityIndex >= _playerUnit.Abilities.Count)
             {
-                Debug.LogWarning($"[CombatAbilityPresenter] Invalid ability index: {abilityIndex}");
+                _logger.Warning(LogCategory.Combat,$"[CombatAbilityPresenter] Invalid ability index: {abilityIndex}");
                 return;
             }
 
             var ability = _playerUnit.Abilities[abilityIndex];
             if (!ability.IsAvailable)
             {
-                Debug.LogWarning($"[CombatAbilityPresenter] Ability {ability.Ability.Name} is on cooldown");
+                _logger.Warning(LogCategory.Combat,$"[CombatAbilityPresenter] Ability {ability.Ability.Name} is on cooldown");
                 return;
             }
 
@@ -86,7 +90,7 @@ namespace Combat.Player
         {
             if (_selectedAbility == null)
             {
-                Debug.LogWarning("[CombatAbilityPresenter] No ability selected");
+                _logger.Warning(LogCategory.Combat,"[CombatAbilityPresenter] No ability selected");
                 return;
             }
 
@@ -116,9 +120,9 @@ namespace Combat.Player
             var result = _combatController.ProcessAction(action);
 
             if (!result.Success)
-                Debug.LogWarning($"[CombatAbilityPresenter] Schedule failed: {result.ErrorMessage}");
+                _logger.Warning(LogCategory.Combat,$"[CombatAbilityPresenter] Schedule failed: {result.ErrorMessage}");
             else
-                Debug.Log($"[CombatAbilityPresenter] Ability {_selectedAbility.Ability.Name} scheduled");
+                _logger.Info(LogCategory.Combat,$"[CombatAbilityPresenter] Ability {_selectedAbility.Ability.Name} scheduled");
 
             CancelAbilitySelection();
         }
@@ -132,7 +136,7 @@ namespace Combat.Player
             var result = _combatController.ProcessAction(action);
 
             if (!result.Success)
-                Debug.LogWarning($"[CombatAbilityPresenter] Execute queue failed: {result.ErrorMessage}");
+                _logger.Warning(LogCategory.Combat,$"[CombatAbilityPresenter] Execute queue failed: {result.ErrorMessage}");
         }
 
         /// <summary>

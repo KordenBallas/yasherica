@@ -34,6 +34,37 @@ Suggested sequencing. Only M1 is firm; the rest is a recommended order, not a co
 
 ---
 
+## Logging
+
+- [ ] `[debt]` **Duplicate `CombatInputModeManager`.** Two classes share the name: a no-op stub
+  `Combat.Player.CombatInputModeManager` (the live one — created in `CharacterCombatCoordinator`) and a
+  fuller mode-logic+logging copy `Combat.Input.CombatInputModeManager` that is never constructed
+  (dead). Delete the dead one (or consolidate onto it and update the coordinator). Surfaced during the
+  logging sweep. *(combat)*
+
+From `logging.md` §6:
+- [x] `[rule][debt]` **Migrate raw `Debug.*` to the categorized logger — DONE for runtime gameplay code.**
+  Every `Debug.Log/LogWarning/LogError` in runtime systems now routes through `IGameLogger` with a
+  `LogCategory` (Combat, Narrative, Dialogue, Platform, Character, Camera, LevelGeneration, Area,
+  Inventory, Loot, Mutation, CharacterSystem). Container-bound classes use constructor injection;
+  manually-`new`'d leaves (per-unit presenters, AI strategies, platform content, hex-cell states) take
+  the logger threaded from their container-connected owner (optional/null-safe so stray `new` sites
+  keep compiling); scene/prefab-instantiated MonoBehaviours use null-safe `[Inject] _logger?.`. Done in
+  compiler-verified batches.
+  - **Deliberately NOT converted (still on `Debug.*`):**
+    - `Core/Logging/UnityGameLogger.cs` — the infrastructure adapter; `Debug.*` is its job.
+    - `Core/DI/LoggingInstaller.cs` — bootstrap warning when the config asset is missing (logged
+      before the logger exists; chicken-and-egg).
+    - Zenject feature installers (`AreaInstaller`, `MutationInstaller`, `LootInstaller`,
+      `InventoryInstaller`, `CharacterSystemInstaller`, `CharacterLocomotionInstaller`) — one-shot
+      auto-load diagnostics at scene init; routing them would need an install-time
+      `Container.Resolve<IGameLogger>()` (service-locator), which CLAUDE.md §4 discourages.
+    - `Scripts/Editor/**` — editor tooling, runs only on menu actions, not play-mode flood.
+- [ ] `[debt]` **(Optional) installer bootstrap logs.** If the install-time auto-load diagnostics ever
+  matter for filtering, give installers a small injected logger seam rather than `Container.Resolve`.
+- [ ] `[arch]` **In-game logging control.** Optional dev-tools panel / hotkey to flip per-system log
+  levels live in play mode, instead of editing `LoggingConfig` in the Inspector.
+
 ## Narrative Generation
 
 Planned design (from `narrative-generation.md` §4):
@@ -317,27 +348,51 @@ Known limitations (from `loot-subsystem.md` §4):
 ## Platform & Area Generation
 
 New work (no system doc yet — author `platform-generation.md` when implemented):
+
+**Verified PO build brief for the three M3 items below:
+`product-requirements/platform-hex-surface-and-shape.md`** (hex-composed surface = combat grid,
+muted-in-traversal / crisp-in-combat; whole-hex interior + organic decorative rim; per-content-kind
+size profiles with a battlefield minimum; biome features occupy whole cells). Biome *styling* and
+multi-platform Site footprints are separate briefs (below / Sites).
 - [ ] `[arch]` **M3 — Hex-composed platform top surface.** Build the platform top-surface mesh from
   the battlefield hex tiling so the combat grid lays perfectly on the platform. The current rect +
   edge-jitter interior (`PlatformMeshBuilder`, `AreaGeneratorConfig.edgeVertexCount` / `edgeJitter`)
   is replaced by a hex-cell field; the combat grid (`PointyHexGrid`,
   `HexGridBase.CalculateCellsInBoundary`) is derived from the same source of truth instead of being
-  re-snapped at combat time.
-- [ ] `[arch]` **M3 — Natural edges over a complete hex interior.** Edges may follow an organic,
-  non-hex silhouette, but every full hex cell must lie on the top surface. Biome features (river,
-  mountains) align to hex-cell boundaries — feature regions are placed in hex space so a river's
-  banks and a mountain's footprint snap to cells.
+  re-snapped at combat time. **Feel:** tiling visually **muted in traversal, crisp in combat** — the
+  cells are emphasized on combat entry, not a grid appearing from nowhere (brief §1–§2).
+- [ ] `[arch]` **M3 — Natural edges over a complete hex interior.** Every full hex cell lies on the
+  top surface (combat never clipped); beyond the last full cell is a **non-walkable organic
+  decorative rim** (the island silhouette). Rim thickness/irregularity is a tunable. Biome features
+  (river, mountains) **occupy whole hex cells** and align to the grid so a combat obstacle matches
+  the cells exactly (feature *styling* per biome is the separate biome-appearance item). (brief §3–§4, §9)
 - [ ] `[arch]` **M3 — Content-aware platform size & shape.** Platform extent/form is chosen from its
-  content: combat-capable content (enemy, or NPC that `CanBecomeEnemy`) requires a battlefield-sized
-  hex field meeting combat requirements; loot-only or empty platforms can be smaller. Drive from
-  `GraphNode.ContentTypes` / `StoryPlatformData` in `AreaGenerator` rather than the current random
-  `platformSizeMin/Max`.
-- [ ] `[content]` **Content drives footprint & landscape (setting scale).** Beyond per-platform size:
-  a content piece declares a **setting scale** (e.g. solo / camp / village / city) so the world
-  reserves the right **footprint** — a camp occupies a camp-sized platform with camp textures, a city
-  spans **several platforms** that read as one continuous place (vision §4: city ~5, village ~2, camp
-  1). The deferred companion to the "World content density" brief; its own design pass (footprint
-  vocabulary + biome/race landscape). *(needs a design discussion before a brief)*
+  content via a **per-content-kind size/shape profile** (Empty / Loot / Combat / NPC), authored as
+  data — replacing the random `platformSizeMin/Max`. Combat-capable content (enemy, or NPC that
+  `CanBecomeEnemy`) **guarantees at least the battlefield minimum** of whole cells; loot-only / empty
+  platforms are visibly smaller. Drive from `GraphNode.ContentTypes` / `StoryPlatformData` in
+  `AreaGenerator`. Deterministic (same seed → same platforms). (brief §5–§8)
+- [ ] `[content]` **Sites & landscape — content-driven footprint (setting scale).** Two axes:
+  **Biome** (`LevelTheme`, ground/race homeland) × **Site** (settlement scale on top: wild / camp /
+  village / city). Content-first: a settlement-scale beat pulls a **Site** into being (ambient content
+  is Wild), so Sites are rare and the world is mostly wilderness. A Site's footprint is a **cluster of
+  N adjacent platforms** (city ~5, village ~2, camp 1) that **holds several beats** and reads as one
+  place via shared dressing + connective visuals (connected islands, Windblown feel kept). The
+  deferred companion to the "World content density" brief. Vocabulary is **extensible by schema**
+  (one authored asset per site type) with **two families** — Settlements (camp / village / city:
+  faction-occupied, passport-gated, quest-bearing) and Landmarks (ruin / lair: wild, no passport,
+  the spatial homes of the naturalistic loot sources). Beta backlog: hamlet, grove/shrine, crater,
+  biome-locked variants, and the Order's-Seat apex (open question). Each Site's **capacity recipe**
+  (how it fills its footprint) is **anchor + weighted fill + connective**, references content
+  kinds/tags (not literal assets), with a **family-default + per-Site override** and additive/optional
+  attributes so it stays revisable without breaking authored Sites. Content kinds are one shared
+  **base × flavor** vocabulary (4 base kinds Empty/Loot/Combat/NPC × open flavor tags; quest &
+  hostility derived from an NPC beat) used by both the density budgets and site recipes — see
+  `design/world/content-kinds.md`. **Verified PO build brief:
+  `product-requirements/world-sites-and-landscape.md`** (consolidates the model + vocabulary +
+  recipes + content-kinds catalog; builds on the density brief). Design background:
+  `design/world/sites-and-landscape.md` + `content-kinds.md`. *(Engine concern for the code track:
+  reserving a multi-platform Site block across a director planning window; balance numbers.)*
 - [ ] `[content]` **M3 — Biome-driven platform appearance & features.** Platform generation consumes
   the level biome (`LevelTheme`: Forest/Desert/Mountain/Cave) for mesh treatment, materials, and
   which hex-aligned features may appear, in addition to the narrative content above.
@@ -390,6 +445,20 @@ New work (no system doc yet):
 - [ ] `[content]` **M5 — Landscape around platforms.** Generate surrounding terrain/visuals that
   support the platforms and form a cohesive world feel (skybox, distant geometry, biome dressing).
   Read-only relative to gameplay (no grid/collision impact on platforms).
+- [ ] `[content]` **M5 — Site dressing ("reads as one place").** Make a Site's island-cluster read as
+  one place via **aligned skyline + shared ground/palette + density gradient + a distant backdrop**,
+  with a **gate/threshold** at the boundary — **dressing only, gaps stay clean hops** (no walkable
+  bridges). Layer **biome base × site dressing kit** (same site, different biome = shared structures,
+  different materials). Art direction: `design/art/site-dressing.md`. *(Engine: place skyline/gate
+  pieces so adjacent islands align.)*
+- [ ] `[content]` **M5 — Render-look & palette bible.** Foundational visual direction
+  (`design/art/render-look.md`): **flat low-poly, no outline** (Windblown-side; supersedes the vision
+  §5 Gunfire outlined-cel candidate); **warm muted base + reserved saturated gameplay accents**
+  (archetype = hue, tier = glow); **balanced charming-grotesque** silhouettes with anatomy legibility.
+  Because there is no outline, figure-ground + readability rely on silhouette + value + reserved
+  colour. Follow-ups: concrete palette **swatches**, a **flat-shading / figure-ground shader spike**
+  (tech-art), animation direction, per-archetype concept sheets (gated on the parked race roster),
+  and the tier-glow / ability-telegraph **VFX language** (ties M4 combat readability).
 
 ---
 
@@ -444,6 +513,11 @@ The M1 core loop (see `mutation-subsystem.md` for the implemented data surface):
   part is excluded; the redundant swap cache was removed. See CHANGELOG; `mutation-subsystem.md` §2.4.)*
 
 New work:
+> **Superseded source of mutations (2026-07-02).** The feed→tally→stage-up flow below is being
+> replaced by **Socketed Blanks** (see `## Crafting & Mutation`, brief
+> `product-requirements/crafting-mutation-socketed-blanks.md`): mutations now come from socketing
+> artifacts into a Part-Blank and unsealing a **variant menu**. The M4 ability-aware panels item
+> below becomes the **mutation cards** shown on that unseal menu.
 - [x] `[arch]` **M2 — Part-driven archetype affinity + scored mutation selection.** *(Done — archetype
   affinity, rarity (`MutationRarity`), and choice icon now live on `PartDefinition`; `MutationPartCatalog`
   builds `MutationCandidatePart`s from the part catalog; `MutationOptionBuilder` scores all candidates
@@ -452,12 +526,21 @@ New work:
   `MutationConfig.RarityWeight` / `RarityUnlockPointsPerTier`. Hosting decision: on `PartDefinition`
   (single-asset authoring) — the layering trade-off is recorded as a known limitation in
   `mutation-subsystem.md` §6 rather than being eliminated. See CHANGELOG.)*
-- [ ] `[arch]` **M4 — Ability-aware mutation choice panels.** Weight the stage-up choice
-  by ability, not just part name/icon/archetype. For the slot being mutated, show a
-  before→after comparison per option: the **old** body part with its currently granted
-  active + passive abilities vs. the **new** body part with the abilities it would grant,
-  highlighting the contrast (added / removed / changed) so the swap's combat consequence
-  is legible at choice time.
+- [ ] `[arch]` **Mutation choice cards (the unseal variant menu).** *(Verified PO brief:
+  `product-requirements/mutation-choice-cards.md`.)* The stage-up/unseal choice is a **hand of
+  cards**, one per variant mutation. **Card front (visual-first):** the body part pictured centre,
+  its granted active+passive abilities as **icons** beneath — no stat blocks. **Flip** (corner
+  control) → the **replaced part + its abilities** (before→after on demand; "nothing replaced" for an
+  empty slot). **Hover an ability icon** → name+description tooltip. **Hover the part picture** →
+  a context popover with a **mini-model of the hero wearing the new part**. Shared card grammar
+  (**glow = potency/tier, colour = belonging**); variants share the blank's belonging colour and
+  differ by ability/potency. **Crafting traits stay hidden** (only abilities shown). Picking
+  **commits** (Socketed Blanks commit-on-unseal). Extends `MutationChoiceViewData` / the
+  `MutationOption → ToViewData` mapping in `MutationChoicePresenter` with per-option ability info
+  (resolve old part via `IMutationCharacter.TryGetEquippedPartId(slotId)`, new via the option's
+  `PartId`; read `PartDefinition.ActiveAbilities`/`PassiveAbilities`); reuse the
+  `PartAbilityResolver`/`PartAbilitySet` gather+dedupe so the panel matches the combat set. Presenter
+  pure-C#, view thin (MVP §3). *(mutation + crafting UI)*
   - Extend `MutationChoiceViewData` (today `DisplayName`/`Icon`/`Tint`) and the
     `MutationOption → ToViewData` mapping in `MutationChoicePresenter` to carry per-option
     ability info. Resolve the **old** part via `IMutationCharacter.TryGetEquippedPartId(slotId)`
@@ -528,25 +611,59 @@ Enhancements to the implemented combat (extend `ability-subsystem.md` / a new co
   current digestion progress, and the dominant archetype(s) this stage; the Feed button maps each
   artifact via `ArtifactArchetypeMapper.ToProfile` into `IMutationTally.Add` and advances
   `IDigestionProgress`. *(Done — see CHANGELOG; `inventory-subsystem.md` R24–R26; `mutation-subsystem.md`.)*
+  **Superseded (2026-07-02):** the Socketed Blanks model replaces feeding with operating-table
+  socketing — see the migration items in `## Crafting & Mutation` (retire/convert this UI).
 - [ ] _seed remaining items from `inventory-subsystem.md` "Known limitations" on next pass._
 
 ---
 
-## Crafting
+## Crafting & Mutation — Socketed Blanks
 
-Design intent in `design/crafting/model.md` (handed off in `design/needs-code.md`, 2026-06-21). The
-shipped combine is a flat recipe table (`inventory-subsystem.md` R16–R18); this evolves it.
-- [ ] `[arch]` **Artifact trait model (incl. tier).** Add to `ArtifactDefinition`, beside the existing
-  `_archetypeWeights`: **substance** + **property** trait tags and a **tier/potency** axis (traits
-  hidden from UI; read from the fiction). **Prerequisite for the quest-as-reward reward economy** —
-  the reward card's tier glow + belonging color and the roll-by-`tier + archetype-bias` all need this
-  tier/archetype data on the artifact. (`ArtifactDefinition` has no tier today.)
-- [ ] `[arch]` **Two-tier emergent resolution (no failure).** Match a signature `RecipeDefinition`
-  first, else compute an emergent result from input traits (combine/amplify/transmute); every combine
-  yields something. Reuses `RecipeBook`/`RecipeDefinition` as the signature layer.
-- [ ] `[arch]` **Crafting → mutation coupling.** Feeding accumulates a trait-tally beside the archetype
-  tally; `PartDefinition` gains trait-affinity; `MutationOptionBuilder` gains a trait term in its score
-  (`(archetypeAffinity·archetypeTally + traitAffinity·traitTally) × rarity`). Scored, not deterministic.
+**Verified PO build brief: `product-requirements/crafting-mutation-socketed-blanks.md`.** Design
+intent in `design/crafting/model.md` (rewritten 2026-07-02). This **supersedes** the earlier
+trait-tally / feeding coupling (`design/needs-code.md` 2026-06-21) — see the migration items below.
+The model: **Part-Blanks** carry form/species + sockets; **artifacts** carry function only (no
+species tag) with a raw→crafted quality gradient; the **cauldron** fuses artifacts and a separate
+**operating table** sockets artifacts into a blank and **unseals** it into a mutation. Feeding is cut.
+
+- [ ] `[arch]` **Artifact trait model (incl. tier).** Add to `ArtifactDefinition`: **substance** +
+  **property** trait tags and a **tier/potency** axis (traits hidden from UI; read from the fiction).
+  Note **archetype/species moves OFF the artifact onto the Part-Blank** — an artifact carries
+  function, not race. Still the **prerequisite for the quest-as-reward reward economy** (the reward
+  card's tier glow + belonging color and roll-by-`tier + archetype-bias` need tier data on the
+  artifact). (`ArtifactDefinition` has no tier today.)
+- [ ] `[arch]` **Two-tier emergent artifact fusion (no failure).** In the cauldron, match a signature
+  `RecipeDefinition` first, else compute an emergent result from input traits
+  (combine/amplify/transmute); every combine yields something. Reuses `RecipeBook`/`RecipeDefinition`
+  as the signature layer. (Unchanged from the prior design — this is the cauldron's artifact→artifact
+  layer.)
+- [ ] `[arch]` **Part-Blank item type + operating table (the new mutation source).** A **Part-Blank**
+  (skull/tail/wings/arms/legs) = a socketed recipe carrying a **form + species/passport marker**, a
+  **socket count**, and a **ripen threshold**. A separate **operating-table** surface sockets crafted
+  artifacts into a blank; crossing the threshold **unseals** it into a **small menu of variant
+  mutations**; the player picks one, the socketed artifacts are consumed and the rest discarded
+  (**commit-on-unseal**); the chosen part installs via the existing `SwapPart`. Resolution =
+  readable *direction* + partly-hidden variant menu + **slot interaction** (emergent third property),
+  **not** a deterministic inputs→part map (anti-recipe-table). *(crafting + mutation + inventory)*
+- [ ] `[content]` **Separate scarce Blank Rack.** A limited inventory for blanks (the multi-track
+  cap = how many organs incubate at once), distinct from the cauldron's artifact inventory; do not
+  mix blanks into the cauldron. *(inventory)*
+- [ ] `[content]` **Cauldron-voice trend telegraph on socketing.** As artifacts are socketed, the
+  cauldron voice hints at the *trend* (not the exact menu) — the hint channel that replaces a stats
+  panel (`design/narrative/cauldron-voice.md`). *(crafting + narrative)*
+
+Migration — retire the old feed loop (the Socketed Blanks brief §18 replaces it):
+- [ ] `[arch]` **Remove the feed→tally→stage-up mutation coupling.** Delete the trait-tally coupling
+  plan and the shipped archetype-tally scoring path as the mutation source: the per-stage
+  `IMutationTally` / `IDigestionProgress` feed accumulation and the `MutationOptionBuilder`
+  archetype-scored stage-up choice are **superseded** by socket→unseal. Decide per piece whether to
+  remove or repurpose (e.g. the variant-menu offer can reuse the stage-up choice presenter shell).
+  *(mutation)*
+- [ ] `[arch]` **Retire the feeding/digestion UI.** The shipped feeding-tray/digestion cauldron mode
+  (`inventory-subsystem.md` R24–R26; Inventory "Feeding / digestion UI" below) is replaced by the
+  operating-table socketing UI; remove or convert it. *(inventory)*
+- [ ] `[content]` **Deferred — cauldron-will stochastic surprise.** Volatile/high-tier inputs adding
+  a readable, non-griefing twist at unseal; stays deferred (as with the corruption meter). *(crafting)*
 
 ---
 
@@ -570,6 +687,9 @@ See `dev-tools.md` for the implemented overlay.
 - [ ] `[arch]` Run-state persistence/save-load (needed once the progression record + per-run
   mutation state matter across sessions).
 - [ ] `[content]` Mutation preview on the live character model before the player confirms a choice.
+  *(A **mini-model** popover on hovering a mutation card is covered by
+  `product-requirements/mutation-choice-cards.md`; this backlog item is the **full live-hero**
+  in-world preview beyond that.)*
 - [ ] `[arch]` Enemy-intent telegraph (show enemies' planned abilities) for combat readability.
 - [ ] `[content]` Biome ↔ archetype affinity: bias biome loot so a biome nudges the player toward
   certain archetypes, tightening the biome → artifact → mutation loop.

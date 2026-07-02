@@ -126,6 +126,6 @@ namespace Narrative.Dialogue.Core
             return Enum.TryParse(text, true, out op) && Enum.IsDefined(typeof(FactEffectOp), op);
         }
 
-        private void Warn(string message) => _logger?.Warning($"[DialogueTagParser] {message} - ignored.");
+        private void Warn(string message) => _logger?.Warning(LogCategory.Dialogue,$"[DialogueTagParser] {message} - ignored.");
     }
 }

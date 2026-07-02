@@ -1,5 +1,6 @@
 using Combat.Enemy;
 using Combat.Core;
+using Core.Logging;
 using UnityEngine;
 
 namespace Platform
@@ -56,7 +57,7 @@ namespace Platform
         {
             if (_hasBeenInstantiated)
             {
-                Debug.LogWarning($"[EnemyContent] Enemy {EnemyId} already instantiated!");
+                Logger?.Warning(LogCategory.Platform, $"[EnemyContent] Enemy {EnemyId} already instantiated!");
                 return;
             }
 
@@ -64,7 +65,7 @@ namespace Platform
             _enemyCombatComponent = combatComponent;
             _hasBeenInstantiated = true;
 
-            Debug.Log($"[EnemyContent] Enemy {EnemyId} instantiated with player {enemyPlayer.Name}");
+            Logger?.Info(LogCategory.Platform, $"[EnemyContent] Enemy {EnemyId} instantiated with player {enemyPlayer.Name}");
         }
     }
 }

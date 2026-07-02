@@ -84,13 +84,13 @@ namespace Narrative.Facts.Core
 
             if (!_registry.TryGetInfo(key.Namespace, key.Key, out var info))
             {
-                _logger?.Warning($"[FactStore] Unknown fact key '{key}' - write rejected (fail closed).");
+                _logger?.Warning(LogCategory.Narrative,$"[FactStore] Unknown fact key '{key}' - write rejected (fail closed).");
                 return false;
             }
 
             if (info.ValueType != value.Type)
             {
-                _logger?.Warning(
+                _logger?.Warning(LogCategory.Narrative,
                     $"[FactStore] Type mismatch for fact '{key}': declared {info.ValueType}, got {value.Type} - write rejected.");
                 return false;
             }

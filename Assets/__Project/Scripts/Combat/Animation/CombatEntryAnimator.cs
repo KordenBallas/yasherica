@@ -1,6 +1,7 @@
 using System.Collections;
 using Combat.Battlefield;
 using Combat.Config;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Animation
@@ -13,13 +14,16 @@ namespace Combat.Animation
     {
         private readonly ICharacterMovementAnimator _movementAnimator;
         private readonly CombatMovementConfig _config;
-        
+        private readonly IGameLogger _logger;
+
         public CombatEntryAnimator(
             ICharacterMovementAnimator movementAnimator,
-            CombatMovementConfig config)
+            CombatMovementConfig config,
+            IGameLogger logger)
         {
             _movementAnimator = movementAnimator;
             _config = config;
+            _logger = logger;
         }
         
         /// <summary>
@@ -33,7 +37,7 @@ namespace Combat.Animation
             // Verify it's in boundary
             if (battlefield.IsCellInBoundary(approximate))
             {
-                Debug.Log($"[CombatEntryAnimator] Character already at valid cell: {approximate}");
+                _logger.Info(LogCategory.Combat,$"[CombatEntryAnimator] Character already at valid cell: {approximate}");
                 return approximate;
             }
             
@@ -54,7 +58,7 @@ namespace Combat.Animation
                 }
             }
             
-            Debug.Log($"[CombatEntryAnimator] Found closest cell: {closest} (distance: {minDistance})");
+            _logger.Info(LogCategory.Combat,$"[CombatEntryAnimator] Found closest cell: {closest} (distance: {minDistance})");
             return closest;
         }
         
@@ -67,11 +71,11 @@ namespace Combat.Animation
             IBattlefield battlefield)
         {
             Vector3 targetWorld = battlefield.HexToWorld(targetCell);
-            Debug.Log($"[CombatEntryAnimator] Animating entry from {character.position} to {targetWorld}");
+            _logger.Info(LogCategory.Combat,$"[CombatEntryAnimator] Animating entry from {character.position} to {targetWorld}");
             
             yield return _movementAnimator.AnimateMovement(character, character.position, targetWorld);
             
-            Debug.Log($"[CombatEntryAnimator] Entry animation complete");
+            _logger.Info(LogCategory.Combat,$"[CombatEntryAnimator] Entry animation complete");
         }
     }
 }

@@ -42,7 +42,7 @@ namespace Narrative.Facts.Core
                 return true;
             }
 
-            _logger?.Warning($"[SubjectResolver] Unresolved subject token '{token}' - failing closed.");
+            _logger?.Warning(LogCategory.Narrative,$"[SubjectResolver] Unresolved subject token '{token}' - failing closed.");
             subject = string.Empty;
             return false;
         }

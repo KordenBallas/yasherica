@@ -1,4 +1,5 @@
 using System;
+using Core.Logging;
 using UnityEngine;
 
 namespace Platform
@@ -65,7 +66,7 @@ namespace Platform
         {
             if (!HasDialogue)
             {
-                Debug.LogWarning($"[DialogueContent] No dialogue knot assigned for platform {platform.Id}");
+                Logger?.Warning(LogCategory.Platform,$"[DialogueContent] No dialogue knot assigned for platform {platform.Id}");
             }
         }
 
@@ -87,11 +88,11 @@ namespace Platform
         {
             if (!HasDialogue)
             {
-                Debug.LogWarning("[DialogueContent] Cannot trigger dialogue: no knot assigned");
+                Logger?.Warning(LogCategory.Platform,"[DialogueContent] Cannot trigger dialogue: no knot assigned");
                 return;
             }
 
-            Debug.Log($"[DialogueContent] Triggering dialogue: {DialogueKnot}");
+            Logger?.Info(LogCategory.Platform,$"[DialogueContent] Triggering dialogue: {DialogueKnot}");
             OnDialogueTriggered?.Invoke(this);
         }
 
@@ -100,7 +101,7 @@ namespace Platform
         /// </summary>
         public void NotifyDialogueCompleted()
         {
-            Debug.Log($"[DialogueContent] Dialogue completed: {DialogueKnot}");
+            Logger?.Info(LogCategory.Platform,$"[DialogueContent] Dialogue completed: {DialogueKnot}");
             OnDialogueCompleted?.Invoke(this);
         }
     }

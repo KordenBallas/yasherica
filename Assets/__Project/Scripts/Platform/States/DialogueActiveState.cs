@@ -1,5 +1,6 @@
 using System.Linq;
 using Narrative.Dialogue;
+using Core.Logging;
 using UnityEngine;
 using Zenject;
 
@@ -22,6 +23,7 @@ namespace Platform
 
         private readonly DialogueRunner _runner;
         private readonly IPlatformStateFactory _stateFactory;
+        private readonly IGameLogger _logger;
 
         private IPlatform _platform;
         private NpcContent _npc;
@@ -30,10 +32,12 @@ namespace Platform
         [Inject]
         public DialogueActiveState(
             DialogueRunner runner,
-            IPlatformStateFactory stateFactory)
+            IPlatformStateFactory stateFactory,
+            IGameLogger logger)
         {
             _runner = runner;
             _stateFactory = stateFactory;
+            _logger = logger;
         }
 
         public override void OnEnter(IPlatform platform)
@@ -44,7 +48,7 @@ namespace Platform
 
             if (_npc?.Actor == null || _npc.Casting == null)
             {
-                Debug.LogWarning($"[DialogueActiveState] No castable encounter on platform {platform.Id}");
+                _logger.Warning(LogCategory.Platform, $"[DialogueActiveState] No castable encounter on platform {platform.Id}");
                 TransitionToCompleted();
                 return;
             }
@@ -76,7 +80,7 @@ namespace Platform
 
             if (!int.TryParse(enemyId, out int parsedId))
             {
-                Debug.LogError($"[DialogueActiveState] Combat triggered with non-numeric enemy id '{enemyId}' - completing.");
+                _logger.Error(LogCategory.Platform, $"[DialogueActiveState] Combat triggered with non-numeric enemy id '{enemyId}' - completing.");
                 TransitionToCompleted();
                 return;
             }

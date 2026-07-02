@@ -47,7 +47,7 @@ namespace Narrative.Interaction
             var enemyId = handle.Casting?.OptionalEnemyId;
             if (!int.TryParse(enemyId, out int parsedId))
             {
-                _logger?.Error($"[NpcEncounterStarter] Hostile NPC '{handle.Id}' has non-numeric enemy id '{enemyId}' — cannot aggro.");
+                _logger?.Error(LogCategory.Narrative,$"[NpcEncounterStarter] Hostile NPC '{handle.Id}' has non-numeric enemy id '{enemyId}' — cannot aggro.");
                 return;
             }
 

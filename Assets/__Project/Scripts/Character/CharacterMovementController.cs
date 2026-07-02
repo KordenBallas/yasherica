@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 using Platform;
 using Core.Events;
 using Character.Locomotion;
+using Core.Logging;
 using Zenject;
 
 namespace Character
@@ -32,6 +33,7 @@ namespace Character
     private CharacterController cc;
     private Vector3 velocity;
     private Vector3 _planarVelocity;
+    [Inject] private IGameLogger _logger;
 
     private IPlatform currentPlatform;
 
@@ -84,11 +86,11 @@ namespace Character
         if (_characterRegistry != null)
         {
             _characterRegistry.RegisterCharacter(transform);
-            Debug.Log("[CharacterMovementController] Self-registered with CharacterRegistry");
+            _logger?.Info(LogCategory.Character,"[CharacterMovementController] Self-registered with CharacterRegistry");
         }
         else
         {
-            Debug.LogWarning("[CharacterMovementController] CharacterRegistry not injected - character will not be available for combat");
+            _logger?.Warning(LogCategory.Character,"[CharacterMovementController] CharacterRegistry not injected - character will not be available for combat");
         }
         
         /*currentNode = PlatformGraphRegistry.Instance.GetNearestNode(transform.position);
@@ -98,7 +100,7 @@ namespace Character
         }
         else
         {
-            Debug.LogWarning("No platform node found near character start position.");
+            _logger?.Warning(LogCategory.Character,"No platform node found near character start position.");
         }*/
         
         // Find initial platform
@@ -110,7 +112,7 @@ namespace Character
         }
         else
         {
-            Debug.LogWarning("[CharacterMovementController] No platform found near character start position.");
+            _logger?.Warning(LogCategory.Character,"[CharacterMovementController] No platform found near character start position.");
         }
     }
 
@@ -120,7 +122,7 @@ namespace Character
         if (_characterRegistry != null)
         {
             _characterRegistry.UnregisterCharacter(transform);
-            Debug.Log("[CharacterMovementController] Unregistered from CharacterRegistry");
+            _logger?.Info(LogCategory.Character,"[CharacterMovementController] Unregistered from CharacterRegistry");
         }
     }
 
@@ -218,7 +220,7 @@ namespace Character
         {
             Vector3 target = transform.position + dashDir * dashDistance;
             Teleport(target);
-            Debug.Log($"[Dash] Inside platform: moved {dashDistance}, target={target}");
+            _logger?.Info(LogCategory.Character,$"[Dash] Inside platform: moved {dashDistance}, target={target}");
         }
         else
         {
@@ -230,7 +232,7 @@ namespace Character
                 Vector3 landing = ComputeLandingOnNeighbor(next/*, dashDir*/);
                 Teleport(landing);
                 SetCurrentPlatform(next);
-                Debug.Log($"[Dash] Jumped to neighbor platform: {next.Id}, landing={landing}");
+                _logger?.Info(LogCategory.Character,$"[Dash] Jumped to neighbor platform: {next.Id}, landing={landing}");
                 Debug.DrawRay(transform.position + Vector3.up * 0.5f, dashDir * distToWall, Color.green, 2f);
                 Debug.DrawLine(transform.position, landing, Color.yellow, 2f);
             }
@@ -239,7 +241,7 @@ namespace Character
                 // Дэш к стене
                 Vector3 target = transform.position + dashDir * (distToWall - wallMargin);
                 Teleport(target);
-                Debug.Log($"[Dash] Hit wall, moved to edge: {distToWall}, target={target}");
+                _logger?.Info(LogCategory.Character,$"[Dash] Hit wall, moved to edge: {distToWall}, target={target}");
                 Debug.DrawRay(transform.position + Vector3.up * 0.5f, dashDir * distToWall, Color.red, 2f);
             }
         }
@@ -269,7 +271,7 @@ namespace Character
         {
             strLog += n.Id + " ";
         }
-        Debug.Log("Picking next platform from current node. Neighbors: " + strLog);
+        _logger?.Info(LogCategory.Character,"Picking next platform from current node. Neighbors: " + strLog);
 
         IPlatform best = null;
         float minAngle = 90f; // градусы
@@ -287,7 +289,7 @@ namespace Character
         }
 
         if (best != null)
-            Debug.Log($"Selected neighbor platform {best.Id} at angle {minAngle}");
+            _logger?.Info(LogCategory.Character,$"Selected neighbor platform {best.Id} at angle {minAngle}");
 
         return best;
     }
@@ -353,7 +355,7 @@ namespace Character
         // высота
         landing.y += dashHeightOffset;
 
-        Debug.Log($"[LandingPlane] landing on platform {neighbor.Id} at {landing}");
+        _logger?.Info(LogCategory.Character,$"[LandingPlane] landing on platform {neighbor.Id} at {landing}");
 
         return landing;
     }

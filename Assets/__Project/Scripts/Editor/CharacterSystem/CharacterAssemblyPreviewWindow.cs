@@ -207,7 +207,7 @@ namespace Editor.CharacterSystem
 
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
-            var logger = new UnityGameLogger();
+            var logger = new UnityGameLogger(LogLevelPolicy.AllEnabled());
             var factory = new ModularCharacterFactory(new PartCatalog(_allParts), logger);
             var character = factory.Create(assembly, null);
 

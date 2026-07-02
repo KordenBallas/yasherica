@@ -1,3 +1,4 @@
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Battlefield
@@ -11,6 +12,12 @@ namespace Combat.Battlefield
     {
         private IHexCellState currentState;
         private IHexCell owner;
+        private readonly IGameLogger _logger;
+
+        public HexCellStateMachine(IGameLogger logger = null)
+        {
+            _logger = logger;
+        }
 
         /// <summary>
         /// Current active state.
@@ -38,14 +45,14 @@ namespace Combat.Battlefield
         {
             if (newState == null)
             {
-                Debug.LogWarning($"[HexCellStateMachine] Cell {owner?.Coordinates}: Attempted to change to null state");
+                _logger?.Warning(LogCategory.Combat,$"[HexCellStateMachine] Cell {owner?.Coordinates}: Attempted to change to null state");
                 return;
             }
 
             // Validate transition
             if (currentState != null && !currentState.CanTransitionTo(newState))
             {
-                Debug.LogWarning(
+                _logger?.Warning(LogCategory.Combat,
                     $"[HexCellStateMachine] Cell {owner?.Coordinates}: " +
                     $"Cannot transition from {currentState.GetType().Name} to {newState.GetType().Name}"
                 );
@@ -54,7 +61,7 @@ namespace Combat.Battlefield
 
             string oldStateName = currentState?.GetType().Name ?? "null";
             string newStateName = newState.GetType().Name;
-            Debug.Log($"[HexCellStateMachine] Cell {owner?.Coordinates}: {oldStateName} -> {newStateName}");
+            _logger?.Info(LogCategory.Combat,$"[HexCellStateMachine] Cell {owner?.Coordinates}: {oldStateName} -> {newStateName}");
 
             // Execute transition
             currentState?.OnExit(owner);

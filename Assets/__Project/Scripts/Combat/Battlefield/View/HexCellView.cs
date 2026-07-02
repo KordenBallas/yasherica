@@ -1,4 +1,6 @@
+using Core.Logging;
 using UnityEngine;
+using Zenject;
 
 namespace Combat.Battlefield
 {
@@ -15,6 +17,7 @@ namespace Combat.Battlefield
         private LineRenderer lineRenderer;
         private float size = 1f;
         private MaterialPropertyBlock materialPropertyBlock;
+        [Inject] private IGameLogger _logger;
         
         private static readonly Vector3[] basePoints = new Vector3[]
         {
@@ -75,7 +78,7 @@ namespace Combat.Battlefield
             // Update active state
             gameObject.SetActive(cell.IsActive);
 
-            Debug.Log($"[HexCellView] Cell {cell.Coordinates} state changed, applying color {newColor}");
+            _logger?.Info(LogCategory.Combat,$"[HexCellView] Cell {cell.Coordinates} state changed, applying color {newColor}");
         }
         
         public void UpdateHex()

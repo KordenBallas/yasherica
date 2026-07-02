@@ -1,9 +1,11 @@
 using Combat.Controller;
 using Combat.Core;
+using Core.Logging;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Combat.Battlefield;
 using System.Collections.Generic;
+using Zenject;
 
 namespace Combat.Player
 {
@@ -18,6 +20,7 @@ namespace Combat.Player
         private ICombatController _gameController;
         private IPlayer _player;
         private IUnit _selectedUnit;
+        [Inject] private IGameLogger _logger;
         
         /// <summary>
         /// Event fired when a unit is selected.
@@ -86,7 +89,7 @@ namespace Combat.Player
             _selectedUnit = unit;
             OnUnitSelected?.Invoke(_selectedUnit);
             
-            Debug.Log($"Selected unit {_selectedUnit.Id}");
+            _logger?.Info(LogCategory.Combat,$"Selected unit {_selectedUnit.Id}");
         }
         
         private void HandleUnitInput()
@@ -118,12 +121,12 @@ namespace Combat.Player
             
             if (result.Success)
             {
-                Debug.Log($"Unit {_selectedUnit.Id} moved to {targetPosition.Q},{targetPosition.R}");
+                _logger?.Info(LogCategory.Combat,$"Unit {_selectedUnit.Id} moved to {targetPosition.Q},{targetPosition.R}");
                 _selectedUnit = null; // Deselect after action
             }
             else
             {
-                Debug.LogWarning($"Move failed: {result.ErrorMessage}");
+                _logger?.Warning(LogCategory.Combat,$"Move failed: {result.ErrorMessage}");
             }
         }
         
@@ -142,11 +145,11 @@ namespace Combat.Player
             
             if (result.Success)
             {
-                Debug.Log($"Ability {abilityId} scheduled for unit {_selectedUnit.Id}");
+                _logger?.Info(LogCategory.Combat,$"Ability {abilityId} scheduled for unit {_selectedUnit.Id}");
             }
             else
             {
-                Debug.LogWarning($"Schedule ability failed: {result.ErrorMessage}");
+                _logger?.Warning(LogCategory.Combat,$"Schedule ability failed: {result.ErrorMessage}");
             }
         }
         
@@ -165,12 +168,12 @@ namespace Combat.Player
             
             if (result.Success)
             {
-                Debug.Log($"Ability queue executed for unit {_selectedUnit.Id}");
+                _logger?.Info(LogCategory.Combat,$"Ability queue executed for unit {_selectedUnit.Id}");
                 _selectedUnit = null; // Deselect after action
             }
             else
             {
-                Debug.LogWarning($"Execute queue failed: {result.ErrorMessage}");
+                _logger?.Warning(LogCategory.Combat,$"Execute queue failed: {result.ErrorMessage}");
             }
         }
         
@@ -189,12 +192,12 @@ namespace Combat.Player
             
             if (result.Success)
             {
-                Debug.Log($"Unit {_selectedUnit.Id} turn ended");
+                _logger?.Info(LogCategory.Combat,$"Unit {_selectedUnit.Id} turn ended");
                 _selectedUnit = null; // Deselect after action
             }
             else
             {
-                Debug.LogWarning($"End turn failed: {result.ErrorMessage}");
+                _logger?.Warning(LogCategory.Combat,$"End turn failed: {result.ErrorMessage}");
             }
         }
         

@@ -3,6 +3,7 @@ using Combat.Battlefield;
 using Combat.Config;
 using Combat.Input.Commands;
 using Combat.Player;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Input
@@ -16,6 +17,7 @@ namespace Combat.Input
     {
         private readonly IInputController _inputController;
         private readonly HexDirectionConfig _hexConfig;
+        private readonly IGameLogger _logger;
 
         // Presenter is set via method injection (not constructor)
         // because it depends on character-specific state
@@ -35,8 +37,10 @@ namespace Combat.Input
 
         public InputCommandHandler(
             IInputController inputController,
-            HexDirectionConfig hexConfig)
+            HexDirectionConfig hexConfig,
+            IGameLogger logger)
         {
+            _logger = logger;
             _inputController = inputController ?? throw new ArgumentNullException(nameof(inputController));
             _hexConfig = hexConfig ?? throw new ArgumentNullException(nameof(hexConfig));
 
@@ -104,7 +108,7 @@ namespace Combat.Input
             }
 
             OnCommandProcessed?.Invoke(command);
-            Debug.Log($"[InputCommandHandler] Movement mode changed: {command.IsActive}");
+            _logger.Info(LogCategory.Combat,$"[InputCommandHandler] Movement mode changed: {command.IsActive}");
         }
 
         private void HandleMovementDirectionChanged(MovementDirectionChangedCommand command)
@@ -127,7 +131,7 @@ namespace Combat.Input
 
             if (_currentTargetCell.HasValue)
             {
-                Debug.Log($"[InputCommandHandler] Direction changed to cell: {_currentTargetCell.Value}");
+                _logger.Info(LogCategory.Combat,$"[InputCommandHandler] Direction changed to cell: {_currentTargetCell.Value}");
             }
         }
 
@@ -137,7 +141,7 @@ namespace Combat.Input
             if (!_isMovementModeActive) return;
             if (!_currentTargetCell.HasValue) return;
 
-            Debug.Log($"[InputCommandHandler] Movement confirmed to: {_currentTargetCell.Value}");
+            _logger.Info(LogCategory.Combat,$"[InputCommandHandler] Movement confirmed to: {_currentTargetCell.Value}");
             _presenter?.TryMoveToCell(_currentTargetCell.Value);
 
             OnCommandProcessed?.Invoke(command);
@@ -153,7 +157,7 @@ namespace Combat.Input
             _presenter?.UpdateHighlight(null);
 
             OnCommandProcessed?.Invoke(command);
-            Debug.Log("[InputCommandHandler] Movement cancelled");
+            _logger.Info(LogCategory.Combat,"[InputCommandHandler] Movement cancelled");
         }
 
         private bool CanProcessInput()

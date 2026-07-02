@@ -1,4 +1,5 @@
 using System.Linq;
+using Core.Logging;
 using UnityEngine;
 using Zenject;
 
@@ -14,14 +15,16 @@ namespace Platform
         public class Factory : PlaceholderFactory<CutsceneActiveState> { }
 
         private readonly IPlatformStateFactory _stateFactory;
+        private readonly IGameLogger _logger;
 
         private IPlatform _currentPlatform;
         private CutsceneContent _cutsceneContent;
 
         [Inject]
-        public CutsceneActiveState(IPlatformStateFactory stateFactory)
+        public CutsceneActiveState(IPlatformStateFactory stateFactory, IGameLogger logger)
         {
             _stateFactory = stateFactory;
+            _logger = logger;
         }
 
         public override void OnEnter(IPlatform platform)
@@ -31,7 +34,7 @@ namespace Platform
             _cutsceneContent = platform.Contents.OfType<CutsceneContent>().FirstOrDefault();
             if (_cutsceneContent == null)
             {
-                Debug.LogWarning($"[CutsceneActiveState] No cutscene content found for platform {platform.Id}");
+                _logger.Warning(LogCategory.Platform, $"[CutsceneActiveState] No cutscene content found for platform {platform.Id}");
                 TransitionToCompleted();
                 return;
             }
@@ -61,7 +64,7 @@ namespace Platform
 
         private void HandleCutsceneContentEnded(CutsceneContent content, bool wasSkipped)
         {
-            Debug.Log($"[CutsceneActiveState] Cutscene '{content.CutsceneId}' ended (skipped: {wasSkipped})");
+            _logger.Info(LogCategory.Platform, $"[CutsceneActiveState] Cutscene '{content.CutsceneId}' ended (skipped: {wasSkipped})");
             TransitionToCompleted();
         }
 

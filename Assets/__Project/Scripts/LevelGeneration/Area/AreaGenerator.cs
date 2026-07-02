@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Core.Logging;
 using Loot.Core;
 using Platform;
 using UnityEngine;
@@ -19,6 +20,7 @@ namespace LevelGeneration
         private readonly Platform.Platform.Factory _platformFactory;
         private readonly ILootRollService _lootRollService;
         private readonly LevelTheme _theme;
+        private readonly IGameLogger _logger;
 
         private readonly Dictionary<int, IPlatform> _platforms = new();
         private readonly Dictionary<int, PlatformView> _platformViews = new();
@@ -36,7 +38,8 @@ namespace LevelGeneration
             Platform.Platform.Factory platformFactory,
             ILootRollService lootRollService,
             LevelTheme theme,
-            AreaGeneratorConfig config = null)
+            AreaGeneratorConfig config = null,
+            IGameLogger logger = null)
         {
             _graph = graph;
             _noiseMap = noiseMap;
@@ -44,6 +47,7 @@ namespace LevelGeneration
             _lootRollService = lootRollService;
             _theme = theme;
             _config = config ?? new AreaGeneratorConfig();
+            _logger = logger;
         }
 
         /// <summary>
@@ -56,11 +60,11 @@ namespace LevelGeneration
             Initialize();
             AppendPlatforms(_graph.Nodes);
 
-            Debug.Log($"[AreaGenerator] Created {_platformViews.Count} platform GameObjects");
+            _logger?.Info(LogCategory.LevelGeneration,$"[AreaGenerator] Created {_platformViews.Count} platform GameObjects");
 
             if (_entryPlatform == null)
             {
-                Debug.LogWarning("[AreaGenerator] No entry platform found!");
+                _logger?.Warning(LogCategory.LevelGeneration,"[AreaGenerator] No entry platform found!");
             }
         }
 
@@ -281,7 +285,7 @@ namespace LevelGeneration
                 return null;
             }
 
-            Debug.Log($"[AreaGenerator] Rolled {items.Count} loot item(s) for platform {nodeId} " +
+            _logger?.Info(LogCategory.LevelGeneration,$"[AreaGenerator] Rolled {items.Count} loot item(s) for platform {nodeId} " +
                       $"({string.Join(", ", items.Select(i => i.ArtifactId))})");
             return new LootContent(items);
         }
@@ -299,7 +303,7 @@ namespace LevelGeneration
                 }
                 else
                 {
-                    Debug.LogWarning($"[AreaGenerator] Invalid EnemyId format: '{storyData.EnemyId}'");
+                    _logger?.Warning(LogCategory.LevelGeneration,$"[AreaGenerator] Invalid EnemyId format: '{storyData.EnemyId}'");
                 }
             }
 

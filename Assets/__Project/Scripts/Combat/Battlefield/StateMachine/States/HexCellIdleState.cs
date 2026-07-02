@@ -1,3 +1,4 @@
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Battlefield
@@ -9,6 +10,7 @@ namespace Combat.Battlefield
     public class HexCellIdleState : HexCellStateBase
     {
         private readonly Color idleColor;
+        private readonly IGameLogger _logger;
 
         public override HexCellStateType StateType => HexCellStateType.Idle;
 
@@ -16,15 +18,16 @@ namespace Combat.Battlefield
         /// Creates an idle state with an optional color.
         /// </summary>
         /// <param name="color">The idle color, defaults to white if not specified</param>
-        public HexCellIdleState(Color? color = null)
+        public HexCellIdleState(Color? color = null, IGameLogger logger = null)
         {
             idleColor = color ?? Color.white;
+            _logger = logger;
         }
 
         public override void OnEnter(IHexCell cell)
         {
             cell.IsActive = true;
-            Debug.Log($"[HexCellIdleState] Cell {cell.Coordinates} is now idle");
+            _logger?.Info(LogCategory.Combat, $"[HexCellIdleState] Cell {cell.Coordinates} is now idle");
         }
 
         public override Color GetColor()

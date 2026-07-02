@@ -91,7 +91,7 @@ namespace Inventory.Presenter
 
             if (!_session.TrySelect(instanceId))
             {
-                _logger.Info($"[CraftingPresenter] Selection of instance {instanceId} rejected.");
+                _logger.Info(LogCategory.Inventory,$"[CraftingPresenter] Selection of instance {instanceId} rejected.");
             }
         }
 
@@ -104,7 +104,7 @@ namespace Inventory.Presenter
         {
             if (!_session.TryUnstage(instanceId))
             {
-                _logger.Info($"[CraftingPresenter] Unstaging of instance {instanceId} rejected.");
+                _logger.Info(LogCategory.Inventory,$"[CraftingPresenter] Unstaging of instance {instanceId} rejected.");
             }
         }
 
@@ -122,7 +122,7 @@ namespace Inventory.Presenter
         {
             if (!_session.ResolveCraft())
             {
-                _logger.Info("[CraftingPresenter] Craft resolution rejected; the craft was cancelled.");
+                _logger.Info(LogCategory.Inventory,"[CraftingPresenter] Craft resolution rejected; the craft was cancelled.");
             }
         }
 
@@ -179,7 +179,7 @@ namespace Inventory.Presenter
                 return new ArtifactViewData(instance.InstanceId, definition.Icon, definition.BubbleTint);
             }
 
-            _logger.Warning($"[CraftingPresenter] No artifact definition for id '{instance.DefinitionId}'.");
+            _logger.Warning(LogCategory.Inventory,$"[CraftingPresenter] No artifact definition for id '{instance.DefinitionId}'.");
             return new ArtifactViewData(instance.InstanceId, null, Color.white);
         }
     }

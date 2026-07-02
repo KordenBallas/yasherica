@@ -1,6 +1,7 @@
 using System;
 using Combat.Config;
 using Combat.Input.Commands;
+using Core.Logging;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.EnhancedTouch;
@@ -16,6 +17,7 @@ namespace Combat.Input
     public class MobileInputController : MonoBehaviour, IInputController
     {
         [Inject] private InputConfig _config;
+        [Inject] private IGameLogger _logger;
 
         private Vector3? _dragDirection;
         private bool _isEnabled;
@@ -140,7 +142,7 @@ namespace Combat.Input
             _isEnabled = true;
             _wasMovementModeActive = false;
             _lastDirection = null;
-            Debug.Log("[MobileInputController] Enabled");
+            _logger.Info(LogCategory.Combat,"[MobileInputController] Enabled");
         }
 
         public void Disable()
@@ -155,7 +157,7 @@ namespace Combat.Input
             _isEnabled = false;
             _wasMovementModeActive = false;
             _lastDirection = null;
-            Debug.Log("[MobileInputController] Disabled");
+            _logger.Info(LogCategory.Combat,"[MobileInputController] Disabled");
         }
 
         private void OnDestroy()

@@ -2,7 +2,9 @@ using System.Collections.Generic;
 using Combat.Battlefield;
 using Combat.Controller;
 using Combat.Core;
+using Core.Logging;
 using UnityEngine;
+using Zenject;
 
 namespace Character
 {
@@ -16,7 +18,8 @@ namespace Character
     {
         private Unit _internalUnit;
         private ICombatController _combatController;
-        
+        [Inject] private IGameLogger _logger;
+
         // IUnitIdentity
         public int Id => _internalUnit?.Id ?? -1;
         public IPlayer Owner => _internalUnit?.Owner;
@@ -84,8 +87,8 @@ namespace Character
             // Subscribe to state changes for synchronization
             _combatController.OnStateChanged += OnCombatStateChanged;
 
-            Debug.Log($"[CharacterCombatComponent] Initialized for combat: ID={unitId}, Position={startPosition}, Owner={owner.Name}, Abilities={abilities.Count}, Passives={passiveEffects?.Count ?? 0}");
-            Debug.Log($"[CharacterCombatComponent] Subscribed to OnStateChanged");
+            _logger?.Info(LogCategory.Character,$"[CharacterCombatComponent] Initialized for combat: ID={unitId}, Position={startPosition}, Owner={owner.Name}, Abilities={abilities.Count}, Passives={passiveEffects?.Count ?? 0}");
+            _logger?.Info(LogCategory.Character,$"[CharacterCombatComponent] Subscribed to OnStateChanged");
         }
         
         /// <summary>
@@ -104,7 +107,7 @@ namespace Character
 
             if (updatedUnit == null)
             {
-                Debug.LogWarning($"[CharacterCombatComponent] Unit {_internalUnit.Id} not found in updated state");
+                _logger?.Warning(LogCategory.Character,$"[CharacterCombatComponent] Unit {_internalUnit.Id} not found in updated state");
                 return;
             }
 
@@ -112,7 +115,7 @@ namespace Character
             var newUnit = updatedUnit as Unit;
             if (newUnit == null)
             {
-                Debug.LogError($"[CharacterCombatComponent] State contains non-Unit IUnit: {updatedUnit.GetType().Name}");
+                _logger?.Error(LogCategory.Character,$"[CharacterCombatComponent] State contains non-Unit IUnit: {updatedUnit.GetType().Name}");
                 return;
             }
 
@@ -123,11 +126,11 @@ namespace Character
             {
                 Vector3 worldPosition = _combatController.Battlefield.HexToWorld(Position);
                 transform.position = worldPosition;
-                Debug.Log($"[CharacterCombatComponent] Synchronized: Position={Position}, WorldPos={worldPosition}, HP={CurrentHP}/{MaxHP}");
+                _logger?.Info(LogCategory.Character,$"[CharacterCombatComponent] Synchronized: Position={Position}, WorldPos={worldPosition}, HP={CurrentHP}/{MaxHP}");
             }
             else
             {
-                Debug.Log($"[CharacterCombatComponent] Synchronized: Position={Position}, HP={CurrentHP}/{MaxHP}");
+                _logger?.Info(LogCategory.Character,$"[CharacterCombatComponent] Synchronized: Position={Position}, HP={CurrentHP}/{MaxHP}");
             }
         }
 
@@ -151,7 +154,7 @@ namespace Character
             if (_combatController != null)
             {
                 _combatController.OnStateChanged -= OnCombatStateChanged;
-                Debug.Log("[CharacterCombatComponent] Unsubscribed from OnStateChanged");
+                _logger?.Info(LogCategory.Character,"[CharacterCombatComponent] Unsubscribed from OnStateChanged");
             }
         }
     }

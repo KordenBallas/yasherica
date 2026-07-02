@@ -27,7 +27,7 @@ namespace CharacterSystem.Runtime
         {
             if (assembly == null || assembly.Skeleton == null || assembly.Skeleton.RigPrefab == null)
             {
-                _logger.Error("[ModularCharacterFactory] Assembly definition, skeleton, or rig prefab is missing.");
+                _logger.Error(LogCategory.CharacterSystem,"[ModularCharacterFactory] Assembly definition, skeleton, or rig prefab is missing.");
                 return null;
             }
 
@@ -42,7 +42,7 @@ namespace CharacterSystem.Runtime
             var rig = rigObject.GetComponent<CharacterRig>();
             if (rig == null)
             {
-                _logger.Error($"[ModularCharacterFactory] Rig prefab '{assembly.Skeleton.RigPrefab.name}' has no CharacterRig component.");
+                _logger.Error(LogCategory.CharacterSystem,$"[ModularCharacterFactory] Rig prefab '{assembly.Skeleton.RigPrefab.name}' has no CharacterRig component.");
                 Object.Destroy(rigObject);
                 return null;
             }
@@ -103,11 +103,11 @@ namespace CharacterSystem.Runtime
                 if (issue.Severity == ValidationSeverity.Error)
                 {
                     hasErrors = true;
-                    _logger.Error($"[ModularCharacterFactory] {issue}");
+                    _logger.Error(LogCategory.CharacterSystem,$"[ModularCharacterFactory] {issue}");
                 }
                 else
                 {
-                    _logger.Warning($"[ModularCharacterFactory] {issue}");
+                    _logger.Warning(LogCategory.CharacterSystem,$"[ModularCharacterFactory] {issue}");
                 }
             }
 
@@ -121,7 +121,7 @@ namespace CharacterSystem.Runtime
             {
                 if (!rig.TryGetBone(boneName, out _))
                 {
-                    _logger.Error(
+                    _logger.Error(LogCategory.CharacterSystem,
                         $"[ModularCharacterFactory] SkeletonDefinition '{skeleton.Id}' lists bone '{boneName}' but the instantiated rig prefab has no such transform. Re-sync the bone list from the rig prefab.");
                     valid = false;
                 }

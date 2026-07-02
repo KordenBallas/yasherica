@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.TurnManagement
@@ -12,7 +13,8 @@ namespace Combat.TurnManagement
         private List<Core.IPlayer> _turnOrder;
         private int _currentPlayerIndex;
         private int _turnNumber;
-        
+        private readonly IGameLogger _logger;
+
         public Core.IPlayer CurrentPlayer => _turnOrder != null && _turnOrder.Count > 0 
             ? _turnOrder[_currentPlayerIndex] 
             : null;
@@ -21,8 +23,9 @@ namespace Combat.TurnManagement
         
         public IReadOnlyList<Core.IPlayer> TurnOrder => _turnOrder?.AsReadOnly();
         
-        public TurnManager()
+        public TurnManager(IGameLogger logger)
         {
+            _logger = logger;
             _currentPlayerIndex = 0;
             _turnNumber = 1;
         }
@@ -37,7 +40,7 @@ namespace Combat.TurnManagement
             _turnOrder = players.ToList();
             _currentPlayerIndex = 0;
             _turnNumber = 1;
-            Debug.Log($"[TurnManager] Initialized with {players?.Count} players.");
+            _logger.Info(LogCategory.Combat,$"[TurnManager] Initialized with {players?.Count} players.");
         }
         
         public void NextTurn()

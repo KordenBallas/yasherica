@@ -59,7 +59,7 @@ namespace Narrative.Facts.Core
             // passes on a non-existent fact (only enforced when a registry is supplied).
             if (_registry != null && !_registry.TryGetInfo(predicate.Namespace, predicate.Key, out _))
             {
-                _logger?.Warning($"[PreconditionEvaluator] Unknown fact key '{predicate.Namespace}.{predicate.Key}' - failing closed.");
+                _logger?.Warning(LogCategory.Narrative,$"[PreconditionEvaluator] Unknown fact key '{predicate.Namespace}.{predicate.Key}' - failing closed.");
                 return false;
             }
 
@@ -89,7 +89,7 @@ namespace Narrative.Facts.Core
                 case ComparisonOp.Lte:
                     return CompareOrdered(predicate, actual, key);
                 default:
-                    _logger?.Warning($"[PreconditionEvaluator] Unsupported op {predicate.Op} on '{key}' - failing closed.");
+                    _logger?.Warning(LogCategory.Narrative,$"[PreconditionEvaluator] Unsupported op {predicate.Op} on '{key}' - failing closed.");
                     return false;
             }
         }
@@ -98,7 +98,7 @@ namespace Narrative.Facts.Core
         {
             if (!actual.IsNumeric || !predicate.Value.IsNumeric)
             {
-                _logger?.Warning($"[PreconditionEvaluator] Ordered op {predicate.Op} on non-numeric '{key}' - failing closed.");
+                _logger?.Warning(LogCategory.Narrative,$"[PreconditionEvaluator] Ordered op {predicate.Op} on non-numeric '{key}' - failing closed.");
                 return false;
             }
 

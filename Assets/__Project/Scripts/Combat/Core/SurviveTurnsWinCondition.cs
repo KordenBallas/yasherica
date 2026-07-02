@@ -1,4 +1,5 @@
 using Combat.Core;
+using Core.Logging;
 using System.Linq;
 using UnityEngine;
 
@@ -14,11 +15,13 @@ namespace Combat.Core
         
         private readonly int _targetTurns;
         private readonly int _targetPlayerId;
-        
-        public SurviveTurnsWinCondition(int targetTurns, int targetPlayerId)
+        private readonly IGameLogger _logger;
+
+        public SurviveTurnsWinCondition(int targetTurns, int targetPlayerId, IGameLogger logger = null)
         {
             _targetTurns = targetTurns;
             _targetPlayerId = targetPlayerId;
+            _logger = logger;
         }
         
         public bool Check(ICombatState gameState, out IPlayer winningPlayer)
@@ -27,7 +30,7 @@ namespace Combat.Core
             {
                 // Find the target player
                 winningPlayer = gameState.Players.FirstOrDefault(p => p.Id == _targetPlayerId);
-                Debug.Log($"[SurviveTurnsWinCondition] Target player check {winningPlayer?.Id} {winningPlayer?.Name}.");
+                _logger?.Info(LogCategory.Combat,$"[SurviveTurnsWinCondition] Target player check {winningPlayer?.Id} {winningPlayer?.Name}.");
                 
                 // Check if they have any alive units
                 if (winningPlayer != null)
@@ -35,13 +38,13 @@ namespace Combat.Core
                     var aliveUnits = gameState.GetUnitsByPlayer(winningPlayer).Where(u => u.IsAlive);
                     if (aliveUnits.Any())
                     {
-                        Debug.Log($"[SurviveTurnsWinCondition] Survive turns win for player {winningPlayer.Id} {winningPlayer.Name}");
+                        _logger?.Info(LogCategory.Combat,$"[SurviveTurnsWinCondition] Survive turns win for player {winningPlayer.Id} {winningPlayer.Name}");
                         return true;
                     }
                 }
             }
             
-            Debug.Log($"[SurviveTurnsWinCondition] Survive turns not met. Turn number {gameState.TurnNumber}.");
+            _logger?.Info(LogCategory.Combat,$"[SurviveTurnsWinCondition] Survive turns not met. Turn number {gameState.TurnNumber}.");
             winningPlayer = null;
             return false;
         }

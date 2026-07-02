@@ -2,6 +2,7 @@ using Combat.Battlefield;
 using Combat.Config;
 using Combat.Core;
 using Combat.Core.StatusEffects;
+using Core.Logging;
 using Combat.Execution;
 using Combat.TurnManagement;
 using System.Collections.Generic;
@@ -25,6 +26,7 @@ namespace Combat.Controller
         private readonly CombatConfig _config;
         private readonly HexDirectionConfig _hexConfig;
         private readonly List<IWinCondition> _winConditions;
+        private readonly IGameLogger _logger;
 
         private ICombatState _gameState;
         private IBattlefield _battlefield;
@@ -45,7 +47,8 @@ namespace Combat.Controller
             StatusEffectTriggerProcessor triggerProcessor,
             BattlefieldFactory battlefieldFactory,
             CombatConfig config,
-            HexDirectionConfig hexConfig)
+            HexDirectionConfig hexConfig,
+            IGameLogger logger)
         {
             _actionValidator = actionValidator;
             _actionExecutor = actionExecutor;
@@ -56,6 +59,7 @@ namespace Combat.Controller
             _config = config;
             _hexConfig = hexConfig;
             _winConditions = new List<IWinCondition>();
+            _logger = logger;
         }
         
         public void Initialize(ICombatState initialState, IReadOnlyList<IPlayer> players)
@@ -87,14 +91,14 @@ namespace Combat.Controller
         {
             if (unit == null)
             {
-                Debug.LogWarning("[CombatController] Cannot add null unit to combat state");
+                _logger.Warning(LogCategory.Combat,"[CombatController] Cannot add null unit to combat state");
                 return;
             }
 
             // Validate that it's actually a Unit instance (prevent architectural violations)
             if (!(unit is Unit))
             {
-                Debug.LogError($"[CombatController] CombatState can only contain Unit instances. " +
+                _logger.Error(LogCategory.Combat,$"[CombatController] CombatState can only contain Unit instances. " +
                               $"Received: {unit.GetType().Name}. " +
                               $"MonoBehaviour adapters should add their internal Unit, not themselves.");
                 return;
@@ -104,7 +108,7 @@ namespace Combat.Controller
             var existingUnit = _gameState.GetUnit(unit.Id);
             if (existingUnit != null)
             {
-                Debug.LogWarning($"[CombatController] Unit with ID {unit.Id} already exists in combat state. Skipping add.");
+                _logger.Warning(LogCategory.Combat,$"[CombatController] Unit with ID {unit.Id} already exists in combat state. Skipping add.");
                 return;
             }
             
@@ -114,7 +118,7 @@ namespace Combat.Controller
             // Create new immutable state with updated units
             _gameState = (_gameState as CombatState).WithUnits(newUnits);
             
-            Debug.Log($"[CombatController] Added unit {unit.Id} (Owner: {unit.Owner?.Name ?? "null"}, Position: {unit.Position}) to combat state");
+            _logger.Info(LogCategory.Combat,$"[CombatController] Added unit {unit.Id} (Owner: {unit.Owner?.Name ?? "null"}, Position: {unit.Position}) to combat state");
             
             // Trigger state change event
             OnStateChanged?.Invoke(_gameState);
@@ -122,13 +126,13 @@ namespace Combat.Controller
         
         public ActionResult ProcessAction(IAction action)
         {
-            Debug.Log($"[CombatController] ProcessAction called: Action={action.Type}, UnitId={action.UnitId}, ActionPlayerId={action.Player?.Id}");
-            Debug.Log($"[CombatController] Current turn player: {_turnManager.CurrentPlayer?.Id} ({_turnManager.CurrentPlayer?.Name})");
+            _logger.Info(LogCategory.Combat,$"[CombatController] ProcessAction called: Action={action.Type}, UnitId={action.UnitId}, ActionPlayerId={action.Player?.Id}");
+            _logger.Info(LogCategory.Combat,$"[CombatController] Current turn player: {_turnManager.CurrentPlayer?.Id} ({_turnManager.CurrentPlayer?.Name})");
 
             var unit = _gameState.GetUnit(action.UnitId);
             if (unit != null)
             {
-                Debug.Log($"[CombatController] Unit {unit.Id} Owner: {unit.Owner?.Id} ({unit.Owner?.Name})");
+                _logger.Info(LogCategory.Combat,$"[CombatController] Unit {unit.Id} Owner: {unit.Owner?.Id} ({unit.Owner?.Name})");
             }
 
             // Validate action
@@ -163,34 +167,34 @@ namespace Combat.Controller
         {
             var currentPlayer = _turnManager.CurrentPlayer;
 
-            Debug.Log($"[CombatController] CheckTurnEnd called - Current Player: {currentPlayer?.Id} ({currentPlayer?.Name})");
+            _logger.Info(LogCategory.Combat,$"[CombatController] CheckTurnEnd called - Current Player: {currentPlayer?.Id} ({currentPlayer?.Name})");
 
             // Get all units belonging to current player
             var playerUnits = _gameState.GetUnitsByPlayer(currentPlayer);
-            Debug.Log($"[CombatController] Total units for player {currentPlayer?.Id}: {playerUnits.Count}");
+            _logger.Info(LogCategory.Combat,$"[CombatController] Total units for player {currentPlayer?.Id}: {playerUnits.Count}");
 
             foreach (var unit in playerUnits)
             {
-                Debug.Log($"[CombatController] Unit {unit.Id}: IsAlive={unit.IsAlive}, HasActedThisTurn={unit.HasActedThisTurn}, CanAct={unit.CanAct}, ActionState={unit.ActionState}");
+                _logger.Info(LogCategory.Combat,$"[CombatController] Unit {unit.Id}: IsAlive={unit.IsAlive}, HasActedThisTurn={unit.HasActedThisTurn}, CanAct={unit.CanAct}, ActionState={unit.ActionState}");
             }
 
             // Check if all units of current player have acted
             var activeUnits = _gameState.GetActiveUnitsByPlayer(currentPlayer);
 
-            Debug.Log($"[CombatController] Active units remaining for player {currentPlayer?.Id}: {activeUnits.Count}");
+            _logger.Info(LogCategory.Combat,$"[CombatController] Active units remaining for player {currentPlayer?.Id}: {activeUnits.Count}");
 
             if (activeUnits.Count == 0)
             {
-                Debug.Log($"[CombatController] All units have acted - advancing turn");
+                _logger.Info(LogCategory.Combat,$"[CombatController] All units have acted - advancing turn");
                 // All units have acted, advance turn
                 AdvanceTurn();
             }
             else
             {
-                Debug.Log($"[CombatController] Turn continues - {activeUnits.Count} unit(s) can still act");
+                _logger.Info(LogCategory.Combat,$"[CombatController] Turn continues - {activeUnits.Count} unit(s) can still act");
                 foreach (var unit in activeUnits)
                 {
-                    Debug.Log($"[CombatController] Active unit: {unit.Id}");
+                    _logger.Info(LogCategory.Combat,$"[CombatController] Active unit: {unit.Id}");
                 }
             }
         }

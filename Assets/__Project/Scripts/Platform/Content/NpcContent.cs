@@ -5,6 +5,7 @@ using Narrative.Casting.Core;
 using Narrative.Interaction;
 using Narrative.Interaction.Core;
 using Narrative.Stories.Core;
+using Core.Logging;
 using UnityEngine;
 
 namespace Platform
@@ -67,7 +68,7 @@ namespace Platform
         {
             if (Actor == null)
             {
-                Debug.LogWarning($"[NpcContent] No actor on platform {platform.Id}");
+                Logger?.Warning(LogCategory.Platform,$"[NpcContent] No actor on platform {platform.Id}");
                 return;
             }
 
@@ -80,7 +81,7 @@ namespace Platform
         {
             if (_modularFactory == null || Archetype?.Assembly == null)
             {
-                Debug.LogWarning($"[NpcContent] Actor '{Actor?.InstanceId}' has no modular factory/assembly - no visual.");
+                Logger?.Warning(LogCategory.Platform,$"[NpcContent] Actor '{Actor?.InstanceId}' has no modular factory/assembly - no visual.");
                 return;
             }
 

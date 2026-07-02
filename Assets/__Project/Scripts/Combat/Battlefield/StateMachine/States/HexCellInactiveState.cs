@@ -1,3 +1,4 @@
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Battlefield
@@ -8,12 +9,19 @@ namespace Combat.Battlefield
     /// </summary>
     public class HexCellInactiveState : HexCellStateBase
     {
+        private readonly IGameLogger _logger;
+
         public override HexCellStateType StateType => HexCellStateType.Inactive;
+
+        public HexCellInactiveState(IGameLogger logger = null)
+        {
+            _logger = logger;
+        }
 
         public override void OnEnter(IHexCell cell)
         {
             cell.IsActive = false;
-            Debug.Log($"[HexCellInactiveState] Cell {cell.Coordinates} is now inactive");
+            _logger?.Info(LogCategory.Combat, $"[HexCellInactiveState] Cell {cell.Coordinates} is now inactive");
         }
 
         public override Color GetColor()

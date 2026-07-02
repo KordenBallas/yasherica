@@ -19,7 +19,7 @@ namespace Narrative.Facts.Core
         {
             if (registry == null)
             {
-                logger?.Warning("[FactKeyRefRegistryCheck] No registry supplied - cannot validate typed refs.");
+                logger?.Warning(LogCategory.Narrative,"[FactKeyRefRegistryCheck] No registry supplied - cannot validate typed refs.");
                 return false;
             }
 
@@ -29,7 +29,7 @@ namespace Narrative.Facts.Core
                 if (!registry.TryGetInfo(keyRef.Namespace, keyRef.Key, out var info))
                 {
                     allKnown = false;
-                    logger?.Warning(
+                    logger?.Warning(LogCategory.Narrative,
                         $"[FactKeyRefRegistryCheck] Typed ref '{keyRef.Namespace}.{keyRef.Key}' is not declared in the fact registry.");
                     continue;
                 }
@@ -37,7 +37,7 @@ namespace Narrative.Facts.Core
                 if (info.ValueType != keyRef.ValueType)
                 {
                     allKnown = false;
-                    logger?.Warning(
+                    logger?.Warning(LogCategory.Narrative,
                         $"[FactKeyRefRegistryCheck] Typed ref '{keyRef.Namespace}.{keyRef.Key}' type {keyRef.ValueType} " +
                         $"disagrees with registry type {info.ValueType}.");
                 }

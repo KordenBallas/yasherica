@@ -3,6 +3,7 @@ using System.Linq;
 using Combat.Core;
 using Combat.Data.Definitions;
 using Combat.Data.Factories;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Data.Providers
@@ -15,17 +16,20 @@ namespace Combat.Data.Providers
     {
         private readonly Dictionary<int, EnemyDefinition> _enemyDefinitions;
         private readonly IAbilityFactory _abilityFactory;
+        private readonly IGameLogger _logger;
 
         public ScriptableObjectEnemyDataProvider(
             IReadOnlyList<EnemyDefinition> enemyDefinitions,
-            IAbilityFactory abilityFactory)
+            IAbilityFactory abilityFactory,
+            IGameLogger logger)
         {
+            _logger = logger;
             _abilityFactory = abilityFactory;
             _enemyDefinitions = new Dictionary<int, EnemyDefinition>();
 
             if (enemyDefinitions == null || enemyDefinitions.Count == 0)
             {
-                Debug.LogWarning("[ScriptableObjectEnemyDataProvider] No enemy definitions provided");
+                _logger.Warning(LogCategory.Combat,"[ScriptableObjectEnemyDataProvider] No enemy definitions provided");
                 return;
             }
 
@@ -36,7 +40,7 @@ namespace Combat.Data.Providers
 
                 if (_enemyDefinitions.ContainsKey(definition.EnemyId))
                 {
-                    Debug.LogWarning(
+                    _logger.Warning(LogCategory.Combat,
                         $"[ScriptableObjectEnemyDataProvider] Duplicate enemy ID {definition.EnemyId}: " +
                         $"'{definition.Name}' conflicts with existing enemy");
                     continue;
@@ -50,7 +54,7 @@ namespace Combat.Data.Providers
         {
             if (!_enemyDefinitions.TryGetValue(enemyId, out var definition))
             {
-                Debug.LogWarning(
+                _logger.Warning(LogCategory.Combat,
                     $"[ScriptableObjectEnemyDataProvider] Enemy {enemyId} not found, returning default");
                 return CreateDefaultEnemyData(enemyId);
             }

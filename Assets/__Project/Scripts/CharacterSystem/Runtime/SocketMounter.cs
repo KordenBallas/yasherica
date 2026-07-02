@@ -61,13 +61,13 @@ namespace CharacterSystem.Runtime
         {
             if (prefab == null)
             {
-                _logger.Error($"[SocketMounter] Cannot attach a null prefab to socket '{socketId}'.");
+                _logger.Error(LogCategory.CharacterSystem,$"[SocketMounter] Cannot attach a null prefab to socket '{socketId}'.");
                 return null;
             }
 
             if (!_socketTransforms.TryGetValue(socketId, out var socket))
             {
-                _logger.Error($"[SocketMounter] Socket '{socketId}' has no transform; is it available on this character?");
+                _logger.Error(LogCategory.CharacterSystem,$"[SocketMounter] Socket '{socketId}' has no transform; is it available on this character?");
                 return null;
             }
 
@@ -119,7 +119,7 @@ namespace CharacterSystem.Runtime
         {
             if (!_rig.TryGetBone(info.ParentBoneName, out var parentBone))
             {
-                _logger.Error($"[SocketMounter] Socket '{info.Id}' references missing bone '{info.ParentBoneName}'; socket skipped.");
+                _logger.Error(LogCategory.CharacterSystem,$"[SocketMounter] Socket '{info.Id}' references missing bone '{info.ParentBoneName}'; socket skipped.");
                 return;
             }
 
@@ -173,7 +173,7 @@ namespace CharacterSystem.Runtime
                 }
                 else
                 {
-                    _logger.Info($"[SocketMounter] Socket '{info.Id}' disappeared with its part; destroying {handles.Count} attachment(s).");
+                    _logger.Info(LogCategory.CharacterSystem,$"[SocketMounter] Socket '{info.Id}' disappeared with its part; destroying {handles.Count} attachment(s).");
                     foreach (var handle in handles)
                     {
                         if (handle.Instance != null)

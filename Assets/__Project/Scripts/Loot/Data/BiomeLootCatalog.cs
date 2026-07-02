@@ -27,6 +27,7 @@ namespace Loot.Data
                 if (_biomes.ContainsKey(definition.Theme))
                 {
                     logger.Warning(
+                        LogCategory.Loot,
                         $"[BiomeLootCatalog] Duplicate biome loot definition for theme " +
                         $"{definition.Theme} ('{definition.name}') ignored.");
                     continue;

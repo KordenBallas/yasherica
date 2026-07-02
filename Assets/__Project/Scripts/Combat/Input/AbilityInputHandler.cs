@@ -3,6 +3,7 @@ using Combat.Battlefield;
 using Combat.Config;
 using Combat.Input.Commands;
 using Combat.Player;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Input
@@ -15,6 +16,7 @@ namespace Combat.Input
     {
         private readonly IInputController _inputController;
         private readonly HexDirectionConfig _hexConfig;
+        private readonly IGameLogger _logger;
 
         private CombatAbilityPresenter _presenter;
         private Func<HexCoordinates> _getCurrentPosition;
@@ -25,8 +27,10 @@ namespace Combat.Input
 
         public AbilityInputHandler(
             IInputController inputController,
-            HexDirectionConfig hexConfig)
+            HexDirectionConfig hexConfig,
+            IGameLogger logger)
         {
+            _logger = logger;
             _inputController = inputController ?? throw new ArgumentNullException(nameof(inputController));
             _hexConfig = hexConfig ?? throw new ArgumentNullException(nameof(hexConfig));
 
@@ -75,7 +79,7 @@ namespace Combat.Input
         {
             if (!CanProcessInput()) return;
 
-            Debug.Log($"[AbilityInputHandler] Ability {command.AbilityIndex} selected");
+            _logger.Info(LogCategory.Combat,$"[AbilityInputHandler] Ability {command.AbilityIndex} selected");
             _isAbilityModeActive = true;
             _presenter?.SelectAbility(command.AbilityIndex);
         }
@@ -97,7 +101,7 @@ namespace Combat.Input
             if (!CanProcessInput()) return;
             if (!_isAbilityModeActive) return;
 
-            Debug.Log("[AbilityInputHandler] Ability confirmed");
+            _logger.Info(LogCategory.Combat,"[AbilityInputHandler] Ability confirmed");
             _presenter?.ConfirmAim();
             _isAbilityModeActive = false;
         }
@@ -106,7 +110,7 @@ namespace Combat.Input
         {
             if (!_isAbilityModeActive) return;
 
-            Debug.Log("[AbilityInputHandler] Ability targeting cancelled");
+            _logger.Info(LogCategory.Combat,"[AbilityInputHandler] Ability targeting cancelled");
             _presenter?.CancelAbilitySelection();
             _isAbilityModeActive = false;
         }
@@ -125,7 +129,7 @@ namespace Combat.Input
         {
             if (!CanProcessInput()) return;
 
-            Debug.Log("[AbilityInputHandler] Execute queue requested");
+            _logger.Info(LogCategory.Combat,"[AbilityInputHandler] Execute queue requested");
             _presenter?.ExecuteQueue();
         }
 

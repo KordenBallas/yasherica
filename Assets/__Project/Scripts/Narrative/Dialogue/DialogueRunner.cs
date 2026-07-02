@@ -136,7 +136,7 @@ namespace Narrative.Dialogue
         {
             if (State != DialogueRunnerState.AwaitingExternal)
             {
-                _logger?.Warning("[DialogueRunner] ReportCombatResult with no pending combat - ignored.");
+                _logger?.Warning(LogCategory.Dialogue,"[DialogueRunner] ReportCombatResult with no pending combat - ignored.");
                 return;
             }
 
@@ -155,13 +155,13 @@ namespace Narrative.Dialogue
         {
             if (State == DialogueRunnerState.Ended || State == DialogueRunnerState.AwaitingExternal)
             {
-                _logger?.Warning("[DialogueRunner] TriggerCombat in a non-interactive state - ignored.");
+                _logger?.Warning(LogCategory.Dialogue,"[DialogueRunner] TriggerCombat in a non-interactive state - ignored.");
                 return;
             }
 
             if (!CombatAvailable)
             {
-                _logger?.Warning("[DialogueRunner] TriggerCombat with no combat in casting - ignored.");
+                _logger?.Warning(LogCategory.Dialogue,"[DialogueRunner] TriggerCombat with no combat in casting - ignored.");
                 return;
             }
 
@@ -183,7 +183,7 @@ namespace Narrative.Dialogue
 
             if (State == DialogueRunnerState.AwaitingExternal)
             {
-                _logger?.Warning("[DialogueRunner] Leave while suspended on combat - ignored.");
+                _logger?.Warning(LogCategory.Dialogue,"[DialogueRunner] Leave while suspended on combat - ignored.");
                 return;
             }
 
@@ -280,7 +280,7 @@ namespace Narrative.Dialogue
         {
             if (_casting == null || !_casting.QuestSlotFilled)
             {
-                _logger?.Warning("[DialogueRunner] offer-quest with no quest in casting - failing closed.");
+                _logger?.Warning(LogCategory.Dialogue,"[DialogueRunner] offer-quest with no quest in casting - failing closed.");
                 _session.SetVariable(QuestAcceptedVariable, false);
                 return;
             }
@@ -302,14 +302,14 @@ namespace Narrative.Dialogue
         {
             if (_activeQuest == null)
             {
-                _logger?.Warning("[DialogueRunner] advance-objective with no active quest - ignored.");
+                _logger?.Warning(LogCategory.Dialogue,"[DialogueRunner] advance-objective with no active quest - ignored.");
                 return;
             }
 
             var parts = (argument ?? string.Empty).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0)
             {
-                _logger?.Warning("[DialogueRunner] advance-objective with no objective id - ignored.");
+                _logger?.Warning(LogCategory.Dialogue,"[DialogueRunner] advance-objective with no objective id - ignored.");
                 return;
             }
 
@@ -328,7 +328,7 @@ namespace Narrative.Dialogue
             var quest = ResolveQuestForCompletion(questId);
             if (quest == null)
             {
-                _logger?.Warning($"[DialogueRunner] complete-quest '{questId}' with no matching active/registered quest - ignored.");
+                _logger?.Warning(LogCategory.Dialogue,$"[DialogueRunner] complete-quest '{questId}' with no matching active/registered quest - ignored.");
                 return;
             }
 
@@ -361,7 +361,7 @@ namespace Narrative.Dialogue
         {
             if (_activeQuest == null)
             {
-                _logger?.Warning("[DialogueRunner] fail-quest with no active quest - ignored.");
+                _logger?.Warning(LogCategory.Dialogue,"[DialogueRunner] fail-quest with no active quest - ignored.");
                 return;
             }
 
@@ -391,7 +391,7 @@ namespace Narrative.Dialogue
             if (_casting == null || !_casting.CombatAllowed)
             {
                 // W2-2: empty/unavailable combat slot - no transition; set a safe write-back so Ink continues.
-                _logger?.Warning("[DialogueRunner] start-combat with no combat in casting - failing closed.");
+                _logger?.Warning(LogCategory.Dialogue,"[DialogueRunner] start-combat with no combat in casting - failing closed.");
                 _session.SetVariable(CombatWonVariable, false);
                 return true; // keep pumping
             }

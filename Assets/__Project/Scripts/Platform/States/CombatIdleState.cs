@@ -1,6 +1,7 @@
 using Combat.Data;
 using Combat.Enemy;
 using Combat.Integration;
+using Core.Logging;
 using UnityEngine;
 using Zenject;
 
@@ -16,18 +17,21 @@ namespace Platform
 
         private readonly EnemyCombatIntegrator _enemyIntegrator;
         private readonly IEnemyDataProvider _enemyDataProvider;
+        private readonly IGameLogger _logger;
 
         public CombatIdleState(
             EnemyCombatIntegrator enemyIntegrator,
-            IEnemyDataProvider enemyDataProvider)
+            IEnemyDataProvider enemyDataProvider,
+            IGameLogger logger)
         {
             _enemyIntegrator = enemyIntegrator;
             _enemyDataProvider = enemyDataProvider;
+            _logger = logger;
         }
 
         public override void OnEnter(IPlatform platform)
         {
-            Debug.Log($"[CombatIdleState] Platform {platform.Id} is now idle (combat)");
+            _logger.Info(LogCategory.Platform,$"[CombatIdleState] Platform {platform.Id} is now idle (combat)");
 
             // Instantiate enemies FIRST TIME ONLY
             // Content-based detection: check if platform has EnemyContent
@@ -52,7 +56,7 @@ namespace Platform
             GameObject enemyPrefab = Resources.Load<GameObject>("Prefabs/Enemy");
             if (enemyPrefab == null)
             {
-                Debug.LogError($"[CombatIdleState] Enemy prefab not found at Resources/Prefabs/Enemy");
+                _logger.Error(LogCategory.Platform,$"[CombatIdleState] Enemy prefab not found at Resources/Prefabs/Enemy");
                 return;
             }
 
@@ -75,18 +79,18 @@ namespace Platform
             {
                 rb = enemyGO.AddComponent<Rigidbody>();
                 rb.constraints = RigidbodyConstraints.FreezeRotation;
-                Debug.Log($"[CombatIdleState] Added Rigidbody to enemy {enemyContent.EnemyId} for gravity simulation");
+                _logger.Info(LogCategory.Platform,$"[CombatIdleState] Added Rigidbody to enemy {enemyContent.EnemyId} for gravity simulation");
             }
 
             // Store in content
             enemyContent.InstantiateEnemy(enemyPlayer, combatComponent);
 
-            Debug.Log($"[CombatIdleState] Enemy {enemyContent.EnemyId} instantiated on platform {platform.Id}");
+            _logger.Info(LogCategory.Platform,$"[CombatIdleState] Enemy {enemyContent.EnemyId} instantiated on platform {platform.Id}");
         }
 
         public override void OnExit(IPlatform platform)
         {
-            Debug.Log($"[CombatIdleState] Platform {platform.Id} exiting combat idle state");
+            _logger.Info(LogCategory.Platform,$"[CombatIdleState] Platform {platform.Id} exiting combat idle state");
         }
     }
 }

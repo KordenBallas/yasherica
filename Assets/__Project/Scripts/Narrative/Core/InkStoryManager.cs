@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Ink.Runtime;
+using Core.Logging;
 using UnityEngine;
 
 namespace Narrative
@@ -16,6 +17,7 @@ namespace Narrative
         private string _currentText;
         private List<StoryChoice> _currentChoices = new();
         private List<string> _currentTags = new();
+        private readonly IGameLogger _logger;
 
         public event Action<string> OnTextChanged;
         public event Action<IReadOnlyList<StoryChoice>> OnChoicesAvailable;
@@ -28,11 +30,16 @@ namespace Narrative
         public IReadOnlyList<string> CurrentTags => _currentTags;
         public string CurrentText => _currentText;
 
+        public InkStoryManager(IGameLogger logger)
+        {
+            _logger = logger;
+        }
+
         public void LoadStory(string jsonContent)
         {
             if (string.IsNullOrEmpty(jsonContent))
             {
-                Debug.LogError("[InkStoryManager] Cannot load story: JSON content is null or empty");
+                _logger.Error(LogCategory.Dialogue,"[InkStoryManager] Cannot load story: JSON content is null or empty");
                 return;
             }
 
@@ -42,11 +49,11 @@ namespace Narrative
                 _currentText = string.Empty;
                 _currentChoices.Clear();
                 _currentTags.Clear();
-                Debug.Log("[InkStoryManager] Story loaded successfully");
+                _logger.Info(LogCategory.Dialogue,"[InkStoryManager] Story loaded successfully");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[InkStoryManager] Failed to load story: {ex.Message}");
+                _logger.Error(LogCategory.Dialogue,$"[InkStoryManager] Failed to load story: {ex.Message}");
                 throw;
             }
         }
@@ -55,13 +62,13 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot continue: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot continue: no story loaded");
                 return string.Empty;
             }
 
             if (!_story.canContinue)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot continue: story cannot continue");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot continue: story cannot continue");
                 UpdateChoices();
                 CheckForEnd();
                 return _currentText;
@@ -88,13 +95,13 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot choose: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot choose: no story loaded");
                 return;
             }
 
             if (choiceIndex < 0 || choiceIndex >= _story.currentChoices.Count)
             {
-                Debug.LogError($"[InkStoryManager] Invalid choice index: {choiceIndex}. Available: {_story.currentChoices.Count}");
+                _logger.Error(LogCategory.Dialogue,$"[InkStoryManager] Invalid choice index: {choiceIndex}. Available: {_story.currentChoices.Count}");
                 return;
             }
 
@@ -106,13 +113,13 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot navigate: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot navigate: no story loaded");
                 return;
             }
 
             if (string.IsNullOrEmpty(knotName))
             {
-                Debug.LogWarning("[InkStoryManager] Cannot navigate: knot name is empty");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot navigate: knot name is empty");
                 return;
             }
 
@@ -120,11 +127,11 @@ namespace Narrative
             {
                 _story.ChoosePathString(knotName);
                 _currentChoices.Clear();
-                Debug.Log($"[InkStoryManager] Navigated to knot: {knotName}");
+                _logger.Info(LogCategory.Dialogue,$"[InkStoryManager] Navigated to knot: {knotName}");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[InkStoryManager] Failed to navigate to knot '{knotName}': {ex.Message}");
+                _logger.Error(LogCategory.Dialogue,$"[InkStoryManager] Failed to navigate to knot '{knotName}': {ex.Message}");
             }
         }
 
@@ -132,7 +139,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot get variable: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot get variable: no story loaded");
                 return null;
             }
 
@@ -142,7 +149,7 @@ namespace Narrative
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[InkStoryManager] Failed to get variable '{variableName}': {ex.Message}");
+                _logger.Error(LogCategory.Dialogue,$"[InkStoryManager] Failed to get variable '{variableName}': {ex.Message}");
                 return null;
             }
         }
@@ -151,7 +158,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot set variable: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot set variable: no story loaded");
                 return;
             }
 
@@ -161,7 +168,7 @@ namespace Narrative
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[InkStoryManager] Failed to set variable '{variableName}': {ex.Message}");
+                _logger.Error(LogCategory.Dialogue,$"[InkStoryManager] Failed to set variable '{variableName}': {ex.Message}");
             }
         }
 
@@ -169,7 +176,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot get visit count: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot get visit count: no story loaded");
                 return 0;
             }
 
@@ -179,7 +186,7 @@ namespace Narrative
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[InkStoryManager] Failed to get visit count for '{pathString}': {ex.Message}");
+                _logger.Error(LogCategory.Dialogue,$"[InkStoryManager] Failed to get visit count for '{pathString}': {ex.Message}");
                 return 0;
             }
         }
@@ -188,7 +195,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot get tags: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot get tags: no story loaded");
                 return Array.Empty<string>();
             }
 
@@ -199,7 +206,7 @@ namespace Narrative
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[InkStoryManager] Failed to get tags for knot '{knotName}': {ex.Message}");
+                _logger.Error(LogCategory.Dialogue,$"[InkStoryManager] Failed to get tags for knot '{knotName}': {ex.Message}");
                 return Array.Empty<string>();
             }
         }
@@ -208,7 +215,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot bind function: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot bind function: no story loaded");
                 return;
             }
 
@@ -219,7 +226,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot bind function: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot bind function: no story loaded");
                 return;
             }
 
@@ -230,7 +237,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot bind function: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot bind function: no story loaded");
                 return;
             }
 
@@ -241,7 +248,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot bind function: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot bind function: no story loaded");
                 return;
             }
 
@@ -252,7 +259,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot bind function: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot bind function: no story loaded");
                 return;
             }
 
@@ -263,7 +270,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot save state: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot save state: no story loaded");
                 return string.Empty;
             }
 
@@ -274,13 +281,13 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot load state: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot load state: no story loaded");
                 return;
             }
 
             if (string.IsNullOrEmpty(savedState))
             {
-                Debug.LogWarning("[InkStoryManager] Cannot load state: saved state is empty");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot load state: saved state is empty");
                 return;
             }
 
@@ -289,11 +296,11 @@ namespace Narrative
                 _story.state.LoadJson(savedState);
                 UpdateTags();
                 UpdateChoices();
-                Debug.Log("[InkStoryManager] State loaded successfully");
+                _logger.Info(LogCategory.Dialogue,"[InkStoryManager] State loaded successfully");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[InkStoryManager] Failed to load state: {ex.Message}");
+                _logger.Error(LogCategory.Dialogue,$"[InkStoryManager] Failed to load state: {ex.Message}");
             }
         }
 
@@ -301,7 +308,7 @@ namespace Narrative
         {
             if (_story == null)
             {
-                Debug.LogWarning("[InkStoryManager] Cannot reset: no story loaded");
+                _logger.Warning(LogCategory.Dialogue,"[InkStoryManager] Cannot reset: no story loaded");
                 return;
             }
 
@@ -309,7 +316,7 @@ namespace Narrative
             _currentText = string.Empty;
             _currentChoices.Clear();
             _currentTags.Clear();
-            Debug.Log("[InkStoryManager] Story reset to initial state");
+            _logger.Info(LogCategory.Dialogue,"[InkStoryManager] Story reset to initial state");
         }
 
         public void Reset()
@@ -318,7 +325,7 @@ namespace Narrative
             _currentText = string.Empty;
             _currentChoices.Clear();
             _currentTags.Clear();
-            Debug.Log("[InkStoryManager] Story manager reset");
+            _logger.Info(LogCategory.Dialogue,"[InkStoryManager] Story manager reset");
         }
 
         private void UpdateTags()

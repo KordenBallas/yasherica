@@ -118,7 +118,7 @@ namespace Inventory.Presenter
 
             if (_combatActivityTracker.IsCombatActive)
             {
-                _logger.Info("[InventoryPresenter] Inventory is unavailable during combat.");
+                _logger.Info(LogCategory.Inventory,"[InventoryPresenter] Inventory is unavailable during combat.");
                 return;
             }
 
@@ -197,7 +197,7 @@ namespace Inventory.Presenter
 
             if (isCombatActive && _isOpen)
             {
-                _logger.Info("[InventoryPresenter] Combat started - closing inventory.");
+                _logger.Info(LogCategory.Inventory,"[InventoryPresenter] Combat started - closing inventory.");
                 Close();
             }
         }
@@ -246,7 +246,7 @@ namespace Inventory.Presenter
                 return;
             }
 
-            _logger.Warning($"[InventoryPresenter] No artifact definition for id '{definitionId}'.");
+            _logger.Warning(LogCategory.Inventory,$"[InventoryPresenter] No artifact definition for id '{definitionId}'.");
             icon = null;
             tint = Color.white;
         }
@@ -263,7 +263,7 @@ namespace Inventory.Presenter
             {
                 if (definition == null || string.IsNullOrEmpty(definition.Id))
                 {
-                    _logger.Warning("[InventoryPresenter] Skipping invalid starting inventory entry.");
+                    _logger.Warning(LogCategory.Inventory,"[InventoryPresenter] Skipping invalid starting inventory entry.");
                     continue;
                 }
 

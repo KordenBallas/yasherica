@@ -1,5 +1,6 @@
 using Combat.Core;
 using Combat.Data.Definitions;
+using Core.Logging;
 
 namespace Combat.Data.Factories
 {
@@ -10,10 +11,12 @@ namespace Combat.Data.Factories
     public class AbilityFactory : IAbilityFactory
     {
         private readonly IStatusEffectFactory _statusEffectFactory;
+        private readonly IGameLogger _logger;
 
-        public AbilityFactory(IStatusEffectFactory statusEffectFactory)
+        public AbilityFactory(IStatusEffectFactory statusEffectFactory, IGameLogger logger)
         {
             _statusEffectFactory = statusEffectFactory;
+            _logger = logger;
         }
 
         public IAbility CreateAbility(AbilityDefinition definition)
@@ -62,7 +65,7 @@ namespace Combat.Data.Factories
         {
             if (def.StatusEffect == null)
             {
-                UnityEngine.Debug.LogWarning(
+                _logger.Warning(LogCategory.Combat,
                     $"[AbilityFactory] StatusEffectAbility '{def.Name}' has no status effect assigned");
                 return CreateBaseAbility(def);
             }
@@ -78,7 +81,7 @@ namespace Combat.Data.Factories
         {
             if (def.StatusEffect == null)
             {
-                UnityEngine.Debug.LogWarning(
+                _logger.Warning(LogCategory.Combat,
                     $"[AbilityFactory] HybridAbility '{def.Name}' has no status effect assigned, creating damage-only ability");
                 return new DataDrivenDamageAbility(
                     def.Id, def.Name, def.CooldownDuration, BuildShape(def), def.Damage);

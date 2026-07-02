@@ -51,14 +51,14 @@ namespace Narrative.Facts.Core
 
             if (!IsWithinFootprint(effect.Shape, footprint))
             {
-                _logger?.Warning(
+                _logger?.Warning(LogCategory.Narrative,
                     $"[FactEffectApplier] Write '{effect.Shape}' is outside the fragment footprint - rejected (fail closed).");
                 return false;
             }
 
             if (!IsLegal(effect.Op, effect.Value.Type))
             {
-                _logger?.Warning(
+                _logger?.Warning(LogCategory.Narrative,
                     $"[FactEffectApplier] Illegal op {effect.Op} for type {effect.Value.Type} on '{effect.Key}' - skipped.");
                 return false;
             }
@@ -68,7 +68,7 @@ namespace Narrative.Facts.Core
             {
                 if (runtimeOverride.Value.Type != effect.Value.Type)
                 {
-                    _logger?.Warning(
+                    _logger?.Warning(LogCategory.Narrative,
                         $"[FactEffectApplier] Runtime override type {runtimeOverride.Value.Type} disagrees with declared " +
                         $"{effect.Value.Type} on '{effect.Key}' - skipped.");
                     return false;

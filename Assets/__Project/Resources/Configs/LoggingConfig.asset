@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4e5f60718293a4b5c6d7e8f90a1b2c3, type: 3}
+  m_Name: LoggingConfig
+  m_EditorClassIdentifier:
+  _masterLevel: 3
+  _defaultCategoryLevel: 3
+  _categories:
+  - Category: 0
+    MaxLevel: 3
+  - Category: 1
+    MaxLevel: 3
+  - Category: 2
+    MaxLevel: 3
+  - Category: 3
+    MaxLevel: 3
+  - Category: 4
+    MaxLevel: 3
+  - Category: 5
+    MaxLevel: 3
+  - Category: 6
+    MaxLevel: 3
+  - Category: 7
+    MaxLevel: 3
+  - Category: 8
+    MaxLevel: 3
+  - Category: 9
+    MaxLevel: 3
+  - Category: 10
+    MaxLevel: 3
+  - Category: 11
+    MaxLevel: 3
+  - Category: 12
+    MaxLevel: 3
+  - Category: 13
+    MaxLevel: 3

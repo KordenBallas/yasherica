@@ -1,4 +1,5 @@
 using System;
+using Core.Logging;
 using UnityEngine;
 
 namespace Platform
@@ -70,7 +71,7 @@ namespace Platform
         {
             if (!HasCutscene)
             {
-                Debug.LogWarning($"[CutsceneContent] No cutscene knot assigned for platform {platform.Id}");
+                Logger?.Warning(LogCategory.Platform,$"[CutsceneContent] No cutscene knot assigned for platform {platform.Id}");
             }
         }
 
@@ -92,17 +93,17 @@ namespace Platform
         {
             if (!HasCutscene)
             {
-                Debug.LogWarning("[CutsceneContent] Cannot start cutscene: no knot assigned");
+                Logger?.Warning(LogCategory.Platform,"[CutsceneContent] Cannot start cutscene: no knot assigned");
                 return;
             }
 
             if (HasPlayed)
             {
-                Debug.Log($"[CutsceneContent] Cutscene already played: {CutsceneId}");
+                Logger?.Info(LogCategory.Platform,$"[CutsceneContent] Cutscene already played: {CutsceneId}");
                 return;
             }
 
-            Debug.Log($"[CutsceneContent] Starting cutscene: {CutsceneId}");
+            Logger?.Info(LogCategory.Platform,$"[CutsceneContent] Starting cutscene: {CutsceneId}");
             OnCutsceneStarted?.Invoke(this);
         }
 
@@ -121,7 +122,7 @@ namespace Platform
         {
             if (!Skippable)
             {
-                Debug.Log("[CutsceneContent] Cutscene cannot be skipped");
+                Logger?.Info(LogCategory.Platform,"[CutsceneContent] Cutscene cannot be skipped");
                 return;
             }
 
@@ -131,7 +132,7 @@ namespace Platform
         private void EndCutscene(bool wasSkipped)
         {
             HasPlayed = true;
-            Debug.Log($"[CutsceneContent] Cutscene ended: {CutsceneId} (skipped: {wasSkipped})");
+            Logger?.Info(LogCategory.Platform,$"[CutsceneContent] Cutscene ended: {CutsceneId} (skipped: {wasSkipped})");
             OnCutsceneEnded?.Invoke(this, wasSkipped);
         }
     }

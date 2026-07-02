@@ -1,5 +1,6 @@
 using Combat.Config;
 using Combat.Core;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Battlefield
@@ -13,11 +14,13 @@ namespace Combat.Battlefield
     {
         private readonly IBattlefield battlefield;
         private readonly CombatMovementConfig config;
+        private readonly IGameLogger _logger;
 
-        public HexCellController(IBattlefield battlefield, CombatMovementConfig config)
+        public HexCellController(IBattlefield battlefield, CombatMovementConfig config, IGameLogger logger)
         {
             this.battlefield = battlefield;
             this.config = config;
+            _logger = logger;
         }
 
         /// <summary>
@@ -31,7 +34,7 @@ namespace Combat.Battlefield
             var cell = battlefield.GetCellAt(coords);
             if (cell == null)
             {
-                Debug.LogWarning($"[HexCellController] Cannot highlight {coords} - cell not found");
+                _logger.Warning(LogCategory.Combat,$"[HexCellController] Cannot highlight {coords} - cell not found");
                 return;
             }
 
@@ -42,7 +45,7 @@ namespace Combat.Battlefield
             Color highlightColor = GetColorForHighlightType(type);
 
             // Create and apply highlighted state
-            var highlightState = new HexCellHighlightedState(type, highlightColor, originalColor);
+            var highlightState = new HexCellHighlightedState(type, highlightColor, originalColor, _logger);
             cell.ChangeState(highlightState);
         }
 
@@ -60,7 +63,7 @@ namespace Combat.Battlefield
             {
                 // Return to original color
                 Color originalColor = highlightState.GetOriginalColor();
-                var idleState = new HexCellIdleState(originalColor);
+                var idleState = new HexCellIdleState(originalColor, _logger);
                 cell.ChangeState(idleState);
             }
         }
@@ -75,11 +78,11 @@ namespace Combat.Battlefield
             var cell = battlefield.GetCellAt(coords);
             if (cell == null)
             {
-                Debug.LogWarning($"[HexCellController] Cannot occupy {coords} - cell not found");
+                _logger.Warning(LogCategory.Combat,$"[HexCellController] Cannot occupy {coords} - cell not found");
                 return;
             }
 
-            var occupiedState = new HexCellOccupiedState(unit);
+            var occupiedState = new HexCellOccupiedState(unit, logger: _logger);
             cell.ChangeState(occupiedState);
         }
 
@@ -94,7 +97,7 @@ namespace Combat.Battlefield
 
             if (cell.StateMachine.IsInState(HexCellStateType.Occupied))
             {
-                var idleState = new HexCellIdleState();
+                var idleState = new HexCellIdleState(logger: _logger);
                 cell.ChangeState(idleState);
             }
         }
@@ -110,7 +113,7 @@ namespace Combat.Battlefield
             var cell = battlefield.GetCellAt(coords);
             if (cell == null) return;
 
-            var disabledState = new HexCellDisabledState(reason);
+            var disabledState = new HexCellDisabledState(reason, logger: _logger);
             cell.ChangeState(disabledState);
         }
 
@@ -125,7 +128,7 @@ namespace Combat.Battlefield
 
             if (cell.StateMachine.IsInState(HexCellStateType.Disabled))
             {
-                var idleState = new HexCellIdleState();
+                var idleState = new HexCellIdleState(logger: _logger);
                 cell.ChangeState(idleState);
             }
         }

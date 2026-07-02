@@ -1,3 +1,4 @@
+using Core.Logging;
 using UnityEngine;
 using Zenject;
 
@@ -11,14 +12,21 @@ namespace Platform
     {
         public class Factory : PlaceholderFactory<PlatformIdleState> { }
 
+        private readonly IGameLogger _logger;
+
+        public PlatformIdleState(IGameLogger logger)
+        {
+            _logger = logger;
+        }
+
         public override void OnEnter(IPlatform platform)
         {
-            Debug.Log($"[PlatformIdleState] Platform {platform.Id} is now idle");
+            _logger.Info(LogCategory.Platform, $"[PlatformIdleState] Platform {platform.Id} is now idle");
         }
 
         public override void OnExit(IPlatform platform)
         {
-            Debug.Log($"[PlatformIdleState] Platform {platform.Id} exiting idle state");
+            _logger.Info(LogCategory.Platform, $"[PlatformIdleState] Platform {platform.Id} exiting idle state");
         }
     }
 }

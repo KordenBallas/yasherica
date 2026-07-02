@@ -1,4 +1,5 @@
 using System.Linq;
+using Core.Logging;
 using UnityEngine;
 
 namespace Platform
@@ -17,6 +18,7 @@ namespace Platform
         private readonly CombatIdleState.Factory _combatIdleStateFactory;
         private readonly DialogueActiveState.Factory _dialogueActiveStateFactory;
         private readonly CutsceneActiveState.Factory _cutsceneActiveStateFactory;
+        private readonly IGameLogger _logger;
 
         public PlatformStateFactory(
             PlatformActiveState.Factory activeStateFactory,
@@ -26,7 +28,8 @@ namespace Platform
             CombatActiveState.Factory combatActiveStateFactory,
             CombatIdleState.Factory combatIdleStateFactory,
             DialogueActiveState.Factory dialogueActiveStateFactory,
-            CutsceneActiveState.Factory cutsceneActiveStateFactory)
+            CutsceneActiveState.Factory cutsceneActiveStateFactory,
+            IGameLogger logger)
         {
             _activeStateFactory = activeStateFactory;
             _idleStateFactory = idleStateFactory;
@@ -36,6 +39,7 @@ namespace Platform
             _combatIdleStateFactory = combatIdleStateFactory;
             _dialogueActiveStateFactory = dialogueActiveStateFactory;
             _cutsceneActiveStateFactory = cutsceneActiveStateFactory;
+            _logger = logger;
         }
 
         /// <summary>
@@ -47,7 +51,7 @@ namespace Platform
             // Check for enemy content -> Combat state
             if (HasContentType(platform, ContentType.Enemy))
             {
-                Debug.Log($"[PlatformStateFactory] Creating CombatActiveState for platform {platform.Id}");
+                _logger.Info(LogCategory.Platform,$"[PlatformStateFactory] Creating CombatActiveState for platform {platform.Id}");
                 return _combatActiveStateFactory.Create();
             }
 
@@ -58,19 +62,19 @@ namespace Platform
             // Check for pure dialogue content -> Dialogue state
             if (HasContentType(platform, ContentType.Dialogue))
             {
-                Debug.Log($"[PlatformStateFactory] Creating DialogueActiveState for platform {platform.Id}");
+                _logger.Info(LogCategory.Platform,$"[PlatformStateFactory] Creating DialogueActiveState for platform {platform.Id}");
                 return _dialogueActiveStateFactory.Create();
             }
 
             // Check for cutscene content -> Cutscene state
             if (HasContentType(platform, ContentType.Cutscene))
             {
-                Debug.Log($"[PlatformStateFactory] Creating CutsceneActiveState for platform {platform.Id}");
+                _logger.Info(LogCategory.Platform,$"[PlatformStateFactory] Creating CutsceneActiveState for platform {platform.Id}");
                 return _cutsceneActiveStateFactory.Create();
             }
 
             // Default: generic active state
-            Debug.Log($"[PlatformStateFactory] Creating PlatformActiveState for platform {platform.Id}");
+            _logger.Info(LogCategory.Platform,$"[PlatformStateFactory] Creating PlatformActiveState for platform {platform.Id}");
             return _activeStateFactory.Create();
         }
         
@@ -82,12 +86,12 @@ namespace Platform
             // Check for enemy content -> Combat state
             if (ContentType.Enemy.Equals(contentType))
             {
-                Debug.Log($"[PlatformStateFactory] Creating CombatActiveState for platform {platform.Id}");
+                _logger.Info(LogCategory.Platform,$"[PlatformStateFactory] Creating CombatActiveState for platform {platform.Id}");
                 return _combatActiveStateFactory.Create();
             }
 
             // Default: generic active state
-            Debug.Log($"[PlatformStateFactory] Creating PlatformActiveState for platform {platform.Id}");
+            _logger.Info(LogCategory.Platform,$"[PlatformStateFactory] Creating PlatformActiveState for platform {platform.Id}");
             return _activeStateFactory.Create();
         }
 
@@ -100,12 +104,12 @@ namespace Platform
             // Check for enemy content -> Combat idle state (handles enemy spawning)
             if (HasContentType(platform, ContentType.Enemy))
             {
-                Debug.Log($"[PlatformStateFactory] Creating CombatIdleState for platform {platform.Id}");
+                _logger.Info(LogCategory.Platform,$"[PlatformStateFactory] Creating CombatIdleState for platform {platform.Id}");
                 return _combatIdleStateFactory.Create();
             }
 
             // Default: generic idle state
-            Debug.Log($"[PlatformStateFactory] Creating PlatformIdleState for platform {platform.Id}");
+            _logger.Info(LogCategory.Platform,$"[PlatformStateFactory] Creating PlatformIdleState for platform {platform.Id}");
             return _idleStateFactory.Create();
         }
 

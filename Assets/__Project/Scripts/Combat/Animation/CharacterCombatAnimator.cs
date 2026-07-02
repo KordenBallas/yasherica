@@ -2,6 +2,7 @@ using System.Collections;
 using Combat.Battlefield;
 using Combat.Controller;
 using Combat.Core;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Animation
@@ -20,13 +21,16 @@ namespace Combat.Animation
         private ICombatController _combatController;
         private int _characterUnitId;
         private bool _isAnimating;
-        
+        private IGameLogger _logger;
+
         public void Initialize(
             ICharacterMovementAnimator animationStrategy,
             IBattlefield battlefield,
             ICombatController combatController,
-            int characterUnitId)
+            int characterUnitId,
+            IGameLogger logger)
         {
+            _logger = logger;
             _animationStrategy = animationStrategy;
             _battlefield = battlefield;
             _combatController = combatController;
@@ -37,7 +41,7 @@ namespace Combat.Animation
             
             _combatController.OnStateChanged += OnCombatStateChanged;
             
-            Debug.Log($"[CharacterCombatAnimator] Initialized for unit ID: {_characterUnitId}");
+            _logger?.Info(LogCategory.Combat,$"[CharacterCombatAnimator] Initialized for unit ID: {_characterUnitId}");
         }
         
         private void OnCombatStateChanged(ICombatState newState)
@@ -53,7 +57,7 @@ namespace Combat.Animation
             
             if (distance > 0.1f)
             {
-                Debug.Log($"[CharacterCombatAnimator] Position changed, animating to {characterUnit.Position}");
+                _logger?.Info(LogCategory.Combat,$"[CharacterCombatAnimator] Position changed, animating to {characterUnit.Position}");
                 StartCoroutine(AnimateToPosition(targetWorldPos));
             }
         }

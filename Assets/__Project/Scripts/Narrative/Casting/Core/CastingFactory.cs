@@ -46,7 +46,7 @@ namespace Narrative.Casting.Core
                         dialogue = PickById(library.FindDialogues(slot.RequiredTags));
                         if (dialogue == null && !slot.Optional)
                         {
-                            _logger?.Warning($"[CastingFactory] Story '{story.StoryId}' dialogue slot '{slot.SlotId}' has no matching fragment.");
+                            _logger?.Warning(LogCategory.Narrative,$"[CastingFactory] Story '{story.StoryId}' dialogue slot '{slot.SlotId}' has no matching fragment.");
                             return null;
                         }
 
@@ -55,7 +55,7 @@ namespace Narrative.Casting.Core
                         quest = PickById(library.FindQuests(slot.RequiredTags));
                         if (quest == null && !slot.Optional)
                         {
-                            _logger?.Warning($"[CastingFactory] Story '{story.StoryId}' quest slot '{slot.SlotId}' has no matching fragment.");
+                            _logger?.Warning(LogCategory.Narrative,$"[CastingFactory] Story '{story.StoryId}' quest slot '{slot.SlotId}' has no matching fragment.");
                             return null;
                         }
 
@@ -65,7 +65,7 @@ namespace Narrative.Casting.Core
                         enemyId = enemy?.EnemyId;
                         if (enemy == null && !slot.Optional)
                         {
-                            _logger?.Warning($"[CastingFactory] Story '{story.StoryId}' combat slot '{slot.SlotId}' has no matching fragment.");
+                            _logger?.Warning(LogCategory.Narrative,$"[CastingFactory] Story '{story.StoryId}' combat slot '{slot.SlotId}' has no matching fragment.");
                             return null;
                         }
 
@@ -75,7 +75,7 @@ namespace Narrative.Casting.Core
 
             if (dialogue == null)
             {
-                _logger?.Warning($"[CastingFactory] Story '{story.StoryId}' produced no dialogue - casting aborted.");
+                _logger?.Warning(LogCategory.Narrative,$"[CastingFactory] Story '{story.StoryId}' produced no dialogue - casting aborted.");
                 return null;
             }
 
@@ -152,7 +152,7 @@ namespace Narrative.Casting.Core
         {
             if (candidateCount == 0 && !slot.Optional)
             {
-                _logger?.Warning($"[CastingFactory] Slot '{slot.SlotId}' ({slot.Kind}) has zero matching candidates.");
+                _logger?.Warning(LogCategory.Narrative,$"[CastingFactory] Slot '{slot.SlotId}' ({slot.Kind}) has zero matching candidates.");
             }
         }
 

@@ -1,7 +1,9 @@
 using Combat.Controller;
 using Combat.Core;
+using Core.Logging;
 using Unity.Netcode;
 using UnityEngine;
+using Zenject;
 
 namespace Combat.Networking
 {
@@ -16,6 +18,7 @@ namespace Combat.Networking
         
         private ICombatController _gameController;
         private NetworkPlayer _localPlayer;
+        [Inject] private IGameLogger _logger;
         
         /// <summary>
         /// Initializes the network manager as a server.
@@ -26,13 +29,13 @@ namespace Combat.Networking
             
             if (!NetworkManager.Singleton.IsServer)
             {
-                Debug.LogError("Cannot initialize as server: not running as server");
+                _logger?.Error(LogCategory.Combat,"Cannot initialize as server: not running as server");
                 return;
             }
             
             _networkSync.Initialize(_gameController);
             
-            Debug.Log("Combat network manager initialized as SERVER");
+            _logger?.Info(LogCategory.Combat,"Combat network manager initialized as SERVER");
         }
         
         /// <summary>
@@ -45,14 +48,14 @@ namespace Combat.Networking
             
             if (!NetworkManager.Singleton.IsClient)
             {
-                Debug.LogError("Cannot initialize as client: not running as client");
+                _logger?.Error(LogCategory.Combat,"Cannot initialize as client: not running as client");
                 return;
             }
             
             _networkSync.Initialize(_gameController);
             _actionSender.Initialize(_networkSync, _localPlayer);
             
-            Debug.Log($"Combat network manager initialized as CLIENT (Player: {_localPlayer.Name})");
+            _logger?.Info(LogCategory.Combat,$"Combat network manager initialized as CLIENT (Player: {_localPlayer.Name})");
         }
         
         /// <summary>
@@ -62,7 +65,7 @@ namespace Combat.Networking
         {
             if (_actionSender == null)
             {
-                Debug.LogError("Cannot send action: action sender not initialized");
+                _logger?.Error(LogCategory.Combat,"Cannot send action: action sender not initialized");
                 return;
             }
             
@@ -75,7 +78,7 @@ namespace Combat.Networking
         public void StartHost()
         {
             NetworkManager.Singleton.StartHost();
-            Debug.Log("Started as HOST");
+            _logger?.Info(LogCategory.Combat,"Started as HOST");
         }
         
         /// <summary>
@@ -84,7 +87,7 @@ namespace Combat.Networking
         public void StartServer()
         {
             NetworkManager.Singleton.StartServer();
-            Debug.Log("Started as SERVER");
+            _logger?.Info(LogCategory.Combat,"Started as SERVER");
         }
         
         /// <summary>
@@ -93,7 +96,7 @@ namespace Combat.Networking
         public void StartClient()
         {
             NetworkManager.Singleton.StartClient();
-            Debug.Log("Started as CLIENT");
+            _logger?.Info(LogCategory.Combat,"Started as CLIENT");
         }
         
         /// <summary>
@@ -102,7 +105,7 @@ namespace Combat.Networking
         public void Shutdown()
         {
             NetworkManager.Singleton.Shutdown();
-            Debug.Log("Network shutdown");
+            _logger?.Info(LogCategory.Combat,"Network shutdown");
         }
     }
 }

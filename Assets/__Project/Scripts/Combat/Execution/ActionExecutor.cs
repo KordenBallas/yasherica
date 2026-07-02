@@ -1,4 +1,5 @@
 using Combat.Core;
+using Core.Logging;
 using System.Linq;
 using UnityEngine;
 
@@ -11,10 +12,12 @@ namespace Combat.Execution
     public class ActionExecutor : IActionExecutor
     {
         private readonly IAbilityExecutor _abilityExecutor;
-        
-        public ActionExecutor(IAbilityExecutor abilityExecutor)
+        private readonly IGameLogger _logger;
+
+        public ActionExecutor(IAbilityExecutor abilityExecutor, IGameLogger logger)
         {
             _abilityExecutor = abilityExecutor;
+            _logger = logger;
         }
         
         public ICombatState Execute(ICombatState gameState, IAction action)
@@ -42,18 +45,18 @@ namespace Combat.Execution
                 var unit = newState.GetUnit(action.UnitId);
                 if (unit == null)
                 {
-                    Debug.LogError($"[ActionExecutor] Cannot set HasActedThisTurn: Unit {action.UnitId} not found in state after executing {action.Type}");
+                    _logger.Error(LogCategory.Combat,$"[ActionExecutor] Cannot set HasActedThisTurn: Unit {action.UnitId} not found in state after executing {action.Type}");
                     return ActionResult.Successful(newState);
                 }
 
-                Debug.Log($"[ActionExecutor] Terminal action executed - Setting Unit {action.UnitId} HasActedThisTurn=true (Action: {action.Type})");
+                _logger.Info(LogCategory.Combat,$"[ActionExecutor] Terminal action executed - Setting Unit {action.UnitId} HasActedThisTurn=true (Action: {action.Type})");
 
                 var updatedUnit = (unit as Unit).WithActedThisTurn(true);
                 newState = (newState as CombatState).WithUpdatedUnit(updatedUnit);
 
                 // Verify the update worked
                 var verifyUnit = newState.GetUnit(action.UnitId);
-                Debug.Log($"[ActionExecutor] Verification - Unit {action.UnitId} HasActedThisTurn={verifyUnit?.HasActedThisTurn}, CanAct={verifyUnit?.CanAct}");
+                _logger.Info(LogCategory.Combat,$"[ActionExecutor] Verification - Unit {action.UnitId} HasActedThisTurn={verifyUnit?.HasActedThisTurn}, CanAct={verifyUnit?.CanAct}");
             }
             
             return ActionResult.Successful(newState);
@@ -64,7 +67,7 @@ namespace Combat.Execution
             var unit = gameState.GetUnit(action.UnitId);
             if (unit == null)
             {
-                Debug.LogError($"[ActionExecutor] Cannot execute MoveAction: Unit {action.UnitId} not found in combat state. Action: Move to {action.TargetPosition}");
+                _logger.Error(LogCategory.Combat,$"[ActionExecutor] Cannot execute MoveAction: Unit {action.UnitId} not found in combat state. Action: Move to {action.TargetPosition}");
                 return gameState;
             }
             var updatedUnit = (unit as Unit).WithPosition(action.TargetPosition);
@@ -76,7 +79,7 @@ namespace Combat.Execution
             var unit = gameState.GetUnit(action.UnitId);
             if (unit == null)
             {
-                Debug.LogError($"[ActionExecutor] Cannot execute ScheduleAbilityAction: Unit {action.UnitId} not found in combat state. Ability ID: {action.AbilityId}");
+                _logger.Error(LogCategory.Combat,$"[ActionExecutor] Cannot execute ScheduleAbilityAction: Unit {action.UnitId} not found in combat state. Ability ID: {action.AbilityId}");
                 return gameState;
             }
             var abilityInstance = unit.GetAbility(action.AbilityId);
@@ -102,7 +105,7 @@ namespace Combat.Execution
             var unit = gameState.GetUnit(action.UnitId);
             if (unit == null)
             {
-                Debug.LogError($"[ActionExecutor] Cannot execute ExecuteAbilityQueueAction: Unit {action.UnitId} not found in combat state");
+                _logger.Error(LogCategory.Combat,$"[ActionExecutor] Cannot execute ExecuteAbilityQueueAction: Unit {action.UnitId} not found in combat state");
                 return gameState;
             }
             var newState = gameState;
@@ -117,7 +120,7 @@ namespace Combat.Execution
             var updatedUnit = newState.GetUnit(action.UnitId) as Unit;
             if (updatedUnit == null)
             {
-                Debug.LogError($"[ActionExecutor] Cannot update cooldowns: Unit {action.UnitId} not found in state after ability execution");
+                _logger.Error(LogCategory.Combat,$"[ActionExecutor] Cannot update cooldowns: Unit {action.UnitId} not found in state after ability execution");
                 return newState;
             }
             var newAbilities = updatedUnit.Abilities.Select(a =>
@@ -143,7 +146,7 @@ namespace Combat.Execution
             var unit = gameState.GetUnit(action.UnitId);
             if (unit == null)
             {
-                Debug.LogError($"[ActionExecutor] Cannot execute ReorderAbilitiesAction: Unit {action.UnitId} not found in combat state");
+                _logger.Error(LogCategory.Combat,$"[ActionExecutor] Cannot execute ReorderAbilitiesAction: Unit {action.UnitId} not found in combat state");
                 return gameState;
             }
             
@@ -165,7 +168,7 @@ namespace Combat.Execution
             var unit = gameState.GetUnit(action.UnitId);
             if (unit == null)
             {
-                Debug.LogError($"[ActionExecutor] Cannot execute RetargetAbilityAction: Unit {action.UnitId} not found in combat state. Ability index: {action.AbilityIndexInQueue}");
+                _logger.Error(LogCategory.Combat,$"[ActionExecutor] Cannot execute RetargetAbilityAction: Unit {action.UnitId} not found in combat state. Ability index: {action.AbilityIndexInQueue}");
                 return gameState;
             }
 
@@ -190,7 +193,7 @@ namespace Combat.Execution
             var unit = gameState.GetUnit(action.UnitId);
             if (unit == null)
             {
-                Debug.LogError($"[ActionExecutor] Cannot execute ChangeDirectionAction: Unit {action.UnitId} not found in combat state");
+                _logger.Error(LogCategory.Combat,$"[ActionExecutor] Cannot execute ChangeDirectionAction: Unit {action.UnitId} not found in combat state");
                 return gameState;
             }
 

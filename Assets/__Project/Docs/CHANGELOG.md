@@ -9,6 +9,24 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Per-system logging (implemented — `logging.md`):** runtime logs can now be muted or raised
+  **per system** so a feature can be tested without the flood of unrelated logs. New pure-C# core
+  (`LogCategory`, `LogLevel`, `LogLevelPolicy` with edit-mode `LogLevelPolicyTests`), a `LoggingConfig`
+  ScriptableObject switchboard (`Resources/Configs/LoggingConfig`, per-system + master verbosity
+  ceilings, seeded with every category at Info, code-default "all on" if absent), and a category-aware
+  `IGameLogger`/`UnityGameLogger` that consults the config before writing to the Console and prefixes
+  each line with `[Category]`. Wired in `LoggingInstaller`. **R1–R6**. `IGameLogger.Info/Warning/Error`
+  now require a `LogCategory`; all existing `IGameLogger` call sites (Inventory, Loot, Mutation,
+  CharacterSystem) were migrated.
+- **Per-system logging — raw `Debug.*` sweep complete (`logging.md`, ROADMAP):** every
+  `Debug.Log/LogWarning/LogError` in runtime gameplay code (Combat, Narrative, Dialogue, Platform,
+  Character, Camera, LevelGeneration, Area, Inventory, Loot, Mutation, CharacterSystem) now routes
+  through the categorized `IGameLogger`, so any system can be muted/raised from `LoggingConfig` while
+  testing a feature. Logger threaded via constructor (container-bound), owner (manually-`new`'d leaves:
+  presenters, AI strategies, platform content, hex-cell states), or null-safe `[Inject]`
+  (scene/prefab MonoBehaviours). Deliberately left on `Debug.*`: `UnityGameLogger` (the adapter),
+  `LoggingInstaller` bootstrap, Zenject installer auto-load diagnostics (service-locator at install
+  time, §4), and `Scripts/Editor/**` tooling.
 - **NPC Proximity Interaction (implemented — `npc-proximity-interaction.md`):** approaching an NPC is now
   deliberate. Talkable NPCs show an **F** prompt inside a global interaction radius and open their
   conversation on **F**; hostile NPCs start their battle on their own when the player crosses a global

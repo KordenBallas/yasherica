@@ -3,6 +3,7 @@ using Combat.Core;
 using Combat.Player;
 using Combat.View;
 using Combat.Integration;
+using Core.Logging;
 using UnityEngine;
 using System.Collections.Generic;
 using Zenject;
@@ -29,6 +30,7 @@ namespace Combat.Integration
         [Inject] private ICombatController _gameController;
         [Inject] private CombatBattlefield _combatBattlefield;
         [Inject] private IBattlefield _battlefield;
+        [Inject] private IGameLogger _logger;
         
         private IPlayer _humanPlayer;
         private IPlayer _aiPlayer;
@@ -53,7 +55,7 @@ namespace Combat.Integration
             
             if (_includeAI)
             {
-                var aiDecisionMaker = new SimpleRandomAI();
+                var aiDecisionMaker = new SimpleRandomAI(logger: _logger);
                 _aiPlayer = new AIPlayer(2, "AI", aiDecisionMaker);
                 players.Add(_aiPlayer);
             }
@@ -85,7 +87,7 @@ namespace Combat.Integration
             _gameController.OnTurnStarted += OnTurnStarted;
             _gameController.OnGameEnded += OnGameEnded;
             
-            Debug.Log("Combat initialized successfully!");
+            _logger.Info(LogCategory.Combat,"Combat initialized successfully!");
         }
         
         private List<IUnit> CreateTestUnits()
@@ -122,7 +124,7 @@ namespace Combat.Integration
         
         private void OnTurnStarted(IPlayer player)
         {
-            Debug.Log($"{player.Name}'s turn started!");
+            _logger.Info(LogCategory.Combat,$"{player.Name}'s turn started!");
             
             if (player.Type == PlayerType.AI)
             {
@@ -134,11 +136,11 @@ namespace Combat.Integration
         {
             if (winner != null)
             {
-                Debug.Log($"Game Over! {winner.Name} wins!");
+                _logger.Info(LogCategory.Combat,$"Game Over! {winner.Name} wins!");
             }
             else
             {
-                Debug.Log("Game Over!");
+                _logger.Info(LogCategory.Combat,"Game Over!");
             }
         }
         

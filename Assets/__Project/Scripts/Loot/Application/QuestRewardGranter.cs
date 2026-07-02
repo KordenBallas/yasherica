@@ -60,7 +60,7 @@ namespace Loot.Application
                     }
                 }
 
-                _logger?.Info($"[QuestRewardGranter] Granted {rewards.Count} reward stack(s) for quest '{quest.Data.QuestId}'.");
+                _logger?.Info(LogCategory.Loot,$"[QuestRewardGranter] Granted {rewards.Count} reward stack(s) for quest '{quest.Data.QuestId}'.");
             }
         }
     }

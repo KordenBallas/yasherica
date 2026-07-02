@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Platform;
 using Core.Events;
+using Core.Logging;
+using Zenject;
 
 namespace Character
 {
@@ -22,6 +24,7 @@ namespace Character
         public float moveSpeed = 5f;
         public float gravity = -9.81f;
         private Vector3 velocity;
+        [Inject] private IGameLogger _logger;
 
         [Header("Dash Settings")]
         public float dashRange = 3f;                   // dash inside current platform
@@ -64,7 +67,7 @@ namespace Character
             }
             else
             {
-                Debug.LogWarning("[CharacterMovementController] No platform found near character start position.");
+                _logger?.Warning(LogCategory.Character, "[CharacterMovementController] No platform found near character start position.");
             }
         }
 

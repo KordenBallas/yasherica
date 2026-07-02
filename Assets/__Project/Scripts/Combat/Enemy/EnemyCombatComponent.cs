@@ -3,7 +3,9 @@ using Combat.Battlefield;
 using Combat.Controller;
 using Combat.Core;
 using Combat.Data;
+using Core.Logging;
 using UnityEngine;
+using Zenject;
 
 namespace Combat.Enemy
 {
@@ -18,6 +20,7 @@ namespace Combat.Enemy
     {
         private Unit _internalUnit;
         private ICombatController _combatController;
+        [Inject] private IGameLogger _logger;
 
         // IUnitIdentity
         public int Id => _internalUnit?.Id ?? -1;
@@ -73,8 +76,8 @@ namespace Combat.Enemy
             // Subscribe to state changes for synchronization
             _combatController.OnStateChanged += OnCombatStateChanged;
 
-            Debug.Log($"[EnemyCombatComponent] Initialized for combat: ID={unitId}, Name={enemyData.Name}, Position={startPosition}, HP={enemyData.MaxHP}");
-            Debug.Log($"[EnemyCombatComponent] Abilities: {enemyData.Abilities.Count}, Owner={owner.Name}");
+            _logger?.Info(LogCategory.Combat,$"[EnemyCombatComponent] Initialized for combat: ID={unitId}, Name={enemyData.Name}, Position={startPosition}, HP={enemyData.MaxHP}");
+            _logger?.Info(LogCategory.Combat,$"[EnemyCombatComponent] Abilities: {enemyData.Abilities.Count}, Owner={owner.Name}");
         }
 
         /// <summary>
@@ -93,7 +96,7 @@ namespace Combat.Enemy
 
             if (updatedUnit == null)
             {
-                Debug.LogWarning($"[EnemyCombatComponent] Unit {_internalUnit.Id} not found in updated state");
+                _logger?.Warning(LogCategory.Combat,$"[EnemyCombatComponent] Unit {_internalUnit.Id} not found in updated state");
                 return;
             }
 
@@ -101,7 +104,7 @@ namespace Combat.Enemy
             var newUnit = updatedUnit as Unit;
             if (newUnit == null)
             {
-                Debug.LogError($"[EnemyCombatComponent] State contains non-Unit IUnit: {updatedUnit.GetType().Name}");
+                _logger?.Error(LogCategory.Combat,$"[EnemyCombatComponent] State contains non-Unit IUnit: {updatedUnit.GetType().Name}");
                 return;
             }
 
@@ -112,11 +115,11 @@ namespace Combat.Enemy
             {
                 Vector3 worldPosition = _combatController.Battlefield.HexToWorld(Position);
                 transform.position = worldPosition;
-                Debug.Log($"[EnemyCombatComponent] Unit {Id} synchronized: Position={Position}, WorldPos={worldPosition}, HP={CurrentHP}/{MaxHP}, Alive={IsAlive}");
+                _logger?.Info(LogCategory.Combat,$"[EnemyCombatComponent] Unit {Id} synchronized: Position={Position}, WorldPos={worldPosition}, HP={CurrentHP}/{MaxHP}, Alive={IsAlive}");
             }
             else
             {
-                Debug.Log($"[EnemyCombatComponent] Unit {Id} synchronized: Position={Position}, HP={CurrentHP}/{MaxHP}, Alive={IsAlive}");
+                _logger?.Info(LogCategory.Combat,$"[EnemyCombatComponent] Unit {Id} synchronized: Position={Position}, HP={CurrentHP}/{MaxHP}, Alive={IsAlive}");
             }
         }
 
@@ -140,7 +143,7 @@ namespace Combat.Enemy
             if (_combatController != null)
             {
                 _combatController.OnStateChanged -= OnCombatStateChanged;
-                Debug.Log($"[EnemyCombatComponent] Enemy {Id} destroyed and unsubscribed from OnStateChanged");
+                _logger?.Info(LogCategory.Combat,$"[EnemyCombatComponent] Enemy {Id} destroyed and unsubscribed from OnStateChanged");
             }
         }
     }

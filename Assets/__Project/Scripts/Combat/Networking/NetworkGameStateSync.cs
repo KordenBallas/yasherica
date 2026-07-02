@@ -1,7 +1,9 @@
 using Combat.Core;
 using Combat.Controller;
+using Core.Logging;
 using Unity.Netcode;
 using UnityEngine;
+using Zenject;
 
 namespace Combat.Networking
 {
@@ -13,6 +15,7 @@ namespace Combat.Networking
     {
         private ICombatController _gameController;
         private ActionSerializer _actionSerializer;
+        [Inject] private IGameLogger _logger;
         
         /// <summary>
         /// Event fired when the server updates game state.
@@ -70,14 +73,14 @@ namespace Combat.Networking
             
             if (player == null)
             {
-                Debug.LogWarning($"No player found for client {clientId}");
+                _logger?.Warning(LogCategory.Combat,$"No player found for client {clientId}");
                 return;
             }
             
             // Verify the action is from the correct player
             if (player.Id != actionData.PlayerId)
             {
-                Debug.LogWarning($"Player ID mismatch: {player.Id} vs {actionData.PlayerId}");
+                _logger?.Warning(LogCategory.Combat,$"Player ID mismatch: {player.Id} vs {actionData.PlayerId}");
                 return;
             }
             
@@ -116,7 +119,7 @@ namespace Combat.Networking
             var player = GetPlayerById(actionData.PlayerId);
             if (player == null)
             {
-                Debug.LogWarning($"No player found with ID {actionData.PlayerId}");
+                _logger?.Warning(LogCategory.Combat,$"No player found with ID {actionData.PlayerId}");
                 return;
             }
             
@@ -130,7 +133,7 @@ namespace Combat.Networking
         [ClientRpc]
         private void SendActionErrorClientRpc(string errorMessage, ClientRpcParams rpcParams = default)
         {
-            Debug.LogWarning($"Action failed: {errorMessage}");
+            _logger?.Warning(LogCategory.Combat,$"Action failed: {errorMessage}");
         }
         
         /// <summary>

@@ -1,6 +1,7 @@
 using System;
 using Combat.Config;
 using Combat.Input.Commands;
+using Core.Logging;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Zenject;
@@ -15,6 +16,7 @@ namespace Combat.Input
     public class JoystickInputController : MonoBehaviour, IInputController
     {
         [Inject] private InputConfig _config;
+        [Inject] private IGameLogger _logger;
 
         private bool _isEnabled;
 
@@ -128,7 +130,7 @@ namespace Combat.Input
             _isEnabled = true;
             _wasMovementModeActive = false;
             _lastDirection = null;
-            Debug.Log("[JoystickInputController] Enabled");
+            _logger.Info(LogCategory.Combat,"[JoystickInputController] Enabled");
         }
 
         public void Disable()
@@ -143,7 +145,7 @@ namespace Combat.Input
             _isEnabled = false;
             _wasMovementModeActive = false;
             _lastDirection = null;
-            Debug.Log("[JoystickInputController] Disabled");
+            _logger.Info(LogCategory.Combat,"[JoystickInputController] Disabled");
         }
     }
 }

@@ -29,7 +29,7 @@ namespace Mutation.Infrastructure
             var character = _visual != null ? _visual.Character : null;
             if (character == null)
             {
-                _logger.Warning(
+                _logger.Warning(LogCategory.Mutation,
                     $"[ModularCharacterMutationAdapter] No assembled character yet; cannot swap " +
                     $"'{partId}' into '{slotId}'.");
                 return false;

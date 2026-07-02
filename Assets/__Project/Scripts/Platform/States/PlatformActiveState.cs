@@ -1,3 +1,4 @@
+using Core.Logging;
 using UnityEngine;
 using Zenject;
 
@@ -7,10 +8,17 @@ namespace Platform
     {
         public class Factory : PlaceholderFactory<PlatformActiveState> { }
 
+        private readonly IGameLogger _logger;
+
+        public PlatformActiveState(IGameLogger logger)
+        {
+            _logger = logger;
+        }
+
         public override void OnEnter(IPlatform platform)
         {
             // Player is on platform, content is active
-            Debug.Log($"[PlatformActiveState] Platform {platform.Id} is now active");
+            _logger.Info(LogCategory.Platform, $"[PlatformActiveState] Platform {platform.Id} is now active");
             
             foreach (var content in platform.Contents)
             {
@@ -20,7 +28,7 @@ namespace Platform
         
         public override void OnExit(IPlatform platform)
         {
-            Debug.Log($"[PlatformActiveState] Platform {platform.Id} exiting active state");
+            _logger.Info(LogCategory.Platform, $"[PlatformActiveState] Platform {platform.Id} exiting active state");
             
             foreach (var content in platform.Contents)
             {

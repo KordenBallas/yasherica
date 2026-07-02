@@ -1,6 +1,7 @@
 using Combat.Core;
 using Combat.Config;
 using Combat.Data.Definitions;
+using Core.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using Combat.Battlefield;
@@ -21,11 +22,13 @@ namespace Combat.Player
 
         private readonly AIProfileDefinition _profile;
         private readonly System.Random _random;
+        private readonly IGameLogger _logger;
 
-        public ConfigurableTacticalAI(AIProfileDefinition profile, int? seed = null)
+        public ConfigurableTacticalAI(AIProfileDefinition profile, int? seed = null, IGameLogger logger = null)
         {
             _profile = profile;
             _random = seed.HasValue ? new System.Random(seed.Value) : new System.Random();
+            _logger = logger;
         }
 
         public IAction DecideAction(ICombatState gameState, IUnit unit)
@@ -36,7 +39,7 @@ namespace Combat.Player
                 return new EndUnitTurnAction(unit.Owner, unit.Id);
 
             var bestAction = scoredActions.OrderByDescending(sa => sa.Score).First();
-            Debug.Log($"[ConfigurableTacticalAI] Decided to perform {bestAction.Action.Type}.");
+            _logger?.Info(LogCategory.Combat,$"[ConfigurableTacticalAI] Decided to perform {bestAction.Action.Type}.");
             return bestAction.Action;
         }
 
@@ -64,7 +67,7 @@ namespace Combat.Player
             }
 
             scoredActions.Add(new ScoredAction(new EndUnitTurnAction(unit.Owner, unit.Id), 10f));
-            Debug.Log($"[ConfigurableTacticalAI] Identified {scoredActions.Count} valid actions.");
+            _logger?.Info(LogCategory.Combat,$"[ConfigurableTacticalAI] Identified {scoredActions.Count} valid actions.");
             return scoredActions;
         }
 

@@ -1,4 +1,5 @@
 using System;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Input
@@ -22,10 +23,16 @@ namespace Combat.Input
     public class CombatInputModeManager : IDisposable
     {
         private CombatInputMode _currentMode = CombatInputMode.Idle;
+        private readonly IGameLogger _logger;
 
         public event Action<CombatInputMode> OnModeChanged;
 
         public CombatInputMode CurrentMode => _currentMode;
+
+        public CombatInputModeManager(IGameLogger logger)
+        {
+            _logger = logger;
+        }
 
         /// <summary>
         /// Enters movement mode, cancelling other active modes.
@@ -37,7 +44,7 @@ namespace Combat.Input
 
             ExitCurrentMode();
             SetMode(CombatInputMode.Movement);
-            Debug.Log("[CombatInputModeManager] Entered Movement mode");
+            _logger.Info(LogCategory.Combat,"[CombatInputModeManager] Entered Movement mode");
         }
 
         /// <summary>
@@ -50,7 +57,7 @@ namespace Combat.Input
 
             ExitCurrentMode();
             SetMode(CombatInputMode.AbilityTargeting);
-            Debug.Log($"[CombatInputModeManager] Entered Ability Targeting mode (ability {abilityIndex})");
+            _logger.Info(LogCategory.Combat,$"[CombatInputModeManager] Entered Ability Targeting mode (ability {abilityIndex})");
         }
 
         /// <summary>
@@ -63,7 +70,7 @@ namespace Combat.Input
 
             ExitCurrentMode();
             SetMode(CombatInputMode.ChangeDirection);
-            Debug.Log("[CombatInputModeManager] Entered Change Direction mode");
+            _logger.Info(LogCategory.Combat,"[CombatInputModeManager] Entered Change Direction mode");
         }
 
         /// <summary>
@@ -74,7 +81,7 @@ namespace Combat.Input
             if (_currentMode == CombatInputMode.Idle)
                 return;
 
-            Debug.Log($"[CombatInputModeManager] Exiting {_currentMode} mode");
+            _logger.Info(LogCategory.Combat,$"[CombatInputModeManager] Exiting {_currentMode} mode");
             SetMode(CombatInputMode.Idle);
         }
 

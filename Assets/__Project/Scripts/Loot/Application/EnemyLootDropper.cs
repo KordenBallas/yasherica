@@ -69,6 +69,7 @@ namespace Loot.Application
 
             var deathPosition = GetDeathPosition(platform, enemyContent);
             _logger.Info(
+                LogCategory.Loot,
                 $"[EnemyLootDropper] Enemy {enemyContent.EnemyId} on platform {platform.Id} drops " +
                 $"{drops.Count} item(s) [{context.ContextKey}]");
 

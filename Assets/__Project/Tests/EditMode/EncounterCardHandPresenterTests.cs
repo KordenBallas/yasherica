@@ -25,9 +25,9 @@ namespace Tests.EditMode
         private sealed class FakeLogger : IGameLogger
         {
             public readonly List<string> Warnings = new();
-            public void Info(string message) { }
-            public void Warning(string message) => Warnings.Add(message);
-            public void Error(string message) { }
+            public void Info(LogCategory category, string message) { }
+            public void Warning(LogCategory category, string message) => Warnings.Add(message);
+            public void Error(LogCategory category, string message) { }
         }
 
         private sealed class StubCardHandView : IEncounterCardHandView

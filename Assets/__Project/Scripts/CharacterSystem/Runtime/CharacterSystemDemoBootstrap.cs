@@ -30,7 +30,7 @@ namespace CharacterSystem.Runtime
         {
             if (_assembly == null)
             {
-                _logger.Error("[CharacterSystemDemo] No CharacterAssemblyDefinition assigned.");
+                _logger.Error(LogCategory.CharacterSystem,"[CharacterSystemDemo] No CharacterAssemblyDefinition assigned.");
                 return;
             }
 
@@ -129,7 +129,7 @@ namespace CharacterSystem.Runtime
                 builder.AppendLine($"  {socket}");
             }
 
-            _logger.Info(builder.ToString());
+            _logger.Info(LogCategory.CharacterSystem,builder.ToString());
         }
     }
 }

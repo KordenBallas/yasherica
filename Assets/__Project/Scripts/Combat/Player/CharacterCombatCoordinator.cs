@@ -7,6 +7,7 @@ using Combat.Core;
 using Combat.Input;
 using Combat.Integration;
 using Combat.View;
+using Core.Logging;
 using UnityEngine;
 using Zenject;
 
@@ -41,6 +42,7 @@ namespace Combat.Player
         [Inject] private InputConfig _inputConfig;
         [Inject(Optional = true)] private ICombatActionPanelView _actionPanelView;
         [Inject] private CharacterCombatInitializer _characterInitializer;
+        [Inject] private IGameLogger _logger;
 
         // Platform-scoped dependencies passed manually
         private ICombatController _combatController;
@@ -57,32 +59,34 @@ namespace Combat.Player
             _combatController = combatController;
             _battlefield = battlefield;
 
-            Debug.Log($"[CharacterCombatCoordinator] Initializing for unit {_characterUnit.Id}");
+            _logger.Info(LogCategory.Combat,$"[CharacterCombatCoordinator] Initializing for unit {_characterUnit.Id}");
 
-            _cellController = new HexCellController(_battlefield, _movementConfig);
+            _cellController = new HexCellController(_battlefield, _movementConfig, _logger);
 
             _movementPresenter = new CombatMovementPresenter(
                 _combatController,
                 _battlefield,
                 _cellController,
-                _characterUnit);
+                _characterUnit,
+                _logger);
 
             _abilityPresenter = new CombatAbilityPresenter(
                 _combatController,
                 _battlefield,
                 _cellController,
                 _shapeCalculator,
-                _characterUnit);
+                _characterUnit,
+                _logger);
 
             _inputModeManager = new CombatInputModeManager();
 
-            _movementHandler = new InputCommandHandler(_inputController, _hexConfig);
+            _movementHandler = new InputCommandHandler(_inputController, _hexConfig, _logger);
             _movementHandler.Bind(
                 _movementPresenter,
                 () => _characterUnit.Position,
                 IsPlayerTurn);
 
-            _abilityHandler = new AbilityInputHandler(_inputController, _hexConfig);
+            _abilityHandler = new AbilityInputHandler(_inputController, _hexConfig, _logger);
             _abilityHandler.Bind(
                 _abilityPresenter,
                 () => _characterUnit.Position,
@@ -100,7 +104,7 @@ namespace Combat.Player
             }
             else
             {
-                Debug.LogWarning("[CharacterCombatCoordinator] No ICombatActionPanelView found - UI will not be available");
+                _logger.Warning(LogCategory.Combat,"[CharacterCombatCoordinator] No ICombatActionPanelView found - UI will not be available");
             }
 
             _animator = gameObject.AddComponent<CharacterCombatAnimator>();
@@ -108,9 +112,10 @@ namespace Combat.Player
                 _animationStrategy,
                 _battlefield,
                 _combatController,
-                _characterUnit.Id);
+                _characterUnit.Id,
+                _logger);
 
-            Debug.Log("[CharacterCombatCoordinator] Initialization complete");
+            _logger.Info(LogCategory.Combat,"[CharacterCombatCoordinator] Initialization complete");
         }
 
         private bool IsPlayerTurn()

@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using Core.Logging;
 using UnityEngine;
+using Zenject;
 
 namespace Platform
 {
@@ -20,6 +22,7 @@ namespace Platform
         [SerializeField] private bool spawnOnPlatformEnter = true;
         
         private readonly Dictionary<IPlatform, List<GameObject>> spawnedContent = new();
+        [Inject] private IGameLogger _logger;
         
         void OnEnable()
         {
@@ -77,7 +80,7 @@ namespace Platform
                 
                 contentList.Add(spawned);
                 
-                Debug.Log($"[ContentSpawner] Spawned {content.Type} for platform {platform.Id} at {spawnPosition}");
+                _logger?.Info(LogCategory.Platform, $"[ContentSpawner] Spawned {content.Type} for platform {platform.Id} at {spawnPosition}");
             }
             
             if (contentList.Count > 0)

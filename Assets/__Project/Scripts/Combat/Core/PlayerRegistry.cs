@@ -1,3 +1,4 @@
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Core
@@ -9,12 +10,18 @@ namespace Combat.Core
     public class PlayerRegistry : IPlayerRegistry
     {
         private IPlayer _localPlayer;
-        
+        private readonly IGameLogger _logger;
+
+        public PlayerRegistry(IGameLogger logger)
+        {
+            _logger = logger;
+        }
+
         public IPlayer GetLocalPlayer()
         {
             if (_localPlayer == null)
             {
-                Debug.LogWarning("[PlayerRegistry] No local player registered");
+                _logger.Warning(LogCategory.Combat,"[PlayerRegistry] No local player registered");
             }
             return _localPlayer;
         }
@@ -23,24 +30,24 @@ namespace Combat.Core
         {
             if (player == null)
             {
-                Debug.LogWarning("[PlayerRegistry] Attempted to register null player");
+                _logger.Warning(LogCategory.Combat,"[PlayerRegistry] Attempted to register null player");
                 return;
             }
             
             if (_localPlayer != null)
             {
-                Debug.LogWarning($"[PlayerRegistry] Replacing existing player {_localPlayer.Name} with {player.Name}");
+                _logger.Warning(LogCategory.Combat,$"[PlayerRegistry] Replacing existing player {_localPlayer.Name} with {player.Name}");
             }
             
             _localPlayer = player;
-            Debug.Log($"[PlayerRegistry] Registered local player: {player.Name} (ID: {player.Id})");
+            _logger.Info(LogCategory.Combat,$"[PlayerRegistry] Registered local player: {player.Name} (ID: {player.Id})");
         }
         
         public void UnregisterLocalPlayer()
         {
             if (_localPlayer != null)
             {
-                Debug.Log($"[PlayerRegistry] Unregistered local player: {_localPlayer.Name}");
+                _logger.Info(LogCategory.Combat,$"[PlayerRegistry] Unregistered local player: {_localPlayer.Name}");
                 _localPlayer = null;
             }
         }

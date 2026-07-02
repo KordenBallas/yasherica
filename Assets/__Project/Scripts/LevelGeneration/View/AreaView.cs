@@ -1,5 +1,7 @@
 using Platform;
+using Core.Logging;
 using UnityEngine;
+using Zenject;
 
 namespace LevelGeneration
 {
@@ -7,6 +9,7 @@ namespace LevelGeneration
     {
         private IAreaGenerator areaGenerator;
         private IPlatform currentPlatform;
+        [Inject] private IGameLogger _logger;
         
         public void Initialize(IAreaGenerator areaGenerator)
         {
@@ -32,7 +35,7 @@ namespace LevelGeneration
             if (areaGenerator == null)
             {
                 // Could use dependency injection here
-                Debug.LogWarning("AreaView: AreaGenerator not initialized. Call Initialize() first.");
+                _logger?.Warning(LogCategory.LevelGeneration, "AreaView: AreaGenerator not initialized. Call Initialize() first.");
             }
         }
     }

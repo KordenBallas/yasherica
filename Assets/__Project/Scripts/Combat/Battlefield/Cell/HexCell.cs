@@ -1,4 +1,5 @@
 using System;
+using Core.Logging;
 using UnityEngine;
 
 namespace Combat.Battlefield
@@ -12,6 +13,7 @@ namespace Combat.Battlefield
     {
         private readonly HexCellStateMachine stateMachine;
         private Color legacyColor; // For backward compatibility
+        private readonly IGameLogger _logger;
 
         // Immutable properties
         public HexCoordinates Coordinates { get; }
@@ -37,21 +39,22 @@ namespace Combat.Battlefield
         // Events
         public event Action<IHexCellState> OnStateChanged;
 
-        public HexCell(HexCoordinates coordinates, Vector3 worldPosition, Color? initialColor = null)
+        public HexCell(HexCoordinates coordinates, Vector3 worldPosition, Color? initialColor = null, IGameLogger logger = null)
         {
             Coordinates = coordinates;
             WorldPosition = worldPosition;
             legacyColor = initialColor ?? Color.white;
             IsActive = true;
+            _logger = logger;
 
-            stateMachine = new HexCellStateMachine();
+            stateMachine = new HexCellStateMachine(_logger);
         }
 
         public void InitializeStateMachine(IHexCellState initialState)
         {
             if (initialState == null)
             {
-                Debug.LogError($"[HexCell] {Coordinates}: Cannot initialize with null state");
+                _logger?.Error(LogCategory.Combat, $"[HexCell] {Coordinates}: Cannot initialize with null state");
                 return;
             }
 
@@ -63,7 +66,7 @@ namespace Combat.Battlefield
         {
             if (newState == null)
             {
-                Debug.LogWarning($"[HexCell] {Coordinates}: Attempted to change to null state");
+                _logger?.Warning(LogCategory.Combat, $"[HexCell] {Coordinates}: Attempted to change to null state");
                 return;
             }
 

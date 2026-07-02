@@ -91,7 +91,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
     {
         _localPlayer = new HumanPlayer(id: 1, name: "Player");
         _playerRegistry.RegisterLocalPlayer(_localPlayer);
-        Debug.Log("[AreaSceneEntrypoint] Created and registered local player");
+        _logger?.Info(LogCategory.Area,"[AreaSceneEntrypoint] Created and registered local player");
 
         GenerateArea();
     }
@@ -124,7 +124,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
         // The streaming director plans/generates platforms window-by-window; the area generator no longer
         // needs a pre-built graph or pre-assigned narrative (levelNarrative is null on this path).
         areaGenerator = new AreaGenerator(
-            new PlatformGraphData(), noiseMap, _platformFactory, _lootRollService, theme, config);
+            new PlatformGraphData(), noiseMap, _platformFactory, _lootRollService, theme, config, _logger);
 
         coordinator = new RunStreamingCoordinator(
             _windowPlanner, _archetypeCatalog, _modularFactory, _factStore, _castingFactory,
@@ -146,12 +146,12 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
             var characterController = characterTransform.GetComponent<Character.CharacterMovementController>();
             if (characterController == null)
             {
-                Debug.LogWarning("[AreaSceneEntrypoint] CharacterTransform does not have CharacterMovementController component.");
+                _logger?.Warning(LogCategory.Area,"[AreaSceneEntrypoint] CharacterTransform does not have CharacterMovementController component.");
             }
             else
             {
                 _container.Inject(characterController);
-                Debug.Log("[AreaSceneEntrypoint] Injected dependencies into CharacterMovementController");
+                _logger?.Info(LogCategory.Area,"[AreaSceneEntrypoint] Injected dependencies into CharacterMovementController");
             }
         }
 

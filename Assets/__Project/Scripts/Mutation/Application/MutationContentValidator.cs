@@ -55,7 +55,7 @@ namespace Mutation.Application
 
                     if (string.IsNullOrEmpty(weight.ArchetypeId))
                     {
-                        _logger.Warning(
+                        _logger.Warning(LogCategory.Mutation,
                             $"[MutationContentValidator] Artifact '{artifact.Id}' has an archetype " +
                             "weight with an empty archetype id; it will be ignored.");
                         continue;
@@ -63,7 +63,7 @@ namespace Mutation.Application
 
                     if (!_archetypes.Contains(weight.ArchetypeId))
                     {
-                        _logger.Warning(
+                        _logger.Warning(LogCategory.Mutation,
                             $"[MutationContentValidator] Artifact '{artifact.Id}' references unknown " +
                             $"archetype id '{weight.ArchetypeId}'. Add an ArchetypeDefinition with that " +
                             "id or fix the artifact.");
@@ -90,7 +90,7 @@ namespace Mutation.Application
 
                     if (string.IsNullOrEmpty(affinity.ArchetypeId))
                     {
-                        _logger.Warning(
+                        _logger.Warning(LogCategory.Mutation,
                             $"[MutationContentValidator] Part '{part.Id}' has a mutation affinity with " +
                             "an empty archetype id; it will be ignored when scoring.");
                         continue;
@@ -98,7 +98,7 @@ namespace Mutation.Application
 
                     if (!_archetypes.Contains(affinity.ArchetypeId))
                     {
-                        _logger.Warning(
+                        _logger.Warning(LogCategory.Mutation,
                             $"[MutationContentValidator] Part '{part.Id}' has a mutation affinity for " +
                             $"unknown archetype id '{affinity.ArchetypeId}'. Add an ArchetypeDefinition " +
                             "with that id or fix the part.");

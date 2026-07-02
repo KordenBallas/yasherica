@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Combat.Controller;
+using Core.Logging;
 using LevelGeneration;
 using Zenject;
 
@@ -25,12 +26,14 @@ namespace Platform
         private readonly List<IPlatformContent> _contents = new();
         private readonly List<IPlatform> _neighbors = new();
         private ICombatController _combatController;
+        private readonly IGameLogger _logger;
 
-        public Platform(int id, IPlatformStateFactory stateFactory)
+        public Platform(int id, IPlatformStateFactory stateFactory, IGameLogger logger)
         {
             Id = id;
             StateFactory = stateFactory;
-            StateMachine = new PlatformStateMachine();
+            _logger = logger;
+            StateMachine = new PlatformStateMachine(logger);
         }
 
         public virtual void Initialize(IPlatformVisual visual)
@@ -83,6 +86,10 @@ namespace Platform
         {
             if (content != null && !_contents.Contains(content))
             {
+                if (content is PlatformContentBase contentBase)
+                {
+                    contentBase.Logger = _logger;
+                }
                 _contents.Add(content);
             }
         }

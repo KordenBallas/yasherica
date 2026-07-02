@@ -100,7 +100,7 @@ namespace LevelGeneration
             var nodes = MapWindow(plan);
             _areaGenerator.AppendPlatforms(nodes);
             _frontier = new HashSet<int>(nodes.Select(n => n.Id));
-            _logger?.Info($"[RunStreamingCoordinator] Generated window {_windowIndex} with {nodes.Count} platforms.");
+            _logger?.Info(LogCategory.LevelGeneration,$"[RunStreamingCoordinator] Generated window {_windowIndex} with {nodes.Count} platforms.");
             _windowIndex++;
         }
 

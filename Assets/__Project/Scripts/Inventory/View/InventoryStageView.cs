@@ -1,4 +1,5 @@
 using System.Collections;
+using Core.Logging;
 using Inventory.Data.Definitions;
 using UnityEngine;
 using Zenject;
@@ -18,6 +19,7 @@ namespace Inventory.View
         [SerializeField] private UnityEngine.Camera _stageCamera;
 
         [Inject] private InventoryConfig _config;
+        [Inject] private IGameLogger _logger;
 
         private Vector3 _defaultCameraLocalPosition;
         private Coroutine _framingCoroutine;
@@ -37,7 +39,7 @@ namespace Inventory.View
         {
             if (_stageCamera == null)
             {
-                Debug.LogError("[InventoryStageView] Stage camera is not assigned!");
+                _logger?.Error(LogCategory.Inventory, "[InventoryStageView] Stage camera is not assigned!");
                 return;
             }
 

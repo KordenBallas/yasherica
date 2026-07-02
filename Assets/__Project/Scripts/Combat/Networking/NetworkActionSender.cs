@@ -1,7 +1,9 @@
 using Combat.Core;
 using Combat.Controller;
+using Core.Logging;
 using Unity.Netcode;
 using UnityEngine;
+using Zenject;
 
 namespace Combat.Networking
 {
@@ -13,6 +15,7 @@ namespace Combat.Networking
         private NetworkCombatStateSync _networkSync;
         private ActionSerializer _actionSerializer;
         private IPlayer _localPlayer;
+        [Inject] private IGameLogger _logger;
         
         public void Initialize(NetworkCombatStateSync networkSync, IPlayer localPlayer)
         {
@@ -28,14 +31,14 @@ namespace Combat.Networking
         {
             if (!IsClient)
             {
-                Debug.LogWarning("Cannot send action: not a client");
+                _logger?.Warning(LogCategory.Combat,"Cannot send action: not a client");
                 return;
             }
             
             // Verify this is the local player's action
             if (action.Player.Id != _localPlayer.Id)
             {
-                Debug.LogWarning("Cannot send action for another player");
+                _logger?.Warning(LogCategory.Combat,"Cannot send action for another player");
                 return;
             }
             

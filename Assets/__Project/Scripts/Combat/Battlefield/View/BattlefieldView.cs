@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using Core.Logging;
 using UnityEngine;
+using Zenject;
 using System; // For Type.GetType
 
 namespace Combat.Battlefield
@@ -20,6 +22,7 @@ namespace Combat.Battlefield
         private IBattlefield battlefield;
         private readonly List<GameObject> spawnedCells = new();
         private bool isActive = true; // Enabled by default
+        [Inject] private IGameLogger _logger;
         
         private const string DEFAULT_HEX_CELL_PREFAB_PATH = "Prefabs/HexagonOutline";
         
@@ -38,7 +41,7 @@ namespace Combat.Battlefield
             
             if (hexCellPrefab == null)
             {
-                Debug.LogError($"[BattlefieldView] Could not load hex cell prefab from Resources path: {DEFAULT_HEX_CELL_PREFAB_PATH}");
+                _logger?.Error(LogCategory.Combat,$"[BattlefieldView] Could not load hex cell prefab from Resources path: {DEFAULT_HEX_CELL_PREFAB_PATH}");
             }
             
             return hexCellPrefab;
@@ -77,7 +80,7 @@ namespace Combat.Battlefield
             
             if (battlefield == null)
             {
-                Debug.LogWarning("[BattlefieldView] Cannot regenerate: battlefield is null.");
+                _logger?.Warning(LogCategory.Combat,"[BattlefieldView] Cannot regenerate: battlefield is null.");
                 return;
             }
             
@@ -90,18 +93,18 @@ namespace Combat.Battlefield
             var prefab = GetHexCellPrefab();
             if (prefab == null)
             {
-                Debug.LogError("[BattlefieldView] Missing hexCellPrefab! Could not load from Resources either.");
+                _logger?.Error(LogCategory.Combat,"[BattlefieldView] Missing hexCellPrefab! Could not load from Resources either.");
                 return;
             }
             
             // Get all cells in boundary
             var cellsInBoundary = battlefield.GetCellsInBoundary();
-            Debug.Log("[BattlefieldView] Battlefield cells count is " + cellsInBoundary.Count);
+            _logger?.Info(LogCategory.Combat,"[BattlefieldView] Battlefield cells count is " + cellsInBoundary.Count);
             
             // Get hex size from battlefield
             float hexSize = battlefield.HexSize;
             Vector3 battlefieldCenter = battlefield.Center;
-            Debug.Log($"[BattlefieldView] Using hexSize: {hexSize}");
+            _logger?.Info(LogCategory.Combat,$"[BattlefieldView] Using hexSize: {hexSize}");
             
             foreach (var coords in cellsInBoundary)
             {
@@ -133,9 +136,9 @@ namespace Combat.Battlefield
                 if (hexCellView != null)
                 {
                     // Set cell to idle state with configured color
-                    cell.ChangeState(new HexCellIdleState(defaultCellColor));
+                    cell.ChangeState(new HexCellIdleState(defaultCellColor, _logger));
                     hexCellView.Initialize(cell, hexSize);
-                    Debug.Log($"[BattlefieldView] Initialized HexCellView with size: {hexSize}");
+                    _logger?.Info(LogCategory.Combat,$"[BattlefieldView] Initialized HexCellView with size: {hexSize}");
                 }
                 /*else
                 {
@@ -147,11 +150,11 @@ namespace Combat.Battlefield
                         hexController.SetColor(defaultCellColor);
                         // UpdateHex is now called by SetSize, but calling it again won't hurt
                         hexController.UpdateHex();
-                        Debug.Log($"[BattlefieldView] Initialized HexagonController with size: {hexSize}");
+                        _logger?.Info(LogCategory.Combat,$"[BattlefieldView] Initialized HexagonController with size: {hexSize}");
                     }
                     else
                     {
-                        Debug.LogWarning($"[BattlefieldView] Hex cell prefab '{prefab.name}' has neither HexCellView nor HexagonController component!");
+                        _logger?.Warning(LogCategory.Combat,$"[BattlefieldView] Hex cell prefab '{prefab.name}' has neither HexCellView nor HexagonController component!");
                     }
                 }*/
                 

@@ -43,7 +43,7 @@ namespace CharacterProgression.Core
             var separatorIndex = trimmed.IndexOf(Separator);
             if (separatorIndex <= 0 || separatorIndex >= trimmed.Length - 1)
             {
-                _logger?.Warning($"[RunConditionEvaluator] Malformed condition '{condition}' - failing closed.");
+                _logger?.Warning(LogCategory.Character,$"[RunConditionEvaluator] Malformed condition '{condition}' - failing closed.");
                 return false;
             }
 
@@ -61,7 +61,7 @@ namespace CharacterProgression.Core
                 case NpcEncountered:
                     return record.HasEncounteredNpc(id);
                 default:
-                    _logger?.Warning($"[RunConditionEvaluator] Unknown condition prefix '{prefix}' in '{condition}' - failing closed.");
+                    _logger?.Warning(LogCategory.Character,$"[RunConditionEvaluator] Unknown condition prefix '{prefix}' in '{condition}' - failing closed.");
                     return false;
             }
         }
