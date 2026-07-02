@@ -11,43 +11,40 @@ namespace Platform
         
         private Material platformMaterial;
         private float platformThickness = 1.0f;
-        private int edgeVertexCount = 10;
-        private float edgeJitter = 0.25f;
+        private float rimDropHeight = 0.4f;
+        private float cellInset = 0.06f;
         private Color? platformColor;
-        
-        public void SetConfig(Material material, float thickness, int vertexCount, float jitter, Color? color = null)
+
+        public void SetConfig(Material material, float thickness, float rimDrop, float inset, Color? color = null)
         {
             platformMaterial = material;
             platformThickness = thickness;
-            edgeVertexCount = vertexCount;
-            edgeJitter = jitter;
+            rimDropHeight = rimDrop;
+            cellInset = inset;
             platformColor = color;
         }
-        
+
         public void Initialize(IPlatform platform)
         {
             this.platform = platform;
             CreatePlatformGameObject();
         }
-        
+
         private void CreatePlatformGameObject()
         {
-            if (platform == null || platform.Visual == null) return;
-            
+            if (platform == null || platform.Visual == null || platform.Visual.Surface == null) return;
+
             // Create mesh GameObject as child
             platformMeshObject = new GameObject("PlatformMesh");
             platformMeshObject.transform.SetParent(transform);
             platformMeshObject.transform.localPosition = Vector3.zero;
-            
-            // Build mesh
-            var outline = new System.Collections.Generic.List<Vector3>();
-            var mesh = PlatformMeshBuilder.BuildPlatformMesh(
-                platform.Visual.Size.x,
-                platform.Visual.Size.y,
-                edgeVertexCount,
-                edgeJitter,
+
+            // Build mesh from the hex surface (the same source of truth the combat grid reads).
+            var mesh = PlatformHexSurfaceMeshBuilder.Build(
+                platform.Visual.Surface,
                 platformThickness,
-                out outline
+                rimDropHeight,
+                cellInset
             );
             
             // Add MeshFilter and MeshRenderer
@@ -80,19 +77,17 @@ namespace Platform
             // Add MeshCollider
             meshCollider = platformMeshObject.AddComponent<MeshCollider>();
             meshCollider.sharedMesh = mesh;
-            
-            // Build colliders (floor + walls) - parent to this GameObject
+
+            // Walls sit on the walkable outline (the last full cell's edge), which is what makes the
+            // decorative rim physically non-walkable: its geometry lies beyond the wall colliders.
             PlatformColliderBuilder.BuildPlatformColliders(
                 gameObject,
-                outline,
+                platform.Visual.TopBoundary,
                 platformThickness
             );
-            
-            // Update visual boundary with the actual generated outline
-            platform.Visual.TopBoundary = outline;
-            
-            // Note: Battlefield initialization is handled by CombatActiveState
-            // when the platform is entered. The Combat system uses the TopBoundary set here.
+
+            // Note: Battlefield initialization is handled by CombatActiveState when the platform is
+            // entered; TopBoundary was set from the surface outline at generation time and is final.
         }
         
         public void SetActive(bool active)

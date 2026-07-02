@@ -121,8 +121,11 @@ namespace Platform
             {
                 if (platform.Visual == null || platform.Visual.TopBoundary == null) continue;
 
-                // Check if point is inside platform boundary (XZ plane)
-                if (IsPointInPolygonXZ(worldPosition, platform.Visual.TopBoundary))
+                // TopBoundary is in platform-local space — bring the query point into it. (The old
+                // world-vs-local test only ever matched via the nearest fallback below, which breaks
+                // once combat platforms grow past 2×maxDistance across.)
+                Vector3 localPosition = worldPosition - platform.Visual.Position;
+                if (IsPointInPolygonXZ(localPosition, platform.Visual.TopBoundary))
                 {
                     return platform;
                 }

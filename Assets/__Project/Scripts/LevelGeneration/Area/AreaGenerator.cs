@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using Core.Logging;
+using LevelGeneration.Surface;
 using Loot.Core;
+using Narrative.Director.Core;
 using Platform;
 using UnityEngine;
 using Zenject;
@@ -11,15 +13,26 @@ namespace LevelGeneration
     /// <summary>
     /// Generates area with platforms from graph data.
     /// Uses unified Platform.Factory - state behavior is content-driven.
+    /// Each platform's hex surface is grown deterministically from a per-platform seed derived from
+    /// the run seed and the node id, sized by its content kind's shape profile (brief §5–§8).
     /// </summary>
     public class AreaGenerator : IAreaGenerator
     {
+        /// <summary>Seed-context prefix for the per-platform shape stream (kept apart from loot/director streams).</summary>
+        private const string ShapeSeedContext = "platform-shape";
+
+        /// <summary>Integer resolution of the seeded height-deviation draw.</summary>
+        private const int HeightDeviationSteps = 100;
+
         private readonly PlatformGraphData _graph;
         private readonly PerlinNoiseMap _noiseMap;
         private readonly AreaGeneratorConfig _config;
         private readonly Platform.Platform.Factory _platformFactory;
         private readonly ILootRollService _lootRollService;
         private readonly LevelTheme _theme;
+        private readonly PlatformShapeSettings _shapeSettings;
+        private readonly IRunSeedProvider _seedProvider;
+        private readonly PlatformSurfaceGenerator _surfaceGenerator = new();
         private readonly IGameLogger _logger;
 
         private readonly Dictionary<int, IPlatform> _platforms = new();
@@ -38,6 +51,8 @@ namespace LevelGeneration
             Platform.Platform.Factory platformFactory,
             ILootRollService lootRollService,
             LevelTheme theme,
+            PlatformShapeSettings shapeSettings,
+            IRunSeedProvider seedProvider,
             AreaGeneratorConfig config = null,
             IGameLogger logger = null)
         {
@@ -46,6 +61,8 @@ namespace LevelGeneration
             _platformFactory = platformFactory;
             _lootRollService = lootRollService;
             _theme = theme;
+            _shapeSettings = shapeSettings ?? PlatformShapeSettings.CreateDefault();
+            _seedProvider = seedProvider;
             _config = config ?? new AreaGeneratorConfig();
             _logger = logger;
         }
@@ -195,12 +212,22 @@ namespace LevelGeneration
                 }
             }
 
-            // Create visual with position from noise map
+            // Grow the hex surface deterministically: per-platform seed, content-kind profile, and
+            // the battlefield-minimum floor for anything that can host a fight (brief §5–§8).
+            var rng = CreatePlatformRng(node.Id);
+            PlatformContentKind kind = PlatformContentKindResolver.Resolve(node);
+            var profile = _shapeSettings.ProfileFor(kind);
+            int guaranteedMinCells = kind == PlatformContentKind.Combat ? _shapeSettings.BattlefieldMinimumCells : 0;
+            var surface = _surfaceGenerator.Generate(
+                profile, guaranteedMinCells, _shapeSettings.HexSize, _shapeSettings.Orientation,
+                _shapeSettings.RimWidth, _shapeSettings.RimJitterPercent, rng);
+
             var visual = new PlatformVisual();
-            Vector2 position2D = CalculatePlatformPosition(node);
+            visual.Surface = surface;
+            visual.TopBoundary = surface.Outline.Select(p => new Vector3(p.X, 0f, p.Z)).ToList();
+            visual.Size = CalculateOutlineBounds(surface);
+            Vector2 position2D = CalculatePlatformPosition(node, visual.Size.x, rng);
             visual.Position = _noiseMap.GetPositionWithHeight(position2D);
-            visual.Size = CalculatePlatformSize(node);
-            visual.TopBoundary = GeneratePlatformBoundary(visual.Size);
 
             // Initialize with visual (will also initialize content and state machine)
             platform.Initialize(visual);
@@ -208,51 +235,49 @@ namespace LevelGeneration
             return platform;
         }
 
-        private Vector2 CalculatePlatformPosition(GraphNode node)
+        private IRandomSource CreatePlatformRng(int nodeId)
+        {
+            // A private per-platform stream: order-independent across windows and decoupled from the
+            // director's shared stream, so shape draws never shift narrative picks.
+            int runSeed = _seedProvider?.RunSeed ?? 0;
+            int seed = LootSeed.Derive(runSeed, $"{ShapeSeedContext}:{nodeId}");
+            return new DeterministicRandom(unchecked((ulong)seed));
+        }
+
+        private static Vector2 CalculateOutlineBounds(Combat.Battlefield.PlatformHexSurface surface)
+        {
+            float minX = float.MaxValue, maxX = float.MinValue;
+            float minZ = float.MaxValue, maxZ = float.MinValue;
+            foreach (var (x, z) in surface.Outline)
+            {
+                minX = Mathf.Min(minX, x);
+                maxX = Mathf.Max(maxX, x);
+                minZ = Mathf.Min(minZ, z);
+                maxZ = Mathf.Max(maxZ, z);
+            }
+
+            return new Vector2(maxX - minX, maxZ - minZ);
+        }
+
+        private Vector2 CalculatePlatformPosition(GraphNode node, float platformWidth, IRandomSource rng)
         {
             // Calculate position based on previous platforms and gap
-            float sx = CalculatePlatformSize(node).x;
-            float posX = _cursorX + sx * 0.5f;
+            float posX = _cursorX + platformWidth * 0.5f;
 
-            // Height deviation relative to previous node
+            // Height deviation relative to previous node, drawn from the platform's own seeded stream.
             float dy = 0f;
             if (node.Id > 0)
             {
-                dy = Random.Range(-_config.heightDeviation, _config.heightDeviation);
+                int step = rng.NextInt(HeightDeviationSteps * 2 + 1) - HeightDeviationSteps;
+                dy = step / (float)HeightDeviationSteps * _shapeSettings.HeightDeviation;
             }
             float posY = (node.Id == 0) ? _baselineY : (_baselineY + dy);
 
             // Advance cursor for next platform
-            _cursorX += sx + _config.gapBetweenPlatforms;
+            _cursorX += platformWidth + _shapeSettings.GapBetweenPlatforms;
             _baselineY = posY;
 
             return new Vector2(posX, posY);
-        }
-
-        private Vector2 CalculatePlatformSize(GraphNode node)
-        {
-            // Random size in range
-            float sx = Random.Range(_config.platformSizeMin.x, _config.platformSizeMax.x);
-            float sz = Random.Range(_config.platformSizeMin.y, _config.platformSizeMax.y);
-            return new Vector2(sx, sz);
-        }
-
-        private List<Vector3> GeneratePlatformBoundary(Vector2 size)
-        {
-            // Use PlatformMeshBuilder to generate proper boundary with jitter
-            // This will be updated when mesh is built, but we need initial boundary
-            var boundary = new List<Vector3>();
-            float halfX = size.x * 0.5f;
-            float halfZ = size.y * 0.5f;
-
-            // Simple rectangular boundary for initial placement
-            // The actual boundary will be generated by PlatformMeshBuilder
-            boundary.Add(new Vector3(-halfX, 0, -halfZ));
-            boundary.Add(new Vector3(halfX, 0, -halfZ));
-            boundary.Add(new Vector3(halfX, 0, halfZ));
-            boundary.Add(new Vector3(-halfX, 0, halfZ));
-
-            return boundary;
         }
 
         private IPlatformContent CreateContent(PlatformContentType contentType, StoryPlatformData storyData, int nodeId)
@@ -326,9 +351,9 @@ namespace LevelGeneration
             // Configure PlatformView with config
             platformView.SetConfig(
                 _config.platformMaterial,
-                _config.platformThickness,
-                _config.edgeVertexCount,
-                _config.edgeJitter,
+                _shapeSettings.PlatformThickness,
+                _shapeSettings.RimDropHeight,
+                _shapeSettings.CellInset,
                 _config.colorVariation ? GetPlatformColor(platform.Id) : null
             );
 

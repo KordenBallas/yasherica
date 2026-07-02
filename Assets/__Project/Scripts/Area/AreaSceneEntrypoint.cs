@@ -19,23 +19,11 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
     [Header("Graph Parameters")]
     [Tooltip("Number of platforms (nodes) in the route graph")]
     public int platformCount = 6;
-    [Tooltip("Gap between neighboring platforms (world units)")]
-    public float gapBetweenPlatforms = 2.0f;
-    [Tooltip("Maximum absolute height deviation between consecutive platforms")]
-    public float heightDeviation = 1.5f;
-    [Tooltip("Deterministic seed. 0 uses random seed.")]
+    [Tooltip("Height-noise seed override. 0 derives it from the run seed.")]
     public int seed = 0;
 
-    [Header("Platform Shape")]
-    [Tooltip("Min/Max size (length X, width Z) for platforms")]
-    public Vector2 platformSizeMin = new Vector2(3f, 2f);
-    public Vector2 platformSizeMax = new Vector2(6f, 4f);
-    [Tooltip("Number of vertices around platform top edge (6..24). More -> more detailed jagged edge")]
-    [Range(6, 24)] public int edgeVertexCount = 10;
-    [Tooltip("Amount of jitter applied to the top edge in world units (relative to scale)")]
-    [Range(0f, 0.8f)] public float edgeJitter = 0.25f;
-    [Tooltip("Thickness of platform (height downwards from top) in world units")]
-    public float platformThickness = 1.0f;
+    // Platform size/shape/layout dials live on the PlatformShapeConfig SO
+    // (Resources/LevelGeneration/PlatformShapeConfig), wired through AreaInstaller.
 
     [Header("Appearance")]
     public Material platformMaterial; // optional - if null a default will be created
@@ -83,6 +71,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
     [Inject]
     private INpcInteractionService _interactionService;
     [Inject]
+    private LevelGeneration.Surface.PlatformShapeSettings _platformShapeSettings;
+    [Inject]
     private IGameLogger _logger;
 
     private IPlayer _localPlayer;
@@ -106,17 +96,12 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
         LevelTheme theme = LevelTheme.Forest;
         _currentThemeProvider.SetTheme(theme);
 
-        var noiseMap = new PerlinNoiseMap(seed, noiseScale, noiseOctaves);
+        // Heights are run-deterministic: the noise seed derives from the run seed unless overridden.
+        int noiseSeed = seed != 0 ? seed : Loot.Core.LootSeed.Derive(_runSeedProvider.RunSeed, "area-height");
+        var noiseMap = new PerlinNoiseMap(noiseSeed, noiseScale, noiseOctaves);
 
         var config = new AreaGeneratorConfig
         {
-            platformSizeMin = platformSizeMin,
-            platformSizeMax = platformSizeMax,
-            edgeVertexCount = edgeVertexCount,
-            edgeJitter = edgeJitter,
-            platformThickness = platformThickness,
-            gapBetweenPlatforms = gapBetweenPlatforms,
-            heightDeviation = heightDeviation,
             platformMaterial = platformMaterial,
             colorVariation = colorVariation
         };
@@ -124,7 +109,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
         // The streaming director plans/generates platforms window-by-window; the area generator no longer
         // needs a pre-built graph or pre-assigned narrative (levelNarrative is null on this path).
         areaGenerator = new AreaGenerator(
-            new PlatformGraphData(), noiseMap, _platformFactory, _lootRollService, theme, config, _logger);
+            new PlatformGraphData(), noiseMap, _platformFactory, _lootRollService, theme,
+            _platformShapeSettings, _runSeedProvider, config, _logger);
 
         coordinator = new RunStreamingCoordinator(
             _windowPlanner, _archetypeCatalog, _modularFactory, _factStore, _castingFactory,
@@ -141,7 +127,15 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
         if (entry != null && characterTransform != null)
         {
             currentPlatform = entry;
-            characterTransform.position = entry.Visual.Position + Vector3.up * 2f;
+            // Spawn over the center CELL, not the raw centroid — a concave island's centroid can fall
+            // outside every cell.
+            Vector3 spawnOffset = Vector3.zero;
+            if (entry.Visual.Surface != null)
+            {
+                var (cx, cz) = entry.Visual.Surface.GetCellCenterLocal(entry.Visual.Surface.CenterCell);
+                spawnOffset = new Vector3(cx, 0f, cz);
+            }
+            characterTransform.position = entry.Visual.Position + spawnOffset + Vector3.up * 2f;
 
             var characterController = characterTransform.GetComponent<Character.CharacterMovementController>();
             if (characterController == null)

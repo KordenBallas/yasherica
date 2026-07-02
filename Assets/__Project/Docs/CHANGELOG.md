@@ -8,6 +8,31 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Changed
+- **Platform & Area Generation — traversal cutover to hex-composed platforms (phase 3 of the
+  platform-hex rework; brief §1–§8):** platforms are no longer random ellipse blobs.
+  `AreaGenerator.CreatePlatformFromNode` grows each platform's `PlatformHexSurface` from a
+  **per-platform seeded stream** (`LootSeed.Derive(runSeed, "platform-shape:{nodeId}")` — decoupled
+  from the director stream, order-independent across windows), sized by its **content kind's shape
+  profile** (`PlatformContentKindResolver` over the graph node) with the **battlefield-minimum floor
+  for combat-capable platforms**; `PlatformVisual` gains `Surface` and its `TopBoundary` is now the
+  hex-union outline, **final from birth** (`PlatformView` no longer overwrites it). New
+  `PlatformHexSurfaceMeshBuilder` replaces the deleted `PlatformMeshBuilder`: per-cell shallow-dome
+  tops (the muted traversal tiling — cell borders read as soft valleys; `CellInset` 0 = flat), the
+  drooping jittered **rim strip** (dressing only — wall colliders sit on the walkable outline, so the
+  rim is physically unreachable), side skirt, and a mirrored concave-safe bottom cap. The last
+  platform-path `UnityEngine.Random` uses are gone: height deviation draws from the per-platform
+  stream and the Perlin height seed derives from the run seed (inspector `seed` is now an override).
+  `AreaGeneratorConfig` slims to material/colorVariation; the removed `AreaSceneEntrypoint` shape
+  inspector fields moved to the `PlatformShapeConfig` SO. Combat unchanged this phase: the grid still
+  scan-fits inside the (now hex-shaped) boundary — the shared-source grid is the next phase.
+
+### Fixed
+- **Platform — `PlatformRegistry.GetPlatformAtPosition` tested the world-space point against the
+  platform-local `TopBoundary`,** so the polygon test never matched and detection silently rode the
+  ≤5u nearest-platform fallback — invisible at 3–6u blobs, breaking at arena-sized hex platforms.
+  The query point is now brought into platform-local space first. *(platform)*
+
 ### Added
 - **Platform & Area Generation — `PlatformShapeConfig` SO + one-source-of-truth hex tiling (phase 2
   of the platform-hex rework):** new data-only SO **`PlatformShapeConfig`**
