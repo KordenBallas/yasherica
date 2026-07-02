@@ -214,6 +214,14 @@ feel, camera at arena scale) is verified manually in play mode.
 
 ## 6. Known limitations / open points
 
+- **Regression — invisible wall inside the visible island.** The wall colliders sit on the walkable
+  outline while the rim extends beyond it, so the hero stops with ground still visibly continuing
+  (pre-rework walls coincided with the visual edge, commit `7201bb2`). The intended edge feel (rim
+  reads as a drop-off vs the physical stop moving to the rim's outer ring) is undecided — ROADMAP.
+- **Regression — units sink waist-deep in combat.** Unit placement reads `Battlefield.HexToWorld`
+  directly and was implicitly calibrated against the legacy grids' accidentally doubled Y;
+  `SurfaceHexGrid` (commit `9d2f909`) returns the true surface height, dropping units by the
+  platform's height. Needs explicit grounding (surface top + feet/pivot offset) — ROADMAP.
 - **Muted-tiling treatment is geometry-MVP.** Per-cell shallow domes read as soft valleys under a
   lit material; the real muted→crisp render treatment (shader/VFX emphasis on combat entry) is
   tech-art (ROADMAP, render-look bible).

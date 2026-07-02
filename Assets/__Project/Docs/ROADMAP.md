@@ -430,6 +430,22 @@ System doc: `platform-generation.md`.
   `platform-generation.md`.)*
 
 Follow-ups from the platform-hex rework (doc §6):
+- [ ] `[arch]` **Regression — hero stops at an invisible wall inside the visible island.** Since the
+  traversal cutover (`7201bb2`) the wall colliders sit on the **walkable outline** (the last full
+  cell's edge) while the decorative rim extends beyond it, so the hero bumps into an invisible wall
+  with ground still visibly continuing under his feet — pre-rework the walls coincided with the
+  visual edge. Decide the intended feel and fix: make the walkable edge read as the edge (rim
+  clearly lower/broken/steeper via `_rimDropHeight`/rim treatment), or move the physical stop to the
+  rim's outer ring while keeping combat cells inside — do not silently let the rim become walkable
+  (it must never be a combat cell, brief §4). *(platform)*
+- [ ] `[arch]` **Regression — units sink waist-deep into the battlefield.** Hero and enemy models
+  sit half-body into the platform in combat since `9d2f909`: unit placement reads
+  `Battlefield.HexToWorld` directly (`CharacterCombatComponent`, `EnemyCombatIntegrator`,
+  `CombatEntryAnimator`, `CharacterCombatAnimator`), and the legacy grids returned an accidentally
+  **doubled** Y (`Vector3(x, center.y, z) + center` on top of a stored y=0 local) that placement was
+  implicitly calibrated against; `SurfaceHexGrid` now returns the true surface height
+  (`y = center.y`), dropping every unit by the platform's height. Fix by grounding units explicitly
+  (surface top + a feet/pivot offset per model), not by restoring the double-add. *(combat + platform)*
 - [ ] `[content]` **Muted→crisp render treatment (tech-art).** Replace the geometry-MVP dome seams
   with the real shader/VFX emphasis on combat entry (ties the render-look bible + M4 telegraph VFX
   language). *(platform + tech-art)*
