@@ -8,6 +8,26 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Added
+- **World Sites — site domain + block reservation (phase 1 of the world-sites brief; R1–R10):**
+  new pure-C# `World.Sites.Core` — the shared `base·flavor` content vocabulary (`ContentBaseKind`
+  Empty/Loot/Combat/Npc × open flavor strings, `ContentBeat`/`WeightedBeat`), `SiteDefinitionData`
+  (effective capacity recipe: footprint range, anchor beats, weighted fill budget/table, dressing
+  theme; trigger channel derived from the first anchor's kind — NPC → quest roll, Combat/Loot →
+  ambient roll), `SiteCatalog` (channel split + `NpcFillFlavors`), `SiteBlockBuilder` (anchor-first
+  block build, fill clamped to footprint, connective Empty remainder, per-slot `SiteStamp`), and
+  `SiteStamp` (siteId/instanceId/index/footprint/dressingThemeId — the M5 dressing seam). New
+  `Narrative.Director.Core.IWorldSlotAllocator` + `SiteAwareSlotAllocator`: wraps the untouched
+  `WorldContentAllocator` (empty catalog = bit-exact passthrough, regression-tested); run-scoped
+  pending queue lets a 4–5 platform block span window boundaries; ambient site gate mirrors the
+  quest gate (`MinPlatformsBetweenSites` spacing from block end + 1-in-`AveragePlatformsPerAmbientSite`
+  roll); `TryReserveSettlement` resolves a landed quest to Wild-vs-settlement (`WildQuestWeight`,
+  `site:<id>` story tag = hard request). `SlotAllocation`/`PlannedPlatform` gain defaulted
+  `Flavor` + `Site`; `WorldSlotKind` gains `Npc`; `WorldContentDensitySettings` gains the three
+  site dials (defaulted). **Not yet bound in DI — behavior-identical until phase 3.** Tests:
+  `SiteBlockBuilderTests` (8) + `SiteAwareSlotAllocatorTests` (11). New system doc
+  **`world-sites.md`** (added to `Docs/README.md`). *(world/sites + narrative director)*
+
 ### Changed
 - **Combat/Platform — the combat grid is now derived from the platform's hex surface (phase 4,
   completing the platform-hex rework; brief §1 / R1):** new `SurfaceHexGrid : IHexGrid` takes its

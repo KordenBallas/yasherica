@@ -24,6 +24,7 @@ Older documentation elsewhere in the repository may be stale; prefer this folder
 | [Logging](logging.md) | Per-system runtime logging: every line tagged with a `LogCategory`, a `LoggingConfig` SO with per-system + master verbosity ceilings (Off/Error/Warning/Info), gated through `IGameLogger`/`UnityGameLogger` so unrelated systems can be muted while testing a feature |
 | [NPC Proximity Interaction](npc-proximity-interaction.md) | Approaching an NPC is deliberate: an **F** prompt + dialogue in an interaction radius for talkable NPCs, auto-battle in an aggro radius for hostile ones, always-visible `?`/`!` intent markers (derived from the placement-time casting, not an authored flag) and a name label above each NPC, two global radii config + a dev overlay |
 | [Platform & Area Generation](platform-generation.md) | How island platforms are generated: a hex-composed top surface that IS the combat grid (one source of truth, never re-fitted), a non-walkable organic rim, per-content-kind size/shape profiles with a battlefield minimum (one `PlatformShapeConfig` SO), deterministic per run seed |
+| [World Sites](world-sites.md) | Sites give the streaming world shape: a content beat pulls a contiguous multi-platform Camp/Village/City/Ruin/Lair block into being, filled by an authored anchor + weighted-fill + connective capacity recipe in the shared `base·flavor` vocabulary; Wild stays the majority; deterministic, passthrough-safe when unauthored |
 
 ## Product requirement briefs
 
