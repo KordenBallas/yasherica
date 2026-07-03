@@ -22,6 +22,9 @@ namespace Combat.Arena
         private bool _active;
         private bool _roundBroadcast;
 
+        /// <summary>Raised when a client's reported state hash disagrees with the host's (R10).</summary>
+        public event System.Action<int> DesyncDetected;
+
         public ArenaMatchHost(ArenaCommitCollector collector, IArenaTransport transport, IGameLogger logger)
         {
             _collector = collector;
@@ -74,6 +77,7 @@ namespace Combat.Arena
                 _logger.Error(LogCategory.Combat,
                     $"[ArenaMatchHost] LOCKSTEP DESYNC: player {envelope.Commit.PlayerId} reported hash " +
                     $"{envelope.PreviousRoundStateHash:X16}, host expected {_expectedPreviousHash:X16}");
+                DesyncDetected?.Invoke(envelope.Commit.PlayerId);
             }
 
             if (!_collector.TryAccept(envelope.RoundNumber, envelope.Commit))

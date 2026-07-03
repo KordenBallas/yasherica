@@ -9,6 +9,22 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Arena Mode — Phase 4: match HUD, spectate, disconnect handling (MVP complete)**
+  (`arena-mode.md` §2.2): `ArenaMatchHudPresenter`/`ArenaMatchHudView` (MVP) drive the in-match
+  HUD off the controller events — round/lock-in status line, **defeat → Spectating** (local input
+  disabled, the player watches the match end — brief R14), winner/draw banner with **Leave → main
+  menu** (session shutdown first), "connection to the host was lost" on a joined client whose host
+  vanished, and a **desync warning** when a client's reported lockstep hash disagrees with the
+  host's (`ArenaMatchHost.DesyncDetected`, R10). `LoopbackArenaTransport.SimulateDeparture` lets
+  tests exercise R9. The Arena scene's HUD gained the spectate/desync labels and the Leave button.
+  New edge-rule sweep `ArenaEdgeCaseTests` (6) locks the conflict corners — and corrected two rule
+  descriptions to the true behavior: a move onto an occupied cell is **rejected at plan time** (so
+  swaps/chases are never committed — the only same-hex conflict is two units racing to a common
+  empty cell), and a true simultaneous mutual-kill is **not a draw** under sequential skip-dead
+  resolution (the earlier unit wins). Arena suites now 39, all green; full compile + PvE
+  regression green.
+
+### Added
 - **Arena Mode — Phase 3: networked host/join over NGO** (brief `arena-mode-mvp.md` R4–R5;
   `arena-mode.md` §2.3): the Arena scene boots into a **connect panel** — one player **hosts**
   (connection approval caps players at the config max and rejects joins once started), others

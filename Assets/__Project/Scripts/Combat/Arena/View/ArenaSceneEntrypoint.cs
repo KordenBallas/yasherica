@@ -28,9 +28,6 @@ namespace Combat.Arena.View
     /// </summary>
     public class ArenaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
     {
-        [Tooltip("Optional status line (round / winner); skipped when unwired.")]
-        [SerializeField] private TMPro.TMP_Text _statusText;
-
         [Inject] private ArenaMatchConfig _config;
         [Inject] private ArenaPlatformBuilder _platformBuilder;
         [Inject] private ArenaSpawnPlanner _spawnPlanner;
@@ -64,19 +61,11 @@ namespace Combat.Arena.View
             }
 
             _transport.MatchSetupReceived += HandleMatchSetupReceived;
-            SetStatus("Host a match, or join one by address");
         }
 
         public void Dispose()
         {
             _transport.MatchSetupReceived -= HandleMatchSetupReceived;
-
-            if (_controller != null)
-            {
-                _controller.OnGameEnded -= HandleGameEnded;
-                _controller.OnTurnStarted -= HandleTurnStarted;
-            }
-
             _aiCommitSource?.Dispose();
             _resolvePacer?.Dispose();
             _planIconsPresenter?.Dispose();
@@ -165,8 +154,6 @@ namespace Combat.Arena.View
             var initialState = new CombatState(
                 new List<IUnit>(), players, players[0], 1, CombatPhase.Combat, null);
             _controller.Initialize(initialState, players);
-            _controller.OnGameEnded += HandleGameEnded;
-            _controller.OnTurnStarted += HandleTurnStarted;
 
             _resolvePacer.Initialize(_controller, this);
             if (players.Any(p => p is AIPlayer))
@@ -212,26 +199,5 @@ namespace Combat.Arena.View
             hoverController.Initialize(_ghostPresenter);
         }
 
-        private void HandleTurnStarted(IPlayer player)
-        {
-            SetStatus($"Round {_controller.CombatState.TurnNumber} — plan your actions");
-        }
-
-        private void HandleGameEnded(IPlayer winner, CombatPhase phase)
-        {
-            var message = winner != null
-                ? $"{winner.Name} is the last hero standing!"
-                : "Draw — no heroes left standing";
-            _logger.Info(LogCategory.Combat, $"[ArenaSceneEntrypoint] {message}");
-            SetStatus(message);
-        }
-
-        private void SetStatus(string message)
-        {
-            if (_statusText != null)
-            {
-                _statusText.text = message;
-            }
-        }
     }
 }

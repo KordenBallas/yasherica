@@ -12,9 +12,13 @@ namespace Combat.Arena.Core
         public event Action<ArenaCommitEnvelope> CommitReceived;
         public event Action<ArenaMatchSetup> MatchSetupReceived;
         public event Action<ArenaRoundBundle> BundleReceived;
+        public event Action<int> PlayerDeparted;
 
-        // Never raised in-process; declared to satisfy the seam.
-        public event Action<int> PlayerDeparted { add { } remove { } }
+        /// <summary>In-process departures only happen when a test (or tool) injects one.</summary>
+        public void SimulateDeparture(int playerId)
+        {
+            PlayerDeparted?.Invoke(playerId);
+        }
 
         public void SubmitCommit(ArenaCommitEnvelope envelope)
         {

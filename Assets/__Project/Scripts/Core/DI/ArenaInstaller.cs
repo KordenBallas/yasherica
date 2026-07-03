@@ -181,6 +181,14 @@ namespace Core.DI
                 .FromComponentInHierarchy()
                 .AsSingle();
             Container.BindInterfacesTo<ArenaConnectPresenter>().AsSingle().NonLazy();
+
+            // In-match HUD: status/spectate/winner/leave (Leave loads the main menu).
+            Container.Bind<Core.SceneFlow.ISceneLoader>().To<Core.SceneFlow.SceneLoader>().AsSingle();
+            Container.Bind<IArenaMatchHudView>()
+                .To<ArenaMatchHudView>()
+                .FromComponentInHierarchy()
+                .AsSingle();
+            Container.BindInterfacesTo<ArenaMatchHudPresenter>().AsSingle().NonLazy();
         }
 
         private TConfig LoadIfNull<TConfig>(TConfig current, string resourcePath)

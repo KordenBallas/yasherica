@@ -775,8 +775,13 @@ engine and the early Netcode-for-GameObjects scaffold already under
   CHANGELOG; `arena-mode.md` §2.3–§2.5.)* *(combat)*
 - [x] `[arch]` **Win = last hero standing.** *(Done — `LastHeroStandingWinCondition` (armed after
   the full roster spawns): one player with a living unit wins, zero is a draw; remaining intents
-  are not resolved after match end. The defeated player's spectate/Leave presentation is the
-  Phase 4 polish item. See CHANGELOG; `arena-mode.md` §2.5.)* *(combat)*
+  are not resolved after match end. Phase 4 added the defeated-player **spectate** presentation,
+  the winner/draw banner + **Leave → menu**, and disconnect/desync surfacing
+  (`ArenaMatchHudPresenter`). See CHANGELOG; `arena-mode.md` §2.2, §2.7.)* *(combat)*
+
+**Arena MVP complete (2026-07-03)** — all four phases shipped (main menu, symmetric round loop,
+NGO host/join, match HUD/spectate). 39 arena edit-mode tests green; PvE untouched (54 green).
+The items below are post-MVP polish/hardening.
 - [ ] `[content]` **Deferred (out of the MVP brief).** Deck of run-snapshot heroes + character
   selection (a separate design pass — conflicts with the Hades death/reform frame, see
   `design/arena-mode.md`); PvP-specific balance / whether Arena bodies are PvE snapshots or a separate
