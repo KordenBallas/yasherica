@@ -8,6 +8,27 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Added
+- **World Sites — content landing (phase 4, completing the world-sites brief; acceptance criteria):**
+  `GraphNode` gains `Site` (`SiteStamp` — the M5 dressing seam on every platform) + `ContentFlavor`;
+  `RunStreamingCoordinator.MapWindow` copies them from the plan; `AreaGenerator.CreateLootContent`
+  passes the flavor into `LootRollContext.Tags`, so `Loot·market/stash/chest/relic` beats **bias**
+  the biome platform table through the existing `BiasTags × tagBiasMultiplier` loot machinery
+  (authored: forest `water` → market/stash, `bacteria` → chest/relic). **Townsfolk chatter
+  content**: `DemoStory_TownsfolkGossip` + `DemoStory_TownsfolkGrumbler` (story tag `townsfolk`,
+  one dialogue slot, no quest/combat → derived `Plain` intent) + `DemoDlg_*` + hand-compiled Ink
+  (`TownsfolkGossip`/`TownsfolkGrumbler` .ink+.json); `arch_villager` gains the `townsfolk`
+  archetype tag so villagers are preferred to play them. Enemy flavor tags authored:
+  `TestEnemyDefinition` → wild-beast/den-monster, `DemoEnemy_BanditBrute` → bandit/guard. New
+  `WorldSitesAcceptanceTests` (3): seeded 600-slot histogram at shipped density — Wild majority,
+  sites rare + contiguous 0..N-1 blocks on both trigger channels, City busier than Village,
+  landmarks townsfolk-free, guard fights draw the tagged enemy, same seed → same world. ROADMAP:
+  the Sites & landscape item checked off (follow-ups filed: deferred passport/tier/biome fields,
+  quest-bearer-as-fill design pass, per-flavor loot tables, real per-flavor enemies; the
+  window-save-state item now covers the site allocator's pending queue). Docs: `world-sites.md`
+  complete; `narrative-procedural.md` §2.6 sites layer + save-state note; `platform-generation.md`
+  seam note. *(world/sites + level generation + loot + narrative content)*
+
 ### Changed
 - **World Sites — reservation goes live (phase 3 of the world-sites brief; R2/R3/R8/R9):** the
   planner now runs on the site-aware allocator — sites appear in the streamed run.

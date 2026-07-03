@@ -5,10 +5,10 @@
 > recipe in the shared `base·flavor` content vocabulary; everything else stays Wild. Builds on the
 > world-content-density allocator (see `narrative-procedural.md` §2.6). PO brief:
 > `product-requirements/world-sites-and-landscape.md`.
-> Status: current as of 2026-07-03 — **phase 3 of 4**: reservation is **live** — the planner runs on
-> the site-aware allocator, sites appear in the streamed run (quest-pulled settlements + rare
-> ambient landmarks, flavored combat picks, townsfolk Npc slots). Phase 4 (content landing on the
-> platforms: stamp/flavor onto graph nodes, loot bias, townsfolk chatter stories) remains — §6.
+> Status: current as of 2026-07-03 — **complete (all 4 phases)**: the planner runs on the site-aware
+> allocator; sites appear in the streamed run (quest-pulled settlements + rare ambient landmarks);
+> flavored combat draws, loot bias tags, and townsfolk chatter stories are authored and consumed;
+> the `SiteStamp` rides every graph node for the M5 dressing pass. Open points in §6.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -133,6 +133,14 @@ quest-eligible stories only). On a landed quest the planner calls
 Townsfolk platforms plan as ordinary `Story` encounters, so downstream (casting at window mapping,
 `NpcIntentResolver`) derives `Plain` naturally — no quest slot filled, no forced combat.
 
+**Content landing (`RunStreamingCoordinator` → `GraphNode` → `AreaGenerator`):** `MapWindow` copies
+`PlannedPlatform.Site`/`Flavor` onto the node (`GraphNode.Site` + `GraphNode.ContentFlavor`); the
+loot path passes the flavor into `LootRollContext.Tags` (`AreaGenerator.CreateLootContent`), so a
+`Loot·market/stash/chest/relic` beat **biases** the biome platform table through the loot layer's
+existing `BiasTags × tagBiasMultiplier` machinery — direction, not a dedicated table. Combat and
+NPC content was already fully resolved at plan time; `GraphNode.Site` is otherwise inert data for
+the M5 dressing pass.
+
 `WorldContentDensitySettings` gains three dials (defaults preserve behavior until authored):
 `AveragePlatformsPerAmbientSite` (default 14; 0 disables), `MinPlatformsBetweenSites` (default 6),
 `WildQuestWeight` (default 40).
@@ -233,11 +241,29 @@ quest slot, the site is reserved as a hard request (no roll). An unknown id warn
    `_enemyTags`. Matching is case-insensitive. Untagged flavor → the fight still lands from the
    unfiltered pool (warned once).
 
-### Add a loot flavor / a townsfolk story
+### Add a loot flavor (e.g. a new `Loot·meteorite` beat)
 
-> **Phase 4 (§6).** Loot `BiasTags` consumption and townsfolk chatter stories land next; a
-> townsfolk beat authored today degrades to Empty (warned) until a story carries the
-> `townsfolk` tag.
+1. Add the flavor string to a site's fill table / anchor (`_kind: Loot`, `_flavor: meteorite`).
+2. Add the same string to the `_biasTags` of the biome-loot entries the flavor should favour
+   (`Resources/Loot/Biomes/Biome_*.asset`, platform table). Entries carrying the tag get their
+   weight multiplied on that beat's roll. No tagged entry → the plain biome table (no bias, no
+   warning — bias is direction, not a requirement). Authored now: `water` → market/stash,
+   `bacteria` → chest/relic (forest).
+
+### Add a townsfolk (chatter) story
+
+1. Write the line(s): `Resources/Stories/Slice/<Name>.ink` + the compiled `.json` in lockstep (no
+   inklecate in the repo — mirror an existing pair, e.g. `TownsfolkGossip`). `npc_name` variable +
+   `# speaker:` tag, no facts needed.
+2. `Create → Narrative → Dialogue` (`Resources/Narrative/Dialogue/`): point `_inkJsonAsset` at the
+   json, give it a unique `_dialogueTags` entry (e.g. `townsfolk-gossip`).
+3. `Create → Narrative → Story Template` (`Resources/Narrative/Stories/`): one non-optional
+   Dialogue slot requiring that tag; **no quest slot, no combat slot**; `_storyTags` must contain
+   the NPC fill flavor (`townsfolk`); no preconditions (always-eligible colour) or any world gate
+   you like.
+4. That's it — the `townsfolk` tag both routes it into site Npc slots and excludes it from quest
+   picks. Authored now: `DemoStory_TownsfolkGossip` + `DemoStory_TownsfolkGrumbler` (the
+   `arch_villager` archetype carries the `townsfolk` tag so villagers are preferred to play them).
 
 **Authoring constraints / gotchas:** a duplicate `_siteId` is skipped (first wins); a site with no
 family and no anchor override is skipped; corpse-loot must never appear in a fill table (it is the
@@ -272,6 +298,13 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
   no-anchor / missing-id / duplicate-id skipped; `NpcFillFlavors` from effective fill tables;
   null/empty input → empty catalog. *(Unity edit-mode — exercises the SO layer.)*
 
+- `WorldSitesAcceptanceTests` (3) — the acceptance-shaped seeded histogram over the
+  authored-equivalent vocabulary at shipped density defaults: **Wild majority** (>60% over 600
+  slots), sites rare and every block a **contiguous 0..N-1 run** with both trigger channels firing;
+  **City busier than Village** (more secondary beats on average across seeds), landmarks carry
+  **no townsfolk**, city guard fights draw the guard-tagged enemy; **same seed → same world**
+  slot-for-slot.
+
 The pure-C# suites run outside Unity via the bundled-Roslyn workaround
 (`Temp/domaintests/run_sites.ps1` + `run_planner.ps1`); the mapper suite needs the editor's
 edit-mode runner.
@@ -280,13 +313,6 @@ edit-mode runner.
 
 ## 6. Known limitations / open points
 
-Phased delivery (the PO brief's sequencing — each phase ships code + tests + docs together):
-
-- **Phase 4 (next): content landing.** Stamp/flavor flow onto `GraphNode` and into the loot roll
-  context (`Loot·market/stash/chest/relic` as `BiasTags`); townsfolk chatter stories + Ink; enemy
-  flavor tags on the forest pool; acceptance histogram test. Until it lands: townsfolk Npc slots
-  degrade to Empty (no story carries the tag yet — warned), site loot rolls the plain biome table,
-  and flavored combat picks fall back to the unfiltered pool (no enemy is tagged yet — warned).
 - **Anchor-first ordering.** The anchor is always the block's first platform (its eligibility was
   verified in the triggering window). A density gradient toward a core is dressing-driven — the M5
   site-dressing item.
@@ -296,5 +322,15 @@ Phased delivery (the PO brief's sequencing — each phase ships code + tests + d
 - **`NPC·quest-bearer` as a *fill* beat** (the design table's Camp "shady offer") is not supported:
   an NPC fill flavor is planner-matched by story tag, and quest semantics on a fill slot are
   undefined. Camps are authored without it; needs its own design pass if wanted.
+- **Loot flavors bias, they don't own tables.** `market/stash/chest/relic` multiply weights of
+  tagged entries in the one biome platform table; dedicated per-flavor tables (a chest that never
+  drops the common snake) are a follow-up if bias proves too soft.
+- **Site state is not in the save snapshot.** The allocator's pending block queue, site-spacing
+  counter, and instance counter are new run-scoped state the window/horizon save-state item must
+  capture (tracked on the existing ROADMAP item).
+- **Guard/den-monster demo tags ride the two placeholder enemies** (`TestEnemyDefinition` =
+  wild-beast + den-monster, `DemoEnemy_BanditBrute` = bandit + guard); real per-flavor enemies are
+  a content pass.
 - **Visual dressing** — the whole "reads as one place" pass (skyline, gate, shared palette,
-  backdrop) is the M5 *Site dressing* ROADMAP item; this system only carries `SiteStamp` for it.
+  backdrop) is the M5 *Site dressing* ROADMAP item; this system carries `SiteStamp` on every
+  `GraphNode` for it.

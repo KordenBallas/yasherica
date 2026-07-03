@@ -115,7 +115,11 @@ namespace LevelGeneration
                 {
                     Id = _nextNodeId++,
                     Type = planned.IsCombat ? PlatformType.Combat : PlatformType.Simple,
-                    IsKeyPlatform = planned.Kind == PlannedPlatformKind.Story
+                    IsKeyPlatform = planned.Kind == PlannedPlatformKind.Story,
+                    // Site membership + beat flavor ride onto the node: the loot roll biases by the
+                    // flavor tag, and the M5 dressing pass will read the stamp.
+                    Site = planned.Site,
+                    ContentFlavor = planned.Flavor
                 };
 
                 if (planned.Kind == PlannedPlatformKind.Story && planned.Actor != null)

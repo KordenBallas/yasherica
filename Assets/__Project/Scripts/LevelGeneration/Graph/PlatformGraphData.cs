@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Platform;
+using World.Sites.Core;
 
 namespace LevelGeneration
 {
@@ -24,6 +25,18 @@ namespace LevelGeneration
         /// content from <see cref="ContentTypes"/>.
         /// </summary>
         public List<IPlatformContent> PrebuiltContent { get; set; }
+
+        /// <summary>
+        /// Site membership stamped by the planner (world-sites brief); <see cref="SiteStamp.Wild"/>
+        /// outside a site block. The M5 site-dressing pass reads this to dress a block as one place.
+        /// </summary>
+        public SiteStamp Site { get; set; }
+
+        /// <summary>
+        /// The beat's <c>base·flavor</c> refinement (e.g. "market" on a Loot node); empty when
+        /// unflavored. Flows into the loot roll context as a bias tag.
+        /// </summary>
+        public string ContentFlavor { get; set; }
     }
 
     public class GraphEdge

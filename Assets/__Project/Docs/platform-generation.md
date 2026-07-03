@@ -92,9 +92,11 @@ dependency arrows are `LevelGeneration → Combat.Battlefield` and `Platform →
 
 ### 2.3 Runtime flow
 
-1. **Window planning** (`RunWindowPlanner` + `WorldContentAllocator`, see
-   `narrative-procedural.md` §2.6) yields `PlannedPlatform`s → `RunStreamingCoordinator.MapWindow`
-   → `GraphNode`s (Type/ContentTypes/PrebuiltContent).
+1. **Window planning** (`RunWindowPlanner` + the site-aware allocator, see
+   `narrative-procedural.md` §2.6 and `world-sites.md`) yields `PlannedPlatform`s →
+   `RunStreamingCoordinator.MapWindow` → `GraphNode`s (Type/ContentTypes/PrebuiltContent, plus
+   `Site` — the world-sites `SiteStamp` a multi-platform site block stamps on its members, the seam
+   the M5 site-dressing pass reads — and `ContentFlavor`, which biases the platform loot roll).
 2. **`AreaGenerator.CreatePlatformFromNode`**: resolves the content kind, derives the per-platform
    PRNG (`LootSeed.Derive(runSeed, "platform-shape:{nodeId}")` → `DeterministicRandom` — its own
    stream, decoupled from the director's so shape draws never shift narrative picks), grows the

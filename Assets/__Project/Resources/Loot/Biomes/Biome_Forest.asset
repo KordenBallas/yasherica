@@ -30,13 +30,17 @@ MonoBehaviour:
     _requiredPastQuests: []
   - _artifactId: water
     _weight: 2
-    _biasTags: []
+    _biasTags:
+    - market
+    - stash
     _minPlayerLevel: 0
     _requiredAchievements: []
     _requiredPastQuests: []
   - _artifactId: bacteria
     _weight: 1
-    _biasTags: []
+    _biasTags:
+    - chest
+    - relic
     _minPlayerLevel: 0
     _requiredAchievements: []
     _requiredPastQuests: []

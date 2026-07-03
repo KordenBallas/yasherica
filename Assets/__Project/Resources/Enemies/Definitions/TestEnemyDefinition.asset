@@ -28,3 +28,6 @@ MonoBehaviour:
     _probability: 0.1
     _quantityRange: {x: 1, y: 1}
     _isBonus: 1
+  _enemyTags:
+  - wild-beast
+  - den-monster

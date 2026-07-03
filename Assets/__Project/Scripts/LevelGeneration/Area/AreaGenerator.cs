@@ -204,7 +204,7 @@ namespace LevelGeneration
             {
                 foreach (var contentType in node.ContentTypes)
                 {
-                    var content = CreateContent(contentType, node.StoryData, node.Id);
+                    var content = CreateContent(contentType, node);
                     if (content != null)
                     {
                         platform.AddContent(content);
@@ -280,18 +280,18 @@ namespace LevelGeneration
             return new Vector2(posX, posY);
         }
 
-        private IPlatformContent CreateContent(PlatformContentType contentType, StoryPlatformData storyData, int nodeId)
+        private IPlatformContent CreateContent(PlatformContentType contentType, GraphNode node)
         {
             switch (contentType)
             {
                 case PlatformContentType.Enemy:
-                    return CreateEnemyContent(storyData);
+                    return CreateEnemyContent(node.StoryData);
 
                 // NPC platforms are produced by the streaming planner as prebuilt NpcContent
                 // (with a minted actor + story), never created here from content types.
 
                 case PlatformContentType.Loot:
-                    return CreateLootContent(nodeId);
+                    return CreateLootContent(node.Id, node.ContentFlavor);
 
                 case PlatformContentType.Quest:
                     return new QuestContent();
@@ -301,9 +301,13 @@ namespace LevelGeneration
             }
         }
 
-        private LootContent CreateLootContent(int nodeId)
+        private LootContent CreateLootContent(int nodeId, string flavor)
         {
-            var context = new LootRollContext(_theme, $"platform:{nodeId}");
+            // A site loot beat's flavor (market/stash/chest/relic) rides in as a bias tag: entries in
+            // the biome table carrying the tag get their weight multiplied (the loot layer's existing
+            // BiasTags machinery) — direction, not a dedicated table.
+            var tags = string.IsNullOrEmpty(flavor) ? null : new[] { flavor };
+            var context = new LootRollContext(_theme, $"platform:{nodeId}", tags);
             var items = _lootRollService.RollPlatformLoot(context);
             if (items.Count == 0)
             {

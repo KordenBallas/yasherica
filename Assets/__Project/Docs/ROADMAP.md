@@ -54,8 +54,11 @@ a step is a prerequisite brief, not a design gap. See `product-requirements/READ
    profiles + battlefield minimum, deterministic — see `platform-generation.md` +
    `## Platform & Area Generation`. Remaining polish: muted→crisp shader treatment, arena-scale
    camera pass, `ContentSpawner` on concave islands (below).
-3. In parallel after step 2: **Sites & landscape** (`world-sites-and-landscape.md`, also needs step 1)
-   and **Biome visual styles** (`biome-visual-styles.md`) — both now unblocked.
+3. In parallel after step 2: **Sites & landscape — DONE** (`world-sites-and-landscape.md`): the
+   what-fills-where half shipped (site vocabulary + capacity recipes + block reservation + flavored
+   content — see `world-sites.md` + `## Platform & Area Generation`); the visual "reads as one
+   place" half is the M5 Site-dressing item, which now has its `SiteStamp` data seam. **Biome
+   visual styles** (`biome-visual-styles.md`) remains open.
 
 **Track C — Combat (one epic — build together, not piecemeal)**
 1. **Hero facing** (`combat-hero-facing.md`) + **enemy intent phase** (`combat-turn-intent-phase.md`) —
@@ -218,7 +221,8 @@ Deferred design (from `narrative-procedural.md` §6):
   planner's window/committed-horizon state, the `ILiveActorRegistry` live-actor set (recurring-actor
   continuity, D11), **nor the `ILiveQuestRegistry` live-quest set** (cross-dialogue quest continuity, R8),
   **nor the `WorldContentAllocator` quest-spacing counter** (world-content-density spacing across a
-  reload); add all four (ties to R14 file IO).
+  reload), **nor the `SiteAwareSlotAllocator` state** (pending site-block queue + site-spacing +
+  instance counters — a reload would drop a half-drained city block); add all five (ties to R14 file IO).
 - [ ] `[arch]` **R11 — Reactive-rule cascade layer.** Optional central layer that derives cross-category
   cascades from fact reads/writes; cascades are explicit authored effects until then.
 - [ ] `[arch]` **OR/boolean precondition composition.** Preconditions are AND-only; add OR/grouping.
@@ -460,27 +464,33 @@ Follow-ups from the platform-hex rework (doc §6):
   LevelGeneration/Platform; the rename sweep (~43 files) was deferred (no compiler in env). Also lift
   `IRandomSource`/`DeterministicRandom` out of `Narrative.Director.Core` for the same reason.
   *(platform + combat)*
-- [ ] `[content]` **Sites & landscape — content-driven footprint (setting scale).** Two axes:
-  **Biome** (`LevelTheme`, ground/race homeland) × **Site** (settlement scale on top: wild / camp /
-  village / city). Content-first: a settlement-scale beat pulls a **Site** into being (ambient content
-  is Wild), so Sites are rare and the world is mostly wilderness. A Site's footprint is a **cluster of
-  N adjacent platforms** (city ~5, village ~2, camp 1) that **holds several beats** and reads as one
-  place via shared dressing + connective visuals (connected islands, Windblown feel kept). The
-  deferred companion to the "World content density" brief. Vocabulary is **extensible by schema**
-  (one authored asset per site type) with **two families** — Settlements (camp / village / city:
-  faction-occupied, passport-gated, quest-bearing) and Landmarks (ruin / lair: wild, no passport,
-  the spatial homes of the naturalistic loot sources). Beta backlog: hamlet, grove/shrine, crater,
-  biome-locked variants, and the Order's-Seat apex (open question). Each Site's **capacity recipe**
-  (how it fills its footprint) is **anchor + weighted fill + connective**, references content
-  kinds/tags (not literal assets), with a **family-default + per-Site override** and additive/optional
-  attributes so it stays revisable without breaking authored Sites. Content kinds are one shared
-  **base × flavor** vocabulary (4 base kinds Empty/Loot/Combat/NPC × open flavor tags; quest &
-  hostility derived from an NPC beat) used by both the density budgets and site recipes — see
-  `design/world/content-kinds.md`. **Verified PO build brief:
-  `product-requirements/world-sites-and-landscape.md`** (consolidates the model + vocabulary +
-  recipes + content-kinds catalog; builds on the density brief). Design background:
-  `design/world/sites-and-landscape.md` + `content-kinds.md`. *(Engine concern for the code track:
-  reserving a multi-platform Site block across a director planning window; balance numbers.)*
+- [x] `[content]` **Sites & landscape — content-driven footprint (setting scale).** *(Done — the
+  what-fills-where half of the verified brief `product-requirements/world-sites-and-landscape.md`
+  shipped in four phases; see the new system doc **`world-sites.md`** + CHANGELOG. Site domain
+  (`World.Sites.Core`: the shared base·flavor vocabulary, capacity recipes anchor + weighted fill +
+  connective, `SiteStamp`); `SiteFamilyDefinition`/`SiteDefinition` SOs (family default +
+  explicit-toggle overrides; authored Camp/Village/City/Ruin/Lair over Settlement/Landmark
+  families); `SiteAwareSlotAllocator` over the untouched density allocator (quest-pulled
+  settlements via `TryReserveSettlement` + `WildQuestWeight` roll / `site:<id>` hard-request tag;
+  rare spaced ambient roll for landmarks; run-scoped pending queue spans window boundaries; empty
+  catalog = bit-exact passthrough); planner fills site Npc slots from townsfolk-tagged chatter
+  stories (excluded from quest picks); flavored monster-pool draws + loot flavor `BiasTags`;
+  `GraphNode.Site`/`ContentFlavor` seam for M5 dressing. Deterministic — the acceptance histogram
+  proves Wild majority, contiguous blocks, city-busier-than-village, no-townsfolk landmarks. The
+  **visual** "reads as one place" half stays the M5 Site-dressing item under World & Environment.)*
+- [ ] `[content]` **Sites — occupancy/passport, tier/altitude, biome-compatibility schema fields.**
+  Deferred by PO decision (2026-07-03): their consuming systems (passport gating, escalation tiers,
+  biome selection along the run) don't exist yet; the additive-defaults schema makes adding them
+  later migration-free. *(world/sites)*
+- [ ] `[arch]` **Sites — `NPC·quest-bearer` as a fill beat (Camp's "shady offer").** An NPC fill
+  flavor is planner-matched by story tag; quest semantics on a fill slot are undefined, so Camp is
+  authored without it (design §5.3 lists it). Needs its own design pass. *(world/sites + quests)*
+- [ ] `[content]` **Sites — per-flavor loot tables if bias proves too soft.** `market/stash/chest/
+  relic` multiply weights of tagged entries in the one biome platform table; a dedicated table per
+  flavor (a chest that never drops commons) is the escalation path. *(world/sites + loot)*
+- [ ] `[content]` **Sites — real per-flavor enemies.** `guard`/`den-monster` demo tags ride the two
+  placeholder pool enemies (`TestEnemyDefinition`, `DemoEnemy_BanditBrute`); author distinct
+  enemies per flavor on the next combat-content pass. *(world/sites + combat)*
 - [ ] `[content]` **M3 — Biome-driven platform appearance & features.** *(Verified PO brief:
   `product-requirements/biome-visual-styles.md`.)* A **per-biome appearance config** — one SO per
   `LevelTheme` (Forest/Desert/Mountain/Cave), mirroring the existing `BiomeLootDefinition` pattern —
@@ -545,7 +555,10 @@ New work (no system doc yet):
   with a **gate/threshold** at the boundary — **dressing only, gaps stay clean hops** (no walkable
   bridges). Layer **biome base × site dressing kit** (same site, different biome = shared structures,
   different materials). Art direction: `design/art/site-dressing.md`. *(Engine: place skyline/gate
-  pieces so adjacent islands align.)*
+  pieces so adjacent islands align.)* **The data seam now exists** (world-sites): every platform's
+  `GraphNode.Site` carries a `SiteStamp` (siteId, instance, index-in-block, footprint,
+  `DressingThemeId`) — dressing reads it; the density-gradient ordering ("core in the middle") also
+  lands here.
 - [ ] `[content]` **M5 — Render-look & palette bible.** Foundational visual direction
   (`design/art/render-look.md`): **flat low-poly, no outline** (Windblown-side; supersedes the vision
   §5 Gunfire outlined-cel candidate); **warm muted base + reserved saturated gameplay accents**

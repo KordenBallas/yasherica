@@ -213,6 +213,18 @@ combat → `EnemyContent` + `CombatActiveState`, then `CombatActiveState` feeds
 normal end completes the platform. `AreaSceneEntrypoint` drives the coordinator instead of the legacy
 generator.
 
+**Sites layer (world-sites brief — see `world-sites.md` for the full system).** The planner now runs
+on the `IWorldSlotAllocator` seam: `SiteAwareSlotAllocator` wraps the untouched
+`WorldContentAllocator` (an unauthored site catalog is a bit-exact passthrough) and reserves
+**contiguous multi-platform site blocks** — a landed quest may pull a settlement via
+`TryReserveSettlement` (`site:<id>` story tag = hard request, else a `WildQuestWeight` roll), and a
+rare spaced ambient roll pulls landmarks; a run-scoped pending queue lets a block span window
+boundaries. Two planner-side additions: a `WorldSlotKind.Npc` slot is filled by an **ambient-colour
+story** matching the slot's flavor tag (e.g. `townsfolk`), and stories tagged with any
+`ISiteCatalog.NpcFillFlavors` entry are **excluded from quest picks**. `PlannedPlatform` and
+`GraphNode` carry the beat's `Flavor` + `SiteStamp`; a site loot beat's flavor biases the biome
+table via `LootRollContext.Tags`.
+
 Open points this stage: biome is fixed (Forest — biome selection along the run is a separate item).
 The quest-spacing counter is allocator state and is not yet save-captured (rides the window/horizon
 save-state item, §6). An archetype with no `_assembly` runs its dialogue but spawns no visible NPC
@@ -578,6 +590,10 @@ verified by entering the slice scene; the Ink→JSON compile and `.asset` wiring
 - **Quest-spacing counter is not yet save-captured.** `WorldContentAllocator` carries
   `platformsSinceQuest` across windows in memory only; a mid-run save/reload would reset quest spacing.
   Folds into the same window/horizon save-state item (ROADMAP).
+- **Site allocator state is not yet save-captured.** `SiteAwareSlotAllocator` (world-sites) adds a
+  pending block queue, a site-spacing counter, and a site instance counter — all run-scoped, in
+  memory only; a mid-run save/reload would drop a half-drained site block. Folds into the same
+  window/horizon save-state item (ROADMAP).
 - **Biome is fixed (Forest).** `AreaSceneEntrypoint` hardcodes `LevelTheme.Forest`; biome selection
   along the run (and with it which monster pool / loot table plays) is a separate follow-up (ROADMAP).
 - **Remaining director gaps (design handoff `narrative-director-requirements.md`).** Beyond the
