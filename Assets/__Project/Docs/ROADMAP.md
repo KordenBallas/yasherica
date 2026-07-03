@@ -749,9 +749,12 @@ engine and the early Netcode-for-GameObjects scaffold already under
 `Scripts/Combat/Networking/` (`CombatNetworkManager`, `NetworkCombatStateSync`, `NetworkActionSender`,
 `ActionSerializer`; the combat domain already models a `Players` list, not player-vs-AI).
 
-- [ ] `[arch]` **Main menu + mode flow.** Boot into a main menu with two modes: **Journey** (→ the
-  current combat/exploration scene, unchanged — a dedicated Hub is a later need, not built here) and
-  **Arena** (→ the networked Arena scene). *(menu + area)*
+- [x] `[arch]` **Main menu + mode flow.** *(Done — Phase 1: the game boots into the hand-authored
+  `MainMenu.unity` (build index 0); **Journey** loads the unchanged `Area` scene, **Arena** loads
+  the Arena scene (added with the session phase). New `Core.SceneFlow`
+  (`ISceneLoader`/`SceneLoader`/`SceneNames` — the project's first runtime scene-switch seam),
+  `MainMenuPresenter` MVP + `MainMenuInstaller`; stale `Demo.unity` build entry removed. See
+  CHANGELOG; `arena-mode.md`.)* *(menu + area)*
 - [ ] `[arch]` **Arena FFA session.** On the existing NGO scaffold: **2–4 players**, one player
   **hosts** and others **join by address** (no lobby/matchmaking/ranking/reconnect), **one arena
   platform**, a **default hero** spawned per player at distinct start positions (no hero/deck select
@@ -770,6 +773,21 @@ engine and the early Netcode-for-GameObjects scaffold already under
   `design/arena-mode.md`); PvP-specific balance / whether Arena bodies are PvE snapshots or a separate
   roster; matchmaking/lobby/ranking/reconnect/late-join; a dedicated Hub scene for the Journey branch;
   FFA variants beyond last-standing (rounds, teams, scoring); spectator polish. *(design + arch)*
+
+Deferred implementation follow-ups (2026-07-03 implementation plan):
+- [ ] `[debt]` **Rename `EnemyIntent` → `CommittedIntent` (+ `RoundPhase` members → Plan/Act/Resolve).**
+  The committed-intent machinery is player-agnostic and Arena reuses it for every unit; the names are
+  PvE-shaped. Wide mechanical rename deferred (no compiler in env). *(combat)*
+- [ ] `[arch]` **Seeded-shuffle resolution-order alternative.** Arena ships rotating initiative behind
+  `IArenaResolutionOrder`; a per-round seeded-shuffle strategy is the drop-in alternative if rotation
+  feels exploitable. *(combat)*
+- [ ] `[arch]` **Per-step simultaneous damage batching.** Mutual blows resolve sequentially (a lethal
+  earlier blow prevents the return — the PvE skip-dead semantic); true simultaneous damage application
+  is a deliberate MVP non-goal. *(combat)*
+- [ ] `[arch]` **Host-side commit validation (anti-cheat).** MVP trusts peers: commits are relayed, not
+  re-validated against the canonical state. *(networking)*
+- [ ] `[arch]` **Arena camera pass.** Fixed combat camera in the Arena scene; framing/feel at arena
+  scale pending. *(camera)*
 
 ## Inventory Subsystem
 

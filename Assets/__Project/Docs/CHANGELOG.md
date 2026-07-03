@@ -9,6 +9,14 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Arena Mode — Phase 1: main menu + scene flow** (brief `arena-mode-mvp.md` R1–R3; new system
+  doc **`arena-mode.md`**): the game now boots into `MainMenu.unity` (build index 0) with two mode
+  buttons — **Journey** loads the unchanged `Area` scene, **Arena** loads the (next-phase) `Arena`
+  scene. New `Core.SceneFlow` seam (`ISceneLoader`/`SceneLoader`/`SceneNames` — first runtime
+  scene-switch abstraction in the project), `MainMenuPresenter` + `IMainMenuView`/`MainMenuView`
+  (MVP), `MainMenuInstaller`; hand-authored `MainMenu.unity`. Build settings reordered
+  (MainMenu 0, Area 1) and the stale nonexistent `Demo.unity` entry removed. Tests:
+  `MainMenuPresenterTests` (3, green via the Roslyn runner).
 - **Combat — Track C epic: hero facing + enemy intent phase + ghost telegraph** (verified PO briefs
   `combat-hero-facing.md`, `combat-turn-intent-phase.md`, `combat-ability-ghost-telegraph.md`;
   new system doc **`combat-round-and-telegraph.md`**), built as one pass:
