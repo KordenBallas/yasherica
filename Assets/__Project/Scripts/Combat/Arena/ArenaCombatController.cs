@@ -44,8 +44,8 @@ namespace Combat.Arena
         private int _resolvedIntentCount;
         private ulong _lastRoundHash;
 
-        // Phase 2: the local machine always hosts (offline vs dummies). Phase 3 sets this
-        // from the session role: joined clients never assemble rounds.
+        // Offline play always hosts; the networked entrypoint sets the role from the session
+        // before Initialize — joined clients never assemble rounds.
         private bool _isHost = true;
 
         public ICombatState CombatState => _gameState;
@@ -90,6 +90,15 @@ namespace Combat.Arena
 
         /// <summary>The current round's end-of-round lockstep hash (R10); 0 before round 1 ends.</summary>
         public ulong LastRoundHash => _lastRoundHash;
+
+        /// <summary>
+        /// Sets whether this machine assembles rounds (the session host). Must be called before
+        /// <see cref="Initialize"/> — joined clients never activate the match host.
+        /// </summary>
+        public void SetHostRole(bool isHost)
+        {
+            _isHost = isHost;
+        }
 
         public void Initialize(ICombatState initialState, IReadOnlyList<IPlayer> players)
         {

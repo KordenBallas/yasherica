@@ -18,6 +18,9 @@ namespace Combat.Arena.Data
         [SerializeField] private int _port = 7777;
 
         [Header("Offline mode (dev fallback — seeded AI dummies instead of the network)")]
+        [Tooltip("Skip the host/join flow and start an offline match vs AI dummies immediately.")]
+        [SerializeField] private bool _offlineMode;
+
         [Tooltip("How many AI dummies join the local player in offline mode.")]
         [Range(1, 3)]
         [SerializeField] private int _offlineDummyCount = 2;
@@ -31,6 +34,7 @@ namespace Combat.Arena.Data
 
         public int MaxPlayers => _maxPlayers;
         public int Port => _port;
+        public bool OfflineMode => _offlineMode;
         public int OfflineDummyCount => _offlineDummyCount;
         public int OfflineMatchSeed => _offlineMatchSeed;
         public Material PlatformMaterial => _platformMaterial;

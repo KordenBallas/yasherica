@@ -755,13 +755,15 @@ engine and the early Netcode-for-GameObjects scaffold already under
   (`ISceneLoader`/`SceneLoader`/`SceneNames` — the project's first runtime scene-switch seam),
   `MainMenuPresenter` MVP + `MainMenuInstaller`; stale `Demo.unity` build entry removed. See
   CHANGELOG; `arena-mode.md`.)* *(menu + area)*
-- [~] `[arch]` **Arena FFA session.** *(Offline half done — Phase 2: one arena platform generated
+- [x] `[arch]` **Arena FFA session.** *(Done — Phase 2 + Phase 3: one arena platform generated
   from the match seed (`ArenaPlatformBuilder` on the Combat shape profile + battlefield minimum),
   a **default hero** per player at deterministic distinct spawn cells (`ArenaHeroSpawner` +
-  `ArenaSpawnPlanner`, roster-assigned unit ids), playable as 1 local player + 1–3 seeded AI
-  dummies over `LoopbackArenaTransport`. The **networked** half — 2–4 players, host/join by
-  address on NGO — is Phase 3; the transport seam and `ArenaMatchHost` are already
-  network-shaped. See CHANGELOG; `arena-mode.md`.)* *(networking + combat)*
+  `ArenaSpawnPlanner`, roster-assigned unit ids). **2–4 players, host / join by `ip[:port]`** on
+  NGO: connect panel → host approval (max players, closed once started) → Start Match broadcasts
+  seed + seat roster; every client builds the identical world locally, lockstep rides NGO custom
+  named messages behind the unchanged `IArenaTransport` (no NetworkObjects, no scene sync).
+  Offline dummies remain the `_offlineMode` dev fallback. No lobby/matchmaking/ranking/reconnect,
+  per the brief. See CHANGELOG; `arena-mode.md` §2.3.)* *(networking + combat)*
 - [x] `[arch]` **Round = hidden simultaneous commit → simultaneous resolve.** *(Done — Phase 2:
   `ArenaCombatController` behind the unchanged `ICombatController` seam (full PvE presentation
   reuse); planning is hidden by construction (commits exist only on their owner's machine until

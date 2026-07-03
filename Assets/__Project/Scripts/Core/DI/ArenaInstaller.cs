@@ -1,6 +1,7 @@
 using Combat.Arena;
 using Combat.Arena.Core;
 using Combat.Arena.Data;
+using Combat.Arena.Networking;
 using Combat.Arena.View;
 using Combat.Battlefield;
 using Combat.Config;
@@ -50,6 +51,7 @@ namespace Core.DI
             InstallConfigurations();
             InstallCombatSubset();
             InstallArenaBindings();
+            InstallNetworkingBindings();
 
             Container.BindInterfacesTo<ArenaSceneEntrypoint>().FromComponentInHierarchy().AsSingle();
         }
@@ -144,9 +146,19 @@ namespace Core.DI
             Container.Bind<IArenaResolutionOrder>().To<RotatingInitiativeOrder>().AsSingle();
             Container.Bind<LastHeroStandingWinCondition>().AsSingle();
             Container.Bind<ArenaSpawnPlanner>().AsSingle();
+            Container.Bind<ArenaPlayerDirectory>().AsSingle();
 
-            // Phase 2: in-process lockstep (offline vs dummies). Phase 3 swaps in the NGO transport.
-            Container.Bind<IArenaTransport>().To<LoopbackArenaTransport>().AsSingle();
+            // The lockstep transport: NGO named messages for the networked session, the
+            // in-process loopback when the config runs the offline dev fallback.
+            if (_matchConfig.OfflineMode)
+            {
+                Container.Bind<IArenaTransport>().To<LoopbackArenaTransport>().AsSingle();
+            }
+            else
+            {
+                Container.BindInterfacesAndSelfTo<NgoArenaTransport>().AsSingle();
+            }
+
             Container.Bind<ArenaMatchHost>().AsSingle();
             Container.Bind<ArenaAICommitSource>().AsSingle();
 
@@ -155,6 +167,20 @@ namespace Core.DI
 
             Container.Bind<ArenaPlatformBuilder>().AsSingle();
             Container.Bind<ArenaHeroSpawner>().AsSingle();
+        }
+
+        private void InstallNetworkingBindings()
+        {
+            Container.Bind<Unity.Netcode.NetworkManager>().FromComponentInHierarchy().AsSingle();
+            Container.BindInterfacesAndSelfTo<ArenaSessionService>().AsSingle();
+            Container.Bind<ArenaMatchLauncher>().AsSingle();
+
+            // The panel starts active in the scene (the presenter hides it in offline mode).
+            Container.Bind<IArenaConnectView>()
+                .To<ArenaConnectView>()
+                .FromComponentInHierarchy()
+                .AsSingle();
+            Container.BindInterfacesTo<ArenaConnectPresenter>().AsSingle().NonLazy();
         }
 
         private TConfig LoadIfNull<TConfig>(TConfig current, string resourcePath)

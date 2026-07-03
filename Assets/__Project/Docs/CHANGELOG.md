@@ -9,6 +9,29 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Arena Mode — Phase 3: networked host/join over NGO** (brief `arena-mode-mvp.md` R4–R5;
+  `arena-mode.md` §2.3): the Arena scene boots into a **connect panel** — one player **hosts**
+  (connection approval caps players at the config max and rejects joins once started), others
+  **join by `ip[:port]`**; the host's **Start Match** seats every connected client (ids 1..N in
+  connection order), rolls the match seed, and broadcasts the setup every client builds the
+  identical world from. **Lockstep over NGO custom named messages** (`NgoArenaTransport` behind
+  the unchanged `IArenaTransport` seam) — no NetworkObjects, no scene sync, no per-unit
+  replication; joined clients never assemble rounds (`ArenaCombatController.SetHostRole`). New:
+  wire structs + `ArenaWireCodec` (buffer-free domain↔wire mapping), `ArenaSessionService`,
+  `ArenaMatchLauncher`, `ArenaConnectPresenter`/`ArenaConnectView` (MVP), `ArenaPlayerDirectory`;
+  Arena.unity gains the hand-authored NetworkManager + UnityTransport and the connect panel
+  (incl. a TMP_InputField). Offline dummies stay as the `_offlineMode` config-flag dev fallback.
+  `com.unity.multiplayer.playmode` added for local multi-client testing (PO-approved). Tests:
+  `ArenaWireCodecTests` (round-trips) + `ArenaLockstepTests` (two independent client sims over one
+  transport → identical positions/HP/state hashes; arena suites now 33, all green).
+
+### Removed
+- **Dead pre-Arena networking scaffold** (never constructed): `NetworkGameStateSync`,
+  `NetworkActionSender`, `CombatNetworkManager`, `MessageType`, and — superseded by the arena
+  wire format, which must carry the lock-time committed cells — `ActionSerializer`/`ActionData`.
+  `NetworkPlayer` stays (remote seats in the arena roster).
+
+### Added
 - **Arena Mode — Phase 2: the symmetric round, playable offline** (brief `arena-mode-mvp.md`
   R6–R14; `arena-mode.md` §2): the Arena scene now runs the full **hidden simultaneous commit →
   simultaneous resolve** loop against 1–3 seeded AI dummies on a match-seed-generated platform.

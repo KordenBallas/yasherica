@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Yasherica::Combat.Arena.Data.ArenaMatchConfig
   _maxPlayers: 4
   _port: 7777
+  _offlineMode: 0
   _offlineDummyCount: 2
   _offlineMatchSeed: 0
   _platformMaterial: {fileID: 2100000, guid: 760dae6e007ee1246a4958fd4cf5a643, type: 2}

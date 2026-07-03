@@ -4,9 +4,8 @@
 > single-player campaign) or **Arena** (a 2–4 player free-for-all on one hex platform: hidden
 > simultaneous planning → simultaneous deterministic resolve, last hero standing wins). PO brief:
 > `product-requirements/arena-mode-mvp.md`; design intent: `/design/arena-mode.md`.
-> Status: current as of 2026-07-03 — **Phases 1–2 implemented** (main menu + the full symmetric
-> round loop, playable offline vs seeded AI dummies); the NGO host/join network layer and the
-> spectate/match-end polish are planned (§6).
+> Status: current as of 2026-07-03 — **Phases 1–3 implemented** (main menu, the full symmetric
+> round loop, and the NGO host/join network layer); the spectate/match-end polish is planned (§6).
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -23,7 +22,7 @@ Menu & mode flow (brief R1–R3 — implemented):
 - **R2** **Journey** loads the current combat/exploration scene (`Area`) with no behavioral change.
 - **R3** **Arena** loads the Arena scene.
 
-The symmetric round (brief R7–R12 — implemented, offline transport):
+The symmetric round (brief R7–R12 — implemented):
 
 - **R7** Each round every player builds their commitment **hidden** — plans exist only on their
   own machine until locked (hidden by construction, not by masking).
@@ -33,19 +32,20 @@ The symmetric round (brief R7–R12 — implemented, offline transport):
   by a per-round state hash).
 - **R11** **Whiffs are real**: committed cells are frozen at lock time and never recomputed — a
   dodged blow misses, a unit stepping into committed cells is hit, blocked moves fizzle.
-- **R12** Simultaneous conflicts resolve by the deterministic rules in §2.5.
+- **R12** Simultaneous conflicts resolve by the deterministic rules in §2.6.
 - **R13** Abilities are unchanged from PvE — only round timing/commitment differ.
 - **R14** **Last hero standing wins**; zero heroes left is a draw.
 
-Arena session (brief R4–R6 — offline part implemented; networking planned, §6):
+Arena session (brief R4–R6 — implemented):
 
-- **R4–R5** 2–4 players, host / join by address *(planned — currently 1 local player + 1–3
-  seeded AI dummies over the in-process loopback transport)*.
+- **R4–R5** 2–4 players: one player **hosts**, others **join by address** (direct connect over
+  NGO; no lobby/matchmaking/reconnect — approval rejects a full or already-started match). An
+  offline mode (config flag) replaces the network with 1–3 seeded AI dummies for dev testing.
 - **R6** Every player spawns the **same default hero** at deterministic, distinct spawn cells.
 
 ### 1.2 Non-functional requirements
 
-- **N1** The round domain is pure C# and unit-tested (26 arena tests incl. a determinism replay).
+- **N1** The round domain is pure C# and unit-tested (33 arena tests incl. a determinism replay and a two-client lockstep suite).
 - **N2** All dependencies wired through Zenject (`ArenaInstaller`); no service locators.
 - **N3** PvE stays byte-identical: the only PvE file changes are the behavior-preserving
   `RoundLifecycleProcessor` extraction and an optional-injection seam in
@@ -65,14 +65,19 @@ Scripts/Combat/Arena/Core/   — pure C# round domain: ArenaCommit(+Builder), Ar
                                LastHeroStandingWinCondition, ArenaStateHash, ArenaSpawnPlanner,
                                ArenaSpawnSlot, IArenaTransport + LoopbackArenaTransport
 Scripts/Combat/Arena/        — application: ArenaCombatController (: ICombatController),
-                               ArenaMatchHost, ArenaAICommitSource
+                               ArenaMatchHost, ArenaAICommitSource, ArenaMatchLauncher,
+                               ArenaConnectPresenter
 Scripts/Combat/Arena/Data/   — ArenaMatchConfig SO (dials only)
+Scripts/Combat/Arena/Networking/ — infrastructure: the wire structs (INetworkSerializable),
+                               ArenaWireCodec (domain ↔ wire, buffer-free), ArenaSessionService
+                               (host/join/approval over NetworkManager), NgoArenaTransport
+                               (: IArenaTransport via NGO custom named messages)
 Scripts/Combat/Arena/View/   — infrastructure: ArenaPlatformBuilder, ArenaHeroSpawner,
-                               ArenaSceneEntrypoint (thin Mono)
+                               ArenaSceneEntrypoint (thin Mono), ArenaConnectView
 Scripts/Core/DI/ArenaInstaller.cs — the Arena scene's MonoInstaller
 Scenes/Arena.unity           — SceneContext (ArenaInstaller + CharacterSystemInstaller), fixed
                                camera, light, the CombatActionPanel canvas (cribbed from Area),
-                               HUD status line
+                               HUD status line, NetworkManager + UnityTransport, connect panel
 ```
 
 ### 2.2 The reuse contract
@@ -86,7 +91,27 @@ are the PvE-tested ones), and round bookkeeping reuses the extracted **`RoundLif
 (the exact code `CombatController` runs). Phase mapping onto the PvE `RoundPhase` values:
 `PlayerAct` = planning (hidden), `EnemyResolve` = the simultaneous resolution.
 
-### 2.3 The round loop
+### 2.3 The match flow (networked)
+
+The Arena scene boots into the **connect panel** (`ArenaConnectPresenter`): **Host** opens a
+session (`ArenaSessionService.StartHost` — listens on the config port, connection approval caps
+players and rejects joins once started); **Join** connects to `ip[:port]`. When the host presses
+**Start Match** (≥2 players), `ArenaMatchLauncher` seats every connected client (host first, then
+joiners by ascending clientId — player/unit ids 1..N), rolls the match seed, and broadcasts the
+`MatchSetup`. Every client (host included) then builds the identical world locally from the seed:
+its own seat becomes the local `HumanPlayer`, remote seats become `NetworkPlayer`s, and the shared
+match build runs (platform → controller → telegraph → spawns → rounds). **Nothing per-unit is
+replicated** — no NetworkObjects, no scene sync; the only traffic is the lockstep messages below,
+sent as NGO **custom named messages** (`NgoArenaTransport`): the local machine's own messages are
+raised directly, remote ones travel reliable-sequenced.
+
+| Message | Direction | Payload |
+|---|---|---|
+| `yash.arena.setup` | host → joiners | match seed + seat roster (spawns/platform derive from the seed) |
+| `yash.arena.commit` | joiner → host | round number + the locked commit + previous round's state hash (R10) |
+| `yash.arena.bundle` | host → joiners | the canonical round: commits by ascending PlayerId + departed players |
+
+### 2.4 The round loop
 
 ```
 StartRound  — host opens the gather (alive players owe a commit), phase → PlayerAct
@@ -110,7 +135,7 @@ Round end   — RoundLifecycleProcessor ticks effects/cooldowns/acted-flags once
               the ArenaStateHash is computed and logged; the next round opens.
 ```
 
-### 2.4 Determinism
+### 2.5 Determinism
 
 The match seed is the single root: the platform surface
 (`LootSeed.Derive(seed, "arena-platform")` → `DeterministicRandom` → `PlatformSurfaceGenerator`),
@@ -120,7 +145,7 @@ roster-assigned 1..N (never `UnityEngine.Random`). The per-round **`ArenaStateHa
 UnitId-ordered id/position/HP/facing/cooldowns/effects) is the lockstep safety net: commits
 piggyback the previous round's hash and the host logs a loud error on mismatch.
 
-### 2.5 Deterministic conflict rules (brief R12)
+### 2.6 Deterministic conflict rules (brief R12)
 
 - **Order:** `IArenaResolutionOrder` strategy (replaceable — PO decision). Default
   `RotatingInitiativeOrder`: round N starts at index (N−1) mod aliveCount of the PlayerId-sorted
@@ -139,7 +164,7 @@ piggyback the previous round's hash and the host logs a loud error on mismatch.
 - **Departure:** the host folds departed players into the next bundle; their units die at
   normalization on every client — deterministic because it rides the bundle, never local timing.
 
-### 2.6 DI wiring
+### 2.7 DI wiring
 
 `ArenaInstaller` (MonoInstaller on the Arena SceneContext, beside `CharacterSystemInstaller` which
 the Hero prefab's `ModularCharacterVisual` needs): logging home; configs auto-loaded from
@@ -165,8 +190,9 @@ Loaded from `Resources/Arena/ArenaMatchConfig` (or wired on the scene's `ArenaIn
 
 | Field | Type | Meaning | Default / notes |
 |---|---|---|---|
-| `_maxPlayers` | int (2–4) | Hard cap on players in a match | 4 |
-| `_port` | int | Direct-connect port for the networked session | 7777 (consumed in Phase 3) |
+| `_maxPlayers` | int (2–4) | Hard cap on players in a match (connection approval enforces it) | 4 |
+| `_port` | int | Direct-connect port for the networked session | 7777 |
+| `_offlineMode` | bool | Skip the host/join flow; start an offline match vs AI dummies immediately | off |
 | `_offlineDummyCount` | int (1–3) | AI dummies joining the local player in offline mode | 2 |
 | `_offlineMatchSeed` | int | Offline match seed; 0 = fresh seed each launch (logged) | 0 |
 | `_platformMaterial` | Material | Arena platform mesh material | the shared platform material; empty = plain lit fallback |
@@ -182,8 +208,8 @@ existing `HeroDefinition` / `AbilityDefinition` SOs (see `ability-subsystem.md`)
 
 1. Open `Resources/Arena/ArenaMatchConfig.asset` (or create one via
    `Create → Yasherica → Arena → Match Config` and wire it on the scene's `ArenaInstaller`).
-2. Set dummy count / seed / material per §3. A fixed `_offlineMatchSeed` reproduces the exact
-   platform, spawns, and dummy decisions every launch.
+2. Set port / max players / material per §3. For offline dev testing set `_offlineMode`; a fixed
+   `_offlineMatchSeed` then reproduces the exact platform, spawns, and dummy decisions every launch.
 
 ### Change the arena hero or its abilities
 
@@ -213,21 +239,31 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/` (all pure, runnable via t
   conflict by initiative; lethal-first skips the return blow + winner declared; initiative
   rotation observable across rounds; the determinism replay (same commits twice → identical
   `ArenaStateHash`).
+- `ArenaWireCodecTests` — every step kind round-trips domain → wire structs → domain with the
+  committed snapshot intact (cells/facing/origin/destination), plus envelope hash, bundle
+  order/departures, and the setup roster.
+- `ArenaLockstepTests` — two independent client sims (host + joiner, each with its own state and
+  seat objects) over one shared transport: identical positions/HP after committed moves and a
+  committed volley across two rounds, identical per-round `ArenaStateHash` (R10), the joiner never
+  assembles.
 - `MainMenuPresenterTests` — menu routing (Phase 1).
 
 PvE regression: the combat suite (54 tests) stays green after the `RoundLifecycleProcessor`
-extraction. Verified manually in play mode: menu → Arena → offline match vs dummies.
+extraction. The NGO layer itself (named-message delivery, session approval) is play-tested:
+Multiplayer Play Mode (one editor as host + up to 3 virtual players joining `127.0.0.1`), or dev
+builds as joiners against the editor host.
 
 ---
 
 ## 6. Known limitations / open points
 
-- **Offline transport only.** The session is 1 local player + seeded dummies over
-  `LoopbackArenaTransport`; host/join by address (brief R4–R5) is the next phase — the transport
-  seam and `ArenaMatchHost` are already network-shaped (commit envelopes, canonical bundles,
-  departed-player handling, hash piggyback).
 - **Defeat/spectate UX.** A defeated local player's input simply goes dead (unit `CanAct` false);
-  the explicit spectate presentation and Leave flow are the polish phase.
+  the explicit spectate presentation, winner banner, and Leave flow are the polish phase.
+- **Disconnects are folded into the sim but not surfaced.** A departed player's units die at the
+  next bundle (R9); host-left on a joiner and the hash-mismatch error are log-only — no dialog or
+  HUD warning yet (polish phase).
+- **Trusted peers.** Commits are relayed, not re-validated against the canonical state on the
+  host — host-side commit validation (anti-cheat) is a ROADMAP item.
 - **AI dummies fire on the PvE enemy cadence.** A dummy's schedule-action fires the same round
   (PvE enemy semantics), while humans build queues across rounds — the offline mode is a dev
   fallback, PvP (all-human) is symmetric by construction.
@@ -237,9 +273,7 @@ extraction. Verified manually in play mode: menu → Arena → offline match vs 
 - **`EnemyIntent` naming.** The committed-intent machinery is player-agnostic; the PvE-shaped
   names (`EnemyIntent`, `RoundPhase.EnemyResolve`) are a deferred mechanical rename (ROADMAP).
 
-> **Planned design (NOT implemented) — networked session (brief R4–R5) + polish.**
-> Phase 3: NGO host/join by address — a single scene-placed `NetworkBehaviour` relay translating
-> RPCs ↔ `IArenaTransport`; match setup (seed + roster) broadcast on start; per-round
-> commit/bundle exchange; joined clients never assemble rounds (`_isHost` role seam in
-> `ArenaCombatController`). Phase 4: match HUD (locked-in count, winner banner, Leave), defeat →
-> spectate, disconnect end-to-end, hash-mismatch surfacing, edge-rule test sweep.
+> **Planned design (NOT implemented) — Phase 4 polish.** Match HUD (locked-in count, winner
+> banner, Leave → menu), defeat → spectate presentation, disconnect surfacing end-to-end
+> (host-left dialog, hash-mismatch HUD warning), a host-confirmed match-end message, and the
+> edge-rule test sweep (swap-move, caster-in-own-cells, draw, departed-mid-planning).

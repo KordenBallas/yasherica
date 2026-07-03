@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Combat.Arena.Core;
 using Combat.Arena.Data;
+using Combat.Arena.Networking;
 using Combat.Config;
 using Combat.Core;
 using Combat.Data.Providers;
@@ -18,10 +19,12 @@ using Zenject;
 namespace Combat.Arena.View
 {
     /// <summary>
-    /// Thin bootstrap for the Arena scene (Phase 2 — offline mode): rolls the match seed, builds
-    /// the platform, seats the local player + seeded AI dummies, spawns the heroes, wires the
-    /// PvE telegraph presentation (plan icons + ghost) and the resolve pacing, then starts the
-    /// symmetric round loop. The networked host/join path replaces the seating step in Phase 3.
+    /// Thin bootstrap for the Arena scene. Networked path (default): the connect panel drives
+    /// host/join; when the host's match setup arrives, every client seats the roster (its own
+    /// seat = the human, the rest = network players) and builds the identical world from the
+    /// match seed. Offline path (config flag — dev fallback): seats the local player + seeded AI
+    /// dummies immediately. Both paths share the same match build: platform → controller →
+    /// telegraph presentation → deterministic spawns → round loop.
     /// </summary>
     public class ArenaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
     {
@@ -35,6 +38,9 @@ namespace Combat.Arena.View
         [Inject] private ArenaCombatController _controller;
         [Inject] private EnemyRoundController _resolvePacer;
         [Inject] private ArenaAICommitSource _aiCommitSource;
+        [Inject] private ArenaPlayerDirectory _playerDirectory;
+        [Inject] private IArenaTransport _transport;
+        [Inject] private ArenaSessionService _session;
         [Inject] private IPlayerRegistry _playerRegistry;
         [Inject] private IInputController _inputController;
         [Inject] private ICombatUnitViewRegistry _unitViewRegistry;
@@ -47,16 +53,115 @@ namespace Combat.Arena.View
         private UnitPlanIconsPresenter _planIconsPresenter;
         private GhostPlaybackView _ghostView;
         private GhostPlaybackPresenter _ghostPresenter;
+        private bool _matchStarted;
 
         public void Initialize()
+        {
+            if (_config.OfflineMode)
+            {
+                StartOfflineMatch();
+                return;
+            }
+
+            _transport.MatchSetupReceived += HandleMatchSetupReceived;
+            SetStatus("Host a match, or join one by address");
+        }
+
+        public void Dispose()
+        {
+            _transport.MatchSetupReceived -= HandleMatchSetupReceived;
+
+            if (_controller != null)
+            {
+                _controller.OnGameEnded -= HandleGameEnded;
+                _controller.OnTurnStarted -= HandleTurnStarted;
+            }
+
+            _aiCommitSource?.Dispose();
+            _resolvePacer?.Dispose();
+            _planIconsPresenter?.Dispose();
+            _ghostPresenter?.Dispose();
+            _playerRegistry?.UnregisterLocalPlayer();
+            _session?.Shutdown();
+        }
+
+        // ---- offline (dev fallback) ----
+
+        private void StartOfflineMatch()
         {
             int matchSeed = _config.OfflineMatchSeed != 0 ? _config.OfflineMatchSeed : Environment.TickCount;
             _logger.Info(LogCategory.Combat, $"[ArenaSceneEntrypoint] Offline arena match, seed {matchSeed}");
 
+            var players = SeatOfflinePlayers(matchSeed);
+            StartMatch(matchSeed, players);
+        }
+
+        private List<IPlayer> SeatOfflinePlayers(int matchSeed)
+        {
+            var human = new HumanPlayer(1, "Player 1");
+            var players = new List<IPlayer> { human };
+
+            int dummyCount = Mathf.Clamp(_config.OfflineDummyCount, 1, _config.MaxPlayers - 1);
+            for (int i = 0; i < dummyCount; i++)
+            {
+                int playerId = players.Count + 1;
+                // Seat index == unit id in the MVP (one hero per player), so the AI seed context
+                // matches the unit the way PvE's per-enemy seeds do.
+                var aiSeed = LootSeed.Derive(matchSeed, $"arena-ai:{playerId}");
+                players.Add(new AIPlayer(playerId, $"Dummy {playerId}", new TacticalAI(aiSeed, _logger)));
+            }
+
+            return players;
+        }
+
+        // ---- networked ----
+
+        private void HandleMatchSetupReceived(ArenaMatchSetup setup)
+        {
+            if (_matchStarted)
+                return;
+
+            _logger.Info(LogCategory.Combat,
+                $"[ArenaSceneEntrypoint] Match setup: {setup.Roster.Count} players, seed {setup.MatchSeed}, " +
+                $"{(_session.IsHost ? "hosting" : "joined")}");
+
+            var players = SeatNetworkedPlayers(setup);
+            _controller.SetHostRole(_session.IsHost);
+            StartMatch(setup.MatchSeed, players);
+        }
+
+        private List<IPlayer> SeatNetworkedPlayers(ArenaMatchSetup setup)
+        {
+            var players = new List<IPlayer>();
+            foreach (var slot in setup.Roster.OrderBy(s => s.PlayerId))
+            {
+                if (slot.ClientId == _session.LocalClientId)
+                {
+                    players.Add(new HumanPlayer(slot.PlayerId, $"Player {slot.PlayerId}"));
+                }
+                else
+                {
+                    players.Add(new Combat.Networking.NetworkPlayer(
+                        slot.PlayerId, $"Player {slot.PlayerId}", slot.ClientId));
+                }
+            }
+
+            return players;
+        }
+
+        // ---- shared match build ----
+
+        private void StartMatch(int matchSeed, List<IPlayer> players)
+        {
+            _matchStarted = true;
+
+            var localPlayer = players.First(p => p.Type == PlayerType.Human);
+            _playerRegistry.RegisterLocalPlayer(localPlayer);
+            _playerDirectory.Set(players);
+
             var platform = _platformBuilder.Build(matchSeed);
             _controller.InitializeBattlefield(platform.Surface, platform.Position);
 
-            var players = SeatPlayers(matchSeed);
             var initialState = new CombatState(
                 new List<IUnit>(), players, players[0], 1, CombatPhase.Combat, null);
             _controller.Initialize(initialState, players);
@@ -64,7 +169,11 @@ namespace Combat.Arena.View
             _controller.OnTurnStarted += HandleTurnStarted;
 
             _resolvePacer.Initialize(_controller, this);
-            _aiCommitSource.Initialize(_controller);
+            if (players.Any(p => p is AIPlayer))
+            {
+                _aiCommitSource.Initialize(_controller);
+            }
+
             CreateTelegraphPresentation();
 
             var spawnCells = _spawnPlanner.Plan(
@@ -78,40 +187,6 @@ namespace Combat.Arena.View
             _controller.ArmWinCondition();
             _controller.BeginRounds();
             _inputController.Enable();
-        }
-
-        public void Dispose()
-        {
-            if (_controller != null)
-            {
-                _controller.OnGameEnded -= HandleGameEnded;
-                _controller.OnTurnStarted -= HandleTurnStarted;
-            }
-
-            _aiCommitSource?.Dispose();
-            _resolvePacer?.Dispose();
-            _planIconsPresenter?.Dispose();
-            _ghostPresenter?.Dispose();
-            _playerRegistry?.UnregisterLocalPlayer();
-        }
-
-        private List<IPlayer> SeatPlayers(int matchSeed)
-        {
-            var human = new HumanPlayer(1, "Player 1");
-            _playerRegistry.RegisterLocalPlayer(human);
-
-            var players = new List<IPlayer> { human };
-            int dummyCount = Mathf.Clamp(_config.OfflineDummyCount, 1, _config.MaxPlayers - 1);
-            for (int i = 0; i < dummyCount; i++)
-            {
-                int playerId = players.Count + 1;
-                // Seat index == unit id in the MVP (one hero per player), so the AI seed context
-                // matches the unit the way PvE's per-enemy seeds do.
-                var aiSeed = LootSeed.Derive(matchSeed, $"arena-ai:{playerId}");
-                players.Add(new AIPlayer(playerId, $"Dummy {playerId}", new TacticalAI(aiSeed, _logger)));
-            }
-
-            return players;
         }
 
         private void CreateTelegraphPresentation()
