@@ -6,7 +6,8 @@ namespace Platform
 {
     /// <summary>
     /// Builds the platform mesh from its <see cref="PlatformHexSurface"/> — the hex-composed walkable
-    /// top, the drooping organic rim, the sides, and a mirrored bottom cap. The muted traversal
+    /// top with flat fills paving the sewn boundary notches (the floor reaches the stitched outline
+    /// everywhere), the drooping organic rim, the sides, and a mirrored bottom cap. The muted traversal
     /// tiling (brief §2) is geometry, not shader: every cell top is a shallow dome (center raised by
     /// <c>cellInset</c>), so cell borders read as soft valleys under any lit material; 0 = flat.
     /// Faces do not share vertices, so the normals stay faceted and the tiling reads. Deterministic —
@@ -24,9 +25,11 @@ namespace Platform
             var tris = new List<int>();
 
             BuildCellCaps(surface, verts, tris, topY: 0f, domeHeight: cellInset, facingUp: true);
-            BuildRimStrip(surface, verts, tris, topY: 0f, bottomY: -rimDropHeight, facingOut: true, dropToRim: true);
-            BuildSideSkirt(surface, verts, tris, topY: -rimDropHeight, bottomY: -thickness);
-            BuildRimStrip(surface, verts, tris, topY: -thickness, bottomY: -thickness, facingOut: false, dropToRim: true);
+            BuildNotchFills(surface, verts, tris, y: 0f, facingUp: true);
+            BuildRimStrip(surface, verts, tris, innerY: 0f, outerY: -rimDropHeight, facingOut: true);
+            BuildVerticalStrip(surface.RimRing, verts, tris, topY: -rimDropHeight, bottomY: -thickness);
+            BuildRimStrip(surface, verts, tris, innerY: -thickness, outerY: -thickness, facingOut: false);
+            BuildNotchFills(surface, verts, tris, y: -thickness, facingUp: false);
             BuildCellCaps(surface, verts, tris, topY: -thickness, domeHeight: 0f, facingUp: false);
 
             FillPlanarUvs(verts, uvs);
@@ -78,28 +81,65 @@ namespace Platform
             }
         }
 
-        /// <summary>Quad strip between the subdivided walkable outline and the jittered rim ring.</summary>
+        /// <summary>
+        /// Flat floor patches paving the sewn boundary notches, so the walkable top (and its
+        /// mirrored underside) reaches the stitched outline everywhere. Fills come from the surface
+        /// wound clockwise in XZ (up-facing); the underside reverses them.
+        /// </summary>
+        private static void BuildNotchFills(PlatformHexSurface surface, List<Vector3> verts, List<int> tris,
+            float y, bool facingUp)
+        {
+            foreach (var (a, b, c) in surface.NotchFills)
+            {
+                int start = verts.Count;
+                verts.Add(new Vector3(a.X, y, a.Z));
+                verts.Add(new Vector3(b.X, y, b.Z));
+                verts.Add(new Vector3(c.X, y, c.Z));
+
+                if (facingUp)
+                {
+                    tris.Add(start); tris.Add(start + 1); tris.Add(start + 2);
+                }
+                else
+                {
+                    tris.Add(start); tris.Add(start + 2); tris.Add(start + 1);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Quad strip between the subdivided walkable outline (at <paramref name="innerY"/>) and the
+        /// jittered rim ring (at <paramref name="outerY"/>) — sloped when the heights differ (the
+        /// drooping top rim), flat when they match (the mirrored underside ring).
+        /// </summary>
         private static void BuildRimStrip(PlatformHexSurface surface, List<Vector3> verts, List<int> tris,
-            float topY, float bottomY, bool facingOut, bool dropToRim)
+            float innerY, float outerY, bool facingOut)
         {
             var inner = surface.SubdividedOutline;
             var outer = surface.RimRing;
             for (int i = 0; i < inner.Count; i++)
             {
                 int next = (i + 1) % inner.Count;
-                var a = new Vector3(inner[i].X, topY, inner[i].Z);
-                var b = new Vector3(inner[next].X, topY, inner[next].Z);
-                var outerB = new Vector3(outer[next].X, dropToRim ? bottomY : topY, outer[next].Z);
-                var outerA = new Vector3(outer[i].X, dropToRim ? bottomY : topY, outer[i].Z);
+                var a = new Vector3(inner[i].X, innerY, inner[i].Z);
+                var b = new Vector3(inner[next].X, innerY, inner[next].Z);
+                var outerB = new Vector3(outer[next].X, outerY, outer[next].Z);
+                var outerA = new Vector3(outer[i].X, outerY, outer[i].Z);
                 AddQuad(verts, tris, a, b, outerB, outerA, facingOut);
             }
         }
 
-        /// <summary>Vertical skirt from the rim ring down to the platform underside.</summary>
-        private static void BuildSideSkirt(PlatformHexSurface surface, List<Vector3> verts, List<int> tris,
-            float topY, float bottomY)
+        /// <summary>
+        /// Outward-facing vertical strip along a ring (the side skirt). Skipped when the span is
+        /// zero-height (the rim drop clamped to the full thickness leaves no skirt).
+        /// </summary>
+        private static void BuildVerticalStrip(IReadOnlyList<(float X, float Z)> ring,
+            List<Vector3> verts, List<int> tris, float topY, float bottomY)
         {
-            var ring = surface.RimRing;
+            if (Mathf.Approximately(topY, bottomY))
+            {
+                return;
+            }
+
             for (int i = 0; i < ring.Count; i++)
             {
                 int next = (i + 1) % ring.Count;

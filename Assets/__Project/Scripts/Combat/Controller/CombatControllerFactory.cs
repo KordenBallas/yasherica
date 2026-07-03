@@ -20,6 +20,8 @@ namespace Combat.Controller
         private readonly ITurnManager _turnManager;
         private readonly IDamageSystem _damageSystem;
         private readonly StatusEffectTriggerProcessor _triggerProcessor;
+        private readonly EnemyIntentPlanner _intentPlanner;
+        private readonly EnemyIntentResolver _intentResolver;
         private readonly BattlefieldFactory _battlefieldFactory;
         private readonly HexDirectionConfig _hexConfig;
         private readonly IGameLogger _logger;
@@ -31,6 +33,8 @@ namespace Combat.Controller
             ITurnManager turnManager,
             IDamageSystem damageSystem,
             StatusEffectTriggerProcessor triggerProcessor,
+            EnemyIntentPlanner intentPlanner,
+            EnemyIntentResolver intentResolver,
             BattlefieldFactory battlefieldFactory,
             HexDirectionConfig hexConfig,
             IGameLogger logger)
@@ -40,6 +44,8 @@ namespace Combat.Controller
             _turnManager = turnManager;
             _damageSystem = damageSystem;
             _triggerProcessor = triggerProcessor;
+            _intentPlanner = intentPlanner;
+            _intentResolver = intentResolver;
             _battlefieldFactory = battlefieldFactory;
             _hexConfig = hexConfig;
             _logger = logger;
@@ -53,6 +59,8 @@ namespace Combat.Controller
                 _turnManager,
                 _damageSystem,
                 _triggerProcessor,
+                _intentPlanner,
+                _intentResolver,
                 _battlefieldFactory,
                 _hexConfig,
                 _logger);

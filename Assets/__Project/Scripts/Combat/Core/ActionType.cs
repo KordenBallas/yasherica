@@ -24,12 +24,7 @@ namespace Combat.Core
         /// Reorder abilities in the execution queue.
         /// </summary>
         ReorderAbilities,
-        
-        /// <summary>
-        /// Change the target of a scheduled ability.
-        /// </summary>
-        RetargetAbility,
-        
+
         /// <summary>
         /// Explicitly end the unit's turn without taking an action.
         /// </summary>

@@ -26,6 +26,8 @@ namespace Combat.Integration
         private readonly ICharacterRegistry _characterRegistry;
         private readonly CombatEntryAnimator _entryAnimator;
         private readonly CombatMovementConfig _config;
+        private readonly HexDirectionConfig _hexDirectionConfig;
+        private readonly View.ICombatUnitViewRegistry _unitViewRegistry;
         private readonly DiContainer _container;
         private readonly IInputController _inputController;
         private readonly IAbilityFactory _abilityFactory;
@@ -43,6 +45,8 @@ namespace Combat.Integration
             ICharacterRegistry characterRegistry,
             CombatEntryAnimator entryAnimator,
             CombatMovementConfig config,
+            HexDirectionConfig hexDirectionConfig,
+            View.ICombatUnitViewRegistry unitViewRegistry,
             DiContainer container,
             IInputController inputController,
             IAbilityFactory abilityFactory,
@@ -54,6 +58,8 @@ namespace Combat.Integration
             _characterRegistry = characterRegistry;
             _entryAnimator = entryAnimator;
             _config = config;
+            _hexDirectionConfig = hexDirectionConfig;
+            _unitViewRegistry = unitViewRegistry;
             _container = container;
             _inputController = inputController;
             _abilityFactory = abilityFactory;
@@ -151,7 +157,17 @@ namespace Combat.Integration
             // Add internal Unit to combat state (NOT the MonoBehaviour component)
             combatController.AddUnit(combatComponent.InternalUnit);
             _logger.Info(LogCategory.Combat,$"[CharacterCombatInitializer] Added internal Unit (not component) to combat state");
-            
+
+            // Keep the model's yaw in sync with the domain facing (facing legibility).
+            var facingRotator = character.GetComponent<View.UnitFacingRotator>();
+            if (facingRotator == null)
+                facingRotator = character.gameObject.AddComponent<View.UnitFacingRotator>();
+            facingRotator.Initialize(combatController, battlefield, _hexDirectionConfig, unitId);
+
+            // Presentation (overhead plan icons, ghost clones) finds this unit's visual here.
+            _unitViewRegistry.Register(unitId, character);
+
+
             // Disable CharacterMovementController
             var movementController = character.GetComponent<CharacterMovementController>();
             if (movementController != null)

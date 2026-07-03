@@ -26,7 +26,6 @@ namespace Character
     public float dashDistance = 3f;
     public float dashHeightOffset = 1f;
     public float gravity = -9.81f;
-    public float landingDepth = 0.9f;
     public float wallMargin = 0.05f;
     public LayerMask wallLayer;
 
@@ -177,7 +176,9 @@ namespace Character
         if (platform?.Visual == null) return;
 
         cc.enabled = false;
-        transform.position = platform.Visual.Position + Vector3.up * dashHeightOffset;
+        // Center CELL, not the raw centroid — a concave island's centroid can fall outside the pen.
+        transform.position = PlatformAnchor.CenterCellWorld(platform.Visual.Surface, platform.Visual.Position)
+            + Vector3.up * dashHeightOffset;
         cc.enabled = true;
 
         SetCurrentPlatform(platform);
@@ -294,65 +295,13 @@ namespace Character
         return best;
     }
 
-    Vector3 ComputeLandingOnNeighbor(IPlatform neighbor, float landingDepth = 0.7f)
+    Vector3 ComputeLandingOnNeighbor(IPlatform neighbor)
     {
-        Vector3 playerPos = transform.position;
-        Vector3 center = neighbor.Visual.Position;
-
-        // Ось плоскости (горизонтальное направление к центру)
-        Vector3 xAxis = center - playerPos;
-        xAxis.y = 0;
-        if (xAxis.sqrMagnitude < 0.0001f)
-            xAxis = Vector3.forward;
-        xAxis.Normalize();
-
-        // Вертикальная ось
-        Vector3 yAxis = Vector3.up;
-
-        // Нормаль плоскости
-        Vector3 planeNormal = Vector3.Cross(xAxis, yAxis);
-
-        Plane cutPlane = new Plane(planeNormal, playerPos);
-
-        float bestDist = float.MaxValue;
-        Vector3 bestPoint = playerPos;
-
-        foreach (var wall in neighbor.Visual.GameObject.GetComponentsInChildren<Collider>())
-        {
-            MeshCollider mc = wall as MeshCollider;
-            if (mc == null || mc.sharedMesh == null)
-                continue;
-
-            Mesh mesh = mc.sharedMesh;
-
-            Vector3[] verts = mesh.vertices;
-            int[] tris = mesh.triangles;
-
-            for (int i = 0; i < tris.Length; i += 3)
-            {
-                Vector3 v0 = mc.transform.TransformPoint(verts[tris[i]]);
-                Vector3 v1 = mc.transform.TransformPoint(verts[tris[i+1]]);
-                Vector3 v2 = mc.transform.TransformPoint(verts[tris[i+2]]);
-
-                if (IntersectTriangleWithPlane(cutPlane, v0, v1, v2, out Vector3 hit))
-                {
-                    float dist = Vector3.Distance(playerPos, hit);
-                    if (dist < bestDist)
-                    {
-                        bestDist = dist;
-                        bestPoint = hit;
-                    }
-                }
-            }
-        }
-
-        // вычисляем направление "вглубь" платформы
-        Vector3 toCenter = (center - bestPoint).normalized;
-
-        // сдвигаем landing точку на глубину landingDepth, чтобы точно оказаться за стеной
-        Vector3 landing = bestPoint + toCenter * landingDepth;
-
-        // высота
+        // Nearest walkable CELL to the hero: a cell center sits a full hex inradius inside the wall
+        // colliders, so the jump always lands in the pen. (The old mesh-edge probe measured the
+        // decorative rim, which lies beyond the walls — its fixed inward push could land outside.)
+        Vector3 landing = PlatformAnchor.NearestCellWorld(
+            neighbor.Visual.Surface, neighbor.Visual.Position, transform.position);
         landing.y += dashHeightOffset;
 
         _logger?.Info(LogCategory.Character,$"[LandingPlane] landing on platform {neighbor.Id} at {landing}");
@@ -360,42 +309,6 @@ namespace Character
         return landing;
     }
 
-
-    bool IntersectTriangleWithPlane(Plane plane, Vector3 v0, Vector3 v1, Vector3 v2, out Vector3 hit)
-    {
-        hit = Vector3.zero;
-
-        Vector3[] verts = { v0, v1, v2 };
-
-        for (int i = 0; i < 3; i++)
-        {
-            Vector3 a = verts[i];
-            Vector3 b = verts[(i + 1) % 3];
-
-            if (plane.Raycast(new Ray(a, b - a), out float t))
-            {
-                if (t >= 0 && t <= Vector3.Distance(a, b))
-                {
-                    hit = a + (b - a).normalized * t;
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-
-    // helper: checks if 'child' is descendant of 'parent'
-    bool IsChildOf(Transform child, Transform parent)
-    {
-        Transform t = child;
-        while (t != null)
-        {
-            if (t == parent) return true;
-            t = t.parent;
-        }
-        return false;
-    }
 
     void Teleport(Vector3 pos)
     {

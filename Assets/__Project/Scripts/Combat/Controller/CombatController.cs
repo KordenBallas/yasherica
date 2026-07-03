@@ -13,7 +13,9 @@ namespace Combat.Controller
 {
     /// <summary>
     /// Concrete implementation of combat controller.
-    /// Orchestrates turn cycle, action processing, win condition checking, and battlefield management.
+    /// Orchestrates the Plan → Act → Resolve round: enemies commit and reveal intents at
+    /// round start, the player acts freely against the live board, then committed enemy
+    /// intents fire as shown. Also owns action processing, win checks, and the battlefield.
     /// </summary>
     public class CombatController : ICombatController
     {
@@ -22,6 +24,8 @@ namespace Combat.Controller
         private readonly ITurnManager _turnManager;
         private readonly IDamageSystem _damageSystem;
         private readonly StatusEffectTriggerProcessor _triggerProcessor;
+        private readonly EnemyIntentPlanner _intentPlanner;
+        private readonly EnemyIntentResolver _intentResolver;
         private readonly BattlefieldFactory _battlefieldFactory;
         private readonly HexDirectionConfig _hexConfig;
         private readonly List<IWinCondition> _winConditions;
@@ -29,6 +33,7 @@ namespace Combat.Controller
 
         private ICombatState _gameState;
         private IBattlefield _battlefield;
+        private int _resolvedIntentCount;
 
         public ICombatState CombatState => _gameState;
         public ITurnManager TurnManager => _turnManager;
@@ -36,6 +41,8 @@ namespace Combat.Controller
 
         public event System.Action<ICombatState> OnStateChanged;
         public event System.Action<IPlayer> OnTurnStarted;
+        public event System.Action<RoundPhase> OnRoundPhaseChanged;
+        public event System.Action<IReadOnlyList<EnemyIntent>> OnEnemyPlansRevealed;
         public event System.Action<IPlayer, CombatPhase> OnGameEnded;
 
         public CombatController(
@@ -44,6 +51,8 @@ namespace Combat.Controller
             ITurnManager turnManager,
             IDamageSystem damageSystem,
             StatusEffectTriggerProcessor triggerProcessor,
+            EnemyIntentPlanner intentPlanner,
+            EnemyIntentResolver intentResolver,
             BattlefieldFactory battlefieldFactory,
             HexDirectionConfig hexConfig,
             IGameLogger logger)
@@ -53,12 +62,14 @@ namespace Combat.Controller
             _turnManager = turnManager;
             _damageSystem = damageSystem;
             _triggerProcessor = triggerProcessor;
+            _intentPlanner = intentPlanner;
+            _intentResolver = intentResolver;
             _battlefieldFactory = battlefieldFactory;
             _hexConfig = hexConfig;
             _winConditions = new List<IWinCondition>();
             _logger = logger;
         }
-        
+
         public void Initialize(ICombatState initialState, IReadOnlyList<IPlayer> players)
         {
             _gameState = initialState;
@@ -74,14 +85,19 @@ namespace Combat.Controller
             // Start combat phase
             _gameState = (_gameState as CombatState).WithPhase(CombatPhase.Combat);
             _gameState = (_gameState as CombatState).WithCurrentPlayer(_turnManager.CurrentPlayer);
-            
+
             // Register default win condition
             _winConditions.Add(new EliminateAllEnemiesWinCondition());
-            //_winConditions.Add(new SurviveTurnsWinCondition(10, players.First().Id));
-            
-            // Trigger turn start
-            OnTurnStarted?.Invoke(_turnManager.CurrentPlayer);
+
+            // The round loop starts via BeginRounds() once all units are added — the first
+            // Plan phase must see the full board.
             OnStateChanged?.Invoke(_gameState);
+        }
+
+        public void BeginRounds()
+        {
+            _logger.Info(LogCategory.Combat,"[CombatController] BeginRounds - starting the first round");
+            StartRound();
         }
         
         public void AddUnit(IUnit unit)
@@ -160,90 +176,127 @@ namespace Combat.Controller
             CheckWinConditions();
         }
         
-        private void CheckTurnEnd()
+        /// <summary>
+        /// Plan phase: every enemy commits and reveals its intent, then the player's Act
+        /// phase opens. One OnTurnStarted per round keeps the existing UI consumers working.
+        /// </summary>
+        private void StartRound()
         {
-            var currentPlayer = _turnManager.CurrentPlayer;
+            if (_gameState.Phase != CombatPhase.Combat)
+                return;
 
-            _logger.Info(LogCategory.Combat,$"[CombatController] CheckTurnEnd called - Current Player: {currentPlayer?.Id} ({currentPlayer?.Name})");
+            _resolvedIntentCount = 0;
+            SetRoundPhase(RoundPhase.EnemyPlan);
 
-            // Get all units belonging to current player
-            var playerUnits = _gameState.GetUnitsByPlayer(currentPlayer);
-            _logger.Info(LogCategory.Combat,$"[CombatController] Total units for player {currentPlayer?.Id}: {playerUnits.Count}");
+            var intents = _intentPlanner.Plan(_gameState);
+            _gameState = (_gameState as CombatState).WithEnemyIntents(intents);
+            OnEnemyPlansRevealed?.Invoke(intents);
 
-            foreach (var unit in playerUnits)
-            {
-                _logger.Info(LogCategory.Combat,$"[CombatController] Unit {unit.Id}: IsAlive={unit.IsAlive}, HasActedThisTurn={unit.HasActedThisTurn}, CanAct={unit.CanAct}, ActionState={unit.ActionState}");
-            }
-
-            // Check if all units of current player have acted
-            var activeUnits = _gameState.GetActiveUnitsByPlayer(currentPlayer);
-
-            _logger.Info(LogCategory.Combat,$"[CombatController] Active units remaining for player {currentPlayer?.Id}: {activeUnits.Count}");
-
-            if (activeUnits.Count == 0)
-            {
-                _logger.Info(LogCategory.Combat,$"[CombatController] All units have acted - advancing turn");
-                // All units have acted, advance turn
-                AdvanceTurn();
-            }
-            else
-            {
-                _logger.Info(LogCategory.Combat,$"[CombatController] Turn continues - {activeUnits.Count} unit(s) can still act");
-                foreach (var unit in activeUnits)
-                {
-                    _logger.Info(LogCategory.Combat,$"[CombatController] Active unit: {unit.Id}");
-                }
-            }
-        }
-        
-        private void AdvanceTurn()
-        {
-            // Apply end-of-turn effects
-            _gameState = ApplyTurnEndEffects(_gameState);
-            
-            // Switch to next player
-            _turnManager.NextTurn();
-            _gameState = (_gameState as CombatState).WithCurrentPlayer(_turnManager.CurrentPlayer);
-            _gameState = (_gameState as CombatState).WithNextTurn();
-            
-            // Reset units for new turn
-            _gameState = ResetUnitsForNewTurn(_gameState);
-            
-            // Apply start-of-turn effects
-            _gameState = ApplyTurnStartEffects(_gameState);
-            
+            SetRoundPhase(RoundPhase.PlayerAct);
             OnTurnStarted?.Invoke(_turnManager.CurrentPlayer);
             OnStateChanged?.Invoke(_gameState);
         }
-        
-        private ICombatState ResetUnitsForNewTurn(ICombatState gameState)
+
+        public bool ResolveNextEnemyIntent()
         {
-            var currentPlayerUnits = gameState.GetUnitsByPlayer(_turnManager.CurrentPlayer);
+            if (_gameState.Phase != CombatPhase.Combat)
+                return false;
+            if (_gameState.RoundPhase != RoundPhase.EnemyResolve)
+                return false;
+
+            if (_resolvedIntentCount >= _gameState.EnemyIntents.Count)
+            {
+                EndRound();
+                return false;
+            }
+
+            var intent = _gameState.EnemyIntents[_resolvedIntentCount];
+            _resolvedIntentCount++;
+
+            _logger.Info(LogCategory.Combat,$"[CombatController] Resolving enemy intent {_resolvedIntentCount}/{_gameState.EnemyIntents.Count} (unit {intent.UnitId}, {intent.Action.Type})");
+            _gameState = _intentResolver.Resolve(_gameState, intent);
+
+            OnStateChanged?.Invoke(_gameState);
+            CheckWinConditions();
+
+            if (_gameState.Phase != CombatPhase.Combat)
+                return false;
+
+            if (_resolvedIntentCount >= _gameState.EnemyIntents.Count)
+            {
+                EndRound();
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Round bookkeeping (effects, cooldowns, acted flags) now ticks once per round for
+        /// ALL units — the same cadence each unit had under round-robin, in one place.
+        /// </summary>
+        private void EndRound()
+        {
+            _gameState = ApplyRoundEndEffects(_gameState);
+
+            _turnManager.NextTurn();
+            _gameState = (_gameState as CombatState).WithNextTurn();
+
+            _gameState = ResetUnitsForNewRound(_gameState);
+            _gameState = ApplyRoundStartEffects(_gameState);
+
+            StartRound();
+        }
+
+        private void SetRoundPhase(RoundPhase phase)
+        {
+            _gameState = (_gameState as CombatState).WithRoundPhase(phase);
+            _logger.Info(LogCategory.Combat,$"[CombatController] Round phase → {phase}");
+            OnRoundPhaseChanged?.Invoke(phase);
+        }
+
+        private void CheckTurnEnd()
+        {
+            if (_gameState.RoundPhase != RoundPhase.PlayerAct)
+                return;
+
+            var currentPlayer = _turnManager.CurrentPlayer;
+            var activeUnits = _gameState.GetActiveUnitsByPlayer(currentPlayer);
+
+            if (activeUnits.Count == 0)
+            {
+                _logger.Info(LogCategory.Combat,"[CombatController] All player units have acted - entering Resolve phase");
+                SetRoundPhase(RoundPhase.EnemyResolve);
+                OnStateChanged?.Invoke(_gameState);
+            }
+        }
+
+        private ICombatState ResetUnitsForNewRound(ICombatState gameState)
+        {
             var newState = gameState;
-            
-            foreach (var unit in currentPlayerUnits)
+
+            foreach (var unit in gameState.Units)
             {
                 // Reset HasActedThisTurn
                 var updatedUnit = (unit as Unit).WithActedThisTurn(false);
-                
+
                 // Decrement ability cooldowns
                 var newAbilities = updatedUnit.Abilities
                     .Select(a => (a as AbilityInstance).DecrementCooldown())
                     .ToList();
                 updatedUnit = updatedUnit.WithAbilities(newAbilities);
-                
+
                 newState = (newState as CombatState).WithUpdatedUnit(updatedUnit);
             }
-            
+
             return newState;
         }
-        
-        private ICombatState ApplyTurnStartEffects(ICombatState gameState)
+
+        private ICombatState ApplyRoundStartEffects(ICombatState gameState)
         {
-            var currentPlayerUnits = gameState.GetUnitsByPlayer(_turnManager.CurrentPlayer);
             var newState = gameState;
 
-            foreach (var unit in currentPlayerUnits)
+            foreach (var unit in gameState.Units)
             {
                 // Use trigger processor for data-driven effects (TurnStart)
                 if (_triggerProcessor != null)
@@ -267,12 +320,11 @@ namespace Combat.Controller
             return newState;
         }
         
-        private ICombatState ApplyTurnEndEffects(ICombatState gameState)
+        private ICombatState ApplyRoundEndEffects(ICombatState gameState)
         {
-            var currentPlayerUnits = gameState.GetUnitsByPlayer(_turnManager.CurrentPlayer);
             var newState = gameState;
 
-            foreach (var unit in currentPlayerUnits)
+            foreach (var unit in gameState.Units)
             {
                 // Use trigger processor for data-driven effects (TurnEnd)
                 if (_triggerProcessor != null)

@@ -78,8 +78,9 @@ namespace Platform
             meshCollider = platformMeshObject.AddComponent<MeshCollider>();
             meshCollider.sharedMesh = mesh;
 
-            // Walls sit on the walkable outline (the last full cell's edge), which is what makes the
-            // decorative rim physically non-walkable: its geometry lies beyond the wall colliders.
+            // Walls sit on the stitched walkable outline (hex-union edge with its between-cell
+            // notches sewn shut), which is what makes the decorative rim physically non-walkable:
+            // its geometry lies beyond the wall colliders.
             PlatformColliderBuilder.BuildPlatformColliders(
                 gameObject,
                 platform.Visual.TopBoundary,

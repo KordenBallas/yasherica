@@ -52,7 +52,7 @@ namespace Combat.Data.Factories
         private IAbility CreateDamageAbility(DamageAbilityDefinition def)
         {
             return new DataDrivenDamageAbility(
-                def.Id, def.Name, def.CooldownDuration, BuildShape(def), def.Damage);
+                def.Id, def.Name, def.CooldownDuration, BuildShape(def), def.Damage, def.PushDistance);
         }
 
         private IAbility CreateHealAbility(HealAbilityDefinition def)
@@ -84,14 +84,15 @@ namespace Combat.Data.Factories
                 _logger.Warning(LogCategory.Combat,
                     $"[AbilityFactory] HybridAbility '{def.Name}' has no status effect assigned, creating damage-only ability");
                 return new DataDrivenDamageAbility(
-                    def.Id, def.Name, def.CooldownDuration, BuildShape(def), def.Damage);
+                    def.Id, def.Name, def.CooldownDuration, BuildShape(def), def.Damage, def.PushDistance);
             }
 
             var effect = _statusEffectFactory.CreateStatusEffect(def.StatusEffect);
             int duration = def.DurationOverride >= 0 ? def.DurationOverride : effect.Duration;
 
             return new DataDrivenHybridAbility(
-                def.Id, def.Name, def.CooldownDuration, BuildShape(def), def.Damage, effect, duration);
+                def.Id, def.Name, def.CooldownDuration, BuildShape(def), def.Damage, effect, duration,
+                def.PushDistance);
         }
     }
 }

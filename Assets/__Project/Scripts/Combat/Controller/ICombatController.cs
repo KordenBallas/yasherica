@@ -29,12 +29,25 @@ namespace Combat.Controller
         /// Initializes the game with initial state and players.
         /// </summary>
         void Initialize(ICombatState initialState, System.Collections.Generic.IReadOnlyList<IPlayer> players);
-        
+
         /// <summary>
         /// Adds a unit to the combat state.
         /// </summary>
         void AddUnit(IUnit unit);
-        
+
+        /// <summary>
+        /// Starts the round loop. Called once, after every unit has been added — the first
+        /// Plan phase needs the full board to commit enemy intents against.
+        /// </summary>
+        void BeginRounds();
+
+        /// <summary>
+        /// Resolves the next committed enemy intent (Resolve phase). Returns false when no
+        /// intents remain (the controller then starts the next round) or combat ended.
+        /// Driven with pacing by the enemy round controller.
+        /// </summary>
+        bool ResolveNextEnemyIntent();
+
         /// <summary>
         /// Processes a player action.
         /// </summary>
@@ -62,10 +75,20 @@ namespace Combat.Controller
         event System.Action<ICombatState> OnStateChanged;
         
         /// <summary>
-        /// Event fired when a player's turn starts.
+        /// Event fired when a player's turn starts (once per round, at Act phase start).
         /// </summary>
         event System.Action<IPlayer> OnTurnStarted;
-        
+
+        /// <summary>
+        /// Event fired when the round phase changes (EnemyPlan → PlayerAct → EnemyResolve).
+        /// </summary>
+        event System.Action<RoundPhase> OnRoundPhaseChanged;
+
+        /// <summary>
+        /// Event fired at Plan phase with the round's committed, revealed enemy intents.
+        /// </summary>
+        event System.Action<System.Collections.Generic.IReadOnlyList<EnemyIntent>> OnEnemyPlansRevealed;
+
         /// <summary>
         /// Event fired when the game ends.
         /// </summary>

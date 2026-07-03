@@ -224,6 +224,8 @@ namespace LevelGeneration
 
             var visual = new PlatformVisual();
             visual.Surface = surface;
+            // Surface.Outline is already stitched by the generator (notch fills keep the floor
+            // continuous under the sewn spans); walls and boundary tests follow it as-is.
             visual.TopBoundary = surface.Outline.Select(p => new Vector3(p.X, 0f, p.Z)).ToList();
             visual.Size = CalculateOutlineBounds(surface);
             Vector2 position2D = CalculatePlatformPosition(node, visual.Size.x, rng);

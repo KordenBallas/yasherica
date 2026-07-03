@@ -29,20 +29,18 @@ namespace Combat.Networking
 
                 case ScheduleAbilityAction scheduleAction:
                     data.AbilityId = scheduleAction.AbilityId;
-                    data.HasDirection = scheduleAction.Target.HasDirection;
+                    data.HasDirection = scheduleAction.FacingToSet.HasValue;
                     if (data.HasDirection)
-                        data.Direction = (int)scheduleAction.Target.Direction.Value;
+                        data.Direction = (int)scheduleAction.FacingToSet.Value;
                     break;
 
                 case ReorderAbilitiesAction reorderAction:
                     data.NewOrder = reorderAction.NewOrder.ToArray();
                     break;
 
-                case RetargetAbilityAction retargetAction:
-                    data.AbilityIndexInQueue = retargetAction.AbilityIndexInQueue;
-                    data.HasDirection = retargetAction.NewTarget.HasDirection;
-                    if (data.HasDirection)
-                        data.Direction = (int)retargetAction.NewTarget.Direction.Value;
+                case ChangeDirectionAction changeDirectionAction:
+                    data.HasDirection = true;
+                    data.Direction = (int)changeDirectionAction.NewFacing;
                     break;
             }
 
@@ -64,7 +62,7 @@ namespace Combat.Networking
                         player,
                         data.UnitId,
                         data.AbilityId,
-                        DeserializeAbilityTarget(data));
+                        data.HasDirection ? (HexDirection)data.Direction : (HexDirection?)null);
 
                 case ActionType.ExecuteAbilityQueue:
                     return new ExecuteAbilityQueueAction(player, data.UnitId);
@@ -75,12 +73,11 @@ namespace Combat.Networking
                         data.UnitId,
                         data.NewOrder.ToList());
 
-                case ActionType.RetargetAbility:
-                    return new RetargetAbilityAction(
+                case ActionType.ChangeDirection:
+                    return new ChangeDirectionAction(
                         player,
                         data.UnitId,
-                        data.AbilityIndexInQueue,
-                        DeserializeAbilityTarget(data));
+                        (HexDirection)data.Direction);
 
                 case ActionType.EndUnitTurn:
                     return new EndUnitTurnAction(player, data.UnitId);
@@ -88,14 +85,6 @@ namespace Combat.Networking
                 default:
                     throw new System.ArgumentException($"Unknown action type: {data.ActionType}");
             }
-        }
-
-        private static AbilityTarget DeserializeAbilityTarget(ActionData data)
-        {
-            if (data.HasDirection)
-                return AbilityTarget.ForDirection((HexDirection)data.Direction);
-
-            return AbilityTarget.None();
         }
     }
 }

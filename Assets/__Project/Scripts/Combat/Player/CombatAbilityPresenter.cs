@@ -12,7 +12,8 @@ namespace Combat.Player
     /// <summary>
     /// Presenter for combat ability targeting.
     /// Hold key → mouse aim → release key to confirm (adds to execution queue, ends turn).
-    /// Ring abilities show the full ring immediately; Line abilities update on each direction change.
+    /// Aim = turn: the aim input rotates the unit (free ChangeDirectionAction), and the
+    /// highlight always reads the unit's current facing — one facing for the whole queue.
     /// </summary>
     public class CombatAbilityPresenter : IDisposable
     {
@@ -24,7 +25,6 @@ namespace Combat.Player
         private readonly IGameLogger _logger;
 
         private IAbilityInstance _selectedAbility;
-        private HexDirection? _currentDirection;
         private readonly HashSet<HexCoordinates> _highlightedCells = new HashSet<HexCoordinates>();
 
         public CombatAbilityPresenter(
@@ -45,7 +45,8 @@ namespace Combat.Player
 
         /// <summary>
         /// Enters ability aiming mode for the specified ability slot.
-        /// Ring abilities immediately highlight their cells; Line waits for a direction.
+        /// Ring abilities highlight their ring; Line abilities highlight along the unit's
+        /// current facing immediately (there is always a facing).
         /// </summary>
         public void SelectAbility(int abilityIndex)
         {
@@ -63,28 +64,37 @@ namespace Combat.Player
             }
 
             _selectedAbility = ability;
-            _currentDirection = null;
-
-            if (_selectedAbility.Ability.Shape.Type == AbilityShapeType.Ring)
-                ShowAffectedCells(null);
+            ShowAffectedCells();
         }
 
         /// <summary>
-        /// Updates the aimed direction and recomputes the Line highlight.
-        /// Ignored for Ring abilities.
+        /// Aim = turn. Rotates the unit toward the aimed direction (free action, unlimited)
+        /// and re-highlights from the new facing. Ignored for Ring abilities.
         /// </summary>
         public void UpdateAimDirection(HexDirection? direction)
         {
             if (_selectedAbility == null) return;
             if (_selectedAbility.Ability.Shape.Type == AbilityShapeType.Ring) return;
+            if (!direction.HasValue) return;
 
-            _currentDirection = direction;
-            ShowAffectedCells(direction);
+            var liveUnit = GetLiveUnit();
+            if (liveUnit == null || liveUnit.FacingDirection == direction.Value) return;
+
+            var result = _combatController.ProcessAction(
+                new ChangeDirectionAction(_playerUnit.Owner, _playerUnit.Id, direction.Value));
+
+            if (!result.Success)
+            {
+                _logger.Warning(LogCategory.Combat,$"[CombatAbilityPresenter] Turn failed: {result.ErrorMessage}");
+                return;
+            }
+
+            ShowAffectedCells();
         }
 
         /// <summary>
-        /// Confirms the current aim and submits a ScheduleAbilityAction.
-        /// For Line: no-op if no direction chosen (release with no aim = cancel silently).
+        /// Confirms the aim and submits a ScheduleAbilityAction. The ability carries no
+        /// direction — it will fire along the unit's facing at execution time.
         /// </summary>
         public void ConfirmAim()
         {
@@ -94,28 +104,11 @@ namespace Combat.Player
                 return;
             }
 
-            var shape = _selectedAbility.Ability.Shape;
-            AbilityTarget target;
-
-            if (shape.Type == AbilityShapeType.Ring)
-            {
-                target = AbilityTarget.None();
-            }
-            else
-            {
-                if (!_currentDirection.HasValue)
-                {
-                    CancelAbilitySelection();
-                    return;
-                }
-                target = AbilityTarget.ForDirection(_currentDirection.Value);
-            }
-
+            var abilityId = _selectedAbility.Ability.Id;
             var action = new ScheduleAbilityAction(
                 _playerUnit.Owner,
                 _playerUnit.Id,
-                _selectedAbility.Ability.Id,
-                target);
+                abilityId);
 
             var result = _combatController.ProcessAction(action);
 
@@ -146,17 +139,23 @@ namespace Combat.Player
         {
             ClearAllHighlights();
             _selectedAbility = null;
-            _currentDirection = null;
         }
 
-        private void ShowAffectedCells(HexDirection? direction)
+        private void ShowAffectedCells()
         {
             ClearAllHighlights();
             if (_selectedAbility == null) return;
 
+            var liveUnit = GetLiveUnit();
+            if (liveUnit == null) return;
+
+            var direction = _selectedAbility.Ability.Shape.Type == AbilityShapeType.Line
+                ? liveUnit.FacingDirection
+                : (HexDirection?)null;
+
             var cells = _shapeCalculator.GetAffectedCells(
                 _selectedAbility.Ability.Shape,
-                _playerUnit.Position,
+                liveUnit.Position,
                 direction,
                 _battlefield.IsCellInBoundary);
 
@@ -165,6 +164,15 @@ namespace Combat.Player
                 _cellController.HighlightCell(cell, HighlightType.ValidAbilityTarget);
                 _highlightedCells.Add(cell);
             }
+        }
+
+        /// <summary>
+        /// The unit's current immutable snapshot in the live combat state (position and
+        /// facing move on every action; the injected reference is the initial snapshot).
+        /// </summary>
+        private IUnit GetLiveUnit()
+        {
+            return _combatController.CombatState?.GetUnit(_playerUnit.Id) ?? _playerUnit;
         }
 
         private void ClearAllHighlights()

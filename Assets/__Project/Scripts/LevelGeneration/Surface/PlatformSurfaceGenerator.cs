@@ -44,10 +44,16 @@ namespace LevelGeneration.Surface
             var sortedCells = new List<HexCoordinates>(cells);
             sortedCells.Sort(CompareCells);
 
-            var outline = HexOutlineExtractor.Extract(cells, orientation, hexSize, centerOffset);
-            var (subdivided, rim) = PlatformRimBuilder.Build(outline, rimWidth, rimJitterPercent, rng);
+            // Sew the between-cell V-notches out of the boundary before the rim is grown: the
+            // walkable edge is the stitched outline, the notch fills keep the floor continuous
+            // under the sewn spans, and the rim droops from the stitched edge outward.
+            var rawOutline = HexOutlineExtractor.Extract(cells, orientation, hexSize, centerOffset);
+            var stitched = OutlineStitcher.Stitch(rawOutline, hexSize);
+            var (subdivided, rim) = PlatformRimBuilder.Build(stitched.Outline, rimWidth, rimJitterPercent, rng);
 
-            return new PlatformHexSurface(sortedCells, orientation, hexSize, centerOffset, outline, subdivided, rim);
+            return new PlatformHexSurface(
+                sortedCells, orientation, hexSize, centerOffset,
+                stitched.Outline, subdivided, rim, stitched.NotchFills);
         }
 
         private static HashSet<HexCoordinates> GrowBlob(int target, int compactness, IRandomSource rng)

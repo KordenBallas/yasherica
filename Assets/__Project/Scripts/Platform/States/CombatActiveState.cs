@@ -33,16 +33,25 @@ namespace Platform
         private readonly IPlayerRegistry _playerRegistry;
         private readonly ICharacterRegistry _characterRegistry;
         private readonly EnemyCombatIntegrator _enemyIntegrator;
-        private readonly AITurnController _aiTurnController;
+        private readonly EnemyRoundController _enemyRoundController;
         private readonly IEnemyDataProvider _enemyDataProvider;
         private readonly CombatActivityTracker _combatActivityTracker;
         private readonly Loot.Application.IEnemyLootDropper _enemyLootDropper;
         private readonly DialogueRunner _dialogueRunner;
+        private readonly Combat.View.ICombatUnitViewRegistry _unitViewRegistry;
+        private readonly Combat.Data.Providers.IAbilityDefinitionCatalog _abilityCatalog;
+        private readonly Combat.Execution.IAbilityOutcomeCalculator _outcomeCalculator;
+        private readonly Combat.Config.HexDirectionConfig _hexDirectionConfig;
         private readonly IGameLogger _logger;
 
         private IPlatform _platform;
         private ICombatController _controller;
         private BattlefieldView _battlefieldView;
+        private Combat.View.UnitOverheadIconsView _planIconsView;
+        private UnitPlanIconsPresenter _planIconsPresenter;
+        private Combat.View.GhostPlaybackView _ghostView;
+        private GhostPlaybackPresenter _ghostPresenter;
+        private AbilityIconHoverController _iconHoverController;
 
         public CombatActiveState(
             IFactory<ICombatController> controllerFactory,
@@ -52,11 +61,15 @@ namespace Platform
             IPlayerRegistry playerRegistry,
             ICharacterRegistry characterRegistry,
             EnemyCombatIntegrator enemyIntegrator,
-            AITurnController aiTurnController,
+            EnemyRoundController enemyRoundController,
             IEnemyDataProvider enemyDataProvider,
             CombatActivityTracker combatActivityTracker,
             Loot.Application.IEnemyLootDropper enemyLootDropper,
             DialogueRunner dialogueRunner,
+            Combat.View.ICombatUnitViewRegistry unitViewRegistry,
+            Combat.Data.Providers.IAbilityDefinitionCatalog abilityCatalog,
+            Combat.Execution.IAbilityOutcomeCalculator outcomeCalculator,
+            Combat.Config.HexDirectionConfig hexDirectionConfig,
             IGameLogger logger)
         {
             _controllerFactory = controllerFactory;
@@ -66,11 +79,15 @@ namespace Platform
             _playerRegistry = playerRegistry;
             _characterRegistry = characterRegistry;
             _enemyIntegrator = enemyIntegrator;
-            _aiTurnController = aiTurnController;
+            _enemyRoundController = enemyRoundController;
             _enemyDataProvider = enemyDataProvider;
             _combatActivityTracker = combatActivityTracker;
             _enemyLootDropper = enemyLootDropper;
             _dialogueRunner = dialogueRunner;
+            _unitViewRegistry = unitViewRegistry;
+            _abilityCatalog = abilityCatalog;
+            _outcomeCalculator = outcomeCalculator;
+            _hexDirectionConfig = hexDirectionConfig;
             _logger = logger;
         }
 
@@ -111,26 +128,48 @@ namespace Platform
                 // MUST happen BEFORE collecting players
                 InstantiateUninstantiatedEnemies(platform);
 
-                // Initialize AI turn controller BEFORE initializing combat state
-                // This ensures it's subscribed to OnTurnStarted before first turn begins
+                // Initialize the enemy round controller BEFORE the round loop starts so it is
+                // subscribed to OnRoundPhaseChanged when the first Resolve phase arrives.
                 // CRITICAL: Must pass the actual controller instance, not a DI singleton
-                if (_aiTurnController != null && platform.Visual?.GameObject != null)
+                if (_enemyRoundController != null && platform.Visual?.GameObject != null)
                 {
                     var mono = platform.Visual.GameObject.GetComponent<MonoBehaviour>();
                     if (mono != null)
                     {
-                        _aiTurnController.Initialize(_controller, mono);
-                        _logger.Info(LogCategory.Platform,"[CombatActiveState] AITurnController initialized with correct controller instance (before combat start)");
+                        _enemyRoundController.Initialize(_controller, mono);
+                        _logger.Info(LogCategory.Platform,"[CombatActiveState] EnemyRoundController initialized with correct controller instance (before combat start)");
                     }
                     else
                     {
-                        _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot initialize AITurnController: no MonoBehaviour on platform");
+                        _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot initialize EnemyRoundController: no MonoBehaviour on platform");
                     }
                 }
-                else if (_aiTurnController == null)
+                else if (_enemyRoundController == null)
                 {
-                    _logger.Warning(LogCategory.Platform,"[CombatActiveState] AITurnController not provided - AI turns will not work!");
+                    _logger.Warning(LogCategory.Platform,"[CombatActiveState] EnemyRoundController not provided - enemy intents will not resolve!");
                 }
+
+                // Overhead plan icons: created before the round loop starts so the first
+                // Plan phase reveal is drawn above the enemies immediately.
+                var planIconsGo = new GameObject("UnitOverheadIconsView");
+                _planIconsView = planIconsGo.AddComponent<Combat.View.UnitOverheadIconsView>();
+                _planIconsView.Initialize(_unitViewRegistry, _abilityCatalog);
+                _planIconsPresenter = new UnitPlanIconsPresenter(_controller, _planIconsView);
+
+                // Ghost telegraph: one-shot ghost on queue-submit, hover-to-replay on any
+                // plan icon (player queue or enemy committed intent).
+                var ghostGo = new GameObject("GhostPlaybackView");
+                _ghostView = ghostGo.AddComponent<Combat.View.GhostPlaybackView>();
+                _ghostView.Initialize(_unitViewRegistry);
+                _ghostPresenter = new GhostPlaybackPresenter(
+                    _controller,
+                    _outcomeCalculator,
+                    _hexDirectionConfig,
+                    coords => _controller.Battlefield.HexToWorld(coords),
+                    _ghostView,
+                    _logger);
+                _iconHoverController = ghostGo.AddComponent<AbilityIconHoverController>();
+                _iconHoverController.Initialize(_ghostPresenter);
 
                 // Collect all players (human + AI enemies)
                 List<IPlayer> allPlayers = new List<IPlayer>();
@@ -194,52 +233,19 @@ namespace Platform
                     _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot initialize combat: no players available");
                 }
 
-                // Initialize character for combat
-                if (_characterInitializer != null && _playerRegistry != null)
+                // Initialize character + enemies sequentially, then start the round loop:
+                // the first Plan phase must commit enemy intents against the FULL board.
+                if (platform.Visual?.GameObject != null)
                 {
-                    IPlayer player = _playerRegistry.GetLocalPlayer();
-                    if (player != null && _controller.Battlefield != null)
+                    var unitInitRunner = platform.Visual.GameObject.GetComponent<MonoBehaviour>();
+                    if (unitInitRunner != null)
                     {
-                        // Start coroutine for character initialization
-                        if (platform.Visual?.GameObject != null)
-                        {
-                            var mono = platform.Visual.GameObject.GetComponent<MonoBehaviour>();
-                            if (mono != null)
-                            {
-                                mono.StartCoroutine(_characterInitializer.InitializeCharacterForCombat(
-                                    player,
-                                    _controller.Battlefield,
-                                    _controller));
-                                _logger.Info(LogCategory.Platform,"[CombatActiveState] Started character combat initialization");
-                            }
-                            else
-                            {
-                                _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot start coroutine: no MonoBehaviour on platform");
-                            }
-                        }
+                        unitInitRunner.StartCoroutine(InitializeUnitsThenBeginRounds(platform));
+                        _logger.Info(LogCategory.Platform,"[CombatActiveState] Started unit initialization sequence");
                     }
                     else
                     {
-                        _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot initialize character: player or battlefield is null");
-                    }
-                }
-                else
-                {
-                    _logger.Warning(LogCategory.Platform,"[CombatActiveState] Character combat system dependencies not provided");
-                }
-
-                // Initialize enemies for combat
-                if (_enemyIntegrator != null && platform.Visual?.GameObject != null)
-                {
-                    var mono = platform.Visual.GameObject.GetComponent<MonoBehaviour>();
-                    if (mono != null)
-                    {
-                        mono.StartCoroutine(InitializeEnemiesForCombat(platform));
-                        _logger.Info(LogCategory.Platform,"[CombatActiveState] Started enemy combat initialization");
-                    }
-                    else
-                    {
-                        _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot start enemy integration: no MonoBehaviour on platform");
+                        _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot start unit initialization: no MonoBehaviour on platform");
                     }
                 }
 
@@ -390,6 +396,40 @@ namespace Platform
         }
 
         /// <summary>
+        /// Sequences unit setup — character first, then enemies — and only then starts the
+        /// round loop, so the first Plan phase commits enemy intents against the full board.
+        /// </summary>
+        private System.Collections.IEnumerator InitializeUnitsThenBeginRounds(IPlatform platform)
+        {
+            if (_characterInitializer != null && _playerRegistry != null)
+            {
+                IPlayer player = _playerRegistry.GetLocalPlayer();
+                if (player != null && _controller.Battlefield != null)
+                {
+                    yield return _characterInitializer.InitializeCharacterForCombat(
+                        player,
+                        _controller.Battlefield,
+                        _controller);
+                }
+                else
+                {
+                    _logger.Warning(LogCategory.Platform,"[CombatActiveState] Cannot initialize character: player or battlefield is null");
+                }
+            }
+            else
+            {
+                _logger.Warning(LogCategory.Platform,"[CombatActiveState] Character combat system dependencies not provided");
+            }
+
+            if (_enemyIntegrator != null)
+            {
+                yield return InitializeEnemiesForCombat(platform);
+            }
+
+            _controller.BeginRounds();
+        }
+
+        /// <summary>
         /// Coroutine that integrates all alive enemies into combat.
         /// Finds closest hex cell for each enemy and adds them to combat state.
         /// </summary>
@@ -433,12 +473,32 @@ namespace Platform
                 _controller.OnGameEnded -= HandleCombatEnded;
             }
 
-            // Dispose AI turn controller if provided
-            if (_aiTurnController != null)
+            // Dispose enemy round controller if provided
+            if (_enemyRoundController != null)
             {
-                _aiTurnController.Dispose();
-                _logger.Info(LogCategory.Platform,"[CombatActiveState] AITurnController disposed");
+                _enemyRoundController.Dispose();
+                _logger.Info(LogCategory.Platform,"[CombatActiveState] EnemyRoundController disposed");
             }
+
+            // Tear down the telegraph presentation and the unit-visual registry
+            _planIconsPresenter?.Dispose();
+            _planIconsPresenter = null;
+            if (_planIconsView != null)
+            {
+                Object.Destroy(_planIconsView.gameObject);
+                _planIconsView = null;
+            }
+
+            _ghostPresenter?.Dispose();
+            _ghostPresenter = null;
+            _iconHoverController = null;
+            if (_ghostView != null)
+            {
+                Object.Destroy(_ghostView.gameObject);
+                _ghostView = null;
+            }
+
+            _unitViewRegistry.Clear();
 
             // Disable input controller if provided
             if (_inputController != null)

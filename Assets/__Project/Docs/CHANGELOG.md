@@ -9,6 +9,98 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Combat — Track C epic: hero facing + enemy intent phase + ghost telegraph** (verified PO briefs
+  `combat-hero-facing.md`, `combat-turn-intent-phase.md`, `combat-ability-ghost-telegraph.md`;
+  new system doc **`combat-round-and-telegraph.md`**), built as one pass:
+  - **Plan → Act → Resolve round** (R1–R7): new `RoundPhase` + `EnemyIntent` on `CombatState`;
+    pure `EnemyIntentPlanner` (every enemy decides up front, UnitId order, cells/facing
+    snapshotted) and `EnemyIntentResolver` (fires committed intents verbatim — dodged blows
+    whiff, blocked moves fizzle, never re-targets; cooldown starts at resolve);
+    `CombatController` orchestrates `BeginRounds`/`StartRound`/`ResolveNextEnemyIntent`/`EndRound`
+    with new `OnRoundPhaseChanged` + `OnEnemyPlansRevealed` events; `EnemyRoundController` paces
+    the resolve coroutine; `CombatActiveState` sequences character → enemies → `BeginRounds` so
+    the first plan sees the full board. Enemy decision makers are now **seeded from the run seed**
+    (`combat-ai:{enemyId}`) — same seed, same plans. Fixes the pre-existing gap where AI-scheduled
+    abilities never fired (no AI ever executed its queue).
+  - **Facing-relative aiming** (`ability-subsystem.md` R4–R8, R11): `Unit.FacingDirection` is now
+    a `HexDirection` driving all directional abilities — aim input rotates the unit (free,
+    unlimited `ChangeDirectionAction`, legal after acting via the validator's free-action gate),
+    turning re-points the whole queued volley, cells are computed from the live facing at
+    execution; AI emits `ScheduleAbilityAction.FacingToSet` (turn-and-schedule); new pure
+    `FacingGeometry`; `UnitFacingRotator` makes facing legible on the model (hero + enemies).
+  - **Push displacement** (`ability-subsystem.md` R13a): `AbilityDefinition._pushDistance` (Line
+    only) + `IDisplacementAbility` + pure `DisplacementResolver` (stop before invalid/occupied);
+    executor pushes survivors farthest-first after damage; authored demo asset
+    `Resources/Abilities/Data/TestPushAbility.asset` wired into `TestEnemyDefinition` and the
+    `TestHeroDefinition` fallback.
+  - **Outcome preview** (R13 ghost honesty): pure `AbilityOutcomeCalculator` +
+    `AbilityOutcome`/`UnitOutcome` mirror executor semantics without mutating state — predicted
+    damage and landing cells equal execution on an unchanged board (test-asserted).
+  - **Overhead plan icons** (R9): every unit shows its plan above it — player queue in order,
+    enemy committed intent from the Plan-phase reveal (ability icon via new
+    `AbilityDefinitionCatalog`, `»` glyph for moves) — `UnitPlanIconsPresenter` +
+    `UnitOverheadIconsView` + `CombatUnitViewRegistry`, code-built and billboarded, each icon
+    hover-raycastable via `AbilityIconMarker`.
+  - **Ghost playback** (R10–R14): queue-submit auto-plays a one-shot translucent full-outcome
+    ghost (caster clone facing the volley + displaced-unit clones at predicted destinations +
+    damage/heal labels), hovering any plan icon — enemy icons included — replays it against the
+    current board; `GhostPlaybackPresenter`/`GhostPlaybackPlanBuilder` (pure) +
+    `GhostPlaybackView`/`GhostVisualCloner` (inactive-holder cloning, shared alpha-blend ghost
+    material, fade in→hold→out) + `AbilityIconHoverController`.
+  - Tests (all pure, green): `UnitFacingTests`, `FacingGeometryTests`,
+    `ActionValidatorFacingTests`, `AbilityExecutorFacingTests`, `EnemyIntentPlannerTests`,
+    `EnemyIntentResolverTests`, `CombatStateRoundTests`, `DisplacementResolverTests`,
+    `AbilityExecutorPushTests`, `AbilityOutcomeCalculatorTests`, `UnitPlanIconsPresenterTests`,
+    `GhostPlaybackPlanTests`.
+
+### Changed
+- **Combat — round bookkeeping cadence:** status-effect TurnStart/TurnEnd triggers, duration
+  ticking, cooldown decrement, and acted-flag reset now tick **once per round for all units** at
+  round end (was per-player-turn under round-robin — equivalent cadence for a two-party fight).
+  `TurnManager` is degenerate under the phase round: `CurrentPlayer` pinned to the human,
+  `NextTurn()` = round counter. Player actions are validator-gated to `RoundPhase.PlayerAct`.
+  *(combat)*
+
+### Removed
+- **Combat — per-ability aiming:** `AbilityTarget` and `RetargetAbilityAction` deleted
+  (`ScheduledAbility` is direction-free; the queue has ONE facing by design — PO brief
+  `combat-hero-facing.md`); `AITurnController` replaced by `EnemyRoundController` (enemies no
+  longer take round-robin turns). *(combat)*
+
+### Fixed
+- **Platform — hero stuck on/outside invisible walls (regression `7201bb2`):** three-part fix, the
+  drooping rim look is kept (PO decision after the play-test). (1) **Stitched walkable edge with a
+  continuous floor** — new pure `OutlineStitcher` sews the shallow between-cell V-notches of the
+  hex-union outline (reflex vertices at most 0.75·hexSize deep are bridged; deeper bays keep their
+  shape, winding-agnostic) and emits flat fill triangles paving the sewn spans;
+  `PlatformSurfaceGenerator` stitches before growing the rim, so `Surface.Outline` (and
+  `TopBoundary` = walls, `PlatformRegistry` point-in-polygon, AI boundary math) is the smooth sewn
+  edge, the mesh's new `NotchFills` keep real floor under the hero across the notches (no running
+  on air), and the rim droops from the stitched edge outward. The hex-cell pattern stays the
+  combat grid — fills are walkable dressing, never cells. (2) **Guaranteed in-pen landing** —
+  new `PlatformAnchor` (center-cell + nearest-cell world anchors over the surface): neighbor jumps
+  land on the **nearest walkable cell center** (a full hex inradius inside the walls; the old
+  probes measured the neighbor's mesh edge — i.e. the decorative rim beyond the walls — or the
+  boundary line itself, and could strand the hero outside the pen), instant teleports and the area
+  spawn use the **center cell** (the raw centroid can fall outside every cell on a concave union).
+  Replaced the per-dash mesh-triangle scan in `CharacterMovementController` and the polygon
+  intersection in `AICharacterMovementController`; dead code removed. (3) `_rimDropHeight` stays
+  0.4 and the mesh keeps the sloped rim strip (zero-height skirt guard retained). New
+  `OutlineStitcherTests` + `PlatformAnchorTests` (pure, green);
+  `PlatformHexSurfaceMeshBuilderTests` lock the drooping profile. Doc: `platform-generation.md`
+  §2.2/§2.3/§3/§4/§5/§6. *(platform + character movement)*
+- **Combat — units sink waist-deep into the battlefield (regression `9d2f909`):** new
+  `UnitGrounding` (`Combat.Battlefield`) grounds units explicitly — surface top from
+  `HexToWorld` + a feet/pivot offset **derived from the unit's own authored collider**
+  (`CharacterController`, else `CapsuleCollider`; Hero/Enemy capsules h=2/c=0 → 1.0) — applied at
+  the five unit placement/animation sites (`CharacterCombatComponent`, `EnemyCombatComponent`,
+  `EnemyCombatIntegrator`, `CombatEntryAnimator` entry target, `CharacterCombatAnimator` — whose
+  0.1 movement threshold otherwise loops on the permanent Y gap). `SurfaceHexGrid` is untouched:
+  its contract stays "true surface top", now asserted in `SurfaceHexGridTests` (Y never doubled).
+  New `UnitGroundingTests` (5). No per-prefab magic numbers — new data-driven enemies ground for
+  free. *(combat + platform)*
+
+### Added
 - **World Sites — content landing (phase 4, completing the world-sites brief; acceptance criteria):**
   `GraphNode` gains `Site` (`SiteStamp` — the M5 dressing seam on every platform) + `ContentFlavor`;
   `RunStreamingCoordinator.MapWindow` copies them from the plan; `AreaGenerator.CreateLootContent`

@@ -10,12 +10,10 @@ namespace Combat.Execution
     /// </summary>
     public class ActionValidator : IActionValidator
     {
-        private readonly HexDirectionConfig _hexDirectionConfig;
         private readonly CombatConfig _combatConfig;
 
-        public ActionValidator(HexDirectionConfig hexDirectionConfig, CombatConfig combatConfig)
+        public ActionValidator(CombatConfig combatConfig)
         {
-            _hexDirectionConfig = hexDirectionConfig;
             _combatConfig = combatConfig;
         }
 
@@ -26,6 +24,15 @@ namespace Combat.Execution
 
         public ValidationResult ValidateDetailed(ICombatState gameState, IAction action)
         {
+            // Player actions are only legal during the Act phase; enemy committed intents
+            // resolve outside ProcessAction and never pass through this validator.
+            if (gameState.RoundPhase != RoundPhase.PlayerAct)
+            {
+                return ValidationResult.Failure(
+                    "Not the Act phase",
+                    $"Round phase is {gameState.RoundPhase}; actions are only accepted during PlayerAct");
+            }
+
             if (action.Player.Id != gameState.CurrentPlayer.Id)
             {
                 return ValidationResult.Failure(
@@ -48,7 +55,9 @@ namespace Combat.Execution
                     $"Unit {action.UnitId} is owned by player {unit.Owner.Id}, not {action.Player.Id}");
             }
 
-            if (!unit.CanAct)
+            // Dead/stunned units can do nothing; a unit that has acted can still take
+            // free actions (turning is free and unlimited up to executing the queue).
+            if (unit.ActionState == UnitActionState.Dead || unit.ActionState == UnitActionState.Stunned)
             {
                 return ValidationResult.Failure(
                     "Unit cannot act",
@@ -68,8 +77,7 @@ namespace Combat.Execution
                 ActionType.ScheduleAbility => ValidateScheduleAbilityAction(gameState, action as ScheduleAbilityAction),
                 ActionType.ExecuteAbilityQueue => ValidateExecuteAbilityQueueAction(gameState, action as ExecuteAbilityQueueAction),
                 ActionType.ReorderAbilities => ValidateReorderAbilitiesAction(gameState, action as ReorderAbilitiesAction),
-                ActionType.RetargetAbility => ValidateRetargetAbilityAction(gameState, action as RetargetAbilityAction),
-                ActionType.ChangeDirection => ValidateChangeDirectionAction(gameState, action as ChangeDirectionAction),
+                ActionType.ChangeDirection => ValidationResult.Success(),
                 ActionType.EndUnitTurn => ValidationResult.Success(),
                 _ => ValidationResult.Failure("Unknown action type")
             };
@@ -133,7 +141,7 @@ namespace Combat.Execution
                     $"Maximum queue size is {_combatConfig.MaxAbilityQueueSize}");
             }
 
-            return ValidateAbilityTarget(abilityInstance.Ability, action.Target);
+            return ValidationResult.Success();
         }
 
         private ValidationResult ValidateExecuteAbilityQueueAction(ICombatState gameState, ExecuteAbilityQueueAction action)
@@ -174,54 +182,5 @@ namespace Combat.Execution
             return ValidationResult.Success();
         }
 
-        private ValidationResult ValidateRetargetAbilityAction(ICombatState gameState, RetargetAbilityAction action)
-        {
-            var unit = gameState.GetUnit(action.UnitId);
-
-            if (action.AbilityIndexInQueue < 0 || action.AbilityIndexInQueue >= unit.AbilityQueue.Count)
-            {
-                return ValidationResult.Failure(
-                    "Invalid queue index",
-                    $"Index {action.AbilityIndexInQueue} is out of range (queue has {unit.AbilityQueue.Count} items)");
-            }
-
-            var scheduledAbility = unit.AbilityQueue[action.AbilityIndexInQueue];
-            return ValidateAbilityTarget(scheduledAbility.Ability.Ability, action.NewTarget);
-        }
-
-        private ValidationResult ValidateChangeDirectionAction(ICombatState gameState, ChangeDirectionAction action)
-        {
-            bool isValidDirection = false;
-            foreach (var directionOffset in _hexDirectionConfig.directionOffsets)
-            {
-                if (directionOffset.offset.x == action.NewFacingDirection.Q &&
-                    directionOffset.offset.y == action.NewFacingDirection.R)
-                {
-                    isValidDirection = true;
-                    break;
-                }
-            }
-
-            if (!isValidDirection)
-            {
-                return ValidationResult.Failure(
-                    "Invalid facing direction",
-                    $"Direction ({action.NewFacingDirection.Q},{action.NewFacingDirection.R}) is not a valid hex neighbor offset");
-            }
-
-            return ValidationResult.Success();
-        }
-
-        private static ValidationResult ValidateAbilityTarget(IAbility ability, AbilityTarget target)
-        {
-            if (ability.Shape.Type == AbilityShapeType.Line && !target.HasDirection)
-            {
-                return ValidationResult.Failure(
-                    "Missing direction",
-                    "Line ability requires a direction to be chosen");
-            }
-
-            return ValidationResult.Success();
-        }
     }
 }

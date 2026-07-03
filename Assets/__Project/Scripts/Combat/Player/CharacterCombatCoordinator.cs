@@ -123,8 +123,11 @@ namespace Combat.Player
             if (_combatController?.TurnManager == null) return false;
             if (_combatController.TurnManager.CurrentPlayer == null) return false;
             if (_characterUnit?.Owner == null) return false;
+            if (_combatController.CombatState == null) return false;
 
-            return _combatController.TurnManager.CurrentPlayer.Id == _characterUnit.Owner.Id;
+            // The player may act (and freely turn) only during the round's Act phase.
+            return _combatController.CombatState.RoundPhase == Core.RoundPhase.PlayerAct
+                && _combatController.TurnManager.CurrentPlayer.Id == _characterUnit.Owner.Id;
         }
 
         private void OnDestroy()

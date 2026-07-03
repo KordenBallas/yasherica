@@ -1,24 +1,25 @@
-using Combat.Battlefield;
+using Combat.Config;
 
 namespace Combat.Core
 {
     /// <summary>
     /// Action to change the direction a unit is facing.
-    /// Free action by default (does not end turn).
+    /// Free action (does not end turn) — turning is unlimited during the player's Act phase,
+    /// and the whole queued volley fires along the final facing.
     /// </summary>
     public class ChangeDirectionAction : IAction
     {
         public IPlayer Player { get; }
         public int UnitId { get; }
         public ActionType Type => ActionType.ChangeDirection;
-        public bool EndsTurn => false; // Free action by default
-        public HexCoordinates NewFacingDirection { get; }
+        public bool EndsTurn => false;
+        public HexDirection NewFacing { get; }
 
-        public ChangeDirectionAction(IPlayer player, int unitId, HexCoordinates newFacingDirection)
+        public ChangeDirectionAction(IPlayer player, int unitId, HexDirection newFacing)
         {
             Player = player;
             UnitId = unitId;
-            NewFacingDirection = newFacingDirection;
+            NewFacing = newFacing;
         }
     }
 }

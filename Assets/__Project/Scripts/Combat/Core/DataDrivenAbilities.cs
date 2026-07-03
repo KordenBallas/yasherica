@@ -3,16 +3,18 @@ namespace Combat.Core
     /// <summary>
     /// Runtime damage ability created from ScriptableObject definition.
     /// </summary>
-    public class DataDrivenDamageAbility : Ability, IDamageAbility
+    public class DataDrivenDamageAbility : Ability, IDamageAbility, IDisplacementAbility
     {
         public int Damage { get; }
+        public int PushDistance { get; }
 
         public DataDrivenDamageAbility(
             int id, string name, int cooldownDuration,
-            AbilityShapeData shape, int damage)
+            AbilityShapeData shape, int damage, int pushDistance = 0)
             : base(id, name, cooldownDuration, shape, AbilityEffectType.Damage)
         {
             Damage = damage;
+            PushDistance = pushDistance;
         }
     }
 
@@ -53,20 +55,23 @@ namespace Combat.Core
     /// <summary>
     /// Runtime hybrid ability (damage + status effect) created from ScriptableObject definition.
     /// </summary>
-    public class DataDrivenHybridAbility : Ability, IDamageAbility, IStatusEffectAbility
+    public class DataDrivenHybridAbility : Ability, IDamageAbility, IStatusEffectAbility, IDisplacementAbility
     {
         public int Damage { get; }
         public IStatusEffect EffectToApply { get; }
         public int EffectDuration { get; }
+        public int PushDistance { get; }
 
         public DataDrivenHybridAbility(
             int id, string name, int cooldownDuration,
-            AbilityShapeData shape, int damage, IStatusEffect effect, int effectDuration)
+            AbilityShapeData shape, int damage, IStatusEffect effect, int effectDuration,
+            int pushDistance = 0)
             : base(id, name, cooldownDuration, shape, AbilityEffectType.Hybrid)
         {
             Damage = damage;
             EffectToApply = effect;
             EffectDuration = effectDuration;
+            PushDistance = pushDistance;
         }
     }
 }

@@ -33,7 +33,6 @@ namespace Combat.Execution
                 ActionType.ScheduleAbility => ExecuteScheduleAbility(gameState, action as ScheduleAbilityAction),
                 ActionType.ExecuteAbilityQueue => ExecuteAbilityQueue(gameState, action as ExecuteAbilityQueueAction),
                 ActionType.ReorderAbilities => ExecuteReorderAbilities(gameState, action as ReorderAbilitiesAction),
-                ActionType.RetargetAbility => ExecuteRetargetAbility(gameState, action as RetargetAbilityAction),
                 ActionType.ChangeDirection => ExecuteChangeDirection(gameState, action as ChangeDirectionAction),
                 ActionType.EndUnitTurn => ExecuteEndUnitTurn(gameState, action as EndUnitTurnAction),
                 _ => gameState
@@ -83,20 +82,22 @@ namespace Combat.Execution
                 return gameState;
             }
             var abilityInstance = unit.GetAbility(action.AbilityId);
-            
+
             if (abilityInstance == null)
                 return gameState;
-            
-            // Add to queue
+
             var scheduledAbility = new ScheduledAbility(
                 abilityInstance,
-                action.Target,
                 unit.AbilityQueue.Count // Execution order
             );
-            
+
             var newQueue = unit.AbilityQueue.Concat(new[] { scheduledAbility }).ToList();
             var updatedUnit = (unit as Unit).WithAbilityQueue(newQueue);
-            
+
+            // AI schedule-and-face composite: the enemy turns toward where it will strike.
+            if (action.FacingToSet.HasValue)
+                updatedUnit = updatedUnit.WithFacingDirection(action.FacingToSet.Value);
+
             return (gameState as CombatState).WithUpdatedUnit(updatedUnit);
         }
         
@@ -154,34 +155,8 @@ namespace Combat.Execution
             var newQueue = action.NewOrder
                 .Select((originalIndex, newIndex) => new ScheduledAbility(
                     unit.AbilityQueue[originalIndex].Ability,
-                    unit.AbilityQueue[originalIndex].Target,
                     newIndex
                 ))
-                .ToList();
-            
-            var updatedUnit = (unit as Unit).WithAbilityQueue(newQueue);
-            return (gameState as CombatState).WithUpdatedUnit(updatedUnit);
-        }
-        
-        private ICombatState ExecuteRetargetAbility(ICombatState gameState, RetargetAbilityAction action)
-        {
-            var unit = gameState.GetUnit(action.UnitId);
-            if (unit == null)
-            {
-                _logger.Error(LogCategory.Combat,$"[ActionExecutor] Cannot execute RetargetAbilityAction: Unit {action.UnitId} not found in combat state. Ability index: {action.AbilityIndexInQueue}");
-                return gameState;
-            }
-
-            // Update target for specified ability
-            var newQueue = unit.AbilityQueue
-                .Select((sa, index) =>
-                {
-                    if (index == action.AbilityIndexInQueue)
-                    {
-                        return new ScheduledAbility(sa.Ability, action.NewTarget, sa.ExecutionOrder);
-                    }
-                    return sa;
-                })
                 .ToList();
 
             var updatedUnit = (unit as Unit).WithAbilityQueue(newQueue);
@@ -197,7 +172,7 @@ namespace Combat.Execution
                 return gameState;
             }
 
-            var updatedUnit = (unit as Unit).WithFacingDirection(action.NewFacingDirection);
+            var updatedUnit = (unit as Unit).WithFacingDirection(action.NewFacing);
             return (gameState as CombatState).WithUpdatedUnit(updatedUnit);
         }
 

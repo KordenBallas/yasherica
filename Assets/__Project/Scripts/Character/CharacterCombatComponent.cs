@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Combat.Battlefield;
+using Combat.Config;
 using Combat.Controller;
 using Combat.Core;
 using Core.Logging;
@@ -18,6 +19,7 @@ namespace Character
     {
         private Unit _internalUnit;
         private ICombatController _combatController;
+        private float _feetOffset;
         [Inject] private IGameLogger _logger;
 
         // IUnitIdentity
@@ -26,7 +28,7 @@ namespace Character
         
         // IUnitPosition
         public HexCoordinates Position => _internalUnit?.Position ?? new HexCoordinates(0, 0);
-        public HexCoordinates FacingDirection => _internalUnit?.FacingDirection ?? new HexCoordinates(1, 0);
+        public HexDirection FacingDirection => _internalUnit?.FacingDirection ?? HexDirection.E;
         
         // IUnitHealth
         public int CurrentHP => _internalUnit?.CurrentHP ?? 0;
@@ -72,6 +74,7 @@ namespace Character
             IReadOnlyList<IStatusEffect> passiveEffects = null)
         {
             _combatController = combatController;
+            _feetOffset = UnitGrounding.FeetOffsetFor(transform);
 
             // Create internal unit with combat stats, abilities, and any standing passive
             // modifiers granted by equipped parts (applied for the whole combat).
@@ -124,7 +127,8 @@ namespace Character
             // Update GameObject visual position to match new hex position
             if (_combatController?.Battlefield != null)
             {
-                Vector3 worldPosition = _combatController.Battlefield.HexToWorld(Position);
+                Vector3 worldPosition = UnitGrounding.Grounded(
+                    _combatController.Battlefield.HexToWorld(Position), _feetOffset);
                 transform.position = worldPosition;
                 _logger?.Info(LogCategory.Character,$"[CharacterCombatComponent] Synchronized: Position={Position}, WorldPos={worldPosition}, HP={CurrentHP}/{MaxHP}");
             }

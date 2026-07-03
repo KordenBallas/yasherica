@@ -19,11 +19,14 @@ namespace Combat.Battlefield
         /// <param name="hexSize">Hex size shared with the combat grid.</param>
         /// <param name="centerOffset">Subtracted from raw axial centers so the cell-union centroid
         /// sits at the platform's local origin (the platform Position stays the visual center).</param>
-        /// <param name="outline">The hex-union boundary polygon (local XZ) — the walkable edge.</param>
+        /// <param name="outline">The stitched walkable boundary polygon (local XZ): the hex-union
+        /// edge with its shallow between-cell notches sewn shut.</param>
         /// <param name="subdividedOutline">The outline with edge midpoints inserted; index-aligned
         /// with <paramref name="rimRing"/> (the decorative rim strip runs between the two).</param>
         /// <param name="rimRing">The organic decorative outer ring (local XZ) — dressing only,
         /// never walkable, never a combat cell.</param>
+        /// <param name="notchFills">Flat floor triangles paving the sewn notches (local XZ, wound
+        /// clockwise = up-facing), so the top surface reaches the stitched outline everywhere.</param>
         public PlatformHexSurface(
             IReadOnlyList<HexCoordinates> cells,
             HexOrientation orientation,
@@ -31,7 +34,8 @@ namespace Combat.Battlefield
             (float X, float Z) centerOffset,
             IReadOnlyList<(float X, float Z)> outline,
             IReadOnlyList<(float X, float Z)> subdividedOutline,
-            IReadOnlyList<(float X, float Z)> rimRing)
+            IReadOnlyList<(float X, float Z)> rimRing,
+            IReadOnlyList<((float X, float Z) A, (float X, float Z) B, (float X, float Z) C)> notchFills = null)
         {
             if (cells == null || cells.Count == 0)
             {
@@ -53,6 +57,8 @@ namespace Combat.Battlefield
             Outline = outline ?? throw new ArgumentNullException(nameof(outline));
             SubdividedOutline = subdividedOutline;
             RimRing = rimRing;
+            NotchFills = notchFills
+                ?? Array.Empty<((float X, float Z) A, (float X, float Z) B, (float X, float Z) C)>();
             CenterCell = FindCenterCell();
         }
 
@@ -70,9 +76,14 @@ namespace Combat.Battlefield
         /// even when the union is concave and the raw centroid falls outside every cell.</summary>
         public HexCoordinates CenterCell { get; }
 
-        /// <summary>The hex-union boundary polygon (local XZ, counter-clockwise) — the walkable edge
-        /// the colliders and the platform-detection polygon test use.</summary>
+        /// <summary>The stitched walkable boundary polygon (local XZ, counter-clockwise) — the
+        /// hex-union edge with its shallow between-cell notches sewn shut; the colliders and the
+        /// platform-detection polygon test follow it.</summary>
         public IReadOnlyList<(float X, float Z)> Outline { get; }
+
+        /// <summary>Flat floor triangles paving the sewn notches — walkable ground, never combat
+        /// cells (the combat grid reads <see cref="Cells"/> only).</summary>
+        public IReadOnlyList<((float X, float Z) A, (float X, float Z) B, (float X, float Z) C)> NotchFills { get; }
 
         /// <summary>The outline with edge midpoints inserted; pairs 1:1 with <see cref="RimRing"/>.</summary>
         public IReadOnlyList<(float X, float Z)> SubdividedOutline { get; }

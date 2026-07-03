@@ -70,7 +70,9 @@ namespace Combat.Animation
             HexCoordinates targetCell, 
             IBattlefield battlefield)
         {
-            Vector3 targetWorld = battlefield.HexToWorld(targetCell);
+            Vector3 targetWorld = UnitGrounding.Grounded(
+                battlefield.HexToWorld(targetCell),
+                UnitGrounding.FeetOffsetFor(character));
             _logger.Info(LogCategory.Combat,$"[CombatEntryAnimator] Animating entry from {character.position} to {targetWorld}");
             
             yield return _movementAnimator.AnimateMovement(character, character.position, targetWorld);

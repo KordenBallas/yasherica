@@ -33,7 +33,18 @@ namespace Combat.Core
         /// Current phase of the game.
         /// </summary>
         CombatPhase Phase { get; }
-        
+
+        /// <summary>
+        /// Current phase of the round (enemy plan → player act → enemy resolve).
+        /// </summary>
+        RoundPhase RoundPhase { get; }
+
+        /// <summary>
+        /// The enemy plans committed and revealed for this round, in resolution order.
+        /// </summary>
+        IReadOnlyList<EnemyIntent> EnemyIntents { get; }
+
+
         /// <summary>
         /// Gets a unit by its ID.
         /// </summary>

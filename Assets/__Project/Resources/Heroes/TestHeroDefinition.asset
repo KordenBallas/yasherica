@@ -17,4 +17,5 @@ MonoBehaviour:
   _description: 
   _maxHP: 100
   _prefab: {fileID: 4249768080361088730, guid: 14305794847987e468d09fa18bab28a7, type: 3}
-  _abilities: []
+  _abilities:
+  - {fileID: 11400000, guid: 19f7da520e6d4e8c962faf406ece53f0, type: 2}

@@ -197,8 +197,8 @@ namespace Character
             if (next == null)
                 yield break;
 
-            // Compute exact landing point on polygon
-            Vector3 landing = ComputeLandingOnPlatform(transform.position, dashDir, next);
+            // Land on the nearest walkable cell — always inside the wall colliders.
+            Vector3 landing = ComputeLandingOnPlatform(transform.position, next);
 
             yield return new WaitForSeconds(dashDelay);
 
@@ -299,111 +299,18 @@ namespace Character
         }
 
         /* =========================================================
-           COMPUTE LANDING ON NEXT PLATFORM (exactly as Demo)
+           COMPUTE LANDING ON NEXT PLATFORM
            ========================================================= */
 
-        Vector3 ComputeLandingOnPlatform(Vector3 start, Vector3 dir, IPlatform next)
+        Vector3 ComputeLandingOnPlatform(Vector3 start, IPlatform next)
         {
-            var verts = GetPlatformTopPolygon(next);
-            Vector2 P = new(start.x, start.z);
-            Vector2 D = new(dir.x, dir.z);
+            // Nearest walkable CELL to the start point: a cell center sits a full hex inradius
+            // inside the wall colliders, so the jump always lands in the pen (the old boundary-edge
+            // intersection landed exactly on the wall line).
+            if (next?.Visual == null)
+                return start;
 
-            float bestT = float.MaxValue;
-            Vector2 bestHit = Vector2.zero;
-            bool hitFound = false;
-
-            for (int i = 0; i < verts.Count; i++)
-            {
-                Vector3 A = verts[i];
-                Vector3 B = verts[(i + 1) % verts.Count];
-
-                Vector2 A2 = new(A.x, A.z);
-                Vector2 B2 = new(B.x, B.z);
-                Vector2 E = B2 - A2;
-
-                float det = D.x * (-E.y) - D.y * (-E.x);
-                if (Mathf.Abs(det) < 1e-6f) continue;
-
-                float t = ((A2.x - P.x) * (-E.y) - (A2.y - P.y) * (-E.x)) / det;
-                float u = ((A2.x - P.x) * D.y - (A2.y - P.y) * D.x) / det;
-
-                if (t > 0 && u >= 0 && u <= 1)
-                {
-                    hitFound = true;
-                    if (t < bestT)
-                    {
-                        bestT = t;
-                        bestHit = P + D * t;
-                    }
-                }
-            }
-
-            float y = next.Visual != null ? next.Visual.Position.y : start.y;
-
-            if (hitFound)
-                return new Vector3(bestHit.x, y, bestHit.y);
-
-            // If no exact intersection — project onto closest edge
-            return ProjectOntoPolygon(P, D, verts, y);
-        }
-
-        List<Vector3> GetPlatformTopPolygon(IPlatform platform)
-        {
-            if (platform?.Visual?.TopBoundary == null)
-                return new List<Vector3>();
-
-            var boundary = platform.Visual.TopBoundary;
-            Vector3 platformPos = platform.Visual.Position;
-            var worldVerts = new List<Vector3>();
-
-            // Transform to world space
-            foreach (var localPoint in boundary)
-            {
-                worldVerts.Add(platformPos + localPoint);
-            }
-
-            return worldVerts;
-        }
-
-        Vector3 ProjectOntoPolygon(Vector2 P, Vector2 D, List<Vector3> verts, float y)
-        {
-            float best = float.MaxValue;
-            Vector3 bestPos = Vector3.zero;
-
-            for (int i = 0; i < verts.Count; i++)
-            {
-                Vector3 A = verts[i];
-                Vector3 B = verts[(i + 1) % verts.Count];
-
-                // Compute closest point of the infinite ray to segment
-                Vector3 cp = ClosestPointRaySegment(P, D, A, B);
-
-                float d = (cp - new Vector3(P.x, y, P.y)).sqrMagnitude;
-                if (d < best)
-                {
-                    best = d;
-                    bestPos = cp;
-                }
-            }
-
-            return bestPos;
-        }
-
-        Vector3 ClosestPointRaySegment(Vector2 P, Vector2 D, Vector3 A, Vector3 B)
-        {
-            // Implementation: projection of segment to ray, clamp along segment
-            Vector2 A2 = new(A.x, A.z);
-            Vector2 B2 = new(B.x, B.z);
-            Vector2 E = B2 - A2;
-
-            float segLenSq = E.sqrMagnitude;
-            if (segLenSq < 1e-5f) return new Vector3(A2.x, A.y, A2.y);
-
-            float t = Vector2.Dot((P - A2), E) / segLenSq;
-            t = Mathf.Clamp01(t);
-
-            Vector2 p = A2 + E * t;
-            return new Vector3(p.x, A.y, p.y);
+            return PlatformAnchor.NearestCellWorld(next.Visual.Surface, next.Visual.Position, start);
         }
 
         /* =========================================================
@@ -415,7 +322,9 @@ namespace Character
             if (platform?.Visual == null) return;
 
             cc.enabled = false;
-            transform.position = platform.Visual.Position + Vector3.up * dashHeightOffset;
+            // Center CELL, not the raw centroid — a concave island's centroid can fall outside the pen.
+            transform.position = PlatformAnchor.CenterCellWorld(platform.Visual.Surface, platform.Visual.Position)
+                + Vector3.up * dashHeightOffset;
             cc.enabled = true;
 
             SetCurrentPlatform(platform);

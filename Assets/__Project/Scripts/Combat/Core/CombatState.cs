@@ -15,6 +15,8 @@ namespace Combat.Core
         public IPlayer CurrentPlayer { get; }
         public int TurnNumber { get; }
         public CombatPhase Phase { get; }
+        public RoundPhase RoundPhase { get; }
+        public IReadOnlyList<EnemyIntent> EnemyIntents { get; }
 
         private readonly IBattlefield _battlefield;
 
@@ -24,13 +26,17 @@ namespace Combat.Core
             IPlayer currentPlayer,
             int turnNumber = 1,
             CombatPhase phase = CombatPhase.Setup,
-            IBattlefield battlefield = null)
+            IBattlefield battlefield = null,
+            RoundPhase roundPhase = RoundPhase.EnemyPlan,
+            IReadOnlyList<EnemyIntent> enemyIntents = null)
         {
             Units = units ?? new List<IUnit>();
             Players = players ?? new List<IPlayer>();
             CurrentPlayer = currentPlayer;
             TurnNumber = turnNumber;
             Phase = phase;
+            RoundPhase = roundPhase;
+            EnemyIntents = enemyIntents ?? new List<EnemyIntent>();
             _battlefield = battlefield;
         }
         
@@ -61,40 +67,56 @@ namespace Combat.Core
         /// </summary>
         public CombatState WithUnits(IReadOnlyList<IUnit> newUnits)
         {
-            return new CombatState(newUnits, Players, CurrentPlayer, TurnNumber, Phase, _battlefield);
+            return new CombatState(newUnits, Players, CurrentPlayer, TurnNumber, Phase, _battlefield, RoundPhase, EnemyIntents);
         }
-        
+
         /// <summary>
         /// Creates a new game state with a single unit updated.
         /// </summary>
         public CombatState WithUpdatedUnit(IUnit updatedUnit)
         {
             var newUnits = Units.Select(u => u.Id == updatedUnit.Id ? updatedUnit : u).ToList();
-            return new CombatState(newUnits, Players, CurrentPlayer, TurnNumber, Phase, _battlefield);
+            return new CombatState(newUnits, Players, CurrentPlayer, TurnNumber, Phase, _battlefield, RoundPhase, EnemyIntents);
         }
-        
+
         /// <summary>
         /// Creates a new game state with updated current player.
         /// </summary>
         public CombatState WithCurrentPlayer(IPlayer newCurrentPlayer)
         {
-            return new CombatState(Units, Players, newCurrentPlayer, TurnNumber, Phase, _battlefield);
+            return new CombatState(Units, Players, newCurrentPlayer, TurnNumber, Phase, _battlefield, RoundPhase, EnemyIntents);
         }
-        
+
         /// <summary>
         /// Creates a new game state with incremented turn number.
         /// </summary>
         public CombatState WithNextTurn()
         {
-            return new CombatState(Units, Players, CurrentPlayer, TurnNumber + 1, Phase, _battlefield);
+            return new CombatState(Units, Players, CurrentPlayer, TurnNumber + 1, Phase, _battlefield, RoundPhase, EnemyIntents);
         }
-        
+
         /// <summary>
         /// Creates a new game state with updated phase.
         /// </summary>
         public CombatState WithPhase(CombatPhase newPhase)
         {
-            return new CombatState(Units, Players, CurrentPlayer, TurnNumber, newPhase, _battlefield);
+            return new CombatState(Units, Players, CurrentPlayer, TurnNumber, newPhase, _battlefield, RoundPhase, EnemyIntents);
+        }
+
+        /// <summary>
+        /// Creates a new game state with updated round phase.
+        /// </summary>
+        public CombatState WithRoundPhase(RoundPhase newRoundPhase)
+        {
+            return new CombatState(Units, Players, CurrentPlayer, TurnNumber, Phase, _battlefield, newRoundPhase, EnemyIntents);
+        }
+
+        /// <summary>
+        /// Creates a new game state with the round's committed enemy intents.
+        /// </summary>
+        public CombatState WithEnemyIntents(IReadOnlyList<EnemyIntent> intents)
+        {
+            return new CombatState(Units, Players, CurrentPlayer, TurnNumber, Phase, _battlefield, RoundPhase, intents);
         }
 
         /// <summary>
@@ -103,7 +125,7 @@ namespace Combat.Core
         /// </summary>
         public CombatState WithBattlefield(IBattlefield battlefield)
         {
-            return new CombatState(Units, Players, CurrentPlayer, TurnNumber, Phase, battlefield);
+            return new CombatState(Units, Players, CurrentPlayer, TurnNumber, Phase, battlefield, RoundPhase, EnemyIntents);
         }
 
         public bool IsPositionValid(HexCoordinates position)

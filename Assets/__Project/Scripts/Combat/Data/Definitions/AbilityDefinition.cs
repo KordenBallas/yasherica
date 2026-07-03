@@ -33,6 +33,10 @@ namespace Combat.Data.Definitions
         [Header("Effect Type")]
         [SerializeField] private AbilityEffectType _effectType = AbilityEffectType.Damage;
 
+        [Header("Displacement")]
+        [Tooltip("Cells a struck unit is pushed away from the caster along the line direction; 0 = no push (Line abilities only)")]
+        [SerializeField, Min(0)] private int _pushDistance;
+
         [Header("Visual")]
         [SerializeField] private Sprite _icon;
         [SerializeField] private string _animationTrigger;
@@ -45,6 +49,7 @@ namespace Combat.Data.Definitions
         public int RingRadius => _ringRadius;
         public int CooldownDuration => _cooldownDuration;
         public AbilityEffectType EffectType => _effectType;
+        public int PushDistance => _pushDistance;
         public Sprite Icon => _icon;
         public string AnimationTrigger => _animationTrigger;
     }

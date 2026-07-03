@@ -21,6 +21,7 @@ namespace Combat.Animation
         private ICombatController _combatController;
         private int _characterUnitId;
         private bool _isAnimating;
+        private float _feetOffset;
         private IGameLogger _logger;
 
         public void Initialize(
@@ -38,7 +39,9 @@ namespace Combat.Animation
             
             if (_characterTransform == null)
                 _characterTransform = transform;
-            
+
+            _feetOffset = UnitGrounding.FeetOffsetFor(_characterTransform);
+
             _combatController.OnStateChanged += OnCombatStateChanged;
             
             _logger?.Info(LogCategory.Combat,$"[CharacterCombatAnimator] Initialized for unit ID: {_characterUnitId}");
@@ -51,8 +54,10 @@ namespace Combat.Animation
             var characterUnit = newState.GetUnit(_characterUnitId);
             if (characterUnit == null) return;
             
-            // Check if position changed
-            Vector3 targetWorldPos = _battlefield.HexToWorld(characterUnit.Position);
+            // Check if position changed. The grounded target must match the grounded placement
+            // (CharacterCombatComponent), or the 0.1f threshold sees a permanent Y gap and loops.
+            Vector3 targetWorldPos = UnitGrounding.Grounded(
+                _battlefield.HexToWorld(characterUnit.Position), _feetOffset);
             float distance = Vector3.Distance(_characterTransform.position, targetWorldPos);
             
             if (distance > 0.1f)

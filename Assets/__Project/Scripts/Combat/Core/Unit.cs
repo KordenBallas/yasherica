@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Combat.Battlefield;
+using Combat.Config;
 
 namespace Combat.Core
 {
@@ -13,7 +14,7 @@ namespace Combat.Core
         public int Id { get; }
         public IPlayer Owner { get; }
         public HexCoordinates Position { get; }
-        public HexCoordinates FacingDirection { get; }
+        public HexDirection FacingDirection { get; }
         public int CurrentHP { get; }
         public int MaxHP { get; }
         public bool IsAlive => CurrentHP > 0;
@@ -51,12 +52,12 @@ namespace Combat.Core
             IReadOnlyList<ScheduledAbility> abilityQueue = null,
             IReadOnlyList<IStatusEffect> statusEffects = null,
             bool hasActedThisTurn = false,
-            HexCoordinates? facingDirection = null)
+            HexDirection facingDirection = HexDirection.E)
         {
             Id = id;
             Owner = owner;
             Position = position;
-            FacingDirection = facingDirection ?? new HexCoordinates(1, 0); // Default: East
+            FacingDirection = facingDirection;
             CurrentHP = currentHP;
             MaxHP = maxHP;
             Abilities = abilities ?? new List<IAbilityInstance>();
@@ -98,7 +99,7 @@ namespace Combat.Core
         /// <summary>
         /// Creates a new unit with updated facing direction.
         /// </summary>
-        public Unit WithFacingDirection(HexCoordinates newFacingDirection)
+        public Unit WithFacingDirection(HexDirection newFacingDirection)
         {
             return new Unit(Id, Owner, Position, CurrentHP, MaxHP, Abilities, AbilityQueue, StatusEffects, HasActedThisTurn, newFacingDirection);
         }

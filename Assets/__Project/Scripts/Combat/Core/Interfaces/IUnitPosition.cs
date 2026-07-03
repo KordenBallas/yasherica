@@ -1,4 +1,5 @@
 using Combat.Battlefield;
+using Combat.Config;
 
 namespace Combat.Core
 {
@@ -14,9 +15,9 @@ namespace Combat.Core
         HexCoordinates Position { get; }
 
         /// <summary>
-        /// Direction the unit is facing as a hex offset (e.g., (1,0) for East).
-        /// Represents one of the six hex neighbor directions.
+        /// Direction the unit is facing. Directional (Line) abilities fire along it;
+        /// there is one facing for the whole ability queue.
         /// </summary>
-        HexCoordinates FacingDirection { get; }
+        HexDirection FacingDirection { get; }
     }
 }

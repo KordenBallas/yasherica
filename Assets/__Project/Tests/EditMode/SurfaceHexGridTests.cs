@@ -51,6 +51,8 @@ namespace Tests.EditMode
                 var (x, z) = surface.GetCellCenterLocal(cell);
                 Vector3 world = grid.HexToWorld(cell);
                 Assert.AreEqual(Center.x + x, world.x, 1e-4f);
+                // The grid contract: Y is the true surface top, never doubled (regression 9d2f909).
+                Assert.AreEqual(Center.y, world.y, 1e-4f);
                 Assert.AreEqual(Center.z + z, world.z, 1e-4f);
             }
         }
@@ -104,6 +106,7 @@ namespace Tests.EditMode
                 Vector3 local = grid.GetCellPosition(cell);
                 Vector3 world = grid.HexToWorld(cell);
                 Assert.AreEqual(world.x, Center.x + local.x, 1e-4f);
+                Assert.AreEqual(0f, local.y, 1e-4f);
                 Assert.AreEqual(world.z, Center.z + local.z, 1e-4f);
             }
         }

@@ -82,9 +82,10 @@ dependency arrows are `LevelGeneration → Combat.Battlefield` and `Platform →
 | Type | Responsibility |
 |---|---|
 | `HexMetrics` | Axial↔local conversion (exact port of the legacy grid formulas), corner offsets, edge-aligned neighbor order, cube rounding |
-| `PlatformHexSurface` | Immutable: sorted `Cells`, `HexSize`/`Orientation`, centroid `CenterOffset`, `CenterCell`, walkable `Outline`, `SubdividedOutline`+`RimRing` (index-aligned), empty `BlockedCells` seam (R9) |
+| `PlatformHexSurface` | Immutable: sorted `Cells`, `HexSize`/`Orientation`, centroid `CenterOffset`, `CenterCell`, stitched walkable `Outline` + `NotchFills` (floor patches paving the sewn notches), `SubdividedOutline`+`RimRing` (index-aligned), empty `BlockedCells` seam (R9) |
 | `PlatformSurfaceGenerator` | Seeded weighted blob growth to the profile's cell count (compactness 0–8), hole fill (R3), `guaranteedMinCells` floor (R6) |
-| `HexOutlineExtractor` | Border segments (cell edges with no neighbor) stitched via quantized endpoints into one CCW loop |
+| `HexOutlineExtractor` | Border segments (cell edges with no neighbor) joined via quantized endpoints into one CCW loop |
+| `OutlineStitcher` | Sews shallow between-cell V-notches out of the raw outline (≤ 0.75·hexSize deep; deeper bays keep their shape) and emits the flat fill triangles that pave them |
 | `PlatformRimBuilder` | Outline midpoint subdivision + outward offset `rimWidth·(1±jitter)` + tangential wobble (R4) |
 | `PlatformShapeSettings` / `ShapeProfile` | Clamped dials record mapped from the SO |
 | `PlatformContentKindResolver` | `GraphNode` → Empty/Loot/Combat/Npc; `Type == Combat` wins (covers story-with-required-combat) |
@@ -100,15 +101,22 @@ dependency arrows are `LevelGeneration → Combat.Battlefield` and `Platform →
 2. **`AreaGenerator.CreatePlatformFromNode`**: resolves the content kind, derives the per-platform
    PRNG (`LootSeed.Derive(runSeed, "platform-shape:{nodeId}")` → `DeterministicRandom` — its own
    stream, decoupled from the director's so shape draws never shift narrative picks), grows the
-   `PlatformHexSurface` (battlefield-minimum floor when the kind is Combat), sets
-   `PlatformVisual.Surface`, `TopBoundary` (= outline, final from birth), `Size` (= outline bbox for
-   the layout cursor), and the cursor-based `Position` (height deviation drawn from the same
-   per-platform stream; Perlin height seed derives from the run seed).
+   `PlatformHexSurface` (battlefield-minimum floor when the kind is Combat; the generator sews the
+   raw hex-union boundary with `OutlineStitcher` before growing the rim, so `Surface.Outline` is
+   the stitched walkable edge and `Surface.NotchFills` pave the sewn spans), sets
+   `PlatformVisual.Surface`, `TopBoundary` (= the stitched outline, final from birth), `Size`
+   (= outline bbox for the layout cursor), and the cursor-based `Position` (height deviation drawn
+   from the same per-platform stream; Perlin height seed derives from the run seed).
 3. **`PlatformView`** builds the mesh via `PlatformHexSurfaceMeshBuilder` (per-cell shallow-dome
    tops — the R2 "muted" treatment: cell borders read as soft valleys; `CellInset` 0 = flat — plus
-   the drooping rim strip, side skirt, and a mirrored concave-safe bottom), the `MeshCollider`, and
-   `PlatformColliderBuilder` walls **on the walkable outline** — the rim lies beyond the walls,
-   which is what makes it physically non-walkable (R4).
+   flat `NotchFills` patches so the floor continues across the sewn notches, the drooping rim strip
+   starting at the stitched outline, side skirt, and a mirrored concave-safe bottom), the
+   `MeshCollider`, and `PlatformColliderBuilder` walls on the stitched `TopBoundary` — the rim lies
+   beyond the walls, which is what makes it physically non-walkable (R4). Characters land/teleport
+   via `PlatformAnchor` (center cell for spawns and
+   instant moves, nearest cell for neighbor jumps) — cell centers sit a full hex inradius inside
+   the walls, so a jump can never strand the hero outside the pen (the raw centroid
+   `Visual.Position` may fall outside every cell on a concave union).
 4. **Combat entry** (`CombatActiveState.OnEnter`): `ICombatController.InitializeBattlefield(
    platform.Visual.Surface, platform.Visual.Position)` → `Battlefield.Initialize(surface, center,
    hexConfig)` → `SurfaceHexGrid` — the grid's cells ARE the surface cells (R1); hex size and
@@ -145,7 +153,7 @@ Loaded from `Resources/LevelGeneration/PlatformShapeConfig.asset` (or wired on t
 | `_battlefieldMinimumCells` | int | Whole-cell floor for every combat-capable platform (R6) | 12 |
 | `_rimWidth` | float | Base outward width of the decorative rim | 1.2 |
 | `_rimJitterPercent` | int 0–100 | Per-vertex rim irregularity (silhouette dial: tidy→ragged) | 35 |
-| `_rimDropHeight` | float | How far the rim droops below the walkable top | 0.4 |
+| `_rimDropHeight` | float | How far the rim droops below the walkable top (clamped to `_platformThickness`) | 0.4 |
 | `_platformThickness` | float | Extrusion below the top | 1 |
 | `_gapBetweenPlatforms` | float | Layout gap between neighboring platforms | 2 |
 | `_heightDeviation` | float | Max height deviation between consecutive platforms | 1.5 |
@@ -171,7 +179,8 @@ Referenced assets: none. (The crisp combat cell visual is the pre-existing
 ### Dial the island silhouette (rim)
 
 1. Same asset: `_rimWidth` (how far the dressing extends), `_rimJitterPercent` (tidy → ragged),
-   `_rimDropHeight` (how much the edge droops).
+   `_rimDropHeight` (how much the edge droops; at `_platformThickness` the rim merges with the
+   underside).
 2. The rim is visual only — walkability and combat are untouched by any rim value.
 
 ### Change the tiling scale/orientation
@@ -206,24 +215,35 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
 - `PlatformShapeSettingsTests` / `PlatformShapeConfigMapperTests` — clamping, defaults parity.
 - `PlatformContentKindResolverTests` — node→kind matrix incl. story-with-required-combat → Combat.
 - `SurfaceHexGridTests` — grid cells ≡ surface cells, `HexToWorld`/`WorldToHex` round-trip (R1),
-  membership-based boundary.
+  membership-based boundary, and the Y contract: `HexToWorld` returns the true surface top,
+  `GetCellPosition` is a flat local offset (the `9d2f909` regression guard).
+- `UnitGroundingTests` — feet-offset math (centered/raised/feet-pivot capsules, world scale) and
+  the grounded-position contract.
+- `OutlineStitcherTests` — shallow notch sewn + paved with an up-facing fill / deep bay kept,
+  convex passthrough, winding-agnostic, degenerate inputs.
+- `PlatformAnchorTests` — center-cell anchor, nearest-cell landing minimizes XZ distance and is
+  always an exact cell center, missing-surface fallback.
+- `PlatformHexSurfaceMeshBuilderTests` (Unity-side) — walkable outline stays on the top plane, rim
+  ring lies only at `-rimDrop` + underside, notch fills pave both the top and the underside, mesh
+  bottoms out at `-thickness`, and the full-drop clamp collapses the skirt cleanly.
 
-The pure-C# suites run outside Unity via the bundled-Roslyn workaround; verified green 2026-07-02
-(32 pure + the Unity-side suites compile-checked). Unity-side behavior (mesh look, muted→crisp
-feel, camera at arena scale) is verified manually in play mode.
+The pure-C# suites run outside Unity via the bundled-Roslyn workaround; verified green 2026-07-03
+(grid + grounding + stitcher + anchor + generator + extractor suites, 36/36; the Unity-side suites
+compile-checked). Unity-side behavior (mesh look, muted→crisp feel, camera at arena scale) is
+verified manually in play mode.
 
 ---
 
 ## 6. Known limitations / open points
 
-- **Regression — invisible wall inside the visible island.** The wall colliders sit on the walkable
-  outline while the rim extends beyond it, so the hero stops with ground still visibly continuing
-  (pre-rework walls coincided with the visual edge, commit `7201bb2`). The intended edge feel (rim
-  reads as a drop-off vs the physical stop moving to the rim's outer ring) is undecided — ROADMAP.
-- **Regression — units sink waist-deep in combat.** Unit placement reads `Battlefield.HexToWorld`
-  directly and was implicitly calibrated against the legacy grids' accidentally doubled Y;
-  `SurfaceHexGrid` (commit `9d2f909`) returns the true surface height, dropping units by the
-  platform's height. Needs explicit grounding (surface top + feet/pivot offset) — ROADMAP.
+- **Unit grounding assumes visual feet == collider bottom.** `UnitGrounding` derives the
+  feet/pivot offset from the unit's authored collider (`CharacterController`, else
+  `CapsuleCollider`); a model whose visual feet don't coincide with its collider bottom would
+  stand off the ground. A per-model authored override is the extension point — ROADMAP.
+- **Notch fills are walkable but never combat cells.** The sewn-notch floor patches
+  (`NotchFills`) are real ground under the hero's feet, yet the combat grid reads whole `Cells`
+  only — a character standing on a fill at combat entry is pulled to the nearest cell (existing
+  behavior). The hex tiling read is also slightly diluted there: fills are flat, cells are domed.
 - **Muted-tiling treatment is geometry-MVP.** Per-cell shallow domes read as soft valleys under a
   lit material; the real muted→crisp render treatment (shader/VFX emphasis on combat entry) is
   tech-art (ROADMAP, render-look bible).

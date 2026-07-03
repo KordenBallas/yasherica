@@ -43,8 +43,10 @@ namespace Combat.Player
         
         private void Update()
         {
-            // Only process input if it's this player's turn
+            // Only process input during this player's Act phase
             if (_gameController == null || _gameController.TurnManager.CurrentPlayer.Id != _player.Id)
+                return;
+            if (_gameController.CombatState == null || _gameController.CombatState.RoundPhase != RoundPhase.PlayerAct)
                 return;
             
             // Handle mouse click for unit selection
@@ -131,14 +133,15 @@ namespace Combat.Player
         }
         
         /// <summary>
-        /// Requests scheduling an ability.
+        /// Requests scheduling an ability. Directional abilities fire along the unit's
+        /// facing at execution time — no target is chosen here.
         /// </summary>
-        public void RequestScheduleAbility(int abilityId, AbilityTarget target)
+        public void RequestScheduleAbility(int abilityId)
         {
             if (_selectedUnit == null)
                 return;
-            
-            var action = new ScheduleAbilityAction(_player, _selectedUnit.Id, abilityId, target);
+
+            var action = new ScheduleAbilityAction(_player, _selectedUnit.Id, abilityId);
             OnActionRequested?.Invoke(action);
             
             var result = _gameController.ProcessAction(action);

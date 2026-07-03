@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Combat.Battlefield;
+using Combat.Config;
 using Combat.Controller;
 using Combat.Core;
 using Combat.Data;
@@ -20,6 +21,7 @@ namespace Combat.Enemy
     {
         private Unit _internalUnit;
         private ICombatController _combatController;
+        private float _feetOffset;
         [Inject] private IGameLogger _logger;
 
         // IUnitIdentity
@@ -28,7 +30,7 @@ namespace Combat.Enemy
 
         // IUnitPosition
         public HexCoordinates Position => _internalUnit?.Position ?? new HexCoordinates(0, 0);
-        public HexCoordinates FacingDirection => _internalUnit?.FacingDirection ?? new HexCoordinates(1, 0);
+        public HexDirection FacingDirection => _internalUnit?.FacingDirection ?? HexDirection.E;
 
         // IUnitHealth
         public int CurrentHP => _internalUnit?.CurrentHP ?? 0;
@@ -63,6 +65,7 @@ namespace Combat.Enemy
             EnemyData enemyData)
         {
             _combatController = combatController;
+            _feetOffset = UnitGrounding.FeetOffsetFor(transform);
 
             // Create internal unit with enemy combat stats and abilities
             _internalUnit = new Unit(
@@ -113,7 +116,8 @@ namespace Combat.Enemy
             // Update GameObject visual position to match new hex position
             if (_combatController?.Battlefield != null)
             {
-                Vector3 worldPosition = _combatController.Battlefield.HexToWorld(Position);
+                Vector3 worldPosition = UnitGrounding.Grounded(
+                    _combatController.Battlefield.HexToWorld(Position), _feetOffset);
                 transform.position = worldPosition;
                 _logger?.Info(LogCategory.Combat,$"[EnemyCombatComponent] Unit {Id} synchronized: Position={Position}, WorldPos={worldPosition}, HP={CurrentHP}/{MaxHP}, Alive={IsAlive}");
             }

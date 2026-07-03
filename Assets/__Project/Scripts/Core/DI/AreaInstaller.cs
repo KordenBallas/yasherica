@@ -338,8 +338,8 @@ namespace Core.DI
             Container.Bind<EnemyCombatIntegrator>()
                 .AsSingle();
 
-            // AI turn controller
-            Container.Bind<Combat.Player.AITurnController>()
+            // Enemy round controller: paces the Resolve phase (committed intents fire one by one)
+            Container.Bind<Combat.Player.EnemyRoundController>()
                 .AsSingle();
         }
 
@@ -362,6 +362,15 @@ namespace Core.DI
             Container.Bind<IActionExecutor>().To<ActionExecutor>().AsSingle();
             Container.Bind<IActionValidator>().To<ActionValidator>().AsSingle();
 
+            // Telegraph support: outcome preview (ghost data), ability-definition lookup
+            // (icon source), and the unit-visual registry presentation reads.
+            Container.Bind<Combat.Execution.IAbilityOutcomeCalculator>()
+                .To<Combat.Execution.AbilityOutcomeCalculator>().AsSingle();
+            Container.Bind<Combat.Data.Providers.IAbilityDefinitionCatalog>()
+                .To<Combat.Data.Providers.AbilityDefinitionCatalog>().AsSingle();
+            Container.Bind<Combat.View.ICombatUnitViewRegistry>()
+                .To<Combat.View.CombatUnitViewRegistry>().AsSingle();
+
             // Battlefield integration
             Container.Bind<CombatBattlefield>().AsSingle();
 
@@ -372,6 +381,11 @@ namespace Core.DI
         private void InstallTurnManagementBindings()
         {
             Container.Bind<ITurnManager>().To<TurnManager>().AsSingle();
+
+            // Plan → Act → Resolve round: enemies commit intents up front (planner) and the
+            // committed intents fire verbatim at Resolve (resolver).
+            Container.Bind<Combat.TurnManagement.EnemyIntentPlanner>().AsSingle();
+            Container.Bind<Combat.Execution.EnemyIntentResolver>().AsSingle();
         }
 
         private void InstallCombatControllerBindings()

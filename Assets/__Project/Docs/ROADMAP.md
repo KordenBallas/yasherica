@@ -60,14 +60,12 @@ a step is a prerequisite brief, not a design gap. See `product-requirements/READ
    place" half is the M5 Site-dressing item, which now has its `SiteStamp` data seam. **Biome
    visual styles** (`biome-visual-styles.md`) remains open.
 
-**Track C — Combat (one epic — build together, not piecemeal)**
-1. **Hero facing** (`combat-hero-facing.md`) + **enemy intent phase** (`combat-turn-intent-phase.md`) —
-   the structural reshape (facing-relative aiming + Plan→Act→Resolve with locked enemy intent).
-2. **Ability ghost telegraph** (`combat-ability-ghost-telegraph.md`) — presentation on top (needs the
-   intent phase for the enemy half, and facing for direction).
-   > Half-states misbehave (facing without the intent phase; ghost without intent), so take Track C as a
-   > single combat pass, well-tested. It reshapes `TurnManager` (round-robin → phase model) + the aiming
-   > model together.
+**Track C — Combat — DONE (2026-07-03)**: all three briefs (`combat-hero-facing.md`,
+`combat-turn-intent-phase.md`, `combat-ability-ghost-telegraph.md`) shipped as one combat pass —
+facing-relative aiming + Plan→Act→Resolve with locked/seeded enemy intents + overhead plan icons +
+the honest full-outcome ghost with push displacement. See `combat-round-and-telegraph.md`,
+`## Combat Experience`, and the CHANGELOG. Remaining polish (ghost animation, move-intent
+presentation, telegraph style SO, pull/dash kinds) is filed under `## Combat Experience`.
 
 Tracks A / B / C are independent and can proceed in parallel; Track A already has work in flight.
 
@@ -374,7 +372,10 @@ Quest-as-reward (priority — `design/narrative/quest-as-reward.md`, `quest-subs
   **hidden silhouette/"?"** (exact item never named). **Inspect** reveals the quest detail (reward
   stays hidden). Reuses the artifact / mutation-card grammar (glow=tier, colour=belonging). **Now
   unblocked** by the shipped artifact tier; the honest glow still assumes the "reward rolled by
-  tier+archetype-bias" item above. *(quests + narrative)*
+  tier+archetype-bias" item above. *(Implementation plan drafted 2026-07-03, deferred by priority:
+  `C:\Users\korde\.claude\plans\quest-offer-zany-swan.md` — declares reward tier + archetype-bias on
+  `QuestDefinition`, reuses the Mutation archetype tints for belonging, hover-popover inspect.)*
+  *(quests + narrative)*
 - [ ] `[arch]` **Attack card — the Monster verb.** A combat card present on **eligible NPCs only** (NPC
   may also self-initiate) that, on pick: closes the actor's thread (director D13), routes corpse-loot to
   the **separate** combat/mutation loot channel (`LootRollService` — never balance the fork on it), writes
@@ -434,22 +435,25 @@ System doc: `platform-generation.md`.
   `platform-generation.md`.)*
 
 Follow-ups from the platform-hex rework (doc §6):
-- [ ] `[arch]` **Regression — hero stops at an invisible wall inside the visible island.** Since the
-  traversal cutover (`7201bb2`) the wall colliders sit on the **walkable outline** (the last full
-  cell's edge) while the decorative rim extends beyond it, so the hero bumps into an invisible wall
-  with ground still visibly continuing under his feet — pre-rework the walls coincided with the
-  visual edge. Decide the intended feel and fix: make the walkable edge read as the edge (rim
-  clearly lower/broken/steeper via `_rimDropHeight`/rim treatment), or move the physical stop to the
-  rim's outer ring while keeping combat cells inside — do not silently let the rim become walkable
-  (it must never be a combat cell, brief §4). *(platform)*
-- [ ] `[arch]` **Regression — units sink waist-deep into the battlefield.** Hero and enemy models
-  sit half-body into the platform in combat since `9d2f909`: unit placement reads
-  `Battlefield.HexToWorld` directly (`CharacterCombatComponent`, `EnemyCombatIntegrator`,
-  `CombatEntryAnimator`, `CharacterCombatAnimator`), and the legacy grids returned an accidentally
-  **doubled** Y (`Vector3(x, center.y, z) + center` on top of a stored y=0 local) that placement was
-  implicitly calibrated against; `SurfaceHexGrid` now returns the true surface height
-  (`y = center.y`), dropping every unit by the platform's height. Fix by grounding units explicitly
-  (surface top + a feet/pivot offset per model), not by restoring the double-add. *(combat + platform)*
+- [x] `[arch]` **Regression — hero stops at an invisible wall inside the visible island.** *(Done —
+  PO decision after play-test (2026-07-03): keep the drooping rim look; fix the physics instead.
+  `OutlineStitcher` (inside `PlatformSurfaceGenerator`) sews the between-cell V-notches out of the
+  walkable outline and paves them with `NotchFills` floor patches — walls / registry / AI boundary
+  follow the smooth sewn edge, the floor continues under the hero across the notches, and the rim
+  droops from the stitched edge. `PlatformAnchor` lands jumps on the nearest walkable cell center
+  and teleports/spawns on the center cell — always inside the pen, replacing the mesh-edge and
+  boundary-line landing probes that measured the rim beyond the walls. The rim stays non-walkable
+  and never a combat cell; fills are walkable but never combat cells. See CHANGELOG;
+  `platform-generation.md`.)* *(platform)*
+- [x] `[arch]` **Regression — units sink waist-deep into the battlefield.** *(Done — new
+  `UnitGrounding` grounds units explicitly: surface top from `HexToWorld` + a feet/pivot offset
+  derived from the unit's own authored collider (CharacterController, else CapsuleCollider),
+  applied at the five unit placement/animation sites; `SurfaceHexGrid` keeps returning the true
+  surface top, now test-asserted. No double-add restored, no per-prefab magic numbers. See
+  CHANGELOG; `platform-generation.md`.)* *(combat + platform)*
+- [ ] `[arch]` **Unit grounding — per-model override for feet ≠ collider bottom.** `UnitGrounding`
+  assumes a model's visual feet coincide with its collider bottom; a future rig where they differ
+  needs an authored per-model offset override (doc §6 lists the limitation). *(combat + platform)*
 - [ ] `[content]` **Muted→crisp render treatment (tech-art).** Replace the geometry-MVP dome seams
   with the real shader/VFX emphasis on combat entry (ties the render-look bible + M4 telegraph VFX
   language). *(platform + tech-art)*
@@ -686,46 +690,86 @@ Known limitations (from `character-locomotion.md` §6):
 
 ## Combat Experience
 
-Enhancements to the implemented combat (extend `ability-subsystem.md` / a new combat-UI doc when built):
-
-**Verified PO build brief: `product-requirements/combat-ability-ghost-telegraph.md`** — one mechanism
-unifying the first two items below **and** the backlog "Enemy-intent telegraph": a **ghost preview of
-an ability's full outcome** plays once on queue-submit (caster action + affected-unit
-displacement/damage, against the **current** board) then fades; each unit (player **and** enemy) shows
-its **queued abilities as icons above it**; **hovering an icon replays that ability's ghost**
-(including enemy icons → read enemy intent).
-- [ ] `[arch]` **M4 — Ability-queue display (icons above the unit).** Show each unit's queued
-  abilities (`Unit.AbilityQueue` / `ScheduledAbility`) as ordered **icons above the unit** (not only a
-  HUD list), for both player and enemy units — the hover-to-replay anchor. (brief §5)
-- [ ] `[arch]` **M4 — Ability ghost telegraph.** Replace the "where"-only affected-cell highlight-only
-  telegraph with a **ghost of the full outcome** on submit (and on icon-hover replay): caster ghost via
-  the ability's `AnimationTrigger` + affected-unit displacement/damage ghosts, computed against the
-  current board. Existing aim-time cell highlight (`CombatAbilityPresenter.ShowAffectedCells`) stays as
-  the "where" layer. Category iconography (advance/jump/area/hook/ring) is an optional supplement, not
-  the primary telegraph. **Open:** ability data must express displacement (push/pull/dash) so the ghost
-  can show resulting positions; queue-simulation preview is a later upgrade. (brief §1–§4, §6–§7)
-- [ ] `[arch]` **M4 — Hero/unit facing drives ability direction (global facing).** *(Verified PO
-  brief: `product-requirements/combat-hero-facing.md`.)* Directional abilities fire relative to the
-  **unit's facing**, not a per-ability baked direction: **one facing for the whole queue** — turning
-  the unit **re-points the entire volley + all its ghosts**. Facing is **free/unlimited** to change;
-  ring abilities are unaffected; enemies carry a **committed facing** in their intent (locked).
-  Reuse the existing direction input (`CombatAbilityPresenter.UpdateAimDirection`) to **rotate the
-  unit** instead of baking `AbilityTarget.ForDirection` per schedule; `AbilityTarget` for directional
-  abilities becomes facing-relative and a `Facing` state moves onto the unit. Anatomy legibility
-  (Pillar 4). Per-ability aiming is intentionally dropped; "turn as a queued step" (multi-directional
-  volley) is a deferred escape hatch. *(combat; pairs with the intent phase + ghost telegraph)*
+**Track C shipped (2026-07-03)** — the three verified briefs (`combat-hero-facing.md`,
+`combat-turn-intent-phase.md`, `combat-ability-ghost-telegraph.md`) were built as one combat pass;
+see the new system doc **`combat-round-and-telegraph.md`** + CHANGELOG.
+- [x] `[arch]` **M4 — Turn structure: enemy intent phase (Plan → Act → Resolve).** *(Done —
+  `RoundPhase` + `EnemyIntent` on `CombatState`; `EnemyIntentPlanner` decides every enemy up front
+  in UnitId order with seeded decision makers (`combat-ai:{enemyId}`, same seed → same plans);
+  `EnemyIntentResolver` fires committed cells/facing verbatim — dodged blows whiff, blocked moves
+  fizzle, never re-targets; player-then-enemies order; `EnemyRoundController` paces the resolve.
+  Also fixed the pre-existing gap where AI-scheduled abilities never fired. See CHANGELOG;
+  `combat-round-and-telegraph.md` R1–R7.)*
+- [x] `[arch]` **M4 — Hero/unit facing drives ability direction (global facing).** *(Done —
+  `Unit.FacingDirection` (`HexDirection`) is the single directional state; aim input rotates the
+  unit via free unlimited `ChangeDirectionAction` (validator free-action gate); execution reads the
+  live facing so turning re-points the whole volley; `AbilityTarget`/`RetargetAbilityAction`
+  deleted; AI turn-and-schedules via `FacingToSet`; `UnitFacingRotator` for model legibility.
+  See CHANGELOG; `ability-subsystem.md` R4–R8, R11.)*
+- [x] `[arch]` **M4 — Ability-queue display (icons above the unit).** *(Done — per-unit overhead
+  icon rows for the player's queue in order AND every enemy's committed intent from the Plan-phase
+  reveal (`»` glyph for moves); `UnitPlanIconsPresenter` + `UnitOverheadIconsView` +
+  `AbilityDefinitionCatalog` + `CombatUnitViewRegistry`. See CHANGELOG;
+  `combat-round-and-telegraph.md` R9.)*
+- [x] `[arch]` **M4 — Ability ghost telegraph.** *(Done — one-shot translucent full-outcome ghost
+  on queue-submit + hover-to-replay on any plan icon (enemy intents included), computed by the
+  pure `AbilityOutcomeCalculator` whose predictions provably match execution; displacement entered
+  the data model as `_pushDistance` (push away from caster) with `DisplacementResolver` shared by
+  execution and preview; the cell highlight stays as the "where" layer. Caster ghost is a static
+  clone — `AnimationTrigger` playback is the tech-art follow-up below. See CHANGELOG;
+  `combat-round-and-telegraph.md` R10–R14.)*
 - [ ] `[arch]` **M4 — Smarter ability-using enemy AI.** Improve `TacticalAI` to choose and aim
-  abilities well (target selection, area value, direction), beyond the current scoring.
-- [ ] `[arch]` **M4 — Turn structure: enemy intent phase (Plan → Act → Resolve).** *(Verified PO
-  brief: `product-requirements/combat-turn-intent-phase.md`.)* The **structure prerequisite** for the
-  ghost telegraph's enemy-intent half. Replace the round-robin, decide-and-act-instantly flow
-  (`TurnManager` per-player + `AITurnController` deciding+executing on the AI's turn) with a **phase
-  round**: (1) **Plan** — every enemy decides up front and **reveals a locked plan**; (2) **Act** —
-  the player queues/executes seeing those plans; (3) **Resolve** — enemy committed actions **fire as
-  shown** (locked: they whiff if the player dodged, they do not re-target). **Resolution order:
-  player then enemies** (initiative-based order deferred). The AI **scoring** (`TacticalAI`) is
-  unchanged — only decide-timing (up front) + commitment (lock+reveal) change. Deterministic per seed.
-  *(combat; prerequisite of the Ability ghost telegraph above)*
+  abilities well (target selection, area value, direction), beyond the current scoring — today it
+  scores all six facings equally, so committed facings break ties toward the first direction.
+
+Follow-ups from Track C (doc §6):
+- [ ] `[arch]` **More displacement kinds: pull / dash / hook.** Push (away from caster, Line only)
+  is the only displacement; pull-toward, caster dashes, and hooks need their own data semantics +
+  executor/preview support. *(combat)*
+- [ ] `[arch]` **Ring-shape push semantics.** `_pushDistance` on a Ring ability is ignored (no
+  line direction); define radial push if a design wants it. *(combat)*
+- [ ] `[content]` **Ghost caster animation (tech-art).** Play the ability's `AnimationTrigger` on
+  the ghost clone (today: static clone); ties the M4 telegraph VFX language + render-look bible.
+  *(combat + tech-art)*
+- [ ] `[arch]` **Queue-simulation preview.** Ghosts run against the current board (brief-accepted);
+  a "dry-run the queue then preview" upgrade would make chained previews exact. *(combat)*
+- [ ] `[arch]` **Initiative/speed-based resolution order.** Fixed player-then-enemies today; some
+  fast enemies acting before the player is a deferred enhancement. *(combat)*
+- [ ] `[content]` **Move-intent presentation.** Committed enemy moves show a placeholder `»` glyph
+  and the destination cell is not drawn on the board. *(combat)*
+- [ ] `[debt]` **`TelegraphStyle` constants → config SO.** Icon sizes/heights and ghost fade
+  timings are code constants; promote to an authorable asset on the next combat-UI pass. *(combat)*
+
+## Arena Mode (Multiplayer)
+
+**Verified PO build brief: `product-requirements/arena-mode-mvp.md`.** Design intent in
+`design/arena-mode.md`. A **secondary combat mode** on Pillar 4 only (no narrative/mutation/crafting):
+a main menu with two modes and a networked free-for-all fight on one platform, reusing the combat
+engine and the early Netcode-for-GameObjects scaffold already under
+`Scripts/Combat/Networking/` (`CombatNetworkManager`, `NetworkCombatStateSync`, `NetworkActionSender`,
+`ActionSerializer`; the combat domain already models a `Players` list, not player-vs-AI).
+
+- [ ] `[arch]` **Main menu + mode flow.** Boot into a main menu with two modes: **Journey** (→ the
+  current combat/exploration scene, unchanged — a dedicated Hub is a later need, not built here) and
+  **Arena** (→ the networked Arena scene). *(menu + area)*
+- [ ] `[arch]` **Arena FFA session.** On the existing NGO scaffold: **2–4 players**, one player
+  **hosts** and others **join by address** (no lobby/matchmaking/ranking/reconnect), **one arena
+  platform**, a **default hero** spawned per player at distinct start positions (no hero/deck select
+  yet). *(networking + combat)*
+- [ ] `[arch]` **Round = hidden simultaneous commit → simultaneous resolve.** Each player plans their
+  queue **blind** (no player sees another's queue while planning), everyone **locks in**, then all
+  committed queues **resolve together** in the one round — the **symmetric** counterpart to the
+  asymmetric PvE model in `combat-turn-intent-phase.md`. **Deterministic per seed**; a committed action
+  **whiffs** (never silently re-targets) if its target moved; simultaneous FFA conflicts (same-hex,
+  mutual hits) resolve by a **deterministic rule** (exact edge rules are a combat-design detail).
+  Abilities themselves are unchanged — only round timing/commitment differ. *(combat)*
+- [ ] `[arch]` **Win = last hero standing.** A defeated player is out (spectate/leave); the match ends
+  when one hero remains. *(combat)*
+- [ ] `[content]` **Deferred (out of the MVP brief).** Deck of run-snapshot heroes + character
+  selection (a separate design pass — conflicts with the Hades death/reform frame, see
+  `design/arena-mode.md`); PvP-specific balance / whether Arena bodies are PvE snapshots or a separate
+  roster; matchmaking/lobby/ranking/reconnect/late-join; a dedicated Hub scene for the Journey branch;
+  FFA variants beyond last-standing (rounds, teams, scoring); spectator polish. *(design + arch)*
 
 ## Inventory Subsystem
 
@@ -841,10 +885,10 @@ See `dev-tools.md` for the implemented overlay.
   brightness by rarity), a flip animation (today: instant face toggle), tooltip styling.
 - [ ] `[content]` Animated idle pose for the mutation card's mini-model preview (today: unanimated
   bind pose); consider a persistent re-swap clone if per-hover assembly ever stutters.
-- [ ] `[arch]` Enemy-intent telegraph (show enemies' planned abilities) for combat readability.
-  *(Now delivered by the ghost telegraph — enemy queued-ability icons + hover-to-replay ghost — in
-  `product-requirements/combat-ability-ghost-telegraph.md` / Combat Experience; kept here only for the
-  turn-flow dependency that surfaces the enemy plan ahead of resolution.)*
+- [x] `[arch]` Enemy-intent telegraph (show enemies' planned abilities) for combat readability.
+  *(Done — delivered by Track C: the Plan phase reveals every enemy's committed intent as an icon
+  above it, and hovering the icon replays the committed cast's ghost. See CHANGELOG;
+  `combat-round-and-telegraph.md` R9–R11.)*
 - [ ] `[content]` Biome ↔ archetype affinity: bias biome loot so a biome nudges the player toward
   certain archetypes, tightening the biome → artifact → mutation loop.
 - [ ] `[content]` Quest log UI surfacing the progression record (active/completed/failed).

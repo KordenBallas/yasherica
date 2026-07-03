@@ -129,13 +129,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
             currentPlatform = entry;
             // Spawn over the center CELL, not the raw centroid — a concave island's centroid can fall
             // outside every cell.
-            Vector3 spawnOffset = Vector3.zero;
-            if (entry.Visual.Surface != null)
-            {
-                var (cx, cz) = entry.Visual.Surface.GetCellCenterLocal(entry.Visual.Surface.CenterCell);
-                spawnOffset = new Vector3(cx, 0f, cz);
-            }
-            characterTransform.position = entry.Visual.Position + spawnOffset + Vector3.up * 2f;
+            characterTransform.position =
+                PlatformAnchor.CenterCellWorld(entry.Visual.Surface, entry.Visual.Position) + Vector3.up * 2f;
 
             var characterController = characterTransform.GetComponent<Character.CharacterMovementController>();
             if (characterController == null)

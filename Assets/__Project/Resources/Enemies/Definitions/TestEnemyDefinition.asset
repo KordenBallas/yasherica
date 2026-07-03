@@ -17,7 +17,8 @@ MonoBehaviour:
   _description: 
   _maxHP: 50
   _prefab: {fileID: 3589321321802962806, guid: 5559ed53e398fe848bf5e475990f97cb, type: 3}
-  _abilities: []
+  _abilities:
+  - {fileID: 11400000, guid: 19f7da520e6d4e8c962faf406ece53f0, type: 2}
   _aiProfile: {fileID: 11400000, guid: b6aa4ef5ce17e964d93cefa3749bc7a5, type: 2}
   _lootSlots:
   - _artifactId: snake

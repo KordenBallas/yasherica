@@ -50,9 +50,9 @@ namespace Combat.Player
             {
                 var ability = abilityInstance.Ability;
 
-                foreach (var target in GetTargetsForAbility(ability))
+                foreach (var facing in GetFacingsForAbility(ability))
                 {
-                    actions.Add(new ScheduleAbilityAction(unit.Owner, unit.Id, ability.Id, target));
+                    actions.Add(new ScheduleAbilityAction(unit.Owner, unit.Id, ability.Id, facing));
                 }
             }
 
@@ -67,16 +67,16 @@ namespace Combat.Player
             return actions;
         }
 
-        private static IEnumerable<AbilityTarget> GetTargetsForAbility(IAbility ability)
+        private static IEnumerable<HexDirection?> GetFacingsForAbility(IAbility ability)
         {
             if (ability.Shape.Type == AbilityShapeType.Ring)
             {
-                yield return AbilityTarget.None();
+                yield return null; // Ring ignores facing
             }
             else
             {
                 foreach (var dir in AllDirections)
-                    yield return AbilityTarget.ForDirection(dir);
+                    yield return dir;
             }
         }
     }
