@@ -22,13 +22,12 @@ namespace Combat.Controller
         private readonly IActionValidator _actionValidator;
         private readonly IActionExecutor _actionExecutor;
         private readonly ITurnManager _turnManager;
-        private readonly IDamageSystem _damageSystem;
-        private readonly StatusEffectTriggerProcessor _triggerProcessor;
         private readonly EnemyIntentPlanner _intentPlanner;
         private readonly EnemyIntentResolver _intentResolver;
         private readonly BattlefieldFactory _battlefieldFactory;
         private readonly HexDirectionConfig _hexConfig;
         private readonly List<IWinCondition> _winConditions;
+        private readonly RoundLifecycleProcessor _roundLifecycle;
         private readonly IGameLogger _logger;
 
         private ICombatState _gameState;
@@ -60,13 +59,14 @@ namespace Combat.Controller
             _actionValidator = actionValidator;
             _actionExecutor = actionExecutor;
             _turnManager = turnManager;
-            _damageSystem = damageSystem;
-            _triggerProcessor = triggerProcessor;
             _intentPlanner = intentPlanner;
             _intentResolver = intentResolver;
             _battlefieldFactory = battlefieldFactory;
             _hexConfig = hexConfig;
             _winConditions = new List<IWinCondition>();
+            // Built internally (not injected) so the extraction stays signature-preserving for
+            // every existing construction site; Arena binds its own instance in its installer.
+            _roundLifecycle = new RoundLifecycleProcessor(damageSystem, triggerProcessor);
             _logger = logger;
         }
 
@@ -237,13 +237,13 @@ namespace Combat.Controller
         /// </summary>
         private void EndRound()
         {
-            _gameState = ApplyRoundEndEffects(_gameState);
+            _gameState = _roundLifecycle.ApplyRoundEndEffects(_gameState);
 
             _turnManager.NextTurn();
             _gameState = (_gameState as CombatState).WithNextTurn();
 
-            _gameState = ResetUnitsForNewRound(_gameState);
-            _gameState = ApplyRoundStartEffects(_gameState);
+            _gameState = _roundLifecycle.ResetUnitsForNewRound(_gameState);
+            _gameState = _roundLifecycle.ApplyRoundStartEffects(_gameState);
 
             StartRound();
         }
@@ -271,121 +271,6 @@ namespace Combat.Controller
             }
         }
 
-        private ICombatState ResetUnitsForNewRound(ICombatState gameState)
-        {
-            var newState = gameState;
-
-            foreach (var unit in gameState.Units)
-            {
-                // Reset HasActedThisTurn
-                var updatedUnit = (unit as Unit).WithActedThisTurn(false);
-
-                // Decrement ability cooldowns
-                var newAbilities = updatedUnit.Abilities
-                    .Select(a => (a as AbilityInstance).DecrementCooldown())
-                    .ToList();
-                updatedUnit = updatedUnit.WithAbilities(newAbilities);
-
-                newState = (newState as CombatState).WithUpdatedUnit(updatedUnit);
-            }
-
-            return newState;
-        }
-
-        private ICombatState ApplyRoundStartEffects(ICombatState gameState)
-        {
-            var newState = gameState;
-
-            foreach (var unit in gameState.Units)
-            {
-                // Use trigger processor for data-driven effects (TurnStart)
-                if (_triggerProcessor != null)
-                {
-                    var currentUnit = newState.GetUnit(unit.Id);
-                    if (currentUnit != null && currentUnit.IsAlive)
-                    {
-                        newState = _triggerProcessor.ProcessTrigger(
-                            newState, currentUnit, StatusEffectTriggerType.TurnStart);
-                    }
-                }
-
-                // Also apply legacy DOT/HOT effects for backward compatibility
-                var updatedUnit = newState.GetUnit(unit.Id);
-                if (updatedUnit != null && updatedUnit.IsAlive)
-                {
-                    newState = ApplyLegacyStatusEffects(newState, updatedUnit);
-                }
-            }
-
-            return newState;
-        }
-        
-        private ICombatState ApplyRoundEndEffects(ICombatState gameState)
-        {
-            var newState = gameState;
-
-            foreach (var unit in gameState.Units)
-            {
-                // Use trigger processor for data-driven effects (TurnEnd)
-                if (_triggerProcessor != null)
-                {
-                    var currentUnit = newState.GetUnit(unit.Id);
-                    if (currentUnit != null && currentUnit.IsAlive)
-                    {
-                        newState = _triggerProcessor.ProcessTrigger(
-                            newState, currentUnit, StatusEffectTriggerType.TurnEnd);
-                    }
-                }
-
-                // Decrement status effect durations
-                var updatedUnit = newState.GetUnit(unit.Id);
-                if (updatedUnit != null)
-                {
-                    newState = DecrementStatusEffects(newState, updatedUnit);
-                }
-            }
-
-            return newState;
-        }
-        
-        /// <summary>
-        /// Applies legacy hardcoded status effects (PoisonEffect, RegenerationEffect).
-        /// Kept for backward compatibility with existing status effect implementations.
-        /// </summary>
-        private ICombatState ApplyLegacyStatusEffects(ICombatState gameState, IUnit unit)
-        {
-            var newState = gameState;
-
-            foreach (var effect in unit.StatusEffects)
-            {
-                // Skip data-driven effects (they're handled by trigger processor)
-                if (effect is ITriggeredStatusEffect)
-                    continue;
-
-                if (effect is PoisonEffect poison)
-                {
-                    newState = _damageSystem.ApplyDamage(newState, unit, poison.DamagePerTurn);
-                }
-                else if (effect is RegenerationEffect regen)
-                {
-                    newState = _damageSystem.ApplyHealing(newState, unit, regen.HealPerTurn);
-                }
-            }
-
-            return newState;
-        }
-        
-        private ICombatState DecrementStatusEffects(ICombatState gameState, IUnit unit)
-        {
-            var updatedUnit = gameState.GetUnit(unit.Id) as Unit;
-
-            // Decrement durations and remove expired effects (infinite/negative durations persist).
-            var newEffects = StatusEffectDurations.Tick(updatedUnit.StatusEffects);
-
-            updatedUnit = updatedUnit.WithStatusEffects(newEffects);
-            return (gameState as CombatState).WithUpdatedUnit(updatedUnit);
-        }
-        
         private void CheckWinConditions()
         {
             foreach (var condition in _winConditions)

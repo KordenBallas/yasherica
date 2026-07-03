@@ -23,7 +23,12 @@ namespace Combat.Core
         /// <summary>
         /// Win by protecting a VIP unit.
         /// </summary>
-        ProtectUnit
+        ProtectUnit,
+
+        /// <summary>
+        /// FFA: the last player with a living hero wins (Arena mode).
+        /// </summary>
+        LastHeroStanding
     }
 }
 

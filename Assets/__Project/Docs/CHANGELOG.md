@@ -9,6 +9,44 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Arena Mode — Phase 2: the symmetric round, playable offline** (brief `arena-mode-mvp.md`
+  R6–R14; `arena-mode.md` §2): the Arena scene now runs the full **hidden simultaneous commit →
+  simultaneous resolve** loop against 1–3 seeded AI dummies on a match-seed-generated platform.
+  - **Round domain** (pure C#, `Combat.Arena.Core`): `ArenaCommit`/`ArenaCommitBuilder` (lock-time
+    snapshot — per-ability committed cells frozen from position + final facing; move step; empty
+    commitment for schedule/pass), `ArenaCommitCollector`, `ArenaRoundBundle`,
+    `IArenaResolutionOrder` + **`RotatingInitiativeOrder`** (initiative passes between players
+    each round — PO decision, replaceable strategy), `LastHeroStandingWinCondition` (win/draw,
+    armed after spawn), `ArenaStateHash` (per-round FNV-1a lockstep digest), `ArenaSpawnPlanner`
+    (deterministic farthest-point spawn cells), `IArenaTransport` + `LoopbackArenaTransport`.
+  - **`ArenaCombatController` : `ICombatController`** — the whole PvE presentation stack (action
+    panel, plan icons, ghost telegraph, `EnemyRoundController` pacing) works against it
+    untouched; terminal Move/ExecuteQueue are intercepted into commits (never executed locally),
+    the host (`ArenaMatchHost`) gathers all alive players and broadcasts the canonical bundle,
+    every client normalizes and resolves it through the unchanged `EnemyIntentResolver`
+    (whiff/fizzle/skip-dead semantics literally the PvE ones). `ArenaAICommitSource` drives the
+    offline dummies through the same commit path with `LootSeed`-derived AI seeds.
+  - **Arena scene & assets** (hand-authored): `Scenes/Arena.unity` (SceneContext with the new
+    `ArenaInstaller` + `CharacterSystemInstaller`, fixed camera, the CombatActionPanel canvas
+    cribbed from Area with wiring intact, HUD status line), `ArenaMatchConfig` SO +
+    `Resources/Arena/ArenaMatchConfig.asset`, `ArenaPlatformBuilder` (standalone seeded platform:
+    `PlatformSurfaceGenerator` + mesh + walkable-outline colliders), `ArenaHeroSpawner` (N ×
+    Hero.prefab, roster-assigned unit ids — never `UnityEngine.Random`).
+  - Tests (26, green via the Roslyn runner): `ArenaCoreTests`, `ArenaCommitBuilderTests`,
+    `ArenaRoundFlowTests` — incl. the PRD acceptance semantics (whiff on dodge, step-into-cells,
+    same-hex conflict by initiative, lethal-first skips the return, last-hero-standing/draw) and
+    the **determinism replay** (same commits twice → identical `ArenaStateHash`).
+
+### Changed
+- **Combat — round bookkeeping extracted (behavior-preserving):** `CombatController`'s private
+  round-end/reset/round-start effect ticking moved verbatim into pure
+  `Combat.Core.RoundLifecycleProcessor` (constructed internally — no signature change anywhere);
+  the Arena round loop reuses it for the identical cadence. `WinConditionType` gains
+  `LastHeroStanding`. `CharacterCombatCoordinator`'s `CharacterCombatInitializer` injection is
+  now optional with an explicit ability-definition `Initialize` overload (the Arena spawner has
+  no initializer; PvE call sites unchanged). PvE combat regression suite green (54 tests).
+
+### Added
 - **Arena Mode — Phase 1: main menu + scene flow** (brief `arena-mode-mvp.md` R1–R3; new system
   doc **`arena-mode.md`**): the game now boots into `MainMenu.unity` (build index 0) with two mode
   buttons — **Journey** loads the unchanged `Area` scene, **Arena** loads the (next-phase) `Arena`

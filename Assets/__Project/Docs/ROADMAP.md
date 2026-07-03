@@ -755,19 +755,26 @@ engine and the early Netcode-for-GameObjects scaffold already under
   (`ISceneLoader`/`SceneLoader`/`SceneNames` — the project's first runtime scene-switch seam),
   `MainMenuPresenter` MVP + `MainMenuInstaller`; stale `Demo.unity` build entry removed. See
   CHANGELOG; `arena-mode.md`.)* *(menu + area)*
-- [ ] `[arch]` **Arena FFA session.** On the existing NGO scaffold: **2–4 players**, one player
-  **hosts** and others **join by address** (no lobby/matchmaking/ranking/reconnect), **one arena
-  platform**, a **default hero** spawned per player at distinct start positions (no hero/deck select
-  yet). *(networking + combat)*
-- [ ] `[arch]` **Round = hidden simultaneous commit → simultaneous resolve.** Each player plans their
-  queue **blind** (no player sees another's queue while planning), everyone **locks in**, then all
-  committed queues **resolve together** in the one round — the **symmetric** counterpart to the
-  asymmetric PvE model in `combat-turn-intent-phase.md`. **Deterministic per seed**; a committed action
-  **whiffs** (never silently re-targets) if its target moved; simultaneous FFA conflicts (same-hex,
-  mutual hits) resolve by a **deterministic rule** (exact edge rules are a combat-design detail).
-  Abilities themselves are unchanged — only round timing/commitment differ. *(combat)*
-- [ ] `[arch]` **Win = last hero standing.** A defeated player is out (spectate/leave); the match ends
-  when one hero remains. *(combat)*
+- [~] `[arch]` **Arena FFA session.** *(Offline half done — Phase 2: one arena platform generated
+  from the match seed (`ArenaPlatformBuilder` on the Combat shape profile + battlefield minimum),
+  a **default hero** per player at deterministic distinct spawn cells (`ArenaHeroSpawner` +
+  `ArenaSpawnPlanner`, roster-assigned unit ids), playable as 1 local player + 1–3 seeded AI
+  dummies over `LoopbackArenaTransport`. The **networked** half — 2–4 players, host/join by
+  address on NGO — is Phase 3; the transport seam and `ArenaMatchHost` are already
+  network-shaped. See CHANGELOG; `arena-mode.md`.)* *(networking + combat)*
+- [x] `[arch]` **Round = hidden simultaneous commit → simultaneous resolve.** *(Done — Phase 2:
+  `ArenaCombatController` behind the unchanged `ICombatController` seam (full PvE presentation
+  reuse); planning is hidden by construction (commits exist only on their owner's machine until
+  lock; Move/ExecuteQueue intercepted, never executed locally); `ArenaMatchHost` gathers all alive
+  players and broadcasts the canonical bundle; every client normalizes + resolves through the
+  PvE `EnemyIntentResolver` — whiffs/fizzles/skip-dead verbatim. **Deterministic**: rotating
+  initiative behind the replaceable `IArenaResolutionOrder` (PO decision), all seeds from the
+  match seed, per-round `ArenaStateHash` lockstep digest, determinism-replay test green. See
+  CHANGELOG; `arena-mode.md` §2.3–§2.5.)* *(combat)*
+- [x] `[arch]` **Win = last hero standing.** *(Done — `LastHeroStandingWinCondition` (armed after
+  the full roster spawns): one player with a living unit wins, zero is a draw; remaining intents
+  are not resolved after match end. The defeated player's spectate/Leave presentation is the
+  Phase 4 polish item. See CHANGELOG; `arena-mode.md` §2.5.)* *(combat)*
 - [ ] `[content]` **Deferred (out of the MVP brief).** Deck of run-snapshot heroes + character
   selection (a separate design pass — conflicts with the Hades death/reform frame, see
   `design/arena-mode.md`); PvP-specific balance / whether Arena bodies are PvE snapshots or a separate

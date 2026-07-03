@@ -41,7 +41,9 @@ namespace Combat.Player
         [Inject] private IAbilityShapeCalculator _shapeCalculator;
         [Inject] private InputConfig _inputConfig;
         [Inject(Optional = true)] private ICombatActionPanelView _actionPanelView;
-        [Inject] private CharacterCombatInitializer _characterInitializer;
+        // Optional: the Arena scene has no CharacterCombatInitializer (heroes are spawned by
+        // ArenaHeroSpawner) and passes ability definitions to Initialize explicitly instead.
+        [Inject(Optional = true)] private CharacterCombatInitializer _characterInitializer;
         [Inject] private IGameLogger _logger;
 
         // Platform-scoped dependencies passed manually
@@ -54,6 +56,20 @@ namespace Combat.Player
             CharacterCombatComponent characterUnit,
             ICombatController combatController,
             IBattlefield battlefield)
+        {
+            Initialize(characterUnit, combatController, battlefield, null);
+        }
+
+        /// <summary>
+        /// Overload with an explicit ability-definition list for callers that do not run
+        /// <see cref="CharacterCombatInitializer"/> (the Arena hero spawner); PvE passes null and
+        /// keeps reading the initializer's list.
+        /// </summary>
+        public void Initialize(
+            CharacterCombatComponent characterUnit,
+            ICombatController combatController,
+            IBattlefield battlefield,
+            System.Collections.Generic.IReadOnlyList<Combat.Data.Definitions.AbilityDefinition> abilityDefinitions)
         {
             _characterUnit = characterUnit;
             _combatController = combatController;
@@ -99,8 +115,8 @@ namespace Combat.Player
                     _combatController,
                     _inputConfig);
 
-                var abilityDefinitions = _characterInitializer.CharacterAbilityDefinitions;
-                _actionPanelPresenter.SetUnit(_characterUnit, abilityDefinitions);
+                var panelAbilityDefinitions = abilityDefinitions ?? _characterInitializer?.CharacterAbilityDefinitions;
+                _actionPanelPresenter.SetUnit(_characterUnit, panelAbilityDefinitions);
             }
             else
             {
