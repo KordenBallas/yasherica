@@ -268,9 +268,12 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/` (all pure, runnable via t
 - `MainMenuPresenterTests` — menu routing (Phase 1).
 
 PvE regression: the combat suite (54 tests) stays green after the `RoundLifecycleProcessor`
-extraction. The NGO layer itself (named-message delivery, session approval) is play-tested:
-Multiplayer Play Mode (one editor as host + up to 3 virtual players joining `127.0.0.1`), or dev
-builds as joiners against the editor host.
+extraction. The NGO layer itself (named-message delivery, session approval) is play-tested: run
+the editor as host and 1–3 standalone dev builds as joiners on `127.0.0.1` (Build Profiles →
+Windows), then grep each instance's log for the per-round `ArenaStateHash` lines — they must match
+every round. (Unity's Multiplayer Play Mode would run the joiners as in-editor virtual players, but
+it is intentionally not a project dependency — it transitively pulls a Newtonsoft-JSON package that
+Unity's registry currently reports with an invalid signature.)
 
 ---
 

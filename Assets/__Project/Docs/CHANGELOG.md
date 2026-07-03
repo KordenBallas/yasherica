@@ -36,8 +36,11 @@ Every functional change appends an entry **in the same change as the code** (CLA
   wire structs + `ArenaWireCodec` (buffer-free domain↔wire mapping), `ArenaSessionService`,
   `ArenaMatchLauncher`, `ArenaConnectPresenter`/`ArenaConnectView` (MVP), `ArenaPlayerDirectory`;
   Arena.unity gains the hand-authored NetworkManager + UnityTransport and the connect panel
-  (incl. a TMP_InputField). Offline dummies stay as the `_offlineMode` config-flag dev fallback.
-  `com.unity.multiplayer.playmode` added for local multi-client testing (PO-approved). Tests:
+  (incl. a TMP_InputField); `Yasherica.asmdef` references `Unity.Networking.Transport` (its API
+  surfaces `NetworkEndpoint`). Offline dummies stay as the `_offlineMode` config-flag dev fallback.
+  Local multi-client testing uses the editor-as-host + standalone dev-build joiners on
+  `127.0.0.1` (Unity's Multiplayer Play Mode is intentionally not a dependency — it pulls a
+  Newtonsoft-JSON package the registry flags with an invalid signature). Tests:
   `ArenaWireCodecTests` (round-trips) + `ArenaLockstepTests` (two independent client sims over one
   transport → identical positions/HP/state hashes; arena suites now 33, all green).
 
