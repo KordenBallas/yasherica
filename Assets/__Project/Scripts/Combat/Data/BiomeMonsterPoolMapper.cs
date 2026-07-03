@@ -7,16 +7,17 @@ namespace Combat.Data
 {
     /// <summary>
     /// The only bridge from the authored <see cref="BiomeMonsterPoolDefinition"/> assets to the
-    /// UnityEngine-free enemy-id map consumed by <c>BiomeMonsterPoolCatalog</c> (CLAUDE.md §7). Skips
-    /// null entries and warns on duplicate themes (first authored pool wins, mirroring the biome loot
-    /// catalog).
+    /// UnityEngine-free tagged entry map consumed by <c>BiomeMonsterPoolCatalog</c> (CLAUDE.md §7).
+    /// Each entry carries the enemy's <c>EnemyTags</c> so site combat beats can flavor-filter the same
+    /// pool. Skips null entries and warns on duplicate themes (first authored pool wins, mirroring the
+    /// biome loot catalog).
     /// </summary>
     public static class BiomeMonsterPoolMapper
     {
-        public static Dictionary<LevelTheme, IReadOnlyList<int>> ToPools(
+        public static Dictionary<LevelTheme, IReadOnlyList<Narrative.Director.Core.MonsterPoolEntry>> ToPools(
             IEnumerable<BiomeMonsterPoolDefinition> definitions, IGameLogger logger = null)
         {
-            var pools = new Dictionary<LevelTheme, IReadOnlyList<int>>();
+            var pools = new Dictionary<LevelTheme, IReadOnlyList<Narrative.Director.Core.MonsterPoolEntry>>();
             if (definitions == null)
             {
                 return pools;
@@ -37,16 +38,17 @@ namespace Combat.Data
                     continue;
                 }
 
-                var ids = new List<int>();
+                var entries = new List<Narrative.Director.Core.MonsterPoolEntry>();
                 foreach (var enemy in definition.Enemies)
                 {
                     if (enemy != null)
                     {
-                        ids.Add(enemy.EnemyId);
+                        entries.Add(new Narrative.Director.Core.MonsterPoolEntry(
+                            enemy.EnemyId, new List<string>(enemy.EnemyTags)));
                     }
                 }
 
-                pools.Add(definition.Theme, ids);
+                pools.Add(definition.Theme, entries);
             }
 
             return pools;

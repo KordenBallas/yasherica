@@ -5,9 +5,10 @@
 > recipe in the shared `base·flavor` content vocabulary; everything else stays Wild. Builds on the
 > world-content-density allocator (see `narrative-procedural.md` §2.6). PO brief:
 > `product-requirements/world-sites-and-landscape.md`.
-> Status: current as of 2026-07-03 — **phase 2 of 4** (domain model + reservation logic + the SO
-> schema, mapper, and authored Camp/Village/City/Ruin/Lair assets; the allocator is still not
-> swapped into the planner — the run behaves exactly as before). §6 lists what each next phase adds.
+> Status: current as of 2026-07-03 — **phase 3 of 4**: reservation is **live** — the planner runs on
+> the site-aware allocator, sites appear in the streamed run (quest-pulled settlements + rare
+> ambient landmarks, flavored combat picks, townsfolk Npc slots). Phase 4 (content landing on the
+> platforms: stamp/flavor onto graph nodes, loot bias, townsfolk chatter stories) remains — §6.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -114,7 +115,23 @@ roadmapped for extraction to a neutral namespace).
 `SlotAllocation` carries two new (defaulted) fields: `Flavor` (the beat's flavor tag) and `Site`
 (the `SiteStamp`); `WorldSlotKind` gains `Npc` — a non-quest NPC beat (e.g. `NPC·townsfolk`) the
 planner fills by flavor, never by the quest path. `PlannedPlatform` carries the same two fields.
-A site Combat fill picks its enemy from the biome monster pool (flavor-filtered pools are §6).
+
+**Flavored combat picks:** `IBiomeMonsterPoolCatalog` pools are tagged entries
+(`MonsterPoolEntry` = enemy id + its `EnemyDefinition.EnemyTags`, mapped by
+`BiomeMonsterPoolMapper`). A site Combat beat draws from `GetPool(theme, flavor)` (case-insensitive
+tag match); when no enemy carries the tag the allocator falls back to the unfiltered pool (the
+fight matters more than its flavor — warned once per flavor), and an entirely empty pool downgrades
+the slot to Empty, keeping the stamp.
+
+**Planner (`RunWindowPlanner`) integration:** the planner depends on `IWorldSlotAllocator` +
+`ISiteCatalog`. Eligible stories are partitioned: a story tagged with any `NpcFillFlavors` entry is
+**ambient colour** — it fills site `Npc` slots by flavor (unused stories preferred; a small chatter
+pool may repeat with a fresh actor rather than leaving the site platform dead; none at all degrades
+to Empty, warned once per flavor) and **never satisfies a Quest slot** (`questAvailable` counts
+quest-eligible stories only). On a landed quest the planner calls
+`TryReserveSettlement(story.StoryTags)` and stamps the quest platform as the block's anchor.
+Townsfolk platforms plan as ordinary `Story` encounters, so downstream (casting at window mapping,
+`NpcIntentResolver`) derives `Plain` naturally — no quest slot filled, no forced combat.
 
 `WorldContentDensitySettings` gains three dials (defaults preserve behavior until authored):
 `AveragePlatformsPerAmbientSite` (default 14; 0 disables), `MinPlatformsBetweenSites` (default 6),
@@ -130,9 +147,9 @@ A site Combat fill picks its enemy from the biome monster pool (flavor-filtered 
 - The three site dials ride the existing `WorldContentDensitySettings` binding (mapped from
   `WorldContentDensityConfig`).
 
-> **Allocator not yet swapped (phase 2).** The planner still depends on `WorldContentAllocator`
-> directly; nothing constructs `SiteAwareSlotAllocator` at runtime. Phase 3 swaps the planner to
-> `IWorldSlotAllocator`. Until then the run is behavior-identical.
+- `IWorldSlotAllocator` → `SiteAwareSlotAllocator` wrapping the still-bound
+  `WorldContentAllocator`, sharing the director's `IRandomSource` stream (replay determinism);
+  the `RunWindowPlanner` binding consumes it plus `ISiteCatalog`.
 
 ---
 
@@ -209,10 +226,18 @@ with it (e.g. make all Settlements fill one extra beat by raising the family bud
 Add a `site:<id>` entry to the `StoryTemplate`'s story tags. When that story is picked for a landed
 quest slot, the site is reserved as a hard request (no roll). An unknown id warns and stays Wild.
 
-### Add a content flavor / a townsfolk story
+### Add a combat flavor (e.g. a new `Combat·pack` beat)
 
-> **Phase 3/4 (§6).** Flavored monster pools, loot `BiasTags`, and townsfolk chatter stories are not
-> consumed yet; these recipes land with those phases.
+1. Add the flavor string to the site's fill table / anchor (`_kind: Combat`, `_flavor: pack`).
+2. Tag at least one `EnemyDefinition` in the biome's monster pool with the same string in
+   `_enemyTags`. Matching is case-insensitive. Untagged flavor → the fight still lands from the
+   unfiltered pool (warned once).
+
+### Add a loot flavor / a townsfolk story
+
+> **Phase 4 (§6).** Loot `BiasTags` consumption and townsfolk chatter stories land next; a
+> townsfolk beat authored today degrades to Empty (warned) until a story carries the
+> `townsfolk` tag.
 
 **Authoring constraints / gotchas:** a duplicate `_siteId` is skipped (first wins); a site with no
 family and no anchor override is skipped; corpse-loot must never appear in a fill table (it is the
@@ -227,20 +252,29 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
 - `SiteBlockBuilderTests` (8) — footprint range; anchor-first; fill budget respected and clamped;
   connective remainder; anchor-only on an empty fill table; sequential stamps sharing instance and
   footprint; same-seed identical blocks; fills drawn from the table.
-- `SiteAwareSlotAllocatorTests` (11) — **empty catalog is a bit-exact passthrough** of
+- `SiteAwareSlotAllocatorTests` (13) — **empty catalog is a bit-exact passthrough** of
   `WorldContentAllocator` (N2, incl. no roll consumed by `TryReserveSettlement`); ambient gate
   spacing measured from block end; disabled gate never triggers; block queue drains in order across
   calls; quest precedence over the ambient gate; `site:` tag hard request; unknown tag +
-  zero-weight sites stay Wild; zero wild-weight always settles; empty-pool site combat downgrades
-  to Empty keeping the stamp; same-seed identical site sequences; catalog channel split +
-  `NpcFillFlavors` derivation.
+  zero-weight sites stay Wild; zero wild-weight always settles; flavored combat picks the tagged
+  enemy / falls back unfiltered; empty-pool site combat downgrades to Empty keeping the stamp;
+  same-seed identical site sequences; catalog channel split + `NpcFillFlavors` derivation.
+- `BiomeMonsterPoolCatalogTests` (6) — unfiltered lookup; case-insensitive flavor filter; empty
+  flavor falls through; unmatched flavor returns empty (caller owns the fallback); unknown theme;
+  ids-only constructor stays untagged.
+- `RunWindowPlannerTests` (+3 site cases) — a townsfolk Npc fill picks the flavor-tagged story with
+  a fresh actor and the site stamp (repeating a one-story chatter pool rather than dying); ambient
+  colour stories never satisfy Quest slots; a missing chatter pool degrades the fill to Empty
+  keeping the stamp. The 16 pre-site planner tests run **unchanged over the site-aware allocator**
+  (passthrough proof at the planner level).
 - `SiteCatalogMapperTests` (7) — family inheritance; override toggles replace only their delta;
   trigger channel derives from the overridden anchor (Camp → Ambient despite family Settlement);
   no-anchor / missing-id / duplicate-id skipped; `NpcFillFlavors` from effective fill tables;
   null/empty input → empty catalog. *(Unity edit-mode — exercises the SO layer.)*
 
 The pure-C# suites run outside Unity via the bundled-Roslyn workaround
-(`Temp/domaintests/run_sites.ps1`); the mapper suite needs the editor's edit-mode runner.
+(`Temp/domaintests/run_sites.ps1` + `run_planner.ps1`); the mapper suite needs the editor's
+edit-mode runner.
 
 ---
 
@@ -248,18 +282,14 @@ The pure-C# suites run outside Unity via the bundled-Roslyn workaround
 
 Phased delivery (the PO brief's sequencing — each phase ships code + tests + docs together):
 
-- **Phase 3 (next): reservation goes live.** Planner depends on `IWorldSlotAllocator`; the `Npc` slot kind
-  picks a flavor-tagged world-only story (and such stories are excluded from quest picks via
-  `ISiteCatalog.NpcFillFlavors`); `TryReserveSettlement` stamps the quest platform;
-  flavor-filtered monster pools (`Combat·bandit/guard/den-monster` via `EnemyDefinition.EnemyTags`,
-  falling back to the unfiltered biome pool).
-- **Phase 4: content landing.** Stamp/flavor flow onto `GraphNode` and into the loot roll context
-  (`Loot·market/stash/chest/relic` as `BiasTags`); townsfolk chatter stories; acceptance histogram
-  test.
+- **Phase 4 (next): content landing.** Stamp/flavor flow onto `GraphNode` and into the loot roll
+  context (`Loot·market/stash/chest/relic` as `BiasTags`); townsfolk chatter stories + Ink; enemy
+  flavor tags on the forest pool; acceptance histogram test. Until it lands: townsfolk Npc slots
+  degrade to Empty (no story carries the tag yet — warned), site loot rolls the plain biome table,
+  and flavored combat picks fall back to the unfiltered pool (no enemy is tagged yet — warned).
 - **Anchor-first ordering.** The anchor is always the block's first platform (its eligibility was
   verified in the triggering window). A density gradient toward a core is dressing-driven — the M5
   site-dressing item.
-- **Site combat fills use the unfiltered biome pool** until the phase-3 flavored lookup.
 - **Deferred schema fields** *(PO decision 2026-07-03)*: occupancy/passport gating, tier/altitude
   eligibility + tonal register, and biome compatibility are not authored — their consuming systems
   don't exist yet. The additive-defaults contract (R7) makes adding them later migration-free.

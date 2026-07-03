@@ -4,6 +4,7 @@ using Narrative.Actors.Core;
 using Narrative.Casting.Core;
 using Narrative.Facts.Core;
 using Narrative.Stories.Core;
+using World.Sites.Core;
 
 namespace Narrative.Director.Core
 {
@@ -11,11 +12,14 @@ namespace Narrative.Director.Core
     /// Default <see cref="IRunWindowPlanner"/>: a density-first window planner (the
     /// world-content-density brief). Per window it (1) filters stories to those eligible against the
     /// live store (R6/R7) per the eligibility rules below (world-only vs. actor-scoped casting query);
-    /// (2) asks the <see cref="WorldContentAllocator"/> for each slot's content kind — Empty/traversal
-    /// (the majority), simple Loot, ambient Combat from the biome pool, or a rare, spaced Quest slot;
-    /// (3) fills only the Quest slots from the eligible stories. There is no narrative weight budget and
-    /// no combat quota: quests are governed by rarity + minimum spacing, ambient monsters are the main
-    /// combat source, and a story that happens to carry a combat slot is the tolerated exception.
+    /// (2) asks the <see cref="IWorldSlotAllocator"/> for each slot's content kind — Empty/traversal
+    /// (the majority), simple Loot, ambient Combat from the biome pool, a rare, spaced Quest slot, or a
+    /// site Npc fill; (3) fills the Quest slots from the quest-eligible stories and the Npc slots from
+    /// flavor-tagged ambient-colour stories (world-sites brief). A landed quest may pull a settlement
+    /// block into being via <see cref="IWorldSlotAllocator.TryReserveSettlement"/>. There is no
+    /// narrative weight budget and no combat quota: quests are governed by rarity + minimum spacing,
+    /// ambient monsters are the main combat source, and a story that happens to carry a combat slot is
+    /// the tolerated exception.
     ///
     /// Story selection prefers continuing a thread already chosen this window, then a seeded pick among
     /// ties so results are deterministic and save-replayable (B2).
@@ -47,8 +51,11 @@ namespace Narrative.Director.Core
         private readonly ILiveActorRegistry _liveActors;
         private readonly IRandomSource _random;
         private readonly RunPacingSettings _settings;
-        private readonly WorldContentAllocator _allocator;
+        private readonly IWorldSlotAllocator _allocator;
+        private readonly ISiteCatalog _siteCatalog;
         private readonly IGameLogger _logger;
+        private readonly HashSet<string> _warnedNpcFlavors =
+            new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
 
         public RunWindowPlanner(
             IReadOnlyList<StoryTemplateData> stories,
@@ -58,7 +65,8 @@ namespace Narrative.Director.Core
             ILiveActorRegistry liveActors,
             IRandomSource random,
             RunPacingSettings settings,
-            WorldContentAllocator allocator,
+            IWorldSlotAllocator allocator,
+            ISiteCatalog siteCatalog = null,
             IGameLogger logger = null)
         {
             _stories = stories ?? System.Array.Empty<StoryTemplateData>();
@@ -69,6 +77,7 @@ namespace Narrative.Director.Core
             _random = random;
             _settings = settings;
             _allocator = allocator;
+            _siteCatalog = siteCatalog ?? new SiteCatalog(null);
             _logger = logger;
         }
 
@@ -95,7 +104,16 @@ namespace Narrative.Director.Core
                 return PadAndBuild(windowIndex, platforms);
             }
 
+            // Stories tagged with an NPC fill flavor (e.g. townsfolk) are ambient colour: they fill
+            // site Npc slots by flavor and must never satisfy the rare quest slot.
             var eligible = BuildEligible(facts);
+            var questEligible = new List<EligibleStory>();
+            var ambientEligible = new List<EligibleStory>();
+            for (int i = 0; i < eligible.Count; i++)
+            {
+                (IsAmbientColour(eligible[i].Story) ? ambientEligible : questEligible).Add(eligible[i]);
+            }
+
             var usedStoryIds = new HashSet<string>();
             var activeThreads = new HashSet<string>();
 
@@ -104,11 +122,11 @@ namespace Narrative.Director.Core
                 // The allocator gets the live availability so a quest slot that cannot be filled (story
                 // pool exhausted this window) degrades into the ambient draw instead of a dead platform,
                 // and the spacing counter keeps running.
-                var allocation = _allocator.AllocateSlot(HasUnusedEligible(eligible, usedStoryIds));
+                var allocation = _allocator.AllocateSlot(HasUnusedEligible(questEligible, usedStoryIds));
                 switch (allocation.Kind)
                 {
                     case WorldSlotKind.Quest:
-                        var pick = ChooseStory(eligible, usedStoryIds, activeThreads);
+                        var pick = ChooseStory(questEligible, usedStoryIds, activeThreads);
                         if (pick == null)
                         {
                             // questAvailable was true, so this is unreachable; guard for safety.
@@ -116,24 +134,112 @@ namespace Narrative.Director.Core
                             break;
                         }
 
-                        Place(pick.Value, platforms, usedStoryIds, activeThreads);
+                        // The landed quest may pull a settlement into being (world-sites brief): a
+                        // site:<id> story tag is a hard request, otherwise a seeded wild-vs-settlement
+                        // roll. The quest platform itself is the block's anchor slot.
+                        var stamp = _allocator.TryReserveSettlement(pick.Value.Story.StoryTags);
+                        Place(pick.Value, platforms, usedStoryIds, activeThreads, null, stamp);
+                        break;
+
+                    case WorldSlotKind.Npc:
+                        PlaceAmbientNpc(allocation, ambientEligible, platforms, usedStoryIds, activeThreads);
                         break;
 
                     case WorldSlotKind.Combat:
-                        platforms.Add(PlannedPlatform.AmbientCombat(allocation.EnemyId));
+                        platforms.Add(PlannedPlatform.AmbientCombat(allocation.EnemyId, allocation.Flavor,
+                            allocation.Site));
                         break;
 
                     case WorldSlotKind.Loot:
-                        platforms.Add(PlannedPlatform.LootDrop());
+                        platforms.Add(PlannedPlatform.LootDrop(allocation.Flavor, allocation.Site));
                         break;
 
                     default:
-                        platforms.Add(PlannedPlatform.EmptyFiller());
+                        platforms.Add(PlannedPlatform.EmptyFiller(allocation.Site));
                         break;
                 }
             }
 
             return PadAndBuild(windowIndex, platforms);
+        }
+
+        /// <summary>
+        /// Fills a site Npc slot (e.g. NPC·townsfolk) with an eligible ambient-colour story matching the
+        /// slot's flavor. Unused stories are preferred, but a small chatter pool may repeat (with a fresh
+        /// actor) rather than leaving the site platform dead. No candidate at all degrades to Empty.
+        /// </summary>
+        private void PlaceAmbientNpc(SlotAllocation allocation, List<EligibleStory> ambientEligible,
+            List<PlannedPlatform> platforms, HashSet<string> usedStoryIds, HashSet<string> activeThreads)
+        {
+            var candidates = new List<EligibleStory>();
+            var unused = new List<EligibleStory>();
+            for (int i = 0; i < ambientEligible.Count; i++)
+            {
+                if (!HasTag(ambientEligible[i].Story.StoryTags, allocation.Flavor))
+                {
+                    continue;
+                }
+
+                candidates.Add(ambientEligible[i]);
+                if (!usedStoryIds.Contains(ambientEligible[i].Story.StoryId))
+                {
+                    unused.Add(ambientEligible[i]);
+                }
+            }
+
+            var pool = unused.Count > 0 ? unused : candidates;
+            if (pool.Count == 0)
+            {
+                if (_warnedNpcFlavors.Add(allocation.Flavor))
+                {
+                    _logger?.Warning(LogCategory.Narrative,
+                        $"[RunWindowPlanner] No eligible story carries the NPC fill flavor " +
+                        $"'{allocation.Flavor}' - the site slot stays empty.");
+                }
+
+                platforms.Add(PlannedPlatform.EmptyFiller(allocation.Site));
+                return;
+            }
+
+            Place(pool[_random.NextInt(pool.Count)], platforms, usedStoryIds, activeThreads,
+                allocation.Flavor, allocation.Site);
+        }
+
+        private bool IsAmbientColour(StoryTemplateData story)
+        {
+            var flavors = _siteCatalog.NpcFillFlavors;
+            if (flavors.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var flavor in flavors)
+            {
+                if (HasTag(story.StoryTags, flavor))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasTag(IReadOnlyList<string> tags, string tag)
+        {
+            if (string.IsNullOrEmpty(tag))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < tags.Count; i++)
+            {
+                if (string.Equals(tags[i], tag, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool HasUnusedEligible(IReadOnlyList<EligibleStory> eligible, HashSet<string> usedStoryIds)
@@ -281,7 +387,7 @@ namespace Narrative.Director.Core
         }
 
         private void Place(EligibleStory entry, List<PlannedPlatform> platforms, HashSet<string> usedStoryIds,
-            HashSet<string> activeThreads)
+            HashSet<string> activeThreads, string flavor = null, SiteStamp site = default)
         {
             var story = entry.Story;
 
@@ -294,7 +400,7 @@ namespace Narrative.Director.Core
                 _liveActors.Register(actor);
             }
 
-            platforms.Add(PlannedPlatform.StoryEncounter(story, actor, IsCombatBearing(story)));
+            platforms.Add(PlannedPlatform.StoryEncounter(story, actor, IsCombatBearing(story), flavor, site));
             usedStoryIds.Add(story.StoryId);
 
             if (!string.IsNullOrEmpty(story.ThreadId))

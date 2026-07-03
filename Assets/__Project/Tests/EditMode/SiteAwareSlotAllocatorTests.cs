@@ -57,7 +57,7 @@ namespace Tests.EditMode
             IBiomeMonsterPoolCatalog pools = null,
             ulong seed = 7)
         {
-            pools = pools ?? new BiomeMonsterPoolCatalog(null);
+            pools = pools ?? new BiomeMonsterPoolCatalog((Dictionary<LevelTheme, IReadOnlyList<int>>)null);
             var random = new DeterministicRandom(seed);
             var themes = new FakeThemeProvider();
             var inner = new WorldContentAllocator(density, pools, themes, random, new FakeLogger());
@@ -239,6 +239,57 @@ namespace Tests.EditMode
 
             Assert.IsFalse(anchor.Site.IsWild, "Expected the lair to trigger.");
             Assert.AreEqual(WorldSlotKind.Empty, anchor.Kind, "No pool: the site fight downgrades honestly.");
+        }
+
+        [Test]
+        public void SiteCombatSlot_PicksAFlavorTaggedEnemy_WhenOneExists()
+        {
+            // Pool: enemy 5 untagged (the wild beast), enemy 9 tagged den-monster. The lair anchor
+            // (Combat·den-monster) must always draw the tagged one.
+            var pools = new BiomeMonsterPoolCatalog(new Dictionary<LevelTheme, IReadOnlyList<MonsterPoolEntry>>
+            {
+                {
+                    LevelTheme.Forest, new[]
+                    {
+                        new MonsterPoolEntry(5, new[] { "wild-beast" }),
+                        new MonsterPoolEntry(9, new[] { "den-monster" })
+                    }
+                }
+            });
+            var catalog = new SiteCatalog(new[] { AmbientSite(footprint: 1) });
+            var allocator = Allocator(Density(avgPerAmbientSite: 1), catalog, pools);
+
+            for (int i = 0; i < 20; i++)
+            {
+                var slot = allocator.AllocateSlot(questAvailable: false);
+                if (!slot.Site.IsWild)
+                {
+                    Assert.AreEqual(WorldSlotKind.Combat, slot.Kind);
+                    Assert.AreEqual(9, slot.EnemyId, "The den-monster beat must draw the tagged enemy.");
+                }
+            }
+        }
+
+        [Test]
+        public void SiteCombatSlot_UnmatchedFlavor_FallsBackToTheUnfilteredPool()
+        {
+            // No enemy carries 'den-monster': the fight still lands from the whole pool (warned once).
+            var pools = new BiomeMonsterPoolCatalog(new Dictionary<LevelTheme, IReadOnlyList<MonsterPoolEntry>>
+            {
+                { LevelTheme.Forest, new[] { new MonsterPoolEntry(5, new[] { "wild-beast" }) } }
+            });
+            var catalog = new SiteCatalog(new[] { AmbientSite(footprint: 1) });
+            var allocator = Allocator(Density(avgPerAmbientSite: 1), catalog, pools);
+
+            SlotAllocation anchor = default;
+            for (int i = 0; i < 30 && anchor.Site.IsWild; i++)
+            {
+                anchor = allocator.AllocateSlot(questAvailable: false);
+            }
+
+            Assert.IsFalse(anchor.Site.IsWild);
+            Assert.AreEqual(WorldSlotKind.Combat, anchor.Kind);
+            Assert.AreEqual(5, anchor.EnemyId);
         }
 
         [Test]

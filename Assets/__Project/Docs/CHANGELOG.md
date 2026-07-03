@@ -8,6 +8,27 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Changed
+- **World Sites — reservation goes live (phase 3 of the world-sites brief; R2/R3/R8/R9):** the
+  planner now runs on the site-aware allocator — sites appear in the streamed run.
+  `RunWindowPlanner` depends on `IWorldSlotAllocator` + `ISiteCatalog`: eligible stories are
+  partitioned into quest-eligible vs **ambient colour** (tagged with an `NpcFillFlavors` entry —
+  e.g. `townsfolk`); ambient-colour stories fill site `Npc` slots by flavor (unused preferred, a
+  small chatter pool repeats with a fresh actor, none → Empty + warn-once) and **never satisfy a
+  Quest slot**; a landed quest calls `TryReserveSettlement(story.StoryTags)` and the quest platform
+  is stamped as the block's anchor; Combat/Loot/Empty slots carry their flavor + `SiteStamp` onto
+  `PlannedPlatform`. Monster pools are now **tagged entries** (`MonsterPoolEntry` = id +
+  `EnemyDefinition.EnemyTags`; `BiomeMonsterPoolMapper` maps them): `IBiomeMonsterPoolCatalog.
+  GetPool(theme, flavor)` filters case-insensitively; the allocator's site combat pick falls back
+  to the unfiltered pool when no enemy carries the tag (warn-once per flavor).
+  `NarrativeSliceInstaller` binds `IWorldSlotAllocator → SiteAwareSlotAllocator` (sharing the
+  director stream) and threads it + the catalog into the planner. Townsfolk platforms plan as
+  ordinary Story encounters, so `NpcIntentResolver` derives `Plain` with no interaction-layer
+  change. Tests: `BiomeMonsterPoolCatalogTests` (6, new), `SiteAwareSlotAllocatorTests` +2
+  (flavored pick + fallback), `RunWindowPlannerTests` +3 (townsfolk fill/exclusion/degrade) — and
+  the 16 pre-site planner tests run unchanged over the wrapped allocator (planner-level passthrough
+  proof). Doc: `world-sites.md` §2.3/§2.4/§4/§5. *(world/sites + narrative director + combat data)*
+
 ### Added
 - **World Sites — SO schema, mapper, and the authored site vocabulary (phase 2 of the world-sites
   brief; R6/R7):** new `World.Sites.Data` — `SiteFamilyDefinition` (`Create → World → Sites → Site

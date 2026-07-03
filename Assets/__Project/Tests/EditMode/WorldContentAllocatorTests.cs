@@ -38,7 +38,7 @@ namespace Tests.EditMode
             IBiomeMonsterPoolCatalog pools = null, ulong seed = 7)
         {
             return new WorldContentAllocator(density,
-                pools ?? new BiomeMonsterPoolCatalog(null),
+                pools ?? new BiomeMonsterPoolCatalog((Dictionary<LevelTheme, IReadOnlyList<int>>)null),
                 new FakeThemeProvider(),
                 new DeterministicRandom(seed),
                 new FakeLogger());

@@ -36,6 +36,7 @@ namespace Narrative.Director.Core
         private readonly IGameLogger _logger;
 
         private readonly Queue<SiteSlot> _pending = new Queue<SiteSlot>();
+        private readonly HashSet<string> _warnedFlavors = new HashSet<string>(System.StringComparer.Ordinal);
         private int _platformsSinceSite;
         private int _nextInstanceId = 1;
         private bool _warnedEmptyPool;
@@ -219,9 +220,21 @@ namespace Narrative.Director.Core
 
         private SlotAllocation AllocateSiteCombat(SiteSlot slot)
         {
-            // Flavor-filtered pools (Combat·bandit/guard/den-monster) land with the flavored catalog
-            // lookup; until then the unfiltered biome pool is the documented fallback behavior.
-            var pool = _monsterPools.GetPool(_themeProvider.CurrentTheme);
+            var theme = _themeProvider.CurrentTheme;
+            var pool = _monsterPools.GetPool(theme, slot.Beat.Flavor);
+            if (pool.Count == 0 && !string.IsNullOrEmpty(slot.Beat.Flavor))
+            {
+                // No enemy carries the flavor tag: fall back to the unfiltered biome pool so the
+                // beat still lands (the fight matters more than its flavor), warned once per flavor.
+                pool = _monsterPools.GetPool(theme);
+                if (pool.Count > 0 && _warnedFlavors.Add(slot.Beat.Flavor))
+                {
+                    _logger?.Warning(LogCategory.Narrative,
+                        $"[SiteAwareSlotAllocator] No '{theme}' enemy carries the flavor tag " +
+                        $"'{slot.Beat.Flavor}' - falling back to the unfiltered pool.");
+                }
+            }
+
             if (pool.Count == 0)
             {
                 if (!_warnedEmptyPool)
@@ -229,7 +242,7 @@ namespace Narrative.Director.Core
                     _warnedEmptyPool = true;
                     _logger?.Warning(LogCategory.Narrative,
                         $"[SiteAwareSlotAllocator] No monster pool authored for biome " +
-                        $"'{_themeProvider.CurrentTheme}' - site combat slots downgrade to empty.");
+                        $"'{theme}' - site combat slots downgrade to empty.");
                 }
 
                 return new SlotAllocation(WorldSlotKind.Empty, 0, null, slot.Stamp);

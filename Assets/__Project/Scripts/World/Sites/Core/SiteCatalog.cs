@@ -14,7 +14,9 @@ namespace World.Sites.Core
         private readonly List<SiteDefinitionData> _ambientSites = new List<SiteDefinitionData>();
         private readonly Dictionary<string, SiteDefinitionData> _byId =
             new Dictionary<string, SiteDefinitionData>(StringComparer.Ordinal);
-        private readonly HashSet<string> _npcFillFlavors = new HashSet<string>(StringComparer.Ordinal);
+        // Case-insensitive: flavor tags are authored strings matched across assets (recipes, story
+        // tags, enemy tags), so casing must not silently break a match.
+        private readonly HashSet<string> _npcFillFlavors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public SiteCatalog(IReadOnlyList<SiteDefinitionData> sites)
         {

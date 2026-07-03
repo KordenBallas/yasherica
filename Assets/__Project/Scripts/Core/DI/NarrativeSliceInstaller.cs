@@ -185,6 +185,21 @@ namespace Core.DI
                     ctx.Container.Resolve<IGameLogger>()))
                 .AsSingle();
 
+            // Site-aware wrapper (world-sites brief): reserves contiguous site blocks over the untouched
+            // density allocator; with no sites authored it is a pure passthrough.
+            Container.Bind<IWorldSlotAllocator>()
+                .To<SiteAwareSlotAllocator>()
+                .FromMethod(ctx => new SiteAwareSlotAllocator(
+                    ctx.Container.Resolve<WorldContentAllocator>(),
+                    ctx.Container.Resolve<World.Sites.Core.ISiteCatalog>(),
+                    ctx.Container.Resolve<World.Sites.Core.SiteBlockBuilder>(),
+                    ctx.Container.Resolve<WorldContentDensitySettings>(),
+                    ctx.Container.Resolve<IBiomeMonsterPoolCatalog>(),
+                    ctx.Container.Resolve<Loot.Core.ICurrentThemeProvider>(),
+                    ctx.Container.Resolve<IRandomSource>(),
+                    ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
+
             // id -> archetype SO, so the spawn layer can read the visual assembly/portrait.
             Container.Bind<INpcArchetypeCatalog>()
                 .FromInstance(new NpcArchetypeCatalog(_archetypes))
@@ -200,7 +215,8 @@ namespace Core.DI
                     ctx.Container.Resolve<ILiveActorRegistry>(),
                     ctx.Container.Resolve<IRandomSource>(),
                     ctx.Container.Resolve<RunPacingSettings>(),
-                    ctx.Container.Resolve<WorldContentAllocator>(),
+                    ctx.Container.Resolve<IWorldSlotAllocator>(),
+                    ctx.Container.Resolve<World.Sites.Core.ISiteCatalog>(),
                     ctx.Container.Resolve<IGameLogger>()))
                 .AsSingle();
         }

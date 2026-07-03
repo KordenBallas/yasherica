@@ -9,6 +9,7 @@ using Narrative.Director.Core;
 using Narrative.Facts.Core;
 using Narrative.Stories.Core;
 using NUnit.Framework;
+using Sites = World.Sites.Core;
 
 namespace Tests.EditMode
 {
@@ -100,17 +101,26 @@ namespace Tests.EditMode
 
         private RunWindowPlanner Planner(RunPacingSettings settings, IReadOnlyList<StoryTemplateData> stories,
             IReadOnlyList<NpcArchetypeData> archetypes, ulong seed = 7,
-            WorldContentDensitySettings density = null, IBiomeMonsterPoolCatalog monsterPools = null)
+            WorldContentDensitySettings density = null, IBiomeMonsterPoolCatalog monsterPools = null,
+            Sites.ISiteCatalog siteCatalog = null)
         {
             var random = new DeterministicRandom(seed);
             var actorFactory = new ActorInstanceFactory(random);
             // The registry lives with the planner so a minted actor stays queryable across windows (D11).
             var liveActors = new LiveActorRegistry();
+            var effectiveDensity = density ?? QuestEverywhere;
+            var pools = monsterPools ?? new BiomeMonsterPoolCatalog(
+                (Dictionary<LevelTheme, IReadOnlyList<int>>)null);
+            var themes = new FakeThemeProvider();
             // The allocator shares the planner's seeded stream and carries quest spacing across windows.
-            var allocator = new WorldContentAllocator(density ?? QuestEverywhere,
-                monsterPools ?? new BiomeMonsterPoolCatalog(null), new FakeThemeProvider(), random, _logger);
+            // The site-aware wrapper with an empty catalog is a bit-exact passthrough, so the legacy
+            // assertions in this suite are unaffected.
+            var catalog = siteCatalog ?? new Sites.SiteCatalog(null);
+            var inner = new WorldContentAllocator(effectiveDensity, pools, themes, random, _logger);
+            var allocator = new SiteAwareSlotAllocator(inner, catalog,
+                new Sites.SiteBlockBuilder(), effectiveDensity, pools, themes, random, _logger);
             return new RunWindowPlanner(stories, archetypes, _evaluator, actorFactory, liveActors, random,
-                settings, allocator, _logger);
+                settings, allocator, catalog, _logger);
         }
 
         private static int StoryCount(WindowPlan plan) =>
@@ -481,6 +491,89 @@ namespace Tests.EditMode
             var placed = window2.Platforms.First(p => p.Kind == PlannedPlatformKind.Story);
             Assert.AreEqual("story_raider_motive", placed.Story.StoryId);          // counter-offer eligible
             Assert.AreEqual(raider.InstanceId, placed.Actor.InstanceId);           // same raider recast
+        }
+
+        // A quest-channel site: NPC anchor (the quest platform itself), fixed footprint, townsfolk fill.
+        private static Sites.SiteDefinitionData QuestSite(string id, int footprint, int fillBudget) =>
+            new Sites.SiteDefinitionData(id, "settlement", footprint, footprint, triggerWeight: 1,
+                new[] { new Sites.ContentBeat(Sites.ContentBaseKind.Npc, "quest-bearer") },
+                fillBudget, fillBudget,
+                new[]
+                {
+                    new Sites.WeightedBeat(
+                        new Sites.ContentBeat(Sites.ContentBaseKind.Npc, "townsfolk"), 1)
+                },
+                "test-kit");
+
+        /// <summary>Quest on slot 0, then ambient-empty: the site block drains right after its anchor.</summary>
+        private static readonly WorldContentDensitySettings OneQuestThenEmpty =
+            new WorldContentDensitySettings(averagePlatformsPerQuest: 1, minPlatformsBetweenQuests: 100,
+                emptyWeight: 1, lootWeight: 0, combatWeight: 0,
+                averagePlatformsPerAmbientSite: 0, minPlatformsBetweenSites: 0, wildQuestWeight: 0);
+
+        [Test]
+        public void NpcFillSlot_PicksFlavorTaggedStory_AndStampsTheSite()
+        {
+            // wildQuestWeight 0 + one quest site: the landed quest always pulls the settlement; its
+            // townsfolk fill slots must pick the flavor-tagged chatter story with a fresh actor.
+            var settings = new RunPacingSettings(windowSize: 3, lookAheadWindows: 1);
+            var catalog = new Sites.SiteCatalog(new[] { QuestSite("village", footprint: 3, fillBudget: 2) });
+            var quest = Story("quest", 10, new[] { "bandit" });
+            var chatter = Story("chatter", 10, new[] { "townsfolk" });
+            var plan = Planner(settings, new[] { quest, chatter }, new[] { Archetype("a", "bandit") },
+                density: OneQuestThenEmpty, siteCatalog: catalog).PlanWindow(0, _store);
+
+            var anchor = plan.Platforms[0];
+            Assert.AreEqual("quest", anchor.Story.StoryId);
+            Assert.AreEqual("village", anchor.Site.SiteId);
+            Assert.AreEqual(0, anchor.Site.Index);
+
+            for (int i = 1; i < 3; i++)
+            {
+                var fill = plan.Platforms[i];
+                Assert.AreEqual(PlannedPlatformKind.Story, fill.Kind, $"Fill slot {i} should carry chatter.");
+                Assert.AreEqual("chatter", fill.Story.StoryId);
+                Assert.AreEqual("townsfolk", fill.Flavor);
+                Assert.AreEqual("village", fill.Site.SiteId);
+                Assert.AreEqual(i, fill.Site.Index);
+                Assert.IsNotNull(fill.Actor);
+            }
+
+            // A one-story chatter pool repeats with distinct actors rather than leaving dead platforms.
+            Assert.AreNotEqual(plan.Platforms[1].Actor.InstanceId, plan.Platforms[2].Actor.InstanceId);
+        }
+
+        [Test]
+        public void AmbientColourStories_NeverSatisfyQuestSlots()
+        {
+            // Only a townsfolk-tagged story exists. With a catalog declaring townsfolk as an NPC fill
+            // flavor, the quest slot must stay unfilled (empty), not be satisfied by chatter.
+            var settings = new RunPacingSettings(windowSize: 4, lookAheadWindows: 1);
+            var catalog = new Sites.SiteCatalog(new[] { QuestSite("village", footprint: 2, fillBudget: 1) });
+            var chatter = Story("chatter", 10, new[] { "townsfolk" });
+
+            var plan = Planner(settings, new[] { chatter }, new[] { Archetype("a", "bandit") },
+                siteCatalog: catalog).PlanWindow(0, _store);
+
+            Assert.AreEqual(0, StoryCount(plan), "Chatter must not fill a quest slot.");
+        }
+
+        [Test]
+        public void NpcFillSlot_WithoutMatchingStory_DegradesToEmpty_KeepingTheStamp()
+        {
+            var settings = new RunPacingSettings(windowSize: 3, lookAheadWindows: 1);
+            var catalog = new Sites.SiteCatalog(new[] { QuestSite("village", footprint: 3, fillBudget: 2) });
+            var quest = Story("quest", 10, new[] { "bandit" });
+
+            var plan = Planner(settings, new[] { quest }, new[] { Archetype("a", "bandit") },
+                density: OneQuestThenEmpty, siteCatalog: catalog).PlanWindow(0, _store);
+
+            Assert.AreEqual("village", plan.Platforms[0].Site.SiteId);
+            for (int i = 1; i < 3; i++)
+            {
+                Assert.AreEqual(PlannedPlatformKind.Empty, plan.Platforms[i].Kind);
+                Assert.AreEqual("village", plan.Platforms[i].Site.SiteId, "The empty fill keeps its stamp.");
+            }
         }
 
         [Test]
