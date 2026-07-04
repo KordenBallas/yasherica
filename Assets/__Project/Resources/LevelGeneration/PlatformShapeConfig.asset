@@ -36,5 +36,4 @@ MonoBehaviour:
   _rimDropHeight: 0.4
   _platformThickness: 1
   _gapBetweenPlatforms: 2
-  _heightDeviation: 1.5
   _cellInset: 0.06

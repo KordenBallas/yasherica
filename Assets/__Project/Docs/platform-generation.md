@@ -4,8 +4,10 @@
 > hex cells that ARE the combat grid (one source of truth, never re-fitted), wrapped in a
 > non-walkable organic rim, sized and shaped by its content kind from one authored SO, fully
 > deterministic per run seed. Covers the streaming layout path (`AreaGenerator` +
-> `RunStreamingCoordinator`) and the combat-grid derivation.
-> Status: current as of 2026-07-02.
+> `RunStreamingCoordinator`) and the combat-grid derivation. Where a platform **sits** (the routed
+> weave, elevation tiers, and the landmarks/backdrop around the run) is owned by the world
+> landscape system — see `world-landscape.md`.
+> Status: current as of 2026-07-04.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -105,8 +107,10 @@ dependency arrows are `LevelGeneration → Combat.Battlefield` and `Platform →
    raw hex-union boundary with `OutlineStitcher` before growing the rim, so `Surface.Outline` is
    the stitched walkable edge and `Surface.NotchFills` pave the sewn spans), sets
    `PlatformVisual.Surface`, `TopBoundary` (= the stitched outline, final from birth), `Size`
-   (= outline bbox for the layout cursor), and the cursor-based `Position` (height deviation drawn
-   from the same per-platform stream; Perlin height seed derives from the run seed).
+   (= outline bbox for the layout cursor), and the cursor-based `Position` — X from the monotonic
+   layout cursor, Z (lateral weave) and Y (elevation tier) from the `RunRouteModel` sample at that
+   cursor (`world-landscape.md` §2.2; the old per-platform random depth step and the Perlin height
+   map are gone).
 3. **`PlatformView`** builds the mesh via `PlatformHexSurfaceMeshBuilder` (per-cell shallow-dome
    tops — the R2 "muted" treatment: cell borders read as soft valleys; `CellInset` 0 = flat — plus
    flat `NotchFills` patches so the floor continues across the sewn notches, the drooping rim strip
@@ -156,8 +160,11 @@ Loaded from `Resources/LevelGeneration/PlatformShapeConfig.asset` (or wired on t
 | `_rimDropHeight` | float | How far the rim droops below the walkable top (clamped to `_platformThickness`) | 0.4 |
 | `_platformThickness` | float | Extrusion below the top | 1 |
 | `_gapBetweenPlatforms` | float | Layout gap between neighboring platforms | 2 |
-| `_heightDeviation` | float | Max height deviation between consecutive platforms | 1.5 |
 | `_cellInset` | float | Per-cell dome height → soft valley seams (R2); 0 = flat | 0.06 |
+
+*(The former `_heightDeviation` dial — which, despite its name, drove an unbounded per-platform
+**lateral/depth** random walk — was removed with the routed-path pass; lateral character now lives
+per biome on `BiomeAppearanceDefinition`, see `world-landscape.md`.)*
 
 `_compactness` (0–8): growth-weight dial — 0 grows ragged/organic, 8 hugs the blob (round arena).
 
@@ -196,8 +203,9 @@ Referenced assets: none. (The crisp combat cell visual is the pre-existing
   by `PlatformShapeSettings`.
 - An unedited (or missing) asset behaves identically to the code defaults — asserted by
   `PlatformShapeConfigMapperTests`.
-- The `AreaSceneEntrypoint.seed` inspector field now only overrides the **height-noise** seed
-  (0 = derive from the run seed); platform shapes always follow the run seed.
+- The `AreaSceneEntrypoint.seed` inspector field now only overrides the **route** seed
+  (layout weave / tiers / landmarks — see `world-landscape.md`; 0 = derive from the run seed);
+  platform shapes always follow the run seed.
 
 ---
 

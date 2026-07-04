@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Core.Logging;
+using LevelGeneration.Route;
 using LevelGeneration.Surface;
 using Loot.Core;
 using Narrative.Director.Core;
@@ -21,11 +22,8 @@ namespace LevelGeneration
         /// <summary>Seed-context prefix for the per-platform shape stream (kept apart from loot/director streams).</summary>
         private const string ShapeSeedContext = "platform-shape";
 
-        /// <summary>Integer resolution of the seeded height-deviation draw.</summary>
-        private const int HeightDeviationSteps = 100;
-
         private readonly PlatformGraphData _graph;
-        private readonly PerlinNoiseMap _noiseMap;
+        private readonly RunRouteModel _routeModel;
         private readonly AreaGeneratorConfig _config;
         private readonly Platform.Platform.Factory _platformFactory;
         private readonly ILootRollService _lootRollService;
@@ -34,6 +32,7 @@ namespace LevelGeneration
         private readonly IRunSeedProvider _seedProvider;
         private readonly PlatformSurfaceGenerator _surfaceGenerator = new();
         private readonly IGameLogger _logger;
+        private readonly IRouteLandmarkSpawner _landmarkSpawner;
 
         private readonly Dictionary<int, IPlatform> _platforms = new();
         private readonly Dictionary<int, PlatformView> _platformViews = new();
@@ -41,23 +40,24 @@ namespace LevelGeneration
         private IPlatform _lastAppended;
         private GameObject _areaGameObject;
         private float _cursorX = 0f;
-        private float _baselineY = 0f;
+        private float _landmarkScanX = 0f;
 
         public IPlatform EntryPlatform => _entryPlatform;
 
         public AreaGenerator(
             PlatformGraphData graph,
-            PerlinNoiseMap noiseMap,
+            RunRouteModel routeModel,
             Platform.Platform.Factory platformFactory,
             ILootRollService lootRollService,
             LevelTheme theme,
             PlatformShapeSettings shapeSettings,
             IRunSeedProvider seedProvider,
             AreaGeneratorConfig config = null,
-            IGameLogger logger = null)
+            IGameLogger logger = null,
+            IRouteLandmarkSpawner landmarkSpawner = null)
         {
             _graph = graph;
-            _noiseMap = noiseMap;
+            _routeModel = routeModel ?? new RunRouteModel(BiomeLandscapeSettings.CreateDefault(), 0);
             _platformFactory = platformFactory;
             _lootRollService = lootRollService;
             _theme = theme;
@@ -65,6 +65,7 @@ namespace LevelGeneration
             _seedProvider = seedProvider;
             _config = config ?? new AreaGeneratorConfig();
             _logger = logger;
+            _landmarkSpawner = landmarkSpawner;
         }
 
         /// <summary>
@@ -93,7 +94,7 @@ namespace LevelGeneration
         {
             Clear();
             _cursorX = 0f;
-            _baselineY = 0f;
+            _landmarkScanX = 0f;
             _lastAppended = null;
             CreateAreaGameObject();
         }
@@ -137,6 +138,29 @@ namespace LevelGeneration
 
                 CreatePlatformGameObject(platform);
             }
+
+            SpawnPendingLandmarks();
+        }
+
+        /// <summary>
+        /// Places the routing landmarks whose arc apex falls in the forward span this window just
+        /// laid out. The scan cursor persists across windows like <see cref="_cursorX"/>, and the
+        /// half-open range guarantees each landmark spawns exactly once while streaming.
+        /// </summary>
+        private void SpawnPendingLandmarks()
+        {
+            if (_landmarkSpawner == null || _areaGameObject == null || _cursorX <= _landmarkScanX)
+            {
+                return;
+            }
+
+            var specs = _routeModel.GetLandmarksInRange(_landmarkScanX, _cursorX);
+            if (specs.Count > 0)
+            {
+                _landmarkSpawner.Spawn(specs, _areaGameObject.transform);
+            }
+
+            _landmarkScanX = _cursorX;
         }
 
         public void Clear()
@@ -228,8 +252,7 @@ namespace LevelGeneration
             // continuous under the sewn spans); walls and boundary tests follow it as-is.
             visual.TopBoundary = surface.Outline.Select(p => new Vector3(p.X, 0f, p.Z)).ToList();
             visual.Size = CalculateOutlineBounds(surface);
-            Vector2 position2D = CalculatePlatformPosition(node, visual.Size.x, rng);
-            visual.Position = _noiseMap.GetPositionWithHeight(position2D);
+            visual.Position = CalculatePlatformPosition(visual.Size.x);
 
             // Initialize with visual (will also initialize content and state machine)
             platform.Initialize(visual);
@@ -261,25 +284,17 @@ namespace LevelGeneration
             return new Vector2(maxX - minX, maxZ - minZ);
         }
 
-        private Vector2 CalculatePlatformPosition(GraphNode node, float platformWidth, IRandomSource rng)
+        private Vector3 CalculatePlatformPosition(float platformWidth)
         {
-            // Calculate position based on previous platforms and gap
+            // The route model is a pure function of forward distance: X marches with the layout
+            // cursor (monotonic — forward always reads onward), Z is the bounded routed-path weave,
+            // Y is the elevation tier. Layout/read only; gaps stay clean hops.
             float posX = _cursorX + platformWidth * 0.5f;
+            RouteSample sample = _routeModel.Sample(posX);
 
-            // Height deviation relative to previous node, drawn from the platform's own seeded stream.
-            float dy = 0f;
-            if (node.Id > 0)
-            {
-                int step = rng.NextInt(HeightDeviationSteps * 2 + 1) - HeightDeviationSteps;
-                dy = step / (float)HeightDeviationSteps * _shapeSettings.HeightDeviation;
-            }
-            float posY = (node.Id == 0) ? _baselineY : (_baselineY + dy);
-
-            // Advance cursor for next platform
             _cursorX += platformWidth + _shapeSettings.GapBetweenPlatforms;
-            _baselineY = posY;
 
-            return new Vector2(posX, posY);
+            return new Vector3(posX, sample.TierY, sample.LateralZ);
         }
 
         private IPlatformContent CreateContent(PlatformContentType contentType, GraphNode node)

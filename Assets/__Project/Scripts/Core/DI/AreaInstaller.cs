@@ -16,9 +16,12 @@ using Combat.Integration;
 using Combat.TurnManagement;
 using Combat.View;
 using Core.Camera;
+using Core.Logging;
 using LevelGeneration;
 using Platform;
 using UnityEngine;
+using World.Biomes;
+using World.Biomes.Data;
 using Zenject;
 
 namespace Core.DI
@@ -32,6 +35,8 @@ namespace Core.DI
         /// <summary>The default ability queue depth (the third <see cref="CombatConfig"/> argument).</summary>
         private const int MaxAbilityQueueSizeDefault = 3;
 
+        private const string BiomeAppearanceResourcePath = "World/Biomes";
+
         [Header("Configuration ScriptableObjects")]
         [SerializeField] private CombatMovementConfig _movementConfig;
         [SerializeField] private InputConfig _inputConfig;
@@ -39,6 +44,9 @@ namespace Core.DI
         [Tooltip("Platform size/shape + hex tiling dials; auto-loads from " +
                  "Resources/LevelGeneration/PlatformShapeConfig when unset")]
         [SerializeField] private LevelGeneration.Data.PlatformShapeConfig _platformShapeConfig;
+        [Tooltip("Per-biome landscape appearance (routed path / tiers / backdrop); auto-loads from " +
+                 "Resources/World/Biomes when empty. An unauthored biome uses code defaults")]
+        [SerializeField] private List<BiomeAppearanceDefinition> _biomeAppearances;
 
         [Header("Data Definitions (Optional - for data-driven system)")]
         [Tooltip("Status effect definitions for the data-driven system")]
@@ -61,6 +69,7 @@ namespace Core.DI
             LoggingInstaller.Install(Container);
 
             InstallGameCoreBindings();
+            InstallWorldBiomeBindings();
             InstallPlatformBindings();
             InstallCombatBindings();
 
@@ -92,11 +101,36 @@ namespace Core.DI
             // Camera Service
             Container.Bind<ICameraService>().To<CameraService>().FromComponentInHierarchy().AsSingle();
 
-            // Camera Configuration from Resources
-            Container.Bind<CameraConfig>().FromResource("CameraConfig").AsSingle();
+            // Camera Configuration from Resources. The asset lives under Configs/ — the binding was
+            // latently wrong ("CameraConfig") and never fired until the world backdrop began
+            // resolving CameraConfig for the isometric yaw.
+            Container.Bind<CameraConfig>().FromResource("Configs/CameraConfig").AsSingle();
 
             // Scene entrypoints - bind to IInitializable so Zenject calls Initialize() after injection
             Container.BindInterfacesTo<AreaSceneEntrypoint>().FromComponentInHierarchy().AsSingle();
+        }
+
+        private void InstallWorldBiomeBindings()
+        {
+            // Biome landscape appearance (routed path / elevation tiers / backdrop character).
+            // Missing assets are fine — the route model falls back to code defaults per theme.
+            var appearances = _biomeAppearances;
+            if (appearances == null || appearances.Count == 0)
+            {
+                appearances = new List<BiomeAppearanceDefinition>(
+                    Resources.LoadAll<BiomeAppearanceDefinition>(BiomeAppearanceResourcePath));
+                if (appearances.Count == 0)
+                {
+                    Debug.LogWarning("[AreaInstaller] No BiomeAppearanceDefinition assets found in " +
+                                     $"Inspector or Resources/{BiomeAppearanceResourcePath} — " +
+                                     "landscape uses code defaults for every biome.");
+                }
+            }
+
+            var captured = appearances;
+            Container.Bind<IBiomeAppearanceCatalog>()
+                .FromMethod(ctx => new BiomeAppearanceCatalog(captured, ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
         }
 
         private void InstallPlatformBindings()

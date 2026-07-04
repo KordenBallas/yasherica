@@ -9,6 +9,71 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **World Landscape Read — routed path, elevation tiers, world backdrop (P5-2)** (new
+  `world-landscape.md`; brief `product-requirements/world-backdrop-and-elevation.md` FR A–D): the
+  traversal field now reads as a landscape you route through. **Routed path**: platform depth (Z)
+  follows a pure seeded route function — bounded low-frequency baseline wander + sparse `cos²`
+  feature arcs bulging toward the camera around a **midground routing landmark** placed at the arc
+  apex on the far side (corridor and hero-never-occluded invariants enforced structurally in
+  `BiomeLandscapeSettings`); forward (X) stays the monotonic layout cursor. **Elevation tiers**:
+  platform Y is a quantized low-frequency swell (tier count × step, ≤ 1 tier between neighbors at
+  defaults) — visual only, gaps stay clean hops. **World backdrop**: a hero-anchored rig (two hazed
+  ridge strips from `BackdropSilhouetteModel` + sky gradient band) reads as an infinitely distant
+  biome horizon under the unchanged fixed isometric camera. New pure core
+  `LevelGeneration.Route` (`RunRouteModel`, `BiomeLandscapeSettings`, `BackdropSilhouetteModel`),
+  new biome data path `World.Biomes` (**`BiomeAppearanceDefinition`** SO — the biome appearance
+  config P1-2 will extend — + mapper + catalog, bound in `AreaInstaller`, auto-loaded from
+  `Resources/World/Biomes`), new views `World.Landscape` (`RouteLandmarkSpawner`,
+  `WorldBackdropBuilder`/`View`, procedural muted placeholder silhouettes until the P5-4 asset
+  pass; SO kit lists are the swap-in seam). Authored `BiomeAppearance_Forest/Desert/Mountain/Cave`
+  assets with distinct landscape characters. Tests: `RunRouteModelTests` (11),
+  `BiomeLandscapeSettingsTests` (7), `BackdropSilhouetteModelTests` (5) — 23/23 green via the
+  Roslyn runner — plus `BiomeAppearanceMapperTests`; full compile + test compile green.
+
+### Fixed
+- **Backdrop vertical correction had the wrong sign; landmarks left the frame with tier height**
+  (`world-landscape.md` §3 scale note). Under the tilted **orthographic** camera there is no
+  perspective convergence: a ground-height point `D` away projects `0.5·D` **above** screen
+  centre — the previous "raise by `D·tan(pitch)`" pushed the horizon further out of frame.
+  `WorldBackdropBuilder` now **lowers** every part by `D·tan(pitch)`, making a part's on-screen
+  height depend only on its authored base offset. Same geometry constrains landmarks: a +Z
+  offset shifts them up-screen, so bases now sit at a fixed low height (no tier coupling in
+  `RunRouteModel`), offsets pulled to the no-occlusion floor (≈ 14), baseline amplitudes eased
+  to ~5 to keep that floor small, and **arc depths raised** (7–8) so the feature arcs — which
+  bulge toward the camera and are not floor-constrained — carry the felt turns. Defaults + all
+  four biome assets retuned; route suite 23/23 + full compile green.
+
+### Fixed
+- **World backdrop was invisible and the weave/tiers unreadably subtle at game scale**
+  (`world-landscape.md` §3 scale note). Two causes found on the first play-mode pass: (1) under
+  the tilted isometric camera a horizon placed at ground height 180–340 units away projects
+  ~125 world units **below** the visible window — `WorldBackdropBuilder` now raises every part by
+  `distance × tan(cameraPitch)` (pitch passed from `CameraConfig.IsometricRotation`), and
+  `WorldBackdropView` follows the hero's Y with slow smoothing so tier climbs re-center the
+  horizon without jump-bob; (2) the traversal camera is a tight **orthographic** window
+  (~25×14 world units) over 8–16-unit platforms, so amplitude-5 weave / 1.5-unit tiers read as a
+  straight line — landscape dials bumped to platform-commensurate values in the code defaults
+  (corridor 14, amplitude 8, arc depth 5, tier step 2.5, landmark scale 12–18) and all four
+  biome assets (with tier wavelengths keeping the ≤ 1-tier-per-platform guarantee). Route suite
+  23/23 + full compile green.
+
+### Fixed
+- **`CameraConfig` Zenject binding pointed at the wrong Resources path** (`AreaInstaller`):
+  `FromResource("CameraConfig")` vs the actual `Resources/Configs/CameraConfig.asset`. Latent
+  since the binding was added — nothing resolved it lazily until the world backdrop injected
+  `CameraConfig` for the isometric yaw, which surfaced as a `ZenjectException` (resource not
+  found) followed by a `NullReferenceException` in `AreaSceneEntrypoint.CreateWorldBackdrop`
+  and an aborted area generation. Now binds `Configs/CameraConfig`.
+
+### Removed
+- **The `_heightDeviation` drunk walk and the Perlin height map** (`platform-generation.md` §3):
+  the dial — which despite its name drove an **unbounded per-platform lateral (Z) random walk**,
+  not height — is deleted from `PlatformShapeConfig`/`PlatformShapeSettings`/mapper and the asset;
+  `PerlinNoiseMap` (the old Y source) is deleted with it. Both axes now come from `RunRouteModel`.
+  The `AreaSceneEntrypoint.seed` inspector override now seeds the route instead of the height
+  noise; `noiseScale`/`noiseOctaves` fields removed.
+
+### Added
 - **Arena Mode — Phase 4: match HUD, spectate, disconnect handling (MVP complete)**
   (`arena-mode.md` §2.2): `ArenaMatchHudPresenter`/`ArenaMatchHudView` (MVP) drive the in-match
   HUD off the controller events — round/lock-in status line, **defeat → Spectating** (local input

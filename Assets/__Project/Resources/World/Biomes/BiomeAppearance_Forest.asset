@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d54914ea5d6340a983c3edcfd74a1d1e, type: 3}
+  m_Name: BiomeAppearance_Forest
+  m_EditorClassIdentifier: Yasherica::World.Biomes.Data.BiomeAppearanceDefinition
+  _theme: 0
+  _corridorHalfWidth: 14
+  _baselineWavelength: 100
+  _baselineAmplitude: 5
+  _arcSlotLength: 150
+  _arcChancePercent: 50
+  _arcDepth: 7
+  _arcHalfLengthMin: 25
+  _arcHalfLengthMax: 42
+  _landmarkOffset: 14
+  _landmarkScaleMin: 12
+  _landmarkScaleMax: 18
+  _landmarkKit: []
+  _landmarkTint: {r: 0.45, g: 0.52, b: 0.44, a: 1}
+  _tierCount: 4
+  _tierStep: 2.2
+  _tierWavelength: 260
+  _silhouetteKit: []
+  _backdropRidgeAmplitude: 6
+  _backdropRidgeWavelength: 80
+  _skyTopTint: {r: 0.62, g: 0.71, b: 0.68, a: 1}
+  _skyHorizonTint: {r: 0.84, g: 0.86, b: 0.8, a: 1}
+  _hazeTint: {r: 0.74, g: 0.79, b: 0.74, a: 1}

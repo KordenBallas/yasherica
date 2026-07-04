@@ -27,7 +27,7 @@ namespace Tests.EditMode
                 empty: null, loot: null, combat: null, npc: null,
                 battlefieldMinimumCells: 0,
                 rimWidth: -2f, rimJitterPercent: 500, rimDropHeight: -1f,
-                platformThickness: 0f, gapBetweenPlatforms: -1f, heightDeviation: -1f,
+                platformThickness: 0f, gapBetweenPlatforms: -1f,
                 cellInset: -0.5f);
 
             Assert.AreEqual(PlatformShapeSettings.DefaultHexSize, settings.HexSize);
@@ -40,7 +40,6 @@ namespace Tests.EditMode
             Assert.AreEqual(0f, settings.RimDropHeight);
             Assert.AreEqual(PlatformShapeSettings.DefaultPlatformThickness, settings.PlatformThickness);
             Assert.AreEqual(0f, settings.GapBetweenPlatforms);
-            Assert.AreEqual(0f, settings.HeightDeviation);
             Assert.AreEqual(0f, settings.CellInset);
         }
 

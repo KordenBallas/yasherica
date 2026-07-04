@@ -29,7 +29,6 @@ namespace LevelGeneration.Data
                 config.RimDropHeight,
                 config.PlatformThickness,
                 config.GapBetweenPlatforms,
-                config.HeightDeviation,
                 config.CellInset);
         }
 

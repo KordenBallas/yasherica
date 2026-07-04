@@ -2,6 +2,10 @@
 
 Planned work and open gaps, grouped by system, plus a cross-cutting backlog. Checkbox items.
 
+> **Priority view:** for a priority-ordered cross-cut with stable IDs (`P0-1`, `P1-3`, …), a
+> recommended model per task, and the designer-vs-code split, see
+> [`ROADMAP-prioritized.md`](ROADMAP-prioritized.md). This doc stays the per-system source of truth.
+
 Maintenance rules (CLAUDE.md §8.3):
 - New requirement from the user → add an unchecked item under its system.
 - AI proposes an enhancement / notices a limitation → add it here (don't just mention it in chat).
@@ -77,6 +81,34 @@ Tracks A / B / C are independent and can proceed in parallel; Track A already ha
   `Ability` rewards are rolled by the narrative system and skipped by the loot granter (logged only).
   Planned owners: `Experience` → Character Progression; `Ability` → Ability Subsystem (part-granted);
   `Currency` still open. Wire each receiving system as its owning section lands. *(narrative + loot)*
+
+---
+
+## Races & Passport
+
+The starting races and the "world reads what you are" rule. **Design gate delivered** (2026-07-04):
+the roster is defined in `design/narrative/races.md` and handed to the code track as the verified
+brief **`product-requirements/race-roster-and-passport.md`**. Three races as three estates of the
+Order — **Ibex** (Mountain), **Lizard** (Desert), **Fox** (Forest); the hero is **kindless**.
+
+- [x] `[content]` **Race roster & passport model — DESIGNED.** *(Design done — `design/narrative/races.md`,
+  `design/world/overview.md` §5; verified PO brief `product-requirements/race-roster-and-passport.md`.
+  Was the parked "race roster"; unblocks the code items below and the downstream content.)*
+- [ ] `[arch]` **Races as data + part race-tags.** A small **roster of races** as data (home biome +
+  belonging colour + display name, mirroring the one-asset-per-theme pattern), and a **race tag on
+  every `PartDefinition`** (or *kindless*; the hero's starting parts are kindless). New race / re-tag
+  = data only. *(brief: `race-roster-and-passport.md`)* *(character + world + narrative)*
+- [ ] `[arch]` **Passport = per-race acceptance tier by part count.** Derive, per race, an acceptance
+  tier = **count of that race's equipped parts** clamped to {0 outsider, 1 tolerated, 2+ kin}, and
+  **project it as a per-race count/tier fact** the director/dialogue gate on (replaces the single
+  passport boolean; no hard part-conflict — the trade-off is the slot budget). Rides the
+  actor/faction-scoped eligibility enabler. *(brief: `race-roster-and-passport.md`)* *(narrative + character)*
+- [ ] `[content]` **Per-race content — questlines, NPC casts, signature enemies.** The next content
+  step; hangs off the roster (`design/narrative/races.md` §6). *(narrative)*
+- [ ] `[arch]` **Exposure / betrayal.** Deeper mutation / being caught flips a race's trust to
+  horror (a `heresy_exposed`-style fact); named in design, trigger rules unbuilt. *(narrative)*
+- [ ] `[content]` **Fourth (Cave/underclass) race.** Deferred; the roster is built to accept it, and
+  it may tie the hero's Junkyard origin. *(races)*
 
 ---
 
@@ -198,7 +230,11 @@ Deferred design (from `narrative-procedural.md` §6):
     below.)*
 - [ ] `[content]` **Biome selection along the run.** The streaming generator still runs a fixed biome
     (`AreaSceneEntrypoint` hardcodes Forest); fold progression/biome selection into the planner so the
-    biome (and with it the monster pool + loot table) changes as the run advances.
+    biome (and with it the monster pool + loot table) changes as the run advances. Biomes are
+    **race homelands** (`product-requirements/race-roster-and-passport.md`) — race placement/ordering
+    ties in here. *(Verified PO brief: `product-requirements/biome-selection-along-the-run.md` —
+    seeded escalation-tier pool, travel in stretches, Cave out of rotation, current tier published as
+    a fact; D19 difficulty/tone/density escalation stays a separate thread.)*
 - [ ] `[debt]` **Remove the dead platform-loot chance API.** Loot-platform *presence* is owned by the
     density allocator now; `LootRollService.ShouldPlaceLootOnPlatform` and
     `BiomeLootDefinition._platformLootChance` have no callers — delete them (and their
@@ -551,9 +587,21 @@ Open / follow-ups:
 ## World & Environment
 
 New work (no system doc yet):
-- [ ] `[content]` **M5 — Landscape around platforms.** Generate surrounding terrain/visuals that
-  support the platforms and form a cohesive world feel (skybox, distant geometry, biome dressing).
-  Read-only relative to gameplay (no grid/collision impact on platforms).
+- [x] `[content]` **M5 / P5-2 — Natural landscape read (routed path · elevation tiers · backdrop).**
+  ✅ Shipped 2026-07-04 — see `world-landscape.md` + CHANGELOG. Routed bounded weave with
+  landmark-justified feature arcs, quantized elevation tiers, hero-anchored hazed biome horizon;
+  per-biome character on the new `BiomeAppearanceDefinition` (`Resources/World/Biomes`);
+  `_heightDeviation` drunk walk + `PerlinNoiseMap` removed. Parked escalations stay open below.
+- [x] `[content]` **M5 — Landscape around platforms.** ✅ Absorbed into P5-2's backdrop axis and
+  shipped with it (`world-landscape.md` §2.3; placeholder silhouettes until P5-4 meshes).
+- [ ] `[content]` **P5-2 follow-ups (landscape read).** (a) Real landmark/backdrop meshes from the
+  decoration asset pipeline (P5-4) into the `BiomeAppearanceDefinition` kit lists (placeholders are
+  procedural today); (b) **parallax / sky animation** polish (backdrop is rigidly hero-anchored);
+  (c) **path-following camera yaw** — parked escalation, revisit only if playtest reads the weave as
+  "platforms sliding sideways"; (d) **route↔real-backdrop coupling** (thread the path through the
+  actual horizon silhouette — causality is faked today); (e) **site-aware tier flattening** — the
+  route is site-blind, a site block spanning a tier step / arc apex may fight "reads as one place";
+  (f) P1-2 extends `BiomeAppearanceDefinition` with feature-pool/palette/ground fields.
 - [ ] `[content]` **M5 — Site dressing ("reads as one place").** Make a Site's island-cluster read as
   one place via **aligned skyline + shared ground/palette + density gradient + a distant backdrop**,
   with a **gate/threshold** at the boundary — **dressing only, gaps stay clean hops** (no walkable
@@ -584,7 +632,10 @@ Known points (from `character-system.md`):
 
 New work:
 - [ ] `[content]` **M5 — Production body-part assets.** Replace placeholder box parts with
-  production-ready meshes/materials across all slots.
+  production-ready meshes/materials across all slots. Includes the per-race **signature marker parts**
+  (Ibex horns/hooves/coat · Lizard scales/frill/tail · Fox tail/ears/fur) named in
+  `product-requirements/race-roster-and-passport.md` + `design/narrative/races.md`; each authored part
+  also carries its **race tag** (the passport input).
 - [ ] `[arch]` **M5 — Part/animation integration workflow.** A documented, repeatable workflow to
   add a new body part or animation: socket placement/adjustment, bone-name baking
   (`PartDefinition._boneNames` / "Bake Bone Names From Prefab"), animation hookup, and validation.

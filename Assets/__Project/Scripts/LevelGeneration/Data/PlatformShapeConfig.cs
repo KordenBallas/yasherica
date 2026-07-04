@@ -82,9 +82,6 @@ namespace LevelGeneration.Data
         [Tooltip("Gap between neighboring platforms, world units")]
         [Min(0f)]
         [SerializeField] private float _gapBetweenPlatforms = 2f;
-        [Tooltip("Max height deviation between consecutive platforms, world units")]
-        [Min(0f)]
-        [SerializeField] private float _heightDeviation = 1.5f;
 
         [Header("Muted Traversal Tiling")]
         [Tooltip("Per-cell top inset feeding the bevel seams; 0 = perfectly flat (tiling invisible)")]
@@ -103,7 +100,6 @@ namespace LevelGeneration.Data
         public float RimDropHeight => _rimDropHeight;
         public float PlatformThickness => _platformThickness;
         public float GapBetweenPlatforms => _gapBetweenPlatforms;
-        public float HeightDeviation => _heightDeviation;
         public float CellInset => _cellInset;
     }
 }

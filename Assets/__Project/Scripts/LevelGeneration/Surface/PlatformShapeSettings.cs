@@ -54,7 +54,6 @@ namespace LevelGeneration.Surface
 
         public float PlatformThickness { get; }
         public float GapBetweenPlatforms { get; }
-        public float HeightDeviation { get; }
 
         /// <summary>Per-cell top inset feeding the bevel seams (muted traversal tiling); 0 = flat.</summary>
         public float CellInset { get; }
@@ -72,7 +71,6 @@ namespace LevelGeneration.Surface
             float rimDropHeight,
             float platformThickness,
             float gapBetweenPlatforms,
-            float heightDeviation,
             float cellInset)
         {
             HexSize = hexSize <= 0f ? DefaultHexSize : hexSize;
@@ -87,7 +85,6 @@ namespace LevelGeneration.Surface
             RimDropHeight = rimDropHeight < 0f ? 0f : rimDropHeight;
             PlatformThickness = platformThickness <= 0f ? DefaultPlatformThickness : platformThickness;
             GapBetweenPlatforms = gapBetweenPlatforms < 0f ? 0f : gapBetweenPlatforms;
-            HeightDeviation = heightDeviation < 0f ? 0f : heightDeviation;
             CellInset = cellInset < 0f ? 0f : cellInset;
         }
 
@@ -111,7 +108,6 @@ namespace LevelGeneration.Surface
         public const float DefaultRimDropHeight = 0.4f;
         public const float DefaultPlatformThickness = 1f;
         public const float DefaultGapBetweenPlatforms = 2f;
-        public const float DefaultHeightDeviation = 1.5f;
         public const float DefaultCellInset = 0.06f;
 
         public static ShapeProfile DefaultEmptyProfile() => new ShapeProfile(2, 4, 3);
@@ -126,7 +122,7 @@ namespace LevelGeneration.Surface
                 DefaultEmptyProfile(), DefaultLootProfile(), DefaultCombatProfile(), DefaultNpcProfile(),
                 DefaultBattlefieldMinimumCells,
                 DefaultRimWidth, DefaultRimJitterPercent, DefaultRimDropHeight,
-                DefaultPlatformThickness, DefaultGapBetweenPlatforms, DefaultHeightDeviation,
+                DefaultPlatformThickness, DefaultGapBetweenPlatforms,
                 DefaultCellInset);
         }
     }

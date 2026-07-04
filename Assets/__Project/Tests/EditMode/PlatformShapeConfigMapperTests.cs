@@ -46,7 +46,6 @@ namespace Tests.EditMode
                 Assert.AreEqual(0.4f, settings.RimDropHeight);
                 Assert.AreEqual(1f, settings.PlatformThickness);
                 Assert.AreEqual(2f, settings.GapBetweenPlatforms);
-                Assert.AreEqual(1.5f, settings.HeightDeviation);
                 Assert.AreEqual(0.06f, settings.CellInset);
             }
             finally
