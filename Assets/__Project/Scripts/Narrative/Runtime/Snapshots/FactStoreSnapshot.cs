@@ -48,6 +48,39 @@ namespace Narrative.Runtime.Snapshots
             return snapshot;
         }
 
+        /// <summary>
+        /// Captures only the facts on one lifetime horizon (D20), so the run/meta partition handed to
+        /// save/load is already clean. A key missing from the vocabulary counts as run-scoped — the
+        /// conservative side: a mistagged fact is lost on death rather than leaking across runs.
+        /// </summary>
+        public static FactStoreSnapshot Capture(IFactStore store, IFactKeyRegistry registry, FactHorizon horizon)
+        {
+            var snapshot = new FactStoreSnapshot();
+            if (store == null)
+            {
+                return snapshot;
+            }
+
+            foreach (var pair in store.Snapshot())
+            {
+                if (HorizonOf(pair.Key, registry) != horizon)
+                {
+                    continue;
+                }
+
+                snapshot.Entries.Add(ToDto(pair.Key, pair.Value));
+            }
+
+            return snapshot;
+        }
+
+        private static FactHorizon HorizonOf(FactKey key, IFactKeyRegistry registry)
+        {
+            return registry != null && registry.TryGetInfo(key.Namespace, key.Key, out var info)
+                ? info.Horizon
+                : FactHorizon.Run;
+        }
+
         public static void Restore(FactStoreSnapshot snapshot, IFactStore store)
         {
             if (snapshot == null || store == null)

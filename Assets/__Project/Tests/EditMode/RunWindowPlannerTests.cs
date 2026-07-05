@@ -8,6 +8,7 @@ using Narrative.Actors.Core;
 using Narrative.Director.Core;
 using Narrative.Facts.Core;
 using Narrative.Stories.Core;
+using Narrative.Threads.Core;
 using NUnit.Framework;
 using Sites = World.Sites.Core;
 
@@ -102,7 +103,8 @@ namespace Tests.EditMode
         private RunWindowPlanner Planner(RunPacingSettings settings, IReadOnlyList<StoryTemplateData> stories,
             IReadOnlyList<NpcArchetypeData> archetypes, ulong seed = 7,
             WorldContentDensitySettings density = null, IBiomeMonsterPoolCatalog monsterPools = null,
-            Sites.ISiteCatalog siteCatalog = null)
+            Sites.ISiteCatalog siteCatalog = null, IThreadLedger threadLedger = null,
+            IStoryRunLedger storyLedger = null, IThreadCatalog threadCatalog = null)
         {
             var random = new DeterministicRandom(seed);
             var actorFactory = new ActorInstanceFactory(random);
@@ -119,8 +121,15 @@ namespace Tests.EditMode
             var inner = new WorldContentAllocator(effectiveDensity, pools, themes, random, _logger);
             var allocator = new SiteAwareSlotAllocator(inner, catalog,
                 new Sites.SiteBlockBuilder(), effectiveDensity, pools, themes, random, _logger);
+            // Fresh run-scoped ledgers per planner (like the live-actor registry) so state never leaks
+            // between test plays; thread-specific tests pass their own to assert on the lifecycle.
+            var threads = threadLedger ?? new ThreadLedger();
+            var storyRun = storyLedger ?? new StoryRunLedger();
+            var definitions = threadCatalog ??
+                new ThreadCatalog(null, settings.DefaultThreadLifespanWindows);
+            var maintenance = new ThreadMaintenanceService(threads, definitions, _evaluator, _logger);
             return new RunWindowPlanner(stories, archetypes, _evaluator, actorFactory, liveActors, random,
-                settings, allocator, catalog, _logger);
+                settings, allocator, threads, storyRun, definitions, maintenance, catalog, _logger);
         }
 
         private static int StoryCount(WindowPlan plan) =>

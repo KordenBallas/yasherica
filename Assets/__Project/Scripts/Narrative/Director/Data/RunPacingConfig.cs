@@ -19,7 +19,17 @@ namespace Narrative.Director.Data
         [Min(1)]
         [SerializeField] private int _lookAheadWindows = 1;
 
+        [Header("Threads (D13/D14)")]
+        [Tooltip("Ceiling on simultaneously-live threads (ephemeral + arc). At the cap no new thread opens.")]
+        [Min(1)]
+        [SerializeField] private int _maxLiveThreads = 3;
+        [Tooltip("Expiry lifespan (windows without advance) for thread labels with no ThreadDefinition asset.")]
+        [Min(1)]
+        [SerializeField] private int _defaultEphemeralLifespanWindows = 3;
+
         public int WindowSize => _windowSize;
         public int LookAheadWindows => _lookAheadWindows;
+        public int MaxLiveThreads => _maxLiveThreads;
+        public int DefaultEphemeralLifespanWindows => _defaultEphemeralLifespanWindows;
     }
 }

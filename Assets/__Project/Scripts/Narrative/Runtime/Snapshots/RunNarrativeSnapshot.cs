@@ -22,6 +22,30 @@ namespace Narrative.Runtime.Snapshots
         public List<int> ObjectiveCounts = new List<int>();
     }
 
+    /// <summary>Serialized thread lifecycle record (R8 first-class threads).</summary>
+    [Serializable]
+    public class ThreadRecordSnapshot
+    {
+        public string ThreadId;
+        public int Kind;   // ThreadKind
+        public int State;  // ThreadState
+        public int Reason; // ThreadRetirementReason
+        public int Stage;
+        public int WindowOpened;
+        public int WindowsWithoutAdvance;
+        public bool AdvancedSinceLastTick;
+    }
+
+    /// <summary>Serialized placed/resolved story record (FR9 no stale re-placement).</summary>
+    [Serializable]
+    public class StoryRunEntrySnapshot
+    {
+        public string StoryId;
+        public string ThreadId;
+        public int Status; // StoryRunStatus
+        public int WindowPlaced;
+    }
+
     /// <summary>Serialized per-run actor identity.</summary>
     [Serializable]
     public class NpcInstanceSnapshot
@@ -56,6 +80,9 @@ namespace Narrative.Runtime.Snapshots
         public int Seed;
         public ulong RngState;
         public FactStoreSnapshot Facts = new FactStoreSnapshot();
+        public FactStoreSnapshot MetaFacts = new FactStoreSnapshot();
+        public List<ThreadRecordSnapshot> Threads = new List<ThreadRecordSnapshot>();
+        public List<StoryRunEntrySnapshot> StoryLedger = new List<StoryRunEntrySnapshot>();
         public List<NpcInstanceSnapshot> Actors = new List<NpcInstanceSnapshot>();
         public List<QuestInstanceSnapshot> Quests = new List<QuestInstanceSnapshot>();
         public List<CastingSnapshot> Castings = new List<CastingSnapshot>();

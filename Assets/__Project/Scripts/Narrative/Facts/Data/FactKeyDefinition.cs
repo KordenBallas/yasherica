@@ -17,6 +17,8 @@ namespace Narrative.Facts.Data
         [SerializeField] private FactScope _scope = FactScope.Global;
         [Tooltip("Bare key name, e.g. 'pass_cleared' (no namespace prefix)")]
         [SerializeField] private string _key = string.Empty;
+        [Tooltip("Lifetime horizon (D20). Run = resets on death (default); Meta = persists across runs.")]
+        [SerializeField] private FactHorizon _horizon = FactHorizon.Run;
 
         [Header("Typing")]
         [SerializeField] private FactValueType _valueType = FactValueType.Bool;
@@ -33,10 +35,11 @@ namespace Narrative.Facts.Data
         public FactScope Scope => _scope;
         public string Key => _key;
         public FactValueType ValueType => _valueType;
+        public FactHorizon Horizon => _horizon;
 
         public FactValue DefaultValue =>
             FactValueConversion.Build(_valueType, _defaultBool, _defaultInt, _defaultFloat, _defaultString);
 
-        public FactKeyInfo ToInfo() => new FactKeyInfo(_namespace, _key, _scope, _valueType, DefaultValue);
+        public FactKeyInfo ToInfo() => new FactKeyInfo(_namespace, _key, _scope, _valueType, DefaultValue, _horizon);
     }
 }

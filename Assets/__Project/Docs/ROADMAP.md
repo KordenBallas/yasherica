@@ -202,19 +202,26 @@ Deferred design (from `narrative-procedural.md` §6):
   story pool + tonal register (and optionally density) as the run climbs.
 - [ ] `[arch]` **D20 — Meta-scoped fact horizon.** Distinguish run-scoped facts (reset on death) from
   meta-scoped facts (persist across runs); long arcs (spine cursor, mirror-lore flags, cauldron memory)
-  ride the meta horizon. The director reads both. *(P2-3 — 2026-07-04: the run/meta **boundary/partition**
-  is drawn in the P2-3 threads brief so save/load persists a clean split; the cross-run **store + file
-  IO** is R14/P2-2 and the long-arc **consumers** are this item's reading side (P3-3, after P2-2). See
-  `product-requirements/director-threads-and-continuity.md`.)*
-- [ ] `[arch]` **R8 — First-class threads + cross-window continuity (P2-3, spec-ready).** Promote
-  `_threadId` from a string label to a `Thread` entity (id + state) the director balances; express "a
-  choice in thread A affects thread C" as A's effect read by C's precondition (already the mechanism —
-  this adds the first-class entity + balancing). *(Verified PO brief
-  `product-requirements/director-threads-and-continuity.md`, 2026-07-04: ephemeral(expire)/arc kinds;
-  retirement = **fact-conflict fail** (incl. arc) **or** ephemeral **expiry**, indicator-only, no
-  closure storylet; concurrency cap (advance-over-open, wait not force-drop); continuity = hold a
-  consequence beat until its cause fact is live + never re-place an offered/resolved/failed story
-  (correctness over density); draws the D20 run/meta boundary. D7 spine lane stays P3-1, D19 P3-2.)*
+  ride the meta horizon. The director reads both. *(P2-3 — **boundary/partition SHIPPED 2026-07-05**:
+  `FactKeyDefinition._horizon` (Run/Meta) + the save snapshot's `Facts`/`MetaFacts` split, see
+  CHANGELOG. What remains of this item: the cross-run **store + file IO** (R14/P2-2) and the long-arc
+  **consumers** — the reading side (P3-3, after P2-2).)*
+- [x] `[arch]` **R8 — First-class threads + cross-window continuity — DONE (P2-3, 2026-07-05).**
+  *(Done — verified brief `product-requirements/director-threads-and-continuity.md` FR1–FR12:
+  `ThreadDefinition` SO (ephemeral/arc kinds, premise facts, resolution conditions, lifespan) +
+  `ThreadCatalog`/`ThreadLedger`/`ThreadMaintenanceService` (retirement = fact-conflict fail (incl.
+  arc) or ephemeral expiry — indicator fact `world.<threadId>.thread_retired`, no closure storylet) +
+  `StoryRunLedger` (never re-place an offered/resolved/failed story) + concurrency cap
+  (`_maxLiveThreads`, advance-over-open, wait not force-drop) + `StoryResolutionRelay` (a `leave`
+  outcome does not advance the thread) + the D20 run/meta boundary; deterministic + save-captured.
+  1234/1234 green. See CHANGELOG; `narrative-procedural.md` §2.6/§3/§4. Follow-ups: OR-composed
+  resolution conditions ride P3-5; thread readout / saga view rides the quest-log UI (P1-11);
+  cross-run meta store rides P2-2.)*
+- [ ] `[debt]` **Legacy `EncounterDirector.BeginEncounter`/`RunDirector` path bypasses the thread
+  ledgers.** The per-encounter selector neither opens threads nor respects the concurrency cap (its
+  resolutions upsert into the `StoryRunLedger` via the relay). Fine while the streaming planner is
+  the only production path; align or retire the legacy path when it gains a caller.
+  (`narrative-procedural.md` §6.)
 - [~] `[arch]` **Story-first streaming director (cutover).** Replace actor-first per-encounter selection
   with a budgeted, windowed planner that generates platforms window-by-window as the player advances;
   entering a window locks it, the next is planned from live facts (R7). Phases:
@@ -273,10 +280,9 @@ Deferred design (from `narrative-procedural.md` §6):
     density allocator now; `LootRollService.ShouldPlaceLootOnPlatform` and
     `BiomeLootDefinition._platformLootChance` have no callers — delete them (and their
     `BiomeLootData` field) on the next loot pass. *(loot)*
-- [ ] `[arch]` **Director pacing — thread balancing.** Cross-window thread continuity/quotas beyond the
-  planner's within-window thread preference. *(Folded into **R8/P2-3** above — verified brief
-  `product-requirements/director-threads-and-continuity.md`: causal-order placement + no stale
-  re-placement + concurrency cap.)*
+- [x] `[arch]` **Director pacing — thread balancing — DONE (folded into R8/P2-3, 2026-07-05).**
+  *(Shipped with R8 above: cross-window advance-over-open preference, live-thread concurrency cap,
+  causal-order placement + no stale re-placement via the run-scoped ledgers.)*
 - [ ] `[content]` **Demo fact-web sharpeners.** The deeper two-thread demo (`narrative-procedural.md` §4)
   defers, to sharpen director fact-analysis coverage later: (a) ~~numeric-threshold facts~~ and
   (b) ~~the real mutation→fact passport projection~~ — **both done 2026-07-04** by the races/passport
@@ -607,16 +613,13 @@ Open / follow-ups:
 - [ ] `[content]` **No forced-combat NPC in the demo.** All demo combat is a dialogue branch, so the
   auto-aggro `!` path has no demo subject. A required-combat story would supply one, but see the next
   item — an always-eligible combat story currently perturbs the seeded threads.
-- [ ] `[arch]` **Streaming planner does not enforce thread ordering / cross-window continuity (R8).**
-  Fact-ordered threads (frog passport→elder, barn accept→combat→complete) rely on a placement order the
-  budgeted seeded planner does not guarantee. Proximity made this worse: encounters now write their facts
-  on the player's F-press, not on landing, so the planner — which advances **one window ahead** — can
-  plan against stale facts and re-place an already-offered quest story (the re-offer no-ops) or a
-  closed/no-quest variant. **Mitigated** by advancing the window on platform **exit** instead of entry
-  (`RunStreamingCoordinator`), so an engaging player's choices are written before the next window is
-  planned; but the look-ahead is still loose (only the exited platform's facts are guaranteed current).
-  The real fix is dependency-aware planning (plan/re-plan a window's narrative against the facts as the
-  player reaches it).
+- [x] `[arch]` **Streaming planner does not enforce thread ordering / cross-window continuity (R8) —
+  FIXED (P2-3, 2026-07-05).** *(The run-scoped `StoryRunLedger` means a story already placed or
+  resolved is never re-placed regardless of fact staleness, a consequence beat stays held until its
+  prerequisite fact is live (landing a window later is the accepted thinner window), and retired
+  threads' beats are excluded — the look-ahead now plans against the current story/thread state, not
+  stale facts. Proven by `RunWindowPlannerThreadTests.PlacedStory_NotRePlacedNextWindow_...` and
+  `ConsequenceBeat_HeldUntilCauseFactLive_NeverBeforeCause`. See CHANGELOG.)*
 - [ ] `[content]` **Marker/name art polish + animation.** Currently plain 3D-TMP glyphs built in code.
 
 ---

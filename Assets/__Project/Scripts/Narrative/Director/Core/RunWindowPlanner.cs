@@ -4,6 +4,7 @@ using Narrative.Actors.Core;
 using Narrative.Casting.Core;
 using Narrative.Facts.Core;
 using Narrative.Stories.Core;
+using Narrative.Threads.Core;
 using World.Sites.Core;
 
 namespace Narrative.Director.Core
@@ -21,8 +22,14 @@ namespace Narrative.Director.Core
     /// ambient monsters are the main combat source, and a story that happens to carry a combat slot is
     /// the tolerated exception.
     ///
-    /// Story selection prefers continuing a thread already chosen this window, then a seeded pick among
-    /// ties so results are deterministic and save-replayable (B2).
+    /// Threads are first-class (R8/D13/D14): the window starts with the <see cref="IThreadMaintenance"/>
+    /// tick (retiring expired/conflicted threads), quest-channel stories already placed or resolved this
+    /// run — or belonging to a retired thread — never re-enter a plan (FR9), a story that would *open* a
+    /// new thread is held while the live-thread ceiling is reached (FR7; the slot degrades into the
+    /// ambient draw — the planner waits, it never force-drops), and story selection prefers advancing a
+    /// thread that is live in the <see cref="IThreadLedger"/> over opening a new one (FR3), then a seeded
+    /// pick among ties so results are deterministic and save-replayable (B2). Ambient-colour chatter
+    /// stays outside the run ledger by design — a repeating chatter pool is not a story beat.
     ///
     /// Eligibility resolves over **world/global *and* actor/faction-scoped facts** (D16). A story whose
     /// preconditions reference no context token (<c>$self</c>/<c>$faction</c>/…) is gated on world facts
@@ -31,12 +38,17 @@ namespace Narrative.Director.Core
     /// whose facts satisfy the precondition must exist, and that actor is **pinned** and recast into the
     /// story so per-actor facts carry the arc forward. Continuation semantics: a brand-new actor cannot
     /// satisfy a positive actor-scoped precondition, so such a story only opens once an eligible actor
-    /// already exists. (Cross-window thread continuity, R8, is still a follow-up.)
+    /// already exists.
     ///
     /// Actor↔story compatibility is otherwise a **soft preference**, not a hard filter (P1: hard
     /// requirements prune, preferences only weight): any archetype can play a world-only story, but one
     /// whose tags overlap the story's tags is preferred. A story is only pruned for actor reasons when
     /// there is no archetype at all. The D11 hard pin overrides this soft preference.
+    ///
+    /// Causal order across windows (FR8) needs no extra hold machinery here: a consequence beat's
+    /// prerequisite fact is only written when its cause resolves, so eligibility against the live store
+    /// keeps it out until then, and the run-scoped story ledger keeps the cause from re-placing. A
+    /// thinner window while a beat is held is accepted — correctness over density (D3).
     /// </summary>
     public sealed class RunWindowPlanner : IRunWindowPlanner
     {
@@ -52,6 +64,10 @@ namespace Narrative.Director.Core
         private readonly IRandomSource _random;
         private readonly RunPacingSettings _settings;
         private readonly IWorldSlotAllocator _allocator;
+        private readonly IThreadLedger _threadLedger;
+        private readonly IStoryRunLedger _storyLedger;
+        private readonly IThreadCatalog _threadCatalog;
+        private readonly IThreadMaintenance _maintenance;
         private readonly ISiteCatalog _siteCatalog;
         private readonly IGameLogger _logger;
         private readonly HashSet<string> _warnedNpcFlavors =
@@ -66,6 +82,10 @@ namespace Narrative.Director.Core
             IRandomSource random,
             RunPacingSettings settings,
             IWorldSlotAllocator allocator,
+            IThreadLedger threadLedger,
+            IStoryRunLedger storyLedger,
+            IThreadCatalog threadCatalog,
+            IThreadMaintenance maintenance,
             ISiteCatalog siteCatalog = null,
             IGameLogger logger = null)
         {
@@ -77,6 +97,10 @@ namespace Narrative.Director.Core
             _random = random;
             _settings = settings;
             _allocator = allocator;
+            _threadLedger = threadLedger;
+            _storyLedger = storyLedger;
+            _threadCatalog = threadCatalog;
+            _maintenance = maintenance;
             _siteCatalog = siteCatalog ?? new SiteCatalog(null);
             _logger = logger;
         }
@@ -104,29 +128,49 @@ namespace Narrative.Director.Core
                 return PadAndBuild(windowIndex, platforms);
             }
 
+            // Thread lifecycle tick first (D13/D14): retire expired/conflicted threads before
+            // eligibility is computed, so this window already plans against the current thread state.
+            _maintenance.Tick(windowIndex, facts);
+
             // Stories tagged with an NPC fill flavor (e.g. townsfolk) are ambient colour: they fill
-            // site Npc slots by flavor and must never satisfy the rare quest slot.
+            // site Npc slots by flavor and must never satisfy the rare quest slot. Quest-channel
+            // stories additionally pass the run-scoped continuity gates (FR9): never re-place a beat
+            // already placed/resolved this run, never place a beat of a retired thread.
             var eligible = BuildEligible(facts);
             var questEligible = new List<EligibleStory>();
             var ambientEligible = new List<EligibleStory>();
             for (int i = 0; i < eligible.Count; i++)
             {
-                (IsAmbientColour(eligible[i].Story) ? ambientEligible : questEligible).Add(eligible[i]);
+                var entry = eligible[i];
+                if (IsAmbientColour(entry.Story))
+                {
+                    ambientEligible.Add(entry);
+                    continue;
+                }
+
+                if (_storyLedger.IsPlacedOrResolved(entry.Story.StoryId) ||
+                    (!string.IsNullOrEmpty(entry.Story.ThreadId) && _threadLedger.IsRetired(entry.Story.ThreadId)))
+                {
+                    continue;
+                }
+
+                questEligible.Add(entry);
             }
 
             var usedStoryIds = new HashSet<string>();
-            var activeThreads = new HashSet<string>();
 
             for (int slot = 0; slot < _settings.WindowSize; slot++)
             {
                 // The allocator gets the live availability so a quest slot that cannot be filled (story
-                // pool exhausted this window) degrades into the ambient draw instead of a dead platform,
-                // and the spacing counter keeps running.
-                var allocation = _allocator.AllocateSlot(HasUnusedEligible(questEligible, usedStoryIds));
+                // pool exhausted this window, or only new-thread openers left at the concurrency cap)
+                // degrades into the ambient draw instead of a dead platform, and the spacing counter
+                // keeps running. Availability and the pick share one predicate so a granted quest slot
+                // can always be filled.
+                var allocation = _allocator.AllocateSlot(HasPlaceable(questEligible, usedStoryIds));
                 switch (allocation.Kind)
                 {
                     case WorldSlotKind.Quest:
-                        var pick = ChooseStory(questEligible, usedStoryIds, activeThreads);
+                        var pick = ChooseStory(questEligible, usedStoryIds);
                         if (pick == null)
                         {
                             // questAvailable was true, so this is unreachable; guard for safety.
@@ -138,11 +182,11 @@ namespace Narrative.Director.Core
                         // site:<id> story tag is a hard request, otherwise a seeded wild-vs-settlement
                         // roll. The quest platform itself is the block's anchor slot.
                         var stamp = _allocator.TryReserveSettlement(pick.Value.Story.StoryTags);
-                        Place(pick.Value, platforms, usedStoryIds, activeThreads, null, stamp);
+                        Place(pick.Value, platforms, usedStoryIds, windowIndex, recordRunState: true, null, stamp);
                         break;
 
                     case WorldSlotKind.Npc:
-                        PlaceAmbientNpc(allocation, ambientEligible, platforms, usedStoryIds, activeThreads);
+                        PlaceAmbientNpc(allocation, ambientEligible, platforms, usedStoryIds, windowIndex);
                         break;
 
                     case WorldSlotKind.Combat:
@@ -169,7 +213,7 @@ namespace Narrative.Director.Core
         /// actor) rather than leaving the site platform dead. No candidate at all degrades to Empty.
         /// </summary>
         private void PlaceAmbientNpc(SlotAllocation allocation, List<EligibleStory> ambientEligible,
-            List<PlannedPlatform> platforms, HashSet<string> usedStoryIds, HashSet<string> activeThreads)
+            List<PlannedPlatform> platforms, HashSet<string> usedStoryIds, int windowIndex)
         {
             var candidates = new List<EligibleStory>();
             var unused = new List<EligibleStory>();
@@ -201,8 +245,10 @@ namespace Narrative.Director.Core
                 return;
             }
 
-            Place(pool[_random.NextInt(pool.Count)], platforms, usedStoryIds, activeThreads,
-                allocation.Flavor, allocation.Site);
+            // Ambient colour stays outside the run ledger (recordRunState: false) - the small chatter
+            // pool may repeat across windows by design; it is not a story beat.
+            Place(pool[_random.NextInt(pool.Count)], platforms, usedStoryIds, windowIndex,
+                recordRunState: false, allocation.Flavor, allocation.Site);
         }
 
         private bool IsAmbientColour(StoryTemplateData story)
@@ -242,11 +288,42 @@ namespace Narrative.Director.Core
             return false;
         }
 
-        private static bool HasUnusedEligible(IReadOnlyList<EligibleStory> eligible, HashSet<string> usedStoryIds)
+        /// <summary>
+        /// The single placement predicate the allocator's quest availability and the pick both use.
+        /// A candidate is placeable when it is unused this window and — if it belongs to a thread —
+        /// either advances a live thread (always allowed, FR3) or opens a new one below the
+        /// concurrency ceiling (FR7). Threadless one-shots ignore the ceiling: it is about the
+        /// legibility of storylines, not ambient one-shots. Opening a thread mid-window raises
+        /// <see cref="IThreadLedger.LiveCount"/> immediately, so the cap holds within a window too.
+        /// </summary>
+        private bool IsPlaceable(EligibleStory entry, HashSet<string> usedStoryIds)
+        {
+            if (usedStoryIds.Contains(entry.Story.StoryId))
+            {
+                return false;
+            }
+
+            var threadId = entry.Story.ThreadId;
+            if (string.IsNullOrEmpty(threadId))
+            {
+                return true;
+            }
+
+            if (_threadLedger.TryGet(threadId, out var record))
+            {
+                // Retired threads were pruned at partition time; guard anyway so a mid-window
+                // transition can never slip a dead thread's beat through.
+                return record.State == ThreadState.Live;
+            }
+
+            return _threadLedger.LiveCount < _settings.MaxLiveThreads;
+        }
+
+        private bool HasPlaceable(IReadOnlyList<EligibleStory> eligible, HashSet<string> usedStoryIds)
         {
             for (int i = 0; i < eligible.Count; i++)
             {
-                if (!usedStoryIds.Contains(eligible[i].Story.StoryId))
+                if (IsPlaceable(eligible[i], usedStoryIds))
                 {
                     return true;
                 }
@@ -351,19 +428,15 @@ namespace Narrative.Director.Core
             return null;
         }
 
-        private EligibleStory? ChooseStory(IReadOnlyList<EligibleStory> eligible, HashSet<string> usedStoryIds,
-            HashSet<string> activeThreads)
+        private EligibleStory? ChooseStory(IReadOnlyList<EligibleStory> eligible, HashSet<string> usedStoryIds)
         {
             var candidates = new List<EligibleStory>();
             for (int i = 0; i < eligible.Count; i++)
             {
-                var entry = eligible[i];
-                if (usedStoryIds.Contains(entry.Story.StoryId))
+                if (IsPlaceable(eligible[i], usedStoryIds))
                 {
-                    continue;
+                    candidates.Add(eligible[i]);
                 }
-
-                candidates.Add(entry);
             }
 
             if (candidates.Count == 0)
@@ -371,12 +444,15 @@ namespace Narrative.Director.Core
                 return null;
             }
 
-            // Prefer continuing a thread already started this window for coherence; else any candidate.
+            // Advance-over-open (FR3): prefer a beat of a thread that is already live in the run
+            // ledger — within this window and across windows — so threads reach a payoff instead of
+            // accumulating; else any candidate.
             var preferred = new List<EligibleStory>();
             for (int i = 0; i < candidates.Count; i++)
             {
                 var thread = candidates[i].Story.ThreadId;
-                if (!string.IsNullOrEmpty(thread) && activeThreads.Contains(thread))
+                if (!string.IsNullOrEmpty(thread) &&
+                    _threadLedger.TryGet(thread, out var record) && record.State == ThreadState.Live)
                 {
                     preferred.Add(candidates[i]);
                 }
@@ -387,7 +463,7 @@ namespace Narrative.Director.Core
         }
 
         private void Place(EligibleStory entry, List<PlannedPlatform> platforms, HashSet<string> usedStoryIds,
-            HashSet<string> activeThreads, string flavor = null, SiteStamp site = default)
+            int windowIndex, bool recordRunState, string flavor = null, SiteStamp site = default)
         {
             var story = entry.Story;
 
@@ -403,9 +479,18 @@ namespace Narrative.Director.Core
             platforms.Add(PlannedPlatform.StoryEncounter(story, actor, IsCombatBearing(story), flavor, site));
             usedStoryIds.Add(story.StoryId);
 
+            if (!recordRunState)
+            {
+                return;
+            }
+
+            // Quest-channel continuity (FR9/FR1): the beat is recorded so it never re-places, and its
+            // thread opens (idempotent) with the authored kind - or the implicit ephemeral default.
+            _storyLedger.NotePlaced(story.StoryId, story.ThreadId, windowIndex);
             if (!string.IsNullOrEmpty(story.ThreadId))
             {
-                activeThreads.Add(story.ThreadId);
+                var definition = _threadCatalog.GetOrImplicitDefault(story.ThreadId);
+                _threadLedger.Open(story.ThreadId, definition.Kind, windowIndex);
             }
         }
 

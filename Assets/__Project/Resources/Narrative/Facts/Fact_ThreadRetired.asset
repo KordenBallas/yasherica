@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a1639f41f9faa245be8a645a100f78d, type: 3}
+  m_Name: Fact_ThreadRetired
+  m_EditorClassIdentifier: Yasherica::Narrative.Facts.Data.FactKeyDefinition
+  _namespace: 0
+  _scope: 4
+  _key: thread_retired
+  _horizon: 0
+  _valueType: 3
+  _defaultBool: 0
+  _defaultInt: 0
+  _defaultFloat: 0
+  _defaultString:
+  _description: 'Per-thread retirement indicator (world.<threadId>.thread_retired), written once by
+    the thread maintenance tick when a thread retires without a payoff: "expired" (ephemeral
+    timeout) or "conflict" (premise contradicted). Read later by the quest-log / thread readout; no
+    closure beat is placed.'

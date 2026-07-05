@@ -17,6 +17,9 @@ namespace Narrative.Facts.Core
         PerFaction = 2,
 
         /// <summary>One value per location; subject is the location id.</summary>
-        PerLocation = 3
+        PerLocation = 3,
+
+        /// <summary>One value per narrative thread; subject is the thread id.</summary>
+        PerThread = 4
     }
 }

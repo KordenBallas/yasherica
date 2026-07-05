@@ -26,6 +26,11 @@ namespace Narrative.Dialogue
         public const string CombatWonVariable = "combat_won";
         public const string QuestAcceptedVariable = "quest_accepted";
 
+        /// <summary>The outcome <see cref="Leave"/> reports — walking away resolves the *story* (it is
+        /// never re-offered) but does not advance its *thread* (a browsed-and-abandoned errand still
+        /// lapses, FR4). The resolution relay keys off this value.</summary>
+        public const string LeaveOutcome = "leave";
+
         private readonly DialogueSession _session;
         private readonly IFactStore _store;
         private readonly IFactEffectApplier _applier;
@@ -84,6 +89,13 @@ namespace Narrative.Dialogue
 
         /// <summary>The enemy id the Attack card / <see cref="TriggerCombat"/> initiates (null when none).</summary>
         public string CombatEnemyId => _casting?.OptionalEnemyId;
+
+        /// <summary>The story the active casting presents (empty when cast outside a story) — read by
+        /// the resolution relay when <see cref="OnDialogueEnded"/> fires.</summary>
+        public string ActiveStoryId => _casting?.StoryId ?? string.Empty;
+
+        /// <summary>The active story's thread label (empty for threadless stories).</summary>
+        public string ActiveThreadId => _casting?.ThreadId ?? string.Empty;
 
         /// <summary>Begins a fresh conversation for a casting and pumps to the first stop.</summary>
         public void Begin(CastingModel casting)
@@ -187,7 +199,7 @@ namespace Narrative.Dialogue
                 return;
             }
 
-            End("leave");
+            End(LeaveOutcome);
         }
 
         private void Resume()

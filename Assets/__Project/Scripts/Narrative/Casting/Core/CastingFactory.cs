@@ -86,7 +86,7 @@ namespace Narrative.Casting.Core
                 .SetVariable("quest_available", quest != null)
                 .SetVariable("combat_available", !string.IsNullOrEmpty(enemyId));
 
-            return new Casting(actor, dialogue, quest, enemyId, context);
+            return new Casting(actor, dialogue, quest, enemyId, context, story.StoryId, story.ThreadId);
         }
 
         public IReadOnlyList<FactKeyShapeCore> DeriveFootprint(StoryTemplateData story, IFragmentLibrary library)

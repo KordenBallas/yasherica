@@ -21,19 +21,28 @@ namespace Narrative.Casting.Core
         public string OptionalEnemyId { get; }
         public ContextBag Context { get; }
 
+        /// <summary>The story this casting presents and the thread that story belongs to — carried so
+        /// the resolution relay can note the encounter's outcome on the run ledgers (R8). Empty on
+        /// castings built outside a story (legacy/test paths).</summary>
+        public string StoryId { get; }
+        public string ThreadId { get; }
+
         public bool QuestSlotFilled => OptionalQuest != null;
         public bool CombatSlotFilled => !string.IsNullOrEmpty(OptionalEnemyId);
 
         /// <summary>Derived (W2-3): the combat branch is available only if the combat slot was filled.</summary>
         public bool CombatAllowed => CombatSlotFilled;
 
-        public Casting(NpcInstance actor, DialogueData dialogue, QuestData optionalQuest, string optionalEnemyId, ContextBag context)
+        public Casting(NpcInstance actor, DialogueData dialogue, QuestData optionalQuest, string optionalEnemyId,
+            ContextBag context, string storyId = "", string threadId = "")
         {
             Actor = actor;
             Dialogue = dialogue;
             OptionalQuest = optionalQuest;
             OptionalEnemyId = optionalEnemyId;
             Context = context ?? new ContextBag();
+            StoryId = storyId ?? string.Empty;
+            ThreadId = threadId ?? string.Empty;
         }
     }
 }

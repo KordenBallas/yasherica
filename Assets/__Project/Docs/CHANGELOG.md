@@ -9,6 +9,34 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Narrative — first-class threads + cross-window continuity + run/meta fact boundary (R8 / P2-3)**
+  (verified brief `product-requirements/director-threads-and-continuity.md` FR1–FR12;
+  `narrative-procedural.md` §2.6/§3/§4): a thread is now a **managed entity**, not a string label.
+  New `Narrative.Threads.Core`: `ThreadCatalog` (authored vocabulary), `ThreadLedger` (run-scoped
+  lifecycle: live/resolved/failed + reason, stage, expiry clock, replay-stable order),
+  `ThreadMaintenanceService` (per-window tick: advance fold → authored **resolution** → **premise
+  conflict** (incl. arcs — the mutual-exclusion mechanism) → **expiry** (ephemeral only); retirement
+  = state + one `world.<threadId>.thread_retired` indicator fact, never a closure beat). New
+  `StoryRunLedger` (`Narrative.Stories.Core`): a beat placed/resolved this run — or on a retired
+  thread — is **never re-placed** (FR9, the stale re-placement fix). `RunWindowPlanner` runs the
+  tick first, filters through the run ledgers, applies the **live-thread ceiling**
+  (`RunPacingConfig._maxLiveThreads`, default 3; at the cap the quest slot degrades to ambient and
+  waits — never force-drops) and prefers **advancing a live thread over opening a new one** (FR3);
+  availability and the pick share one placeability predicate. `StoryResolutionRelay` folds
+  `DialogueRunner.OnDialogueEnded` into the ledgers (`Casting`/runner now carry
+  `StoryId`/`ThreadId`; a `leave` outcome resolves the story but does not advance the thread).
+  **Authoring**: new `ThreadDefinition` SO (`Narrative/Threads/Thread`: kind ephemeral/arc, premise,
+  resolution conditions, lifespan) auto-loaded from `Resources/Narrative/Threads`; a bare
+  `_threadId` label runs as an implicit ephemeral default. **D20 boundary**: `FactKeyDefinition`
+  gains `_horizon` (Run/Meta; default Run), `FactScope` gains `PerThread`, and the save snapshot
+  partitions `Facts`/`MetaFacts` by horizon and captures/restores both ledgers — the cross-run
+  store + file IO stays P2-2, D7 spine lane P3-1, D19 P3-2, meta consumers P3-3. Demo assets:
+  `DemoThread_BarnRaid` (ephemeral, lifespan 4), `DemoThread_FrogMarsh` (**arc**),
+  `Fact_ThreadRetired` (+ registry entry). New suites `ThreadLedgerTests`, `StoryRunLedgerTests`,
+  `ThreadMaintenanceTests`, `RunWindowPlannerThreadTests`, `StoryResolutionRelayTests` + snapshot
+  partition/ledger round-trip tests; full suite **1234/1234 green** via the clone-project batch
+  runner. Scope additions flagged per §0: authored `_resolutionConditions` (owner-approved
+  2026-07-05) and `FactScope.PerThread` — both data-only.
 - **Character System — body-plan demo scene + part-selection dev console** (dev tooling;
   `character-system.md` §3.1): new `Tools/Character System/Build Body-Plan Demo Scene` builds and
   saves `Scenes/BodyPlanDemo.unity` — a small walled platform (walls on the hero's wall layer so

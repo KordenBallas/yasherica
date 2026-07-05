@@ -28,7 +28,14 @@
 - **R6 — Run-level director + shared run-state.** Coherence lives one level above the story.
 - **R7 — Fact-based emergent coupling.** Stories declare fact preconditions and an effect footprint;
   cross-story connections emerge from overlapping reads/writes.
-- **R8 — Threads/arcs.** (Labels only this pass — see §6.)
+- **R8 — Threads/arcs.** A thread is a **first-class managed entity** (P2-3): a run-scoped
+  `ThreadLedger` tracks each thread's lifecycle (live → resolved / failed) and stage (beats resolved);
+  authored `ThreadDefinition` assets give a thread its kind (**ephemeral** — expires after an
+  un-advanced lifespan — vs **arc** — expiry-exempt), premise facts (contradiction fails it, incl.
+  arcs — the mutual-exclusion mechanism), and resolution conditions (payoff). A small authored
+  ceiling caps simultaneously-live threads (advance-over-open; at the cap the planner waits, never
+  force-drops). Retirement is a state change + one indicator fact — never a closure beat. A
+  run-scoped `StoryRunLedger` guarantees no story beat is ever re-placed once placed/resolved (§2.6).
 - **R9 — Multi-namespace facts, uniform machinery.** One store spans `world`/`actor`/`faction`;
   preconditions, effects, and the director operate uniformly over all namespaces.
 - **R10 — Actor↔faction interlock.** Predicates/effects may reference both an actor's and its
@@ -61,11 +68,14 @@ Scripts/Narrative/
   Dialogue/Core+Data DialogueData / DialogueSession / tag parser ; DialogueDefinition SO + mapper
   Dialogue/      DialogueRunner (tag bridge + suspension state machine)
   Quests/Core+Data  QuestData / QuestObjective / QuestInstance ; QuestDefinition SO + mapper
-  Stories/Core+Data StoryTemplateData / StorySlot ; StoryTemplate SO + mapper
+  Stories/Core+Data StoryTemplateData / StorySlot / StoryRunLedger (placed+resolved record) ; StoryTemplate SO + mapper
+  Threads/Core+Data ThreadDefinitionData / ThreadCatalog / ThreadLedger / ThreadMaintenanceService (R8) ;
+                 ThreadDefinition SO + mapper
   Casting/Core   Casting, ContextBag, FragmentLibrary, CastingFactory, EnemyFragment
   Director/Core  RunDirector, StoryletSelection, DeterministicRandom (serializable PRNG)
-  Runtime/Core   NarrativeSliceBootstrap (footprint derivation + ref validation)
-  Runtime/Snapshots  save DTOs + NarrativeSaveService (boundary)
+  Runtime/Core   NarrativeSliceBootstrap (footprint derivation + ref validation),
+                 StoryResolutionRelay (encounter outcome -> run ledgers)
+  Runtime/Snapshots  save DTOs + NarrativeSaveService (boundary) + fact/ledger snapshot mappers
 Scripts/Core/DI/NarrativeSliceInstaller.cs
 ```
 
@@ -81,6 +91,11 @@ Scripts/Core/DI/NarrativeSliceInstaller.cs
 | `CastingFactory` / `Casting` | Fills typed slots by tag (R5) into a casting (R3); derives a story's advisory footprint over the library (W3-2). |
 | `RunDirector` | Selects eligible storylets by fact preconditions (R7) with a seeded, save-replayable PRNG (B2). |
 | `ILiveActorRegistry` / `LiveActorRegistry` | Run-scoped set of minted `NpcInstance`s in deterministic registration order (R12); the windowed planner registers each fresh actor and queries it to recast a recurring actor (D11). |
+| `IThreadCatalog` / `ThreadCatalog` | Authored thread vocabulary (R8/D13): kind, premise, resolution conditions, lifespan per thread id; an undeclared label resolves to an implicit ephemeral default. |
+| `IThreadLedger` / `ThreadLedger` | Run-scoped thread lifecycle (R8/FR1): state (live/resolved/failed + retirement reason), stage, expiry clock; first-open order is planner-driven and replay-stable. |
+| `IThreadMaintenance` / `ThreadMaintenanceService` | The per-window lifecycle tick (D13/D14): folds advance flags, then resolution → premise-conflict → expiry (conflict outranks the clock; arcs never expire). Retirement writes the `world.<threadId>.thread_retired` indicator fact — no closure beat. Zero PRNG draws. |
+| `IStoryRunLedger` / `StoryRunLedger` | Run-scoped placed/resolved story record (FR9): a beat already placed, resolved, or on a retired thread is never re-placed as fresh across window boundaries. Ambient-colour chatter bypasses it (may repeat). |
+| `StoryResolutionRelay` | Folds an encounter's end into the ledgers: story → resolved always; thread stage++ only when the outcome isn't `leave` (a browsed-and-abandoned errand still lapses). |
 | `DialogueRunner` | Drives one `DialogueSession`; dispatches Ink tags to facts/quest/combat (R4); explicit suspension state machine — `AwaitingExternal` for async combat, `AwaitingContinue` to gate one readable line at a time (`Continue()` advances). |
 | `EncounterCardHandPresenter` | MVP presenter (pure-C#): composes the typed encounter card hand from the runner's events and drives `IEncounterCardHandView` (§2.7). Replaces `DialogueRunnerViewPresenter`, now dormant/unbound. |
 | `QuestInstance` | Quest lifecycle; returns effects to apply; bridges legacy `IRunProgressionRecorder`. |
@@ -115,10 +130,15 @@ windowed planner + serializable PRNG (seeded from the run seed via `LootSeed.Der
 world-content-density settings + biome monster-pool catalog + run-scoped `WorldContentAllocator`
 (§2.6; mapped from `WorldContentDensityConfig` / `BiomeMonsterPoolDefinition` assets or auto-loaded
 from `Resources/Narrative/WorldContentDensityConfig` and `Resources/Combat/MonsterPools`), the
-actor-instance factory + encounter orchestrator (§2.5), the dialogue session/runner/tag-parser, the
+actor-instance factory + encounter orchestrator (§2.5), the thread subsystem (`IThreadCatalog` mapped
+from `ThreadDefinition` assets or auto-loaded from `Resources/Narrative/Threads`, the run-scoped
+`IThreadLedger` + `IStoryRunLedger`, `IThreadMaintenance`, and the `StoryResolutionRelay`
+`IInitializable`), the dialogue session/runner/tag-parser, the
 `IEncounterCardHandView` + `EncounterCardHandPresenter` (the card-hand UI, §2.7; instantiated from the
-`Resources` prefab), and `INarrativeSaveService`. A `NarrativeSliceBootstrap` `IInitializable` runs
-footprint derivation + typed-ref validation after build.
+`Resources` prefab), and `INarrativeSaveService` (fed the fact registry + both ledgers so its snapshot
+partitions run/meta facts and captures the thread state). A `NarrativeSliceBootstrap` `IInitializable`
+runs footprint derivation + typed-ref validation after build, and notes any story thread label with no
+`ThreadDefinition` asset (it runs as an implicit ephemeral thread).
 
 ### 2.5 Encounter entry (runtime orchestration)
 
@@ -151,6 +171,14 @@ that happens to carry a combat slot is the tolerated exception. `RunWindowPlanne
 (`IRunWindowPlanner`, `Narrative.Director.Core`) is pure C# and deterministic:
 
 `PlanWindow(windowIndex, IFactStore) → WindowPlan`
+0. **Thread lifecycle tick** (`ThreadMaintenanceService.Tick`, R8/D13) — before anything else, each
+   live thread folds its advance flag into the expiry clock, then retires if due: **resolution**
+   (authored payoff conditions hold) → resolved; **conflict** (a written fact contradicts its authored
+   premise — the mutual-exclusion mechanism; applies to arcs too) → failed; **expiry** (an *ephemeral*
+   thread un-advanced past its authored lifespan; arcs are exempt) → failed. Conflict outranks expiry.
+   Retirement is a state change + one `world.<threadId>.thread_retired` indicator fact (`"expired"` /
+   `"conflict"`) — **no closure beat is placed**. Running the check here (never off `OnFactChanged`)
+   keeps the lifecycle a deterministic step of the planning sequence (D21).
 1. **Eligibility** — keep stories whose preconditions pass over the live store (R6/R7), resolved over
    **world/global *and* actor/faction-scoped facts** (D16). A story is classified by its preconditions:
    - **World-only** (no precondition references a `$`-context token): evaluated with an actor-less
@@ -166,23 +194,36 @@ that happens to carry a combat slot is the tolerated exception. `RunWindowPlanne
      brand-new actor (no facts) can't satisfy a positive actor-scoped precondition, so the gate only
      opens once a qualifying actor already exists — a story meant to open for any fresh actor must use
      world/global preconditions.
+
+   Quest-channel candidates then pass the **run-scoped continuity gates** (FR9 — no stale
+   re-placement): a story already **placed or resolved** this run (`StoryRunLedger`), or whose thread
+   is **retired**, never re-enters a plan — the look-ahead plans against the *current* story/thread
+   state, not stale facts. Ambient-colour chatter is exempt (it may repeat; it is not a beat).
 2. **Slot allocation** — for each of the window's `WindowSize` slots, `WorldContentAllocator`
    (run-scoped, sharing the director's seeded stream) decides the content kind:
    - **Quest gate first**: the spacing counter must exceed
      `WorldContentDensitySettings.MinPlatformsBetweenQuests` (a **hard invariant carried across
      window boundaries** — the counter is allocator state, so quests never cluster back-to-back), a
-     seeded 1-in-`AveragePlatformsPerQuest` roll must hit, and an unused eligible story must exist.
-     When any of these fails the slot **degrades into the ambient draw** and the counter keeps
-     running, so a quest lands at the next opportunity rather than being forfeited.
+     seeded 1-in-`AveragePlatformsPerQuest` roll must hit, and a **placeable** story must exist —
+     unused this window **and**, if threaded, either advancing a live thread or opening a new one
+     **below the concurrency ceiling** (`RunPacingSettings.MaxLiveThreads`, D14/FR7). At the ceiling
+     the planner opens no new thread — the slot **degrades into the ambient draw** and it *waits*
+     for a live thread to resolve/expire (never force-drops one). Availability and the pick share
+     one placeability predicate, so a granted quest slot can always be filled. When any gate fails
+     the slot degrades and the counter keeps running, so a quest lands at the next opportunity
+     rather than being forfeited.
    - **Ambient weighted draw** otherwise: an integer-weighted pick among Empty
      (`EmptyWeight`) / Loot (`LootWeight`) / Combat (`CombatWeight`). A Combat slot draws its enemy
      id from the current biome's `IBiomeMonsterPoolCatalog` pool at flat difficulty (an unauthored
      pool downgrades the slot to Empty, warned once).
-3. **Story selection** — only for Quest slots: pick among the unused eligible stories (thread
-   preference + seeded tie-break, below) and place it with its actor.
+3. **Story selection** — only for Quest slots: pick among the placeable stories (advance-over-open
+   preference + seeded tie-break, below) and place it with its actor. Placement records the beat in
+   the `StoryRunLedger` and **opens its thread** in the `ThreadLedger` (idempotent) with the kind
+   authored on its `ThreadDefinition` — or as an implicit ephemeral default for a bare label.
 
-Selection prefers continuing a thread already chosen this window (coherence), then a seeded pick among
-ties so plans are save-replayable (B2). A **world-only** placed story gets an actor minted via
+Selection prefers **advancing a thread that is live in the ledger over opening a new one** (FR3 —
+within the window and across windows; this subsumes the old window-local coherence preference), then a
+seeded pick among ties so plans are save-replayable (B2). A **world-only** placed story gets an actor minted via
 `IActorInstanceFactory` and **registered** in `ILiveActorRegistry`, so it can be recast later (R12/D11);
 its archetype is chosen by a **soft preference**, not a hard filter (P1: hard requirements prune,
 preferences only weight) — the planner prefers an `NpcArchetype` whose tags overlap the story's tags, but
@@ -289,8 +330,9 @@ The single source of truth for one fact key (R13).
 | Field | Type | Meaning | Default / notes |
 |---|---|---|---|
 | `_namespace` | `FactNamespace` | Grouping label: World/Actor/Faction | — |
-| `_scope` | `FactScope` | Subject arity: Global / PerActor / PerFaction / PerLocation (A1) | arity comes from here, NOT the namespace |
+| `_scope` | `FactScope` | Subject arity: Global / PerActor / PerFaction / PerLocation / PerThread (A1) | arity comes from here, NOT the namespace |
 | `_key` | string | Bare key name, e.g. `barn_raided` | no namespace prefix |
+| `_horizon` | `FactHorizon` | Lifetime horizon (D20): **Run** resets on death; **Meta** persists across runs | default Run — every pre-P2-3 key stays run-scoped |
 | `_valueType` | `FactValueType` | Bool/Int/Float/String | — |
 | `_defaultBool/_defaultInt/_defaultFloat/_defaultString` | typed | Value when unset (participates in comparisons, B4) | type-zero |
 | `_description` | string | Author documentation | — |
@@ -323,20 +365,45 @@ Summary: `_questId`, `_displayName`, `_summary`, `_objectives`, `_questTags`, `_
 
 `_storyId`, `_slots` (`_slotId`, `_kind` Dialogue/Quest/Combat, `_requiredTags`, `_optional`),
 `_preconditions` (`FactPredicateSerial[]`), `_ownEffects` (optional story-level writes), `_storyTags`,
-`_threadId` (label only), `_isSpine`, `_weight` (pacing cost — how much of a window's narrative budget
+`_threadId` (the id of the thread this story is a beat of — matches a `ThreadDefinition` asset, or
+runs as an implicit ephemeral thread when none is authored; empty = a threadless one-shot), `_isSpine`,
+`_weight` (pacing cost — how much of a window's narrative budget
 this story consumes; a story is still one platform, NOT a difficulty or span measure). References no other
 template (R7). The effect footprint is **derived** by `CastingFactory` over the library (W3-2), not
 authored here.
 
 `EnemyDefinition` (Combat) gains `_enemyTags` so an enemy matches a story combat slot by tag (W2-6).
 
+### `ThreadDefinition`  (asset menu: `Create → Narrative → Threads → Thread`)
+
+Declares one narrative thread (R8/D13; consumed as the Core `ThreadDefinitionData` via
+`ThreadDefinitionMapper` → `ThreadCatalog`, never directly). Authoring one is only needed to make a
+thread an **arc**, give it premise/resolution facts, or tune its lifespan — a bare `_threadId` label
+on stories runs as an implicit ephemeral thread with the tuning-level default lifespan.
+
+| Field | Type | Meaning | Default / notes |
+|---|---|---|---|
+| `_threadId` | string | Must match the `_threadId` label on the stories forming this thread's beats | — |
+| `_kind` | `ThreadKind` | **Ephemeral** (expires when un-advanced past its lifespan) / **Arc** (a long storyline — expiry-exempt, but NOT conflict-exempt) | Ephemeral |
+| `_premise` | `FactPredicateSerial[]` | Predicates that must all **hold**; a live thread whose premise a written fact contradicts retires as failed/conflict — the mutual-exclusion mechanism ("join the Foxes" premise: `joined_lizards == false`) | empty = never conflicts. **World-scoped only** (no `$` tokens — warned at map time; they'd fail closed) |
+| `_resolutionConditions` | `FactPredicateSerial[]` | When these all hold the thread retires as **resolved** (payoff reached), freeing ceiling room | empty = stays live until expiry/conflict. **Gotcha:** use a fact written *at* the payoff beat, never the fact that *gates* the payoff beat — or the thread retires before its finale can place |
+| `_lifespanWindows` | int ≥ 1 | Windows the thread may go without an advance (a resolved beat) before it silently expires | 3; ignored for Arc |
+| `_description` | string | Author documentation | — |
+
+Shipped assets: `Resources/Narrative/Threads/DemoThread_BarnRaid.asset` (ephemeral, lifespan 4) and
+`DemoThread_FrogMarsh.asset` (**arc** — the fox-passport induction must survive slow play). The
+retirement indicator key ships as `Resources/Narrative/Facts/Fact_ThreadRetired.asset`
+(`world.<threadId>.thread_retired`, PerThread String) in the demo registry.
+
 ### `RunPacingConfig`  (asset menu: `Create → Narrative → Director → Run Pacing Config`)
 
 The windowed director's window mechanics (consumed as the Core `RunPacingSettings` via
 `RunPacingConfigMapper`, never directly). `_windowSize` (platforms per planning window),
-`_lookAheadWindows`. The former narrative/combat budget fields were superseded by
-`WorldContentDensityConfig` (below). No asset is currently authored — the mapper's defaults
-(`4` / `1`) run.
+`_lookAheadWindows`, `_maxLiveThreads` (the D14 ceiling on simultaneously-live threads, ephemeral +
+arc together; at the cap no new thread opens), `_defaultEphemeralLifespanWindows` (expiry lifespan
+for thread labels with no `ThreadDefinition` asset). The former narrative/combat budget fields were
+superseded by `WorldContentDensityConfig` (below). No asset is currently authored — the mapper's
+defaults (`4` / `1` / `3` / `3`) run.
 
 ### `WorldContentDensityConfig`  (asset menu: `Create → Narrative → Director → World Content Density Config`)
 
@@ -382,6 +449,23 @@ A designer assembles the vertical slice (or new narrative content) entirely from
 1. `Create → Narrative → Facts → Fact Key`; set namespace, **scope**, key, value type, default.
 2. Add it to the `FactKeyRegistry` asset's `_keys` list.
 
+### Mark a fact meta-scoped (persists across runs, D20)
+1. On the `FactKeyDefinition`, set `_horizon` to **Meta**. That's it — the save boundary partitions
+   the store by horizon (`RunNarrativeSnapshot.Facts` vs `.MetaFacts`), so save/load (P2-2) persists
+   each side separately. Leave `_horizon` at **Run** (the default) for anything that should reset on
+   death. No shipped demo fact is meta yet; the cross-run store + its consumers ride P2-2/P3-3.
+
+### Add a thread (kind / premise / lifespan — R8/D13)
+1. Pick a thread id and put it in the `_threadId` field of every story that forms the thread's beats.
+   For a plain short errand chain you can stop here — a bare label runs as an **implicit ephemeral
+   thread** with the default lifespan (`RunPacingConfig._defaultEphemeralLifespanWindows`).
+2. To make it an **arc**, give it **premise facts** (mutual exclusion), **resolution conditions**, or
+   a custom lifespan: `Create → Narrative → Threads → Thread` under `Resources/Narrative/Threads/`
+   (the installer's auto-load path); set `_threadId` to the same label, then `_kind`, `_premise`,
+   `_resolutionConditions`, `_lifespanWindows` (see the §3 field table and its resolution-fact gotcha).
+3. Every fact used in `_premise`/`_resolutionConditions` must be declared in the `FactKeyRegistry`
+   (world-scoped — no `$` tokens). No code, no installer edit.
+
 ### Add an actor archetype
 1. `Create → Narrative → Actors → Archetype`; set id, name pool, assembly, portrait, faction id, tags.
 
@@ -426,7 +510,9 @@ A designer assembles the vertical slice (or new narrative content) entirely from
 ### Ready-made Demo content
 
 A `Demo*` asset set ships under `Resources/Narrative/` (`Facts/`, `Actors/`, `Dialogue/`, `Enemies/`,
-`Stories/`) — ten `FactKeyDefinition`s + `DemoFactKeyRegistry`. When the
+`Stories/`, `Threads/`) — eleven `FactKeyDefinition`s (incl. `Fact_ThreadRetired`) +
+`DemoFactKeyRegistry`, and the two thread declarations (`DemoThread_BarnRaid` ephemeral,
+`DemoThread_FrogMarsh` arc). When the
 `NarrativeSliceInstaller` inspector lists are left empty it **auto-loads** these from those Resources
 paths (`ResolveAssetsFromResources`), so the slice works without per-scene wiring; assigning assets in
 the inspector overrides the fallback.
@@ -531,7 +617,8 @@ slots are optional but a slot-dependent tag firing against an empty slot fails c
 
 ## 5. Tests
 
-Edit-mode suites in `Assets/__Project/Tests/EditMode/` (142 pure-C# tests, runnable without the editor):
+Edit-mode suites in `Assets/__Project/Tests/EditMode/` (pure-C# tests, runnable without the editor;
+full project suite 1234/1234 green via the clone-project batch runner, 2026-07-05):
 
 - `FactStoreTests` — store ops + B4 presence/default + namespace isolation + stable snapshot + validation.
 - `FactVocabularyTests`, `TypedFactsTests` — conversion, Core registry, typed accessors, drift check (D3).
@@ -569,7 +656,30 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/` (142 pure-C# tests, runna
 - `EncounterCardHandPresenterTests` — card-hand composition (QuestOffer per Ink choice, tagged-vs-system Attack,
   always-present Leave, narration shows only Leave) and pick routing (offer→`SelectChoice`, system attack→`TriggerCombat`,
   tagged attack→Ink choice, Leave→end) (§2.7).
-- `NarrativeSnapshotTests` — fact store round-trip, stable order, PRNG capture (B2), suspended-save refusal (W3-1).
+- `ThreadLedgerTests` — thread lifecycle: first-open order, idempotent open, stage/advance flag,
+  terminal-state-wins, live count (R8/FR1); plus `ThreadCatalogTests` (implicit ephemeral default).
+- `StoryRunLedgerTests` — placed/resolved record: idempotent placement, resolve upsert for
+  planner-never-placed (legacy path) stories (FR9).
+- `ThreadMaintenanceTests` — retirement semantics: premise conflict (incl. **arc** threads),
+  ephemeral-only expiry, advance rearms the clock, conflict-beats-expiry, resolution-beats-conflict,
+  the `thread_retired` indicator write, retired threads untouched by later ticks (FR4–FR6, S6–S8).
+- `RunWindowPlannerThreadTests` — the P2-3 planner acceptance suite:
+  `PlacedStory_NotRePlacedNextWindow_EvenWithTruePreconditions` (**the FR9 bug-fix proof** — fails on
+  the pre-P2-3 planner), `ResolvedStory_NeverRePlaced`, `FailedThreadBeat_NeverPlaced`,
+  `AmbientColourStory_StaysOutsideTheRunLedger` (chatter may repeat),
+  `ConsequenceBeat_HeldUntilCauseFactLive_NeverBeforeCause` (FR8 causal order),
+  `AtCap_NewThreadOpenerNotPlaced_SlotDegrades` / `AtCap_AdvancingBeatStillPlaced` /
+  `BelowCap_AdvancePreferredOverOpen` (FR3/FR7 ceiling + advance-over-open),
+  `ConflictedThread_StoriesExcluded_IndicatorWritten_NoClosureBeat`,
+  `EphemeralThread_ExpiresThroughPlannerTicks_ArcDoesNot`, and
+  `SameSeedAndSameResolutions_IdenticalThreadLifecycle` (FR12 deterministic replay).
+- `StoryResolutionRelayTests` — encounter outcome → ledgers: engaged end advances the thread,
+  `Leave` resolves the story but not the thread (the errand still lapses), story-less castings are
+  ignored, the post-combat resume advances exactly once.
+- `NarrativeSnapshotTests` — fact store round-trip, stable order, PRNG capture (B2), suspended-save
+  refusal (W3-1), the **run/meta horizon partition** (`Capture_SplitsRunAndMetaByHorizon` /
+  `Restore_RoundTripsBothHorizons`, D20 — unknown keys partition as run-scoped), and the thread/story
+  ledger round-trip (`Ledgers_CaptureAndRestore_RoundTripThreadLifecycleAndStoryRecord`).
 
 Unity-side classes (SOs, mappers from SO, `NarrativeSliceInstaller`, Ink) are compile-checked and
 verified by entering the slice scene; the Ink→JSON compile and `.asset` wiring are editor steps.
@@ -580,16 +690,21 @@ verified by entering the slice scene; the Ink→JSON compile and `.asset` wiring
 
 > **Planned design (NOT implemented).** The following are deferred (see ROADMAP):
 
-- **First-class threads (R8).** `_threadId` is a string label this pass; first-class `Thread` entities
-  with an id + stage, and director thread-balancing, are deferred. `CrossStoryletEligibilityTests`
-  proves R7 cross-storylet coupling; threads here are labels.
-- **Director pacing.** `RunDirector` selects by eligibility + seeded pick only; no pacing/quotas.
+- **Director pacing.** `RunDirector` (the legacy per-encounter selector) selects by eligibility +
+  seeded pick only; it also bypasses the thread ledgers (its resolutions upsert into the
+  `StoryRunLedger` via the relay, but it does not open threads or respect the ceiling). The
+  streaming path is the governed one.
+- **Thread resolution is AND-only.** A fork payoff ("grain recovered OR raider paid off") cannot be
+  expressed as `_resolutionConditions` until OR-composition lands (P3-5) — such threads (the demo
+  `barn_raid`) leave resolution empty and close by expiry/conflict instead.
 - **Reactive-rule cascade layer (R11).** Cascades are expressed as explicit authored effects; a central
   reaction layer is deferred.
 - **OR/boolean precondition composition.** Preconditions are AND-only.
 - **Save/load file IO (R14).** The serializable boundary (`INarrativeSaveService`, snapshot DTOs, PRNG
-  state) exists and is tested; the file writer/reader and full run-state aggregate (quests/castings/
-  sessions assembly) are deferred. Suspended dialogues are non-savepoints (W3-1 option a).
+  state, the run/meta fact partition + thread/story ledgers) exists and is tested; the file
+  writer/reader, the full run-state aggregate (quests/castings/sessions assembly), and the **cross-run
+  meta-fact store** (what actually carries `FactHorizon.Meta` facts between runs) are deferred
+  (P2-2). Suspended dialogues are non-savepoints (W3-1 option a).
 - **Live-actor registry is not yet save-captured.** `ILiveActorRegistry` (recurring-actor casting,
   D11) holds the run's minted actors in memory; `RunNarrativeSnapshot` does not yet persist/repopulate
   it, so a mid-run save would lose recurring-actor continuity. Folds into the window/horizon save-state
@@ -604,10 +719,13 @@ verified by entering the slice scene; the Ink→JSON compile and `.asset` wiring
 - **Biome journey save-state.** The biome now advances along the run (`biome-journey.md` — the
   fixed-Forest hardcode is gone), but the journey's own `DeterministicRandom` state is not yet
   captured by the save boundary; folds into the same window/horizon save-state item (ROADMAP).
-- **Remaining director gaps (design handoff `narrative-director-requirements.md`).** Beyond the
-  Priority-1 actor/faction eligibility (D16) + recurring-actor casting (D11) delivered here, the
-  director still owes: D7 spine reserved lane + per-run reveal cap, D13/D14 first-class threads with
-  closure pressure + concurrency cap, D19 escalation tier gating, D20 meta-scoped fact horizon.
+- **Remaining director gaps (design handoff `narrative-director-requirements.md`).** With D13/D14
+  (first-class threads, closure pressure, concurrency cap) and the D20 run/meta **boundary** shipped
+  (P2-3), the director still owes: D7 spine reserved lane + per-run reveal cap (P3-1), D19 escalation
+  tier gating (P3-2), and the D20 cross-run **consumers** (mirror-lore echoes, cauldron memory, spine
+  cursor — read side of the meta horizon, P3-3 after P2-2). A player-facing thread readout / saga
+  view (surfacing `ThreadLedger` state + the `thread_retired` indicators) sits with the quest-log UI
+  item (P1-11).
 - **Ambient/character dialogue channel.** The legacy dual-Ink bark channel is intentionally dropped;
   if needed, it belongs in a separate non-narrative system.
 - **Whole-dialogue skip/abort.** The view's continue and skip inputs both advance one gated line

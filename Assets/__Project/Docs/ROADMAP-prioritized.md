@@ -47,7 +47,7 @@ Design decisions and content/art authoring. Several **unblock** the coding model
 - **P0-1** Race roster — ✅ **DESIGNED** (`design/narrative/races.md` + brief `product-requirements/race-roster-and-passport.md`): 3 races (Ibex/Lizard/Fox) + part-count passport + kindless hero. Code consumption = **P0-3**.
 - **P1-10** Cauldron-voice lines (tempter barks, socketing hints, hub)
 - **P1-13** Ambient monster content (per-flavor enemies + loot tables)
-- **P4-5** Arena deck / hero-collection + character-select design pass
+- **P4-5** Arena character layer — ✅ **DESIGNED** (`design/arena-mode.md` §"The character layer" + brief `product-requirements/arena-part-draft-and-catalog.md`): in-match **parts draft** off a shared board (floor + union of unlocked catalogs), passive Journey **part-catalog** (not a hero deck), fenced budget guard. Deck rejected.
 - **P5-1** Palette swatches (master + per-biome + per-archetype)
 - **P5-2 / P5-3 / P5-4** World backdrop + site dressing kits + decoration assets
 - **P5-5** Stomach-interior backdrop art
@@ -93,8 +93,8 @@ Design decisions and content/art authoring. Several **unblock** the coding model
 | ID | Task | Model | Owner | Note / dep |
 |---|---|---|---|---|
 | ~~**P2-1**~~ | ~~Independent body-plans + skeleton-swap runtime~~ ✅ shipped 2026-07-04 (`character-system.md` R19–R24): machinery + serpent/spider placeholder frames + confirm-and-shed + part stash; follow-ups filed in `ROADMAP.md` (re-install flow · dormant UX · per-frame host fit) | **Fable** | Code | superseded character-system R10/R3; consumed brief `body-plan-skeleton-swap.md`; production frame meshes = P5-6 |
-| **P2-2** | Save/load — file IO (R14) + window/horizon state + run-state | **Fable** | Code | unblocks P3-3 + mirror-lore |
-| **P2-3** | Director depth — R8 first-class threads + cross-window continuity + run/meta fact boundary | **Fable** | Code | **spec-ready** — verified brief `product-requirements/director-threads-and-continuity.md`; the fragile bit today. Thread entity + ephemeral(expire)/arc kinds + fact-conflict fail (incl. arc) + concurrency cap + causal-order placement (no stale re-placement) + draws the run/meta fact partition so **P2-2** persists it clean. D7/D19/D20-consumers stay P3 |
+| **P2-2** | Save/load — file IO (R14) + window/horizon state + run-state | **Fable** | Code | **spec-ready** — verified brief `product-requirements/save-continue-run.md` (2026-07-05): autosave + Continue, **permadeath** (death consumes the save, no slots/scum) · **whole-run** image (owner chose run-as-one-image, not narrative-only — folds in hero body/inventory/position) · **platform-clean** savepoints (mid-encounter re-begins) · separate always-on **cross-run meta store** + one demo persistent fact · fail-safe independent files. Unblocks **P3-3** + mirror-lore; the meta **consumers** stay P3-3 |
+| ~~**P2-3**~~ | ~~Director depth — R8 first-class threads + cross-window continuity + run/meta fact boundary~~ ✅ shipped 2026-07-05 (`narrative-procedural.md` §2.6/§3): Thread entity + ephemeral/arc + conflict-fail (incl. arc) + expiry + concurrency cap + no-stale-re-placement ledgers + run/meta `_horizon` partition for **P2-2**; follow-ups filed in `ROADMAP.md` (OR-resolution → P3-5 · thread readout → P1-11 · meta store → P2-2) | **Fable** | Code | consumed brief `director-threads-and-continuity.md`; D7/D19/D20-consumers stay P3 |
 | **P2-4** | Smarter ability-using enemy AI | Opus *(Fable opt.)* | Code | combat depth |
 
 ## P3 — Systems depth & correctness
@@ -129,7 +129,7 @@ Design decisions and content/art authoring. Several **unblock** the coding model
 | **P4-2** | Host-side commit validation (anti-cheat) | Opus | Code | MVP trusts peers |
 | **P4-3** | Seeded-shuffle resolution alt + per-step damage batching | Opus | Code | drop-in behind IArenaResolutionOrder |
 | **P4-4** | Rename `EnemyIntent → CommittedIntent` + arena camera pass | Sonnet | Code | mechanical; needs compiler |
-| **P4-5** | Deck / hero-collection + character select + PvP balance | Opus (design) | **Designer** | deferred; decide the model first |
+| **P4-5** | ✅ **DESIGNED** — parts draft + tasted-forms catalog (model decided; deck rejected) | Opus (design) | **Designer** | brief `arena-part-draft-and-catalog.md`; code = draft phase + meta catalog + shared-board seeding |
 
 ## P5 — Visual, art & production
 *The M5 look pass. Heavily your track; code only builds the seams that consume your assets.*

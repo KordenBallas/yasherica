@@ -21,6 +21,8 @@ using Narrative.Runtime.Core;
 using Narrative.Runtime.Snapshots;
 using Narrative.Stories.Core;
 using Narrative.Stories.Data;
+using Narrative.Threads.Core;
+using Narrative.Threads.Data;
 using Narrative.View;
 using UnityEngine;
 using World.Races.Integration;
@@ -52,6 +54,9 @@ namespace Core.DI
         [Header("Storylets")]
         [SerializeField] private List<StoryTemplate> _storyTemplates = new List<StoryTemplate>();
 
+        [Header("Threads (R8/D13)")]
+        [SerializeField] private List<ThreadDefinition> _threadDefinitions = new List<ThreadDefinition>();
+
         [Header("Director Pacing")]
         [SerializeField] private RunPacingConfig _runPacingConfig;
 
@@ -73,6 +78,7 @@ namespace Core.DI
             InstallRacePassport();
             InstallFragmentsAndStorylets();
             InstallDirectorAndCasting();
+            InstallThreads();
             InstallPlanner();
             InstallView();
             InstallDialogue();
@@ -158,6 +164,33 @@ namespace Core.DI
                 .AsSingle();
         }
 
+        private void InstallThreads()
+        {
+            // First-class threads (R8/D13/D14): the authored thread vocabulary, the run-scoped
+            // lifecycle ledger + placed/resolved story ledger, the per-window maintenance tick, and
+            // the relay folding encounter outcomes back into the ledgers.
+            Container.Bind<IThreadCatalog>()
+                .FromMethod(ctx => ThreadDefinitionMapper.ToCatalog(
+                    _threadDefinitions,
+                    ctx.Container.Resolve<RunPacingSettings>().DefaultThreadLifespanWindows,
+                    ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
+
+            Container.Bind<IThreadLedger>().To<ThreadLedger>().AsSingle();
+            Container.Bind<IStoryRunLedger>().To<StoryRunLedger>().AsSingle();
+
+            Container.Bind<IThreadMaintenance>()
+                .To<ThreadMaintenanceService>()
+                .FromMethod(ctx => new ThreadMaintenanceService(
+                    ctx.Container.Resolve<IThreadLedger>(),
+                    ctx.Container.Resolve<IThreadCatalog>(),
+                    ctx.Container.Resolve<IPreconditionEvaluator>(),
+                    ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
+
+            Container.BindInterfacesTo<StoryResolutionRelay>().AsSingle().NonLazy();
+        }
+
         private void InstallPlanner()
         {
             // Window mechanics (windowed director). Falls back to defaults if no config wired.
@@ -229,6 +262,10 @@ namespace Core.DI
                     ctx.Container.Resolve<IRandomSource>(),
                     ctx.Container.Resolve<RunPacingSettings>(),
                     ctx.Container.Resolve<IWorldSlotAllocator>(),
+                    ctx.Container.Resolve<IThreadLedger>(),
+                    ctx.Container.Resolve<IStoryRunLedger>(),
+                    ctx.Container.Resolve<IThreadCatalog>(),
+                    ctx.Container.Resolve<IThreadMaintenance>(),
                     ctx.Container.Resolve<World.Sites.Core.ISiteCatalog>(),
                     ctx.Container.Resolve<IGameLogger>()))
                 .AsSingle();
@@ -284,7 +321,10 @@ namespace Core.DI
                 .FromMethod(ctx => new NarrativeSaveService(
                     ctx.Container.Resolve<IFactStore>(),
                     ctx.Container.Resolve<IRandomSource>(),
-                    CreateSeed(ctx.Container)))
+                    CreateSeed(ctx.Container),
+                    ctx.Container.Resolve<IFactKeyRegistry>(),
+                    ctx.Container.Resolve<IThreadLedger>(),
+                    ctx.Container.Resolve<IStoryRunLedger>()))
                 .AsSingle();
         }
 
@@ -397,6 +437,12 @@ namespace Core.DI
             if (IsEmpty(_storyTemplates))
             {
                 _storyTemplates = new List<StoryTemplate>(Resources.LoadAll<StoryTemplate>("Narrative/Stories"));
+            }
+
+            if (IsEmpty(_threadDefinitions))
+            {
+                _threadDefinitions = new List<ThreadDefinition>(
+                    Resources.LoadAll<ThreadDefinition>("Narrative/Threads"));
             }
 
             if (_worldContentDensityConfig == null)

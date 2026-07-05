@@ -20,14 +20,17 @@ namespace Narrative.Facts.Core
         public FactScope Scope { get; }
         public FactValueType ValueType { get; }
         public FactValue DefaultValue { get; }
+        public FactHorizon Horizon { get; }
 
-        public FactKeyInfo(FactNamespace ns, string key, FactScope scope, FactValueType valueType, FactValue defaultValue)
+        public FactKeyInfo(FactNamespace ns, string key, FactScope scope, FactValueType valueType, FactValue defaultValue,
+            FactHorizon horizon = FactHorizon.Run)
         {
             Namespace = ns;
             Key = key ?? string.Empty;
             Scope = scope;
             ValueType = valueType;
             DefaultValue = defaultValue;
+            Horizon = horizon;
         }
     }
 }

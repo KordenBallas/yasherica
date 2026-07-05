@@ -52,6 +52,34 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void KeyInfo_HorizonDefaultsToRun_AndCarriesMeta()
+        {
+            // D20: an undeclared horizon is run-scoped, so every pre-existing key stays run-scoped.
+            var defaulted = new FactKeyInfo(FactNamespace.World, "pass_cleared", FactScope.Global,
+                FactValueType.Bool, FactValue.FromBool(false));
+            Assert.AreEqual(FactHorizon.Run, defaulted.Horizon);
+
+            var meta = new FactKeyInfo(FactNamespace.World, "spine_cursor", FactScope.Global,
+                FactValueType.Int, FactValue.FromInt(0), FactHorizon.Meta);
+            Assert.AreEqual(FactHorizon.Meta, meta.Horizon);
+        }
+
+        [Test]
+        public void Registry_PreservesHorizonPerKey()
+        {
+            var registry = new FactKeyRegistry(new[]
+            {
+                new FactKeyInfo(FactNamespace.World, "run_fact", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                new FactKeyInfo(FactNamespace.World, "meta_fact", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false), FactHorizon.Meta)
+            });
+
+            Assert.IsTrue(registry.TryGetInfo(FactNamespace.World, "run_fact", out var run));
+            Assert.AreEqual(FactHorizon.Run, run.Horizon);
+            Assert.IsTrue(registry.TryGetInfo(FactNamespace.World, "meta_fact", out var meta));
+            Assert.AreEqual(FactHorizon.Meta, meta.Horizon);
+        }
+
+        [Test]
         public void Shape_PermitsMatchesByTokenNotArity()
         {
             var selfHostile = new FactKeyShapeCore(FactNamespace.Actor, "$self", "hostile", FactValueType.Bool);
