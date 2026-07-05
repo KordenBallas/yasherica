@@ -22,6 +22,8 @@ MonoBehaviour:
   - LowerLeg.L
   - Foot.L
   _contributedSockets: []
+  _activeAbilities: []
+  _passiveAbilities: []
   _traitAffinities:
   - _traitId: sharp
     _weight: 0.7
@@ -31,3 +33,6 @@ MonoBehaviour:
     _weight: 0.3
   _rarity: 0
   _choiceIcon: {fileID: 21300000, guid: 55374e0e9f1696241af4de5aa4a3ab72, type: 3}
+  _governsBodyPlan: 0
+  _bodyPlanPriority: 0
+  _raceId: fox

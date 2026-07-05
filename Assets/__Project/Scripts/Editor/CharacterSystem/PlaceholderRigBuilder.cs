@@ -53,10 +53,20 @@ namespace Editor.CharacterSystem
         /// </summary>
         public static GameObject BuildRigInScene(string rigName, out Dictionary<string, Transform> bonesByName)
         {
+            return BuildRigInScene(rigName, Bones, out bonesByName);
+        }
+
+        /// <summary>Frame-parametrized variant: builds the rig from an explicit bone table
+        /// (body plans — serpent, spider — share this path with the base biped).</summary>
+        public static GameObject BuildRigInScene(
+            string rigName,
+            (string Name, string Parent, Vector3 LocalPosition)[] bones,
+            out Dictionary<string, Transform> bonesByName)
+        {
             var rigRoot = new GameObject(rigName);
             bonesByName = new Dictionary<string, Transform>(System.StringComparer.Ordinal);
 
-            foreach (var (name, parent, localPosition) in Bones)
+            foreach (var (name, parent, localPosition) in bones)
             {
                 var bone = new GameObject(name).transform;
                 bone.SetParent(parent == null ? rigRoot.transform : bonesByName[parent], false);

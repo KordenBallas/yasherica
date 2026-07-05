@@ -24,9 +24,18 @@ namespace CharacterSystem.Runtime
         private readonly AssemblyValidator _validator = new AssemblyValidator();
 
         private readonly CharacterAssemblyState _state = new CharacterAssemblyState();
+
+        /// <summary>Raised after a successful part swap, once the assembly state and sockets are
+        /// rebuilt. Consumers (e.g. the race passport projector) re-read <see cref="EquippedParts"/>.</summary>
+        public event Action PartsChanged;
         private readonly SocketCatalog _socketCatalog = new SocketCatalog();
         private readonly Dictionary<string, GameObject> _partInstancesBySlot = new Dictionary<string, GameObject>(StringComparer.Ordinal);
         private readonly Dictionary<string, PartDefinition> _partDefinitionsBySlot = new Dictionary<string, PartDefinition>(StringComparer.Ordinal);
+
+        // Losing frame-changers: equipped-but-dormant (body-plan-skeleton-swap.md FR2). They
+        // contribute no renderer, sockets, or abilities — only governance candidacy — so they
+        // are tracked outside _state and never surface in EquippedParts.
+        private readonly Dictionary<string, PartDefinition> _dormantBySlot = new Dictionary<string, PartDefinition>(StringComparer.Ordinal);
 
         public CharacterAssemblyController(
             SkeletonDefinition skeletonDefinition,
@@ -91,10 +100,55 @@ namespace CharacterSystem.Runtime
 
             _partInstancesBySlot[partData.SlotId] = newInstance;
             _partDefinitionsBySlot[partData.SlotId] = part;
+            // A slot holds at most one part, active or dormant: an active install into a
+            // dormant-held slot replaces the dormant occupant.
+            _dormantBySlot.Remove(partData.SlotId);
             _state.Equip(partData);
             _socketCatalog.Rebuild(_skeleton, _state.EquippedParts);
+            PartsChanged?.Invoke();
             return true;
         }
+
+        /// <summary>
+        /// Records a losing frame-changer as equipped-but-dormant: state only, no renderer,
+        /// no sockets. Any active or dormant occupant of the slot is replaced (an active
+        /// occupant's instance is destroyed, mirroring an ordinary swap's replacement).
+        /// </summary>
+        public bool EquipDormant(PartDefinition part)
+        {
+            if (part == null || part.Slot == null)
+            {
+                _logger.Error(LogCategory.CharacterSystem,"[CharacterAssembly] Cannot equip a null or slotless part as dormant.");
+                return false;
+            }
+
+            var slotId = part.Slot.Id;
+            if (_partInstancesBySlot.TryGetValue(slotId, out var activeInstance))
+            {
+                if (activeInstance != null)
+                {
+                    UnityEngine.Object.Destroy(activeInstance);
+                }
+
+                _partInstancesBySlot.Remove(slotId);
+                _partDefinitionsBySlot.Remove(slotId);
+                _state.Remove(slotId);
+                _socketCatalog.Rebuild(_skeleton, _state.EquippedParts);
+            }
+
+            _dormantBySlot[slotId] = part;
+            PartsChanged?.Invoke();
+            return true;
+        }
+
+        /// <summary>Losing frame-changers currently carried as dormant (governance candidates only).</summary>
+        public IReadOnlyCollection<PartDefinition> DormantParts => _dormantBySlot.Values;
+
+        /// <summary>Definitions of the parts rendered on the body (excludes dormant parts).</summary>
+        public IReadOnlyCollection<PartDefinition> EquippedPartDefinitions => _partDefinitionsBySlot.Values;
+
+        /// <summary>Id of the skeleton this body is assembled on.</summary>
+        public string SkeletonId => _skeleton.SkeletonId;
 
         public AttachmentHandle AttachToSocket(string socketId, GameObject prefab)
         {

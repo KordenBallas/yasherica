@@ -25,14 +25,14 @@ MonoBehaviour:
     - frog-errand
     _optional: 1
   _preconditions:
-  - _namespace: 0
-    _subjectToken:
-    _key: reads_as_frogfolk
-    _op: 0
+  - _namespace: 2
+    _subjectToken: fox
+    _key: reads_as_tier
+    _op: 3
     _value:
-      _valueType: 0
-      _boolValue: 1
-      _intValue: 0
+      _valueType: 1
+      _boolValue: 0
+      _intValue: 1
       _floatValue: 0
       _stringValue:
   - _namespace: 0

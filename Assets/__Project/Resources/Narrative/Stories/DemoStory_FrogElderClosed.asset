@@ -20,14 +20,14 @@ MonoBehaviour:
     - frog-elder-closed
     _optional: 0
   _preconditions:
-  - _namespace: 0
-    _subjectToken:
-    _key: reads_as_frogfolk
-    _op: 0
+  - _namespace: 2
+    _subjectToken: fox
+    _key: reads_as_tier
+    _op: 4
     _value:
-      _valueType: 0
+      _valueType: 1
       _boolValue: 0
-      _intValue: 0
+      _intValue: 1
       _floatValue: 0
       _stringValue:
   _ownEffects: []

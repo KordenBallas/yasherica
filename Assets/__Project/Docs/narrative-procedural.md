@@ -199,7 +199,11 @@ minted actors in deterministic registration order — the seam recurring-actor c
 **Streaming & entry (now wired).** `RunStreamingCoordinator` (`LevelGeneration`) drives generation:
 `Begin()` generates window 0; on each `PlatformEvents.OnPlatformExited` from a frontier platform it
 locks that window and plans + generates the next against the live store (exit, not entry, so an
-engaging player's fact writes land before the next window is planned). Each planned story platform is
+engaging player's fact writes land before the next window is planned). Before each window is
+planned, `BiomeStretchDirector.ApplyForWindow` applies the **biome journey**'s stretch for that
+window (see `biome-journey.md`): the active biome now advances along the run in authored, seeded,
+tier-climbing stretches, switching `ICurrentThemeProvider` and publishing `run_escalation_tier` —
+the allocators are unchanged (they already read the theme provider live per allocation). Each planned story platform is
 realised as an `NpcContent` carrying the minted actor + committed story (its visual spawns from the
 archetype assembly via `IModularCharacterFactory`; `INpcArchetypeCatalog` resolves id → archetype SO).
 An **ambient combat** platform is realised as an `EnemyContent` with the planner's biome-pool
@@ -432,11 +436,13 @@ Two fact-driven threads run side by side, exercising **D5/D15 fact-based selecti
 recurring-actor** path, the **cross-actor moral fork** (`quest-as-reward.md` §4), **passport/faction
 gating** (D15/D16), and **multi-thread** within-window coherence (D12/D14). All archetypes use
 `PlaceholderAssembly_A` for a visible body.
-- Facts (all Bool, Global, default false, in `DemoFactKeyRegistry` — except `looted_barn`, PerActor):
+- Facts (all Bool, Global, default false, in `DemoFactKeyRegistry` — except `looted_barn`, PerActor,
+  and `reads_as_tier`, Int/PerFaction):
   *barn_raid thread* — `world.barn_raided` (raider world gate), `actor.looted_barn` (raider-arc carry),
   the partition facts `world.barn_quest_offered`, `world.barn_quest_accepted`, `world.grain_recovered`,
   `world.raider_bribed`, and `world.raider_offer_taken` (the fork's power side). *frog_marsh thread* —
-  `world.reads_as_frogfolk` (the passport fact, D15/D16), `world.frog_quest_offered`,
+  `faction.<raceId>.reads_as_tier` (the passport tier, D15/D16 — written by the race passport
+  projector from the equipped body, races-passport.md), `world.frog_quest_offered`,
   `world.frog_quest_accepted`.
 - Archetypes: `arch_barn_raider` (`raider`,`can-fight`), `arch_villager` (`villager`,`farmer` — the barn
   victim + both window-2 villager reactions), `arch_frogfolk` (`frogfolk`,`elder`,`marsh`; faction
@@ -452,7 +458,8 @@ gating** (D15/D16), and **multi-thread** within-window coherence (D12/D14). All 
   `dlg_grateful_farmer`/`GratefulFarmer.ink` (the reward beat — offers/advances/completes the bounty
   quest via `offer-quest:`/`advance-objective:`/`complete-quest:`, no fact writes) and
   `dlg_starving_village`/`StarvingVillage.ink` (reaction beat, no fact writes). *frog_marsh:*
-  `dlg_marsh_pool`/`MarshPool.ink` (the passport **setter** — a card writes `world.reads_as_frogfolk`),
+  `dlg_marsh_pool`/`MarshPool.ink` (the passport **hint** — teaches that the marsh opens to fox
+  markers; no fact writes since the tier is body-derived),
   `dlg_frog_elder_closed`/`FrogElderClosed.ink` (passport-negative reaction, no fact writes),
   `dlg_frog_elder_open`/`FrogElderOpen.ink` (passport-positive — writes `world.frog_quest_offered` on
   meeting, a quest-offer card OFFERS `frog-errand` + writes `world.frog_quest_accepted`), and
@@ -494,17 +501,17 @@ gating** (D15/D16), and **multi-thread** within-window coherence (D12/D14). All 
     the shared actor's thread (`quest-as-reward.md` §4); accepting clears `looted_barn` so the arc closes (D13).
 - The **`frog_marsh` thread** runs **in parallel** with `barn_raid` (distinct `_threadId`s eligible together,
   so a window may hold beats of both — the multi-thread within-window coherence test, D12/D14). It is gated
-  purely on the **passport fact** `world.reads_as_frogfolk` (D15/D16), which a card sets (standing in for the
-  mutation→fact projection):
-  - While `reads_as_frogfolk == false`: `story_marsh_pool` (the setter card → sets `reads_as_frogfolk`) and
-    `story_frog_elder_closed` (the closed-door reaction, no quest) are eligible. Taking the MarshPool card
-    **flips the passport true**.
-  - Once `reads_as_frogfolk == true`: the closed/pool stories drop out and `story_frog_elder_open` becomes
-    eligible (guarded by `frog_quest_offered == false` so it offers once), OFFERING `qst_frog_errand`
+  on the **real passport tier** `faction.fox.reads_as_tier` (D15/D16), projected from the equipped body by
+  the race passport system (races-passport.md) — the fox is the Forest race, so the marsh reads fox markers:
+  - While `reads_as_tier(fox) < 1`: `story_marsh_pool` (a hint beat teaching the rule — wear the fox's
+    marks) and `story_frog_elder_closed` (the closed-door reaction, no quest) are eligible.
+  - Equipping one fox-tagged part (a mutation) raises the tier to 1: the closed/pool stories drop out and
+    `story_frog_elder_open` (`reads_as_tier(fox) >= 1`) becomes eligible (guarded by
+    `frog_quest_offered == false` so it offers once), OFFERING `qst_frog_errand`
     (access currency) and writing `frog_quest_accepted`.
   - With `frog_quest_accepted == true`: `story_frog_marsh_thanks` (the thread's second sequential beat)
-    advances + completes the errand. The same one fact flipping false→true swapping `FrogElderClosed` for
-    `FrogElderOpen` is the **passport flip** in miniature.
+    advances + completes the errand. The tier crossing 0→1 swapping `FrogElderClosed` for
+    `FrogElderOpen` is the **passport flip** in miniature — now read off the body, not a card.
 - *Pacing:* the slice relies on the installer's default `RunPacingSettings` (no `RunPacingConfig` asset wired):
   `windowSize 4`, `narrativeBudgetPerWindow 30` (two weight-10 openers fit window 1), `maxCombatPerWindow 2`,
   `minCombatPerWindow 1` — satisfied in window 1 by `story_barn_raid`'s combat-bearing optional slot.
@@ -594,8 +601,9 @@ verified by entering the slice scene; the Ink→JSON compile and `.asset` wiring
   pending block queue, a site-spacing counter, and a site instance counter — all run-scoped, in
   memory only; a mid-run save/reload would drop a half-drained site block. Folds into the same
   window/horizon save-state item (ROADMAP).
-- **Biome is fixed (Forest).** `AreaSceneEntrypoint` hardcodes `LevelTheme.Forest`; biome selection
-  along the run (and with it which monster pool / loot table plays) is a separate follow-up (ROADMAP).
+- **Biome journey save-state.** The biome now advances along the run (`biome-journey.md` — the
+  fixed-Forest hardcode is gone), but the journey's own `DeterministicRandom` state is not yet
+  captured by the save boundary; folds into the same window/horizon save-state item (ROADMAP).
 - **Remaining director gaps (design handoff `narrative-director-requirements.md`).** Beyond the
   Priority-1 actor/faction eligibility (D16) + recurring-actor casting (D11) delivered here, the
   director still owes: D7 spine reserved lane + per-run reveal cap, D13/D14 first-class threads with

@@ -17,8 +17,8 @@ namespace World.Landscape
     {
         private static readonly Color DefaultLandmarkTint = new Color(0.47f, 0.52f, 0.47f);
 
-        private readonly BiomeAppearanceDefinition _appearance;
-        private readonly LevelTheme _theme;
+        private BiomeAppearanceDefinition _appearance;
+        private LevelTheme _theme;
 
         private Mesh _placeholderMesh;
         private Material _placeholderMaterial;
@@ -27,6 +27,19 @@ namespace World.Landscape
         {
             _appearance = appearance;
             _theme = theme;
+        }
+
+        /// <summary>
+        /// Re-dresses the spawner for a new biome stretch: landmarks placed from here on use the new
+        /// biome's kit/tint/shape; already-spawned ones keep theirs (the country behind you). Cached
+        /// placeholder refs are dropped, not destroyed — spawned landmarks still reference them.
+        /// </summary>
+        public void ApplyBiome(BiomeAppearanceDefinition appearance, LevelTheme theme)
+        {
+            _appearance = appearance;
+            _theme = theme;
+            _placeholderMesh = null;
+            _placeholderMaterial = null;
         }
 
         public void Spawn(IReadOnlyList<LandmarkSpec> specs, Transform parent)

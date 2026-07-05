@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using LevelGeneration;
+using LevelGeneration.Journey;
 using LevelGeneration.Route;
 using Platform;
 using Combat.Core;
@@ -18,7 +19,7 @@ using World.Biomes.Data;
 using World.Landscape;
 using Zenject;
 
-public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
+public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable, IBiomeStretchObserver
 {
     [Header("Graph Parameters")]
     [Tooltip("Number of platforms (nodes) in the route graph")]
@@ -42,6 +43,9 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
     private AreaView areaView;
     private IPlatform currentPlatform;
     private GameObject worldBackdrop;
+    private RouteLandmarkSpawner _landmarkSpawner;
+    private int _routeSeed;
+    private LevelTheme _builtBiomeTheme;
 
     [Inject]
     private Platform.Platform.Factory _platformFactory;
@@ -55,6 +59,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
     private Loot.Core.ILootRollService _lootRollService;
     [Inject]
     private Loot.Core.ICurrentThemeProvider _currentThemeProvider;
+    [Inject]
+    private IBiomeJourney _biomeJourney;
     [Inject]
     private IRunWindowPlanner _windowPlanner;
     [Inject]
@@ -97,18 +103,24 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
         // planner, and the layout share the same run seed.
         UnityEngine.Random.InitState(_runSeedProvider.RunSeed);
 
-        // Biome selection from progression is a follow-up; default for now so loot/theme have a value.
-        LevelTheme theme = LevelTheme.Forest;
-        _currentThemeProvider.SetTheme(theme);
+        // The run's initial biome is the journey's window-0 stretch (seeded, tier-ordered — no more
+        // hardcoded Forest). The theme provider is NOT set here: the BiomeStretchDirector owns all
+        // SetTheme/fact writes and applies window 0 inside coordinator.Begin(), before any theme read.
+        LevelTheme theme = _biomeJourney.ForWindow(0).Theme;
+        _builtBiomeTheme = theme;
 
         // The routed-path model (weave / elevation tiers / landmark placement) is run-deterministic:
         // its seed derives from the run seed unless overridden, and its character comes from the
-        // biome's appearance asset (code defaults when the biome is unauthored).
+        // biome's appearance asset (code defaults when the biome is unauthored). The route model keeps
+        // the entry biome's character for the whole run (known limitation — M5 transition art);
+        // landmark dressing and the backdrop DO follow biome stretches via OnBiomeStretchChanged.
         BiomeAppearanceDefinition biomeAppearance = _biomeAppearanceCatalog.Get(theme);
         BiomeLandscapeSettings landscapeSettings = BiomeAppearanceMapper.ToLandscapeSettings(biomeAppearance);
-        int routeSeed = seed != 0 ? seed : Loot.Core.LootSeed.Derive(_runSeedProvider.RunSeed, "landscape-route");
+        _routeSeed = seed != 0 ? seed : Loot.Core.LootSeed.Derive(_runSeedProvider.RunSeed, "landscape-route");
+        int routeSeed = _routeSeed;
         var routeModel = new RunRouteModel(landscapeSettings, routeSeed);
-        var landmarkSpawner = new RouteLandmarkSpawner(biomeAppearance, theme);
+        _landmarkSpawner = new RouteLandmarkSpawner(biomeAppearance, theme);
+        var landmarkSpawner = _landmarkSpawner;
 
         var config = new AreaGeneratorConfig
         {
@@ -119,14 +131,19 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
         // The streaming director plans/generates platforms window-by-window; the area generator no longer
         // needs a pre-built graph or pre-assigned narrative (levelNarrative is null on this path).
         areaGenerator = new AreaGenerator(
-            new PlatformGraphData(), routeModel, _platformFactory, _lootRollService, theme,
+            new PlatformGraphData(), routeModel, _platformFactory, _lootRollService, _currentThemeProvider,
             _platformShapeSettings, _runSeedProvider, config, _logger, landmarkSpawner);
 
         CreateWorldBackdrop(biomeAppearance, landscapeSettings, routeSeed);
 
+        // The stretch director owns all theme/tier-fact writes; this entrypoint observes stretch
+        // crossings to swap the landmark dressing and rebuild the backdrop.
+        var biomeDirector = new BiomeStretchDirector(
+            _biomeJourney, _currentThemeProvider, _factStore, observer: this, _logger);
+
         coordinator = new RunStreamingCoordinator(
             _windowPlanner, _archetypeCatalog, _modularFactory, _factStore, _castingFactory,
-            _fragmentLibrary, _intentResolver, _interactionService, areaGenerator, _logger);
+            _fragmentLibrary, _intentResolver, _interactionService, areaGenerator, biomeDirector, _logger);
 
         IPlatform entry = coordinator.Begin();
 
@@ -194,6 +211,27 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
             _cameraConfig.IsometricRotation.y, _cameraConfig.IsometricRotation.x);
         var backdropView = worldBackdrop.AddComponent<WorldBackdropView>();
         backdropView.Initialize(characterTransform);
+    }
+
+    /// <summary>
+    /// Biome-stretch crossing (from <see cref="BiomeStretchDirector"/>): swap the landmark dressing
+    /// and rebuild the backdrop for the new biome. Already-built route geometry stays — the country
+    /// behind the player keeps its look. Idempotent for the window-0 apply (theme already built).
+    /// </summary>
+    public void OnBiomeStretchChanged(BiomeStretch stretch)
+    {
+        if (_landmarkSpawner == null || stretch.Theme == _builtBiomeTheme)
+        {
+            return;
+        }
+
+        BiomeAppearanceDefinition appearance = _biomeAppearanceCatalog.Get(stretch.Theme);
+        BiomeLandscapeSettings landscape = BiomeAppearanceMapper.ToLandscapeSettings(appearance);
+        _landmarkSpawner.ApplyBiome(appearance, stretch.Theme);
+        CreateWorldBackdrop(appearance, landscape, _routeSeed);
+        _builtBiomeTheme = stretch.Theme;
+        _logger?.Info(LogCategory.Area,
+            $"[AreaSceneEntrypoint] Crossed into {stretch.Theme} (tier {stretch.EscalationTier}); landmark dressing + backdrop swapped.");
     }
 
     private void DestroyWorldBackdrop()

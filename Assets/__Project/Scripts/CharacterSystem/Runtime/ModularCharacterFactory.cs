@@ -31,38 +31,17 @@ namespace CharacterSystem.Runtime
                 return null;
             }
 
-            if (!ValidateAssembly(assembly))
+            if (!ValidateParts(assembly.Skeleton, assembly.Parts))
             {
                 return null;
             }
 
-            var rigObject = Object.Instantiate(assembly.Skeleton.RigPrefab, parent);
-            rigObject.name = string.IsNullOrEmpty(assembly.Id) ? assembly.Skeleton.Id : assembly.Id;
-
-            var rig = rigObject.GetComponent<CharacterRig>();
-            if (rig == null)
+            var name = string.IsNullOrEmpty(assembly.Id) ? assembly.Skeleton.Id : assembly.Id;
+            var controller = BuildRigAndController(assembly.Skeleton, name, parent, out var rigObject);
+            if (controller == null)
             {
-                _logger.Error(LogCategory.CharacterSystem,$"[ModularCharacterFactory] Rig prefab '{assembly.Skeleton.RigPrefab.name}' has no CharacterRig component.");
-                Object.Destroy(rigObject);
                 return null;
             }
-
-            rig.Initialize();
-
-            if (!ValidateLiveRig(assembly.Skeleton, rig))
-            {
-                Object.Destroy(rigObject);
-                return null;
-            }
-
-            var controller = new CharacterAssemblyController(
-                assembly.Skeleton,
-                _partCatalog,
-                new PartSwapExecutor(rig, _logger),
-                new SocketMounter(rig, _logger),
-                _logger);
-
-            controller.MountSkeletonSockets();
 
             foreach (var part in assembly.Parts)
             {
@@ -85,15 +64,123 @@ namespace CharacterSystem.Runtime
             return character;
         }
 
-        private bool ValidateAssembly(CharacterAssemblyDefinition assembly)
+        public ModularCharacter Create(
+            SkeletonDefinition skeleton,
+            System.Collections.Generic.IReadOnlyList<PartDefinition> activeParts,
+            System.Collections.Generic.IReadOnlyList<PartDefinition> dormantParts,
+            System.Collections.Generic.IReadOnlyList<AttachmentDefinition> attachments,
+            Transform parent)
         {
-            var skeleton = DefinitionMapper.ToSkeletonData(assembly.Skeleton);
-            var parts = new System.Collections.Generic.List<PartData>(assembly.Parts.Count);
-            foreach (var part in assembly.Parts)
+            if (skeleton == null || skeleton.RigPrefab == null)
             {
-                if (part != null)
+                _logger.Error(LogCategory.CharacterSystem,"[ModularCharacterFactory] Skeleton or rig prefab is missing.");
+                return null;
+            }
+
+            if (!ValidateParts(skeleton, activeParts))
+            {
+                return null;
+            }
+
+            var controller = BuildRigAndController(skeleton, skeleton.Id, parent, out var rigObject);
+            if (controller == null)
+            {
+                return null;
+            }
+
+            // All-or-nothing: a frame change stages this body before touching the live one,
+            // so any equip failure must abort the whole build.
+            if (activeParts != null)
+            {
+                foreach (var part in activeParts)
                 {
-                    parts.Add(DefinitionMapper.ToPartData(part));
+                    if (part != null && !controller.SwapPart(part))
+                    {
+                        _logger.Error(LogCategory.CharacterSystem,
+                            $"[ModularCharacterFactory] Part '{part.Id}' failed to equip on skeleton '{skeleton.Id}'; aborting the staged build.");
+                        controller.Dispose();
+                        Object.Destroy(rigObject);
+                        return null;
+                    }
+                }
+            }
+
+            if (dormantParts != null)
+            {
+                foreach (var part in dormantParts)
+                {
+                    if (part != null)
+                    {
+                        controller.EquipDormant(part);
+                    }
+                }
+            }
+
+            if (attachments != null)
+            {
+                foreach (var attachment in attachments)
+                {
+                    if (attachment != null)
+                    {
+                        controller.AttachToSocket(attachment);
+                    }
+                }
+            }
+
+            var character = rigObject.AddComponent<ModularCharacter>();
+            character.Initialize(controller);
+            return character;
+        }
+
+        private CharacterAssemblyController BuildRigAndController(
+            SkeletonDefinition skeleton, string name, Transform parent, out GameObject rigObject)
+        {
+            rigObject = Object.Instantiate(skeleton.RigPrefab, parent);
+            rigObject.name = name;
+
+            var rig = rigObject.GetComponent<CharacterRig>();
+            if (rig == null)
+            {
+                _logger.Error(LogCategory.CharacterSystem,$"[ModularCharacterFactory] Rig prefab '{skeleton.RigPrefab.name}' has no CharacterRig component.");
+                Object.Destroy(rigObject);
+                rigObject = null;
+                return null;
+            }
+
+            rig.Initialize();
+
+            if (!ValidateLiveRig(skeleton, rig))
+            {
+                Object.Destroy(rigObject);
+                rigObject = null;
+                return null;
+            }
+
+            var controller = new CharacterAssemblyController(
+                skeleton,
+                _partCatalog,
+                new PartSwapExecutor(rig, _logger),
+                new SocketMounter(rig, _logger),
+                _logger);
+
+            controller.MountSkeletonSockets();
+            return controller;
+        }
+
+        private bool ValidateParts(
+            SkeletonDefinition skeletonDefinition,
+            System.Collections.Generic.IReadOnlyList<PartDefinition> partDefinitions)
+        {
+            var skeleton = DefinitionMapper.ToSkeletonData(skeletonDefinition);
+            var parts = new System.Collections.Generic.List<PartData>(partDefinitions?.Count ?? 0);
+            if (partDefinitions != null)
+            {
+                foreach (var part in partDefinitions)
+                {
+                    if (part != null)
+                    {
+                        parts.Add(DefinitionMapper.ToPartData(part));
+                    }
                 }
             }
 

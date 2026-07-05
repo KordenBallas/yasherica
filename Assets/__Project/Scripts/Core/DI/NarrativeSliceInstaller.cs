@@ -23,6 +23,7 @@ using Narrative.Stories.Core;
 using Narrative.Stories.Data;
 using Narrative.View;
 using UnityEngine;
+using World.Races.Integration;
 using Zenject;
 using DataFactRegistry = Narrative.Facts.Data.FactKeyRegistry;
 
@@ -69,6 +70,7 @@ namespace Core.DI
 
             ResolveAssetsFromResources();
             InstallFacts();
+            InstallRacePassport();
             InstallFragmentsAndStorylets();
             InstallDirectorAndCasting();
             InstallPlanner();
@@ -93,6 +95,17 @@ namespace Core.DI
             Container.Bind<ISubjectResolver>().To<SubjectResolver>().AsSingle();
             Container.Bind<IPreconditionEvaluator>().To<PreconditionEvaluator>().AsSingle();
             Container.Bind<IFactEffectApplier>().To<FactEffectApplier>().AsSingle();
+        }
+
+        private void InstallRacePassport()
+        {
+            // The passport (races-passport.md): the projector is the single writer of the per-race
+            // faction.<raceId>.reads_as_tier fact; the binder feeds it the hero's equipped parts on
+            // assembly and after every swap. IRaceRoster comes from AreaInstaller, IPartCatalog from
+            // CharacterSystemInstaller, the hero's ModularCharacterVisual from MutationInstaller —
+            // one shared scene container. NonLazy so it subscribes at startup.
+            Container.Bind<RacePassportProjector>().AsSingle();
+            Container.BindInterfacesAndSelfTo<RacePassportBinder>().AsSingle().NonLazy();
         }
 
         private void InstallFragmentsAndStorylets()

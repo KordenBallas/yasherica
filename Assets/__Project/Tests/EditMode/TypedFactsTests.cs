@@ -59,15 +59,25 @@ namespace Tests.EditMode
         public void DriftCheck_FlagsMissingRef()
         {
             var logger = new FakeLogger();
-            // Registry missing ActorFacts.LootedBarn.
+            // Registry declares only these two; every other curated ref must be flagged, one warning
+            // each. Derived from TypedFacts.All() so adding a new curated ref doesn't break this test
+            // (it silently expected exactly one missing ref before run_escalation_tier/reads_as_tier).
             var registry = new FactKeyRegistry(new[]
             {
                 new FactKeyInfo(FactNamespace.World, "barn_raided", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
                 new FactKeyInfo(FactNamespace.World, "grain_recovered", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false))
             });
 
+            var expectedMissing = 0;
+            foreach (var _ in TypedFacts.All())
+            {
+                expectedMissing++;
+            }
+
+            expectedMissing -= 2; // the two declared above
+
             Assert.IsFalse(FactKeyRefRegistryCheck.Validate(registry, TypedFacts.All(), logger));
-            Assert.AreEqual(1, logger.Warnings.Count);
+            Assert.AreEqual(expectedMissing, logger.Warnings.Count);
         }
 
         [Test]

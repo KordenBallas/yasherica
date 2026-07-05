@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25a72fb41fe948659585c075e91d6be5, type: 3}
+  m_Name: BiomeProgressionConfig
+  m_EditorClassIdentifier: Yasherica::World.Biomes.Data.BiomeProgressionConfig
+  _biomes:
+  - _theme: 0
+    _escalationTier: 1
+    _selectionWeight: 1
+    _stretchMinWindows: 3
+    _stretchMaxWindows: 4
+  - _theme: 2
+    _escalationTier: 2
+    _selectionWeight: 1
+    _stretchMinWindows: 3
+    _stretchMaxWindows: 4
+  - _theme: 1
+    _escalationTier: 2
+    _selectionWeight: 1
+    _stretchMinWindows: 3
+    _stretchMaxWindows: 4

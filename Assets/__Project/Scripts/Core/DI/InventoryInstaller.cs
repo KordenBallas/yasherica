@@ -22,6 +22,7 @@ namespace Core.DI
         private const string RecipeDefinitionsResourcePath = "Artifacts/Recipes";
         private const string TraitDefinitionsResourcePath = "Artifacts/Traits";
         private const string FusionRuleDefinitionsResourcePath = "Artifacts/FusionRules";
+        private const string PartInventoryPanelResourcePath = "Prefabs/UI/PartInventoryPanel";
 
         [Header("Configuration")]
         [SerializeField] private InventoryConfig _config;
@@ -100,6 +101,10 @@ namespace Core.DI
         private void InstallDomain()
         {
             Container.Bind<IInventoryModel>().To<InventoryModel>().AsSingle();
+            Container.Bind<IPartInventoryModel>().To<PartInventoryModel>().AsSingle();
+            Container.Bind<CharacterSystem.Core.IShedPartSink>()
+                .To<Inventory.Integration.PartInventorySink>()
+                .AsSingle();
             Container.Bind<EmergentFusionCalculator>().AsSingle();
             Container.Bind<ArtifactByTraitSelector>().AsSingle();
             Container.Bind<IFusionResolver>().To<FusionResolver>().AsSingle();
@@ -113,6 +118,7 @@ namespace Core.DI
         private void InstallViews()
         {
             InstallHudView();
+            InstallPartInventoryView();
 
             // Pot and crafting views live on the detached inventory stage (scene object).
             Container.Bind<IPotView>()
@@ -169,6 +175,28 @@ namespace Core.DI
                     "[InventoryInstaller] No HUD view assigned. " +
                     "Assign either _hudView (scene instance) or _hudViewPrefab.");
             }
+        }
+
+        private void InstallPartInventoryView()
+        {
+            // Stored-parts readout (parts shed by body-plan changes). Missing prefab degrades
+            // gracefully: the stash still works, only the readout is absent (mirrors the
+            // MutationInstaller guard convention).
+            var panelPrefab = Resources.Load<PartInventoryView>(PartInventoryPanelResourcePath);
+            if (panelPrefab == null)
+            {
+                Debug.LogWarning(
+                    $"[InventoryInstaller] Part inventory panel prefab not found at Resources/{PartInventoryPanelResourcePath}; the stored-parts readout is disabled.");
+                return;
+            }
+
+            Container.Bind<IPartInventoryView>()
+                .To<PartInventoryView>()
+                .FromComponentInNewPrefab(panelPrefab)
+                .AsSingle()
+                .NonLazy();
+
+            Container.BindInterfacesAndSelfTo<PartInventoryPresenter>().AsSingle().NonLazy();
         }
 
         private void InstallPresenters()

@@ -89,8 +89,10 @@ platform discovery, enemy defeat, and quest completion.
 
 ### Layers (Scripts/Loot/)
 - **Core** (pure C#, no UnityEngine): `LootSeed` (FNV-1a seed derivation),
-  `RunSeedProvider` / `CurrentThemeProvider` (per-run context, set at install /
-  generation time), `BiomeLootData` / `LootEntryData` / `LootSlotData` (plain
+  `RunSeedProvider` (per-run context, set at install time) /
+  `CurrentThemeProvider` (**set per biome stretch** by the biome journey's
+  `BiomeStretchDirector` — see `biome-journey.md`; loot rolls follow the active
+  stretch's biome table), `BiomeLootData` / `LootEntryData` / `LootSlotData` (plain
   snapshots), `LootRollContext` / `LootRollResult`, `WeightedPicker`,
   `ILootEntryFilter` + `PassThroughLootFilter`, and `LootRollService` with the
   four operations: `ShouldPlaceLootOnPlatform`, `RollPlatformLoot`,
@@ -120,8 +122,9 @@ platform discovery, enemy defeat, and quest completion.
   stores them on `LootContent` (items + per-item collected flags; nothing
   respawns on re-entry).
 - `AreaSceneEntrypoint` consumes `IRunSeedProvider.RunSeed` for
-  `Random.InitState` and sets `ICurrentThemeProvider` from the generated
-  scenario.
+  `Random.InitState`; `ICurrentThemeProvider` is written by the biome journey's
+  `BiomeStretchDirector` per stretch (the entrypoint no longer sets it), and
+  `AreaGenerator` reads it live per loot roll.
 
 ### Runtime hooks
 - Enemy drops: `CombatActiveState.HandleCombatEnded` calls

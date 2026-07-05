@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Part_Torso_A
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
   _id: part.torso.a
+  _displayName: 
   _slot: {fileID: 11400000, guid: 4732ab9c6da821046a9e68a88900260d, type: 2}
   _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
   _partPrefab: {fileID: 584835647109937751, guid: 742c1450670108b489b770f04be3e079, type: 3}
@@ -27,3 +28,9 @@ MonoBehaviour:
   _activeAbilities:
   - {fileID: 11400000, guid: 967f900deb3eb854e9b83b5886c91075, type: 2}
   _passiveAbilities: []
+  _traitAffinities: []
+  _rarity: 0
+  _choiceIcon: {fileID: 0}
+  _governsBodyPlan: 0
+  _bodyPlanPriority: 0
+  _raceId: 

@@ -19,12 +19,24 @@ namespace CharacterSystem.Core
 
         public IReadOnlyList<SocketInfo> ContributedSockets { get; }
 
+        /// <summary>True for the rare frame-changing parts: while equipped, this part is a
+        /// candidate to govern the whole body plan (its <see cref="TargetSkeletonId"/> becomes
+        /// the body's skeleton when it wins the priority resolution).</summary>
+        public bool GovernsBodyPlan { get; }
+
+        /// <summary>Authored priority among equipped frame-changing parts; the highest wins,
+        /// ties break by ordinal <see cref="PartId"/>. Meaningless when
+        /// <see cref="GovernsBodyPlan"/> is false.</summary>
+        public int BodyPlanPriority { get; }
+
         public PartData(
             string partId,
             string slotId,
             string targetSkeletonId,
             IReadOnlyList<string> boneNames,
-            IReadOnlyList<SocketInfo> contributedSockets)
+            IReadOnlyList<SocketInfo> contributedSockets,
+            bool governsBodyPlan = false,
+            int bodyPlanPriority = 0)
         {
             if (string.IsNullOrEmpty(partId))
             {
@@ -41,6 +53,8 @@ namespace CharacterSystem.Core
             TargetSkeletonId = targetSkeletonId;
             BoneNames = boneNames ?? Array.Empty<string>();
             ContributedSockets = contributedSockets ?? Array.Empty<SocketInfo>();
+            GovernsBodyPlan = governsBodyPlan;
+            BodyPlanPriority = bodyPlanPriority;
         }
     }
 }

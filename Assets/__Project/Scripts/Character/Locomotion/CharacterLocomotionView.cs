@@ -63,13 +63,19 @@ namespace Character.Locomotion
             transform.rotation = Quaternion.Euler(0f, yawDegrees, 0f);
         }
 
-        // The rig (and its Animator) is assembled in ModularCharacterVisual.Start, so the
-        // reference is resolved lazily and cached the first frame it becomes available.
+        // The rig (and its Animator) is assembled in ModularCharacterVisual.Start and REBUILT
+        // on every body-plan change, so the cache is re-checked against the visual each call:
+        // one reference compare per frame buys automatic re-binding after a frame swap.
         private bool TryGetAnimator(out Animator animator)
         {
-            if (_animator == null && _characterVisual != null)
+            if (_characterVisual != null)
             {
-                _animator = _characterVisual.Animator;
+                var current = _characterVisual.Animator;
+                if (!ReferenceEquals(current, _animator))
+                {
+                    _animator = current;
+                    _hasSpeedParameter = false;
+                }
             }
 
             animator = _animator;

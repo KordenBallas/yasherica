@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Part_Head_A
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
   _id: part.head.a
+  _displayName: 
   _slot: {fileID: 11400000, guid: a3a3f4209385bed4491ef0157ca3c0b3, type: 2}
   _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
   _partPrefab: {fileID: 2020473347444906046, guid: 90ee28e7bc80f1e4f8b4ee940a8d4d2a, type: 3}
@@ -24,8 +25,15 @@ MonoBehaviour:
   - {fileID: 11400000, guid: c675cd362fc96fc4ca282f7e59d3a9c2, type: 2}
   - {fileID: 11400000, guid: 20b70aeb3e9294344a8c1da83ba3ca3a, type: 2}
   - {fileID: 11400000, guid: f7920cfd797eb504f90a21c2222ca34e, type: 2}
+  _activeAbilities: []
+  _passiveAbilities: []
   _traitAffinities:
   - _traitId: heavy
     _weight: 0.5
   - _traitId: stone
     _weight: 0.3
+  _rarity: 0
+  _choiceIcon: {fileID: 0}
+  _governsBodyPlan: 0
+  _bodyPlanPriority: 0
+  _raceId: 

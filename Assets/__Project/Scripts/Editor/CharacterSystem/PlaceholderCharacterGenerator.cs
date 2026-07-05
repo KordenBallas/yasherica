@@ -14,14 +14,21 @@ namespace Editor.CharacterSystem
 {
     /// <summary>
     /// One-click generation of every placeholder asset the modular character system needs
-    /// for testing: rig prefab with idle animation, skinned part meshes (A/B variants),
-    /// slot/socket/part/attachment/assembly definitions, and attachment prefabs.
-    /// Idempotent: regenerates the whole Resources/CharacterSystem folder.
+    /// for testing: per body plan (base biped + serpent + spider, see
+    /// <see cref="PlaceholderFrameLibrary"/>) a rig prefab with idle/run gait, skinned part
+    /// meshes, and skeleton/part/assembly definitions, plus the shared slot/socket/attachment
+    /// assets.
+    ///
+    /// Idempotent AND in-place: existing assets are updated at their paths (GUIDs and
+    /// hand-authored content fields — display names, abilities, traits, race tags — survive a
+    /// regeneration). Scene/prefab/blank references into this folder therefore never break.
+    /// Only animation clips/controllers are rebuilt from scratch: they are re-assigned to
+    /// their consumers (rig prefab, skeleton definition) in the same run and are otherwise
+    /// only loaded by Resources path.
     /// </summary>
     public static class PlaceholderCharacterGenerator
     {
         private const string RootFolder = "Assets/__Project/Resources/CharacterSystem";
-        private const string SkeletonId = "skeleton.placeholder";
 
         private static readonly Vector3 PartBoundsCenter = new Vector3(0f, 0.8f, 0f);
         private static readonly Vector3 PartBoundsSize = new Vector3(2.5f, 2.5f, 2.5f);
@@ -29,35 +36,83 @@ namespace Editor.CharacterSystem
         [MenuItem("Tools/Character System/Generate Placeholder Assets")]
         public static void GenerateAll()
         {
-            RecreateFolders();
+            EnsureFolders();
 
-            RigContext rigContext = null;
             try
             {
                 var materials = CreateMaterials();
-                rigContext = CreateRig();
-
                 var slots = CreateSlotDefinitions();
                 var sockets = CreateSocketDefinitions();
-                var skeleton = CreateSkeletonDefinition(rigContext.RigPrefab, sockets);
-                var parts = CreatePartDefinitions(rigContext.SceneBones, materials, slots, sockets, skeleton);
-                CreateAttachmentDefinitions(materials);
-                CreateAssemblyDefinition(skeleton, parts);
 
-                Debug.Log($"[PlaceholderCharacterGenerator] Placeholder character assets generated under {RootFolder}.");
+                var allParts = new Dictionary<string, PartDefinition>(StringComparer.Ordinal);
+                var skeletons = new Dictionary<string, SkeletonDefinition>(StringComparer.Ordinal);
+
+                foreach (var frame in PlaceholderFrameLibrary.Frames)
+                {
+                    GenerateFrame(frame, materials, slots, sockets, allParts, skeletons);
+                }
+
+                CreateAttachmentDefinitions(materials);
+
+                foreach (var frame in PlaceholderFrameLibrary.Frames)
+                {
+                    CreateAssemblyDefinition(frame, skeletons[frame.SkeletonId], allParts);
+                }
+
+                Debug.Log($"[PlaceholderCharacterGenerator] Placeholder assets for {PlaceholderFrameLibrary.Frames.Length} body plans generated under {RootFolder}.");
             }
             finally
             {
                 // SaveAssets MUST run even if generation throws: definitions are configured via
                 // SerializedObject in memory and only persisted by SaveAssets. Skipping it (the old
                 // bug — SaveAssets sat after the try) left every definition as a blank shell on disk.
-                if (rigContext != null)
-                {
-                    Object.DestroyImmediate(rigContext.SceneInstance);
-                }
-
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
+            }
+        }
+
+        /// <summary>Builds one frame's rig prefab, gait clips + controller, skeleton definition,
+        /// and part definitions. The scene rig instance stays alive until the frame's part
+        /// meshes are built (their bindposes are read from these exact bone transforms).</summary>
+        private static void GenerateFrame(
+            PlaceholderFrameLibrary.FrameSpec frame,
+            Materials materials,
+            Dictionary<string, SlotDefinition> slots,
+            Dictionary<string, SocketDefinition> sockets,
+            Dictionary<string, PartDefinition> allParts,
+            Dictionary<string, SkeletonDefinition> skeletons)
+        {
+            var rigRoot = PlaceholderRigBuilder.BuildRigInScene($"{frame.AssetBaseName}Rig", frame.Bones, out var sceneBones);
+            try
+            {
+                var idlePath = $"{RootFolder}/Animation/{frame.AssetBaseName}Idle.anim";
+                var runPath = $"{RootFolder}/Animation/{frame.AssetBaseName}Run.anim";
+                var controllerPath = $"{RootFolder}/Animation/{frame.AssetBaseName}Locomotion.controller";
+
+                // Clips/controllers are the one delete-and-rebuild exception (see class note).
+                AssetDatabase.DeleteAsset(idlePath);
+                AssetDatabase.DeleteAsset(runPath);
+                AssetDatabase.DeleteAsset(controllerPath);
+
+                var idleClip = PlaceholderAnimationBuilder.BuildSwayClip($"{frame.AssetBaseName}Idle", idlePath, frame.IdleSways, frame.BonePath);
+                var runClip = PlaceholderAnimationBuilder.BuildSwayClip($"{frame.AssetBaseName}Run", runPath, frame.RunSways, frame.BonePath);
+                var controller = PlaceholderAnimationBuilder.BuildController(idleClip, runClip, controllerPath);
+                rigRoot.GetComponent<Animator>().runtimeAnimatorController = controller;
+
+                // SaveAsPrefabAsset over the existing path keeps the prefab GUID.
+                var rigPrefab = PrefabUtility.SaveAsPrefabAsset(rigRoot, $"{RootFolder}/Skeletons/{frame.AssetBaseName}Rig.prefab");
+
+                var skeleton = CreateSkeletonDefinition(frame, rigPrefab, sockets, controller);
+                skeletons[frame.SkeletonId] = skeleton;
+
+                foreach (var spec in frame.Parts)
+                {
+                    allParts[spec.Id] = CreatePartDefinition(spec, sceneBones, materials, slots, sockets, skeleton);
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(rigRoot);
             }
         }
 
@@ -127,31 +182,6 @@ namespace Editor.CharacterSystem
             Debug.Log("[PlaceholderCharacterGenerator] Registered CharacterSystemInstaller on the SceneContext.");
         }
 
-        // ----- Rig ---------------------------------------------------------
-
-        private sealed class RigContext
-        {
-            public GameObject RigPrefab;
-            public GameObject SceneInstance;
-            public Dictionary<string, Transform> SceneBones;
-        }
-
-        private static RigContext CreateRig()
-        {
-            var rigRoot = PlaceholderRigBuilder.BuildRigInScene("PlaceholderRig", out var bones);
-
-            var idleClip = PlaceholderAnimationBuilder.BuildIdleClip($"{RootFolder}/Animation/PlaceholderIdle.anim");
-            var runClip = PlaceholderAnimationBuilder.BuildRunClip($"{RootFolder}/Animation/PlaceholderRun.anim");
-            var controller = PlaceholderAnimationBuilder.BuildController(idleClip, runClip, $"{RootFolder}/Animation/PlaceholderLocomotion.controller");
-            rigRoot.GetComponent<Animator>().runtimeAnimatorController = controller;
-
-            var rigPrefab = PrefabUtility.SaveAsPrefabAsset(rigRoot, $"{RootFolder}/Skeletons/PlaceholderRig.prefab");
-
-            // The scene instance stays alive (in bind pose) until part meshes are built,
-            // because their bindposes are read from these exact bone transforms.
-            return new RigContext { RigPrefab = rigPrefab, SceneInstance = rigRoot, SceneBones = bones };
-        }
-
         // ----- Materials ---------------------------------------------------
 
         private sealed class Materials
@@ -165,17 +195,24 @@ namespace Editor.CharacterSystem
         {
             return new Materials
             {
-                VariantA = CreateMaterial("Mat_VariantA", new Color(0.4f, 0.7f, 0.9f)),
-                VariantB = CreateMaterial("Mat_VariantB", new Color(0.9f, 0.55f, 0.3f)),
-                Prop = CreateMaterial("Mat_Prop", new Color(0.5f, 0.5f, 0.5f))
+                VariantA = LoadOrCreateMaterial("Mat_VariantA", new Color(0.4f, 0.7f, 0.9f)),
+                VariantB = LoadOrCreateMaterial("Mat_VariantB", new Color(0.9f, 0.55f, 0.3f)),
+                Prop = LoadOrCreateMaterial("Mat_Prop", new Color(0.5f, 0.5f, 0.5f))
             };
         }
 
-        private static Material CreateMaterial(string name, Color color)
+        private static Material LoadOrCreateMaterial(string name, Color color)
         {
+            var path = $"{RootFolder}/Parts/Materials/{name}.mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null)
+            {
+                return existing;
+            }
+
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             var material = new Material(shader) { name = name, color = color };
-            AssetDatabase.CreateAsset(material, $"{RootFolder}/Parts/Materials/{name}.mat");
+            AssetDatabase.CreateAsset(material, path);
             return material;
         }
 
@@ -189,7 +226,9 @@ namespace Editor.CharacterSystem
             ("slot.arm.r", "Arm Right"),
             ("slot.leg.l", "Leg Left"),
             ("slot.leg.r", "Leg Right"),
-            ("slot.tail", "Tail")
+            ("slot.tail", "Tail"),
+            // Body plans: the spider frame-changer's home slot (empty on the base body).
+            ("slot.legs.cluster", "Legs Cluster")
         };
 
         private static Dictionary<string, SlotDefinition> CreateSlotDefinitions()
@@ -198,7 +237,7 @@ namespace Editor.CharacterSystem
             foreach (var (id, displayName) in SlotSpecs)
             {
                 var assetName = $"Slot_{displayName.Replace(" ", string.Empty)}";
-                slots.Add(id, CreateDefinition<SlotDefinition>($"{RootFolder}/Slots/{assetName}.asset", serialized =>
+                slots.Add(id, CreateOrUpdateDefinition<SlotDefinition>($"{RootFolder}/Slots/{assetName}.asset", (serialized, _) =>
                 {
                     serialized.FindProperty("_id").stringValue = id;
                     serialized.FindProperty("_displayName").stringValue = displayName;
@@ -212,7 +251,7 @@ namespace Editor.CharacterSystem
 
         private static readonly (string Id, string ParentBone, Vector3 LocalPosition)[] SocketSpecs =
         {
-            // Tier-1 (always on the skeleton).
+            // Tier-1 (always on the skeleton; per-frame subsets are picked by the frame library).
             ("socket.shoulder.l", "Shoulder.L", new Vector3(0f, 0.06f, 0f)),
             ("socket.shoulder.r", "Shoulder.R", new Vector3(0f, 0.06f, 0f)),
             ("socket.palm.l", "Hand.L", new Vector3(-0.05f, -0.04f, 0f)),
@@ -230,21 +269,13 @@ namespace Editor.CharacterSystem
             ("socket.tail.tip", "Tail.2", new Vector3(0f, 0f, 0.12f))
         };
 
-        private static readonly string[] Tier1SocketIds =
-        {
-            "socket.shoulder.l", "socket.shoulder.r",
-            "socket.palm.l", "socket.palm.r",
-            "socket.foot.l", "socket.foot.r",
-            "socket.back", "socket.tail.base"
-        };
-
         private static Dictionary<string, SocketDefinition> CreateSocketDefinitions()
         {
             var sockets = new Dictionary<string, SocketDefinition>(StringComparer.Ordinal);
             foreach (var (id, parentBone, localPosition) in SocketSpecs)
             {
                 var assetName = $"Socket_{id.Replace("socket.", string.Empty).Replace('.', '_')}";
-                sockets.Add(id, CreateDefinition<SocketDefinition>($"{RootFolder}/Sockets/{assetName}.asset", serialized =>
+                sockets.Add(id, CreateOrUpdateDefinition<SocketDefinition>($"{RootFolder}/Sockets/{assetName}.asset", (serialized, _) =>
                 {
                     serialized.FindProperty("_id").stringValue = id;
                     serialized.FindProperty("_parentBoneName").stringValue = parentBone;
@@ -259,24 +290,30 @@ namespace Editor.CharacterSystem
 
         // ----- Skeleton ----------------------------------------------------
 
-        private static SkeletonDefinition CreateSkeletonDefinition(GameObject rigPrefab, Dictionary<string, SocketDefinition> sockets)
+        private static SkeletonDefinition CreateSkeletonDefinition(
+            PlaceholderFrameLibrary.FrameSpec frame,
+            GameObject rigPrefab,
+            Dictionary<string, SocketDefinition> sockets,
+            RuntimeAnimatorController controller)
         {
             var boneNames = new List<string>();
-            foreach (var bone in PlaceholderRigBuilder.Bones)
+            foreach (var bone in frame.Bones)
             {
                 boneNames.Add(bone.Name);
             }
 
             var tier1 = new List<SocketDefinition>();
-            foreach (var socketId in Tier1SocketIds)
+            foreach (var socketId in frame.Tier1SocketIds)
             {
                 tier1.Add(sockets[socketId]);
             }
 
-            return CreateDefinition<SkeletonDefinition>($"{RootFolder}/Skeletons/PlaceholderSkeleton.asset", serialized =>
+            return CreateOrUpdateDefinition<SkeletonDefinition>($"{RootFolder}/Skeletons/{frame.AssetBaseName}Skeleton.asset", (serialized, _) =>
             {
-                serialized.FindProperty("_id").stringValue = SkeletonId;
+                serialized.FindProperty("_id").stringValue = frame.SkeletonId;
+                serialized.FindProperty("_displayName").stringValue = frame.DisplayName;
                 serialized.FindProperty("_rigPrefab").objectReferenceValue = rigPrefab;
+                serialized.FindProperty("_animatorController").objectReferenceValue = controller;
                 SetStringList(serialized.FindProperty("_boneNames"), boneNames);
                 SetObjectList(serialized.FindProperty("_tier1Sockets"), tier1);
             });
@@ -284,139 +321,73 @@ namespace Editor.CharacterSystem
 
         // ----- Parts -------------------------------------------------------
 
-        private sealed class PartSpec
-        {
-            public string Id;
-            public string AssetName;
-            public string SlotId;
-            public bool IsVariantB;
-            public PlaceholderMeshBuilder.BoxSpec[] Boxes;
-            public string[] ContributedSocketIds = Array.Empty<string>();
-        }
-
-        private static PlaceholderMeshBuilder.BoxSpec[] ArmBoxes(float sign, float thickness)
-        {
-            var side = sign < 0 ? "L" : "R";
-            return new[]
-            {
-                new PlaceholderMeshBuilder.BoxSpec($"UpperArm.{side}", new Vector3(sign * 0.09f, 0f, 0f), new Vector3(0.2f, 0.09f * thickness, 0.09f * thickness)),
-                new PlaceholderMeshBuilder.BoxSpec($"LowerArm.{side}", new Vector3(sign * 0.08f, 0f, 0f), new Vector3(0.18f, 0.08f * thickness, 0.08f * thickness)),
-                new PlaceholderMeshBuilder.BoxSpec($"Hand.{side}", new Vector3(sign * 0.04f, 0f, 0f), new Vector3(0.1f, 0.1f * thickness, 0.1f * thickness))
-            };
-        }
-
-        private static PlaceholderMeshBuilder.BoxSpec[] LegBoxes(float sign, float thickness)
-        {
-            var side = sign < 0 ? "L" : "R";
-            return new[]
-            {
-                new PlaceholderMeshBuilder.BoxSpec($"UpperLeg.{side}", new Vector3(0f, -0.17f, 0f), new Vector3(0.12f * thickness, 0.36f, 0.12f * thickness)),
-                new PlaceholderMeshBuilder.BoxSpec($"LowerLeg.{side}", new Vector3(0f, -0.17f, 0f), new Vector3(0.1f * thickness, 0.36f, 0.1f * thickness)),
-                new PlaceholderMeshBuilder.BoxSpec($"Foot.{side}", new Vector3(0f, -0.02f, -0.05f), new Vector3(0.12f * thickness, 0.07f, 0.22f))
-            };
-        }
-
-        private static PartSpec[] BuildPartSpecs()
-        {
-            return new[]
-            {
-                new PartSpec
-                {
-                    Id = "part.head.a", AssetName = "Head_A", SlotId = "slot.head",
-                    Boxes = new[]
-                    {
-                        new PlaceholderMeshBuilder.BoxSpec("Head", new Vector3(0f, 0.06f, 0f), new Vector3(0.22f, 0.2f, 0.22f)),
-                        new PlaceholderMeshBuilder.BoxSpec("Ear.L", new Vector3(0f, 0.05f, 0f), new Vector3(0.05f, 0.12f, 0.03f)),
-                        new PlaceholderMeshBuilder.BoxSpec("Ear.R", new Vector3(0f, 0.05f, 0f), new Vector3(0.05f, 0.12f, 0.03f))
-                    },
-                    ContributedSocketIds = new[] { "socket.hat", "socket.ear.l", "socket.ear.r" }
-                },
-                new PartSpec
-                {
-                    Id = "part.head.b", AssetName = "Head_B", SlotId = "slot.head", IsVariantB = true,
-                    Boxes = new[]
-                    {
-                        new PlaceholderMeshBuilder.BoxSpec("Head", new Vector3(0f, 0.05f, 0f), new Vector3(0.3f, 0.16f, 0.26f))
-                    },
-                    ContributedSocketIds = new[] { "socket.hat" }
-                },
-                new PartSpec
-                {
-                    Id = "part.torso.a", AssetName = "Torso_A", SlotId = "slot.torso",
-                    Boxes = new[]
-                    {
-                        new PlaceholderMeshBuilder.BoxSpec("Spine", new Vector3(0f, 0.05f, 0f), new Vector3(0.3f, 0.2f, 0.2f)),
-                        new PlaceholderMeshBuilder.BoxSpec("Chest", new Vector3(0f, 0.06f, 0f), new Vector3(0.34f, 0.22f, 0.22f)),
-                        new PlaceholderMeshBuilder.BoxSpec("Wing.L", new Vector3(-0.1f, 0.02f, 0.04f), new Vector3(0.22f, 0.06f, 0.1f)),
-                        new PlaceholderMeshBuilder.BoxSpec("Wing.R", new Vector3(0.1f, 0.02f, 0.04f), new Vector3(0.22f, 0.06f, 0.1f))
-                    },
-                    ContributedSocketIds = new[] { "socket.wing.l", "socket.wing.r" }
-                },
-                new PartSpec
-                {
-                    Id = "part.torso.b", AssetName = "Torso_B", SlotId = "slot.torso", IsVariantB = true,
-                    Boxes = new[]
-                    {
-                        new PlaceholderMeshBuilder.BoxSpec("Spine", new Vector3(0f, 0.05f, 0f), new Vector3(0.36f, 0.2f, 0.26f)),
-                        new PlaceholderMeshBuilder.BoxSpec("Chest", new Vector3(0f, 0.06f, 0f), new Vector3(0.42f, 0.24f, 0.28f))
-                    }
-                },
-                new PartSpec { Id = "part.arm.l.a", AssetName = "ArmL_A", SlotId = "slot.arm.l", Boxes = ArmBoxes(-1f, 1f) },
-                new PartSpec { Id = "part.arm.l.b", AssetName = "ArmL_B", SlotId = "slot.arm.l", IsVariantB = true, Boxes = ArmBoxes(-1f, 1.6f) },
-                new PartSpec { Id = "part.arm.r.a", AssetName = "ArmR_A", SlotId = "slot.arm.r", Boxes = ArmBoxes(1f, 1f) },
-                new PartSpec { Id = "part.arm.r.b", AssetName = "ArmR_B", SlotId = "slot.arm.r", IsVariantB = true, Boxes = ArmBoxes(1f, 1.6f) },
-                new PartSpec { Id = "part.leg.l.a", AssetName = "LegL_A", SlotId = "slot.leg.l", Boxes = LegBoxes(-1f, 1f) },
-                new PartSpec { Id = "part.leg.l.b", AssetName = "LegL_B", SlotId = "slot.leg.l", IsVariantB = true, Boxes = LegBoxes(-1f, 1.6f) },
-                new PartSpec { Id = "part.leg.r.a", AssetName = "LegR_A", SlotId = "slot.leg.r", Boxes = LegBoxes(1f, 1f) },
-                new PartSpec { Id = "part.leg.r.b", AssetName = "LegR_B", SlotId = "slot.leg.r", IsVariantB = true, Boxes = LegBoxes(1f, 1.6f) },
-                new PartSpec
-                {
-                    Id = "part.tail.a", AssetName = "Tail_A", SlotId = "slot.tail",
-                    Boxes = new[]
-                    {
-                        new PlaceholderMeshBuilder.BoxSpec("Tail.0", new Vector3(0f, 0f, 0.07f), new Vector3(0.1f, 0.1f, 0.18f)),
-                        new PlaceholderMeshBuilder.BoxSpec("Tail.1", new Vector3(0f, 0f, 0.07f), new Vector3(0.08f, 0.08f, 0.17f)),
-                        new PlaceholderMeshBuilder.BoxSpec("Tail.2", new Vector3(0f, 0f, 0.06f), new Vector3(0.06f, 0.06f, 0.16f))
-                    },
-                    ContributedSocketIds = new[] { "socket.tail.tip" }
-                }
-            };
-        }
-
-        private static Dictionary<string, PartDefinition> CreatePartDefinitions(
+        private static PartDefinition CreatePartDefinition(
+            PlaceholderFrameLibrary.FramePartSpec spec,
             Dictionary<string, Transform> sceneBones,
             Materials materials,
             Dictionary<string, SlotDefinition> slots,
             Dictionary<string, SocketDefinition> sockets,
             SkeletonDefinition skeleton)
         {
-            var parts = new Dictionary<string, PartDefinition>(StringComparer.Ordinal);
+            var mesh = PlaceholderMeshBuilder.BuildPartMesh($"Mesh_{spec.AssetName}", spec.Boxes, sceneBones, out var orderedBoneNames);
+            mesh = SaveMeshInPlace(mesh, $"{RootFolder}/Parts/Meshes/Mesh_{spec.AssetName}.asset");
 
-            foreach (var spec in BuildPartSpecs())
+            var prefab = CreatePartPrefab(spec.AssetName, mesh, spec.IsVariantB ? materials.VariantB : materials.VariantA);
+
+            var contributed = new List<SocketDefinition>();
+            foreach (var socketId in spec.ContributedSocketIds)
             {
-                var mesh = PlaceholderMeshBuilder.BuildPartMesh($"Mesh_{spec.AssetName}", spec.Boxes, sceneBones, out var orderedBoneNames);
-                AssetDatabase.CreateAsset(mesh, $"{RootFolder}/Parts/Meshes/Mesh_{spec.AssetName}.asset");
-
-                var prefab = CreatePartPrefab(spec.AssetName, mesh, spec.IsVariantB ? materials.VariantB : materials.VariantA);
-
-                var contributed = new List<SocketDefinition>();
-                foreach (var socketId in spec.ContributedSocketIds)
-                {
-                    contributed.Add(sockets[socketId]);
-                }
-
-                parts.Add(spec.Id, CreateDefinition<PartDefinition>($"{RootFolder}/Parts/Part_{spec.AssetName}.asset", serialized =>
-                {
-                    serialized.FindProperty("_id").stringValue = spec.Id;
-                    serialized.FindProperty("_slot").objectReferenceValue = slots[spec.SlotId];
-                    serialized.FindProperty("_targetSkeleton").objectReferenceValue = skeleton;
-                    serialized.FindProperty("_partPrefab").objectReferenceValue = prefab;
-                    SetStringList(serialized.FindProperty("_boneNames"), orderedBoneNames);
-                    SetObjectList(serialized.FindProperty("_contributedSockets"), contributed);
-                }));
+                contributed.Add(sockets[socketId]);
             }
 
-            return parts;
+            return CreateOrUpdateDefinition<PartDefinition>($"{RootFolder}/Parts/Part_{spec.AssetName}.asset", (serialized, created) =>
+            {
+                // Generator-owned structure: always synced.
+                serialized.FindProperty("_id").stringValue = spec.Id;
+                serialized.FindProperty("_slot").objectReferenceValue = slots[spec.SlotId];
+                serialized.FindProperty("_targetSkeleton").objectReferenceValue = skeleton;
+                serialized.FindProperty("_partPrefab").objectReferenceValue = prefab;
+                SetStringList(serialized.FindProperty("_boneNames"), orderedBoneNames);
+                SetObjectList(serialized.FindProperty("_contributedSockets"), contributed);
+
+                // Content fields (display name, body-plan governance, mutation data) are seeded
+                // once and then belong to the designer — regeneration never stomps hand-tuning.
+                if (!created)
+                {
+                    return;
+                }
+
+                serialized.FindProperty("_displayName").stringValue = spec.DisplayName ?? string.Empty;
+                serialized.FindProperty("_governsBodyPlan").boolValue = spec.GovernsBodyPlan;
+                serialized.FindProperty("_bodyPlanPriority").intValue = spec.BodyPlanPriority;
+                serialized.FindProperty("_rarity").enumValueIndex = (int)spec.Rarity;
+
+                var affinities = serialized.FindProperty("_traitAffinities");
+                affinities.arraySize = spec.TraitAffinities.Length;
+                for (var i = 0; i < spec.TraitAffinities.Length; i++)
+                {
+                    var element = affinities.GetArrayElementAtIndex(i);
+                    element.FindPropertyRelative("_traitId").stringValue = spec.TraitAffinities[i].TraitId;
+                    element.FindPropertyRelative("_weight").floatValue = spec.TraitAffinities[i].Weight;
+                }
+            });
+        }
+
+        /// <summary>Persists a freshly-built mesh at the path WITHOUT churning the asset GUID:
+        /// an existing mesh asset is overwritten via CopySerialized (references from part
+        /// prefabs stay valid), a missing one is created.</summary>
+        private static Mesh SaveMeshInPlace(Mesh built, string path)
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if (existing == null)
+            {
+                AssetDatabase.CreateAsset(built, path);
+                return built;
+            }
+
+            EditorUtility.CopySerialized(built, existing);
+            Object.DestroyImmediate(built);
+            return existing;
         }
 
         private static GameObject CreatePartPrefab(string assetName, Mesh mesh, Material material)
@@ -425,10 +396,13 @@ namespace Editor.CharacterSystem
             try
             {
                 var renderer = partObject.AddComponent<SkinnedMeshRenderer>();
+                // Whole-character bounds so per-part culling can never pop after bone remap.
+                // Set BEFORE the mesh: with the mesh (and its bindposes) already assigned but
+                // renderer.bones still empty (bones are remapped at runtime by PartSwapExecutor),
+                // set_localBounds logs "Bones do not match bindpose" on every part.
+                renderer.localBounds = new Bounds(PartBoundsCenter, PartBoundsSize);
                 renderer.sharedMesh = mesh;
                 renderer.sharedMaterial = material;
-                // Whole-character bounds so per-part culling can never pop after bone remap.
-                renderer.localBounds = new Bounds(PartBoundsCenter, PartBoundsSize);
                 return PrefabUtility.SaveAsPrefabAsset(partObject, $"{RootFolder}/Parts/PartPrefabs/PartPrefab_{assetName}.prefab");
             }
             finally
@@ -454,7 +428,7 @@ namespace Editor.CharacterSystem
             {
                 var prefab = CreateAttachmentPrefab(assetName, visualScale, materials.Prop);
 
-                attachments.Add(CreateDefinition<AttachmentDefinition>($"{RootFolder}/Attachments/Attachment_{assetName}.asset", serialized =>
+                attachments.Add(CreateOrUpdateDefinition<AttachmentDefinition>($"{RootFolder}/Attachments/Attachment_{assetName}.asset", (serialized, _) =>
                 {
                     serialized.FindProperty("_id").stringValue = id;
                     serialized.FindProperty("_prefab").objectReferenceValue = prefab;
@@ -491,37 +465,33 @@ namespace Editor.CharacterSystem
 
         // ----- Assembly ----------------------------------------------------
 
-        private static void CreateAssemblyDefinition(SkeletonDefinition skeleton, Dictionary<string, PartDefinition> parts)
+        private static void CreateAssemblyDefinition(
+            PlaceholderFrameLibrary.FrameSpec frame,
+            SkeletonDefinition skeleton,
+            Dictionary<string, PartDefinition> allParts)
         {
-            var defaultParts = new List<PartDefinition>
+            var defaultParts = new List<PartDefinition>();
+            foreach (var partId in frame.DefaultPartIds)
             {
-                parts["part.head.a"],
-                parts["part.torso.a"],
-                parts["part.arm.l.a"],
-                parts["part.arm.r.a"],
-                parts["part.leg.l.a"],
-                parts["part.leg.r.a"],
-                parts["part.tail.a"]
-            };
+                defaultParts.Add(allParts[partId]);
+            }
 
-            CreateDefinition<CharacterAssemblyDefinition>($"{RootFolder}/Assemblies/PlaceholderAssembly_A.asset", serialized =>
+            CreateOrUpdateDefinition<CharacterAssemblyDefinition>($"{RootFolder}/Assemblies/{frame.AssemblyAssetName}.asset", (serialized, created) =>
             {
-                serialized.FindProperty("_id").stringValue = "assembly.placeholder.a";
+                serialized.FindProperty("_id").stringValue = frame.AssemblyId;
                 serialized.FindProperty("_skeleton").objectReferenceValue = skeleton;
                 SetObjectList(serialized.FindProperty("_parts"), defaultParts);
-                SetObjectList(serialized.FindProperty("_defaultAttachments"), new List<AttachmentDefinition>());
+                if (created)
+                {
+                    SetObjectList(serialized.FindProperty("_defaultAttachments"), new List<AttachmentDefinition>());
+                }
             });
         }
 
         // ----- Helpers -----------------------------------------------------
 
-        private static void RecreateFolders()
+        private static void EnsureFolders()
         {
-            if (AssetDatabase.IsValidFolder(RootFolder))
-            {
-                AssetDatabase.DeleteAsset(RootFolder);
-            }
-
             EnsureFolder("Assets/__Project/Resources", "CharacterSystem");
             foreach (var sub in new[] { "Skeletons", "Slots", "Sockets", "Parts", "Attachments", "Animation", "Assemblies" })
             {
@@ -542,15 +512,24 @@ namespace Editor.CharacterSystem
             }
         }
 
-        private static TDefinition CreateDefinition<TDefinition>(string assetPath, Action<SerializedObject> configure)
+        /// <summary>Loads the definition at the path (keeping its GUID and any hand-authored
+        /// fields) or creates it, then applies <paramref name="configure"/>. The bool argument
+        /// is true when the asset was just created (seed-once content fields key off it).</summary>
+        private static TDefinition CreateOrUpdateDefinition<TDefinition>(string assetPath, Action<SerializedObject, bool> configure)
             where TDefinition : ScriptableObject
         {
-            var definition = ScriptableObject.CreateInstance<TDefinition>();
-            AssetDatabase.CreateAsset(definition, assetPath);
+            var definition = AssetDatabase.LoadAssetAtPath<TDefinition>(assetPath);
+            var created = definition == null;
+            if (created)
+            {
+                definition = ScriptableObject.CreateInstance<TDefinition>();
+                AssetDatabase.CreateAsset(definition, assetPath);
+            }
 
             var serialized = new SerializedObject(definition);
-            configure(serialized);
+            configure(serialized, created);
             serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(definition);
             return definition;
         }
 

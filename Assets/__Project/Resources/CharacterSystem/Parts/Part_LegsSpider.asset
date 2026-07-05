@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25430177c8d611545a60df7399d5a0f6, type: 3}
+  m_Name: Part_LegsSpider
+  m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
+  _id: part.legs.spider
+  _displayName: Spider Leg Cluster
+  _slot: {fileID: 11400000, guid: 6b82eaa4e4ac48fe966c21730691b209, type: 2}
+  _targetSkeleton: {fileID: 11400000, guid: f705fa8fbc140ab48a6874e741f97ec3, type: 2}
+  _partPrefab: {fileID: 1913104103226268628, guid: 5a2483071114a694a86afe2197645c7c, type: 3}
+  _boneNames:
+  - Pelvis
+  - SpiderHip.0
+  - SpiderTip.0
+  - SpiderHip.1
+  - SpiderTip.1
+  - SpiderHip.2
+  - SpiderTip.2
+  - SpiderHip.3
+  - SpiderTip.3
+  - SpiderHip.4
+  - SpiderTip.4
+  - SpiderHip.5
+  - SpiderTip.5
+  - SpiderHip.6
+  - SpiderTip.6
+  - SpiderHip.7
+  - SpiderTip.7
+  _contributedSockets: []
+  _activeAbilities: []
+  _passiveAbilities: []
+  _traitAffinities:
+  - _traitId: chitin
+    _weight: 0.8
+  - _traitId: toxic
+    _weight: 0.5
+  - _traitId: sharp
+    _weight: 0.4
+  _rarity: 2
+  _choiceIcon: {fileID: 0}
+  _governsBodyPlan: 1
+  _bodyPlanPriority: 10
+  _raceId: 

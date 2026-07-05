@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6a278869b7189a46b11f9c798f09b2d, type: 3}
+  m_Name: PlaceholderAssembly_Serpent
+  m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.CharacterAssemblyDefinition
+  _id: assembly.placeholder.serpent
+  _skeleton: {fileID: 11400000, guid: 3653f35bf0fbcc24e8af1b07982c8f85, type: 2}
+  _parts:
+  - {fileID: 11400000, guid: bcfb3677c9951004c97030aae41a9417, type: 2}
+  - {fileID: 11400000, guid: 0041bb9799d7d494b875ffcc6544f7af, type: 2}
+  - {fileID: 11400000, guid: 145cb59c232b63f4c969d57f6f188bbc, type: 2}
+  - {fileID: 11400000, guid: 6f53305f4d18f5545bb80b1c1b94fe75, type: 2}
+  - {fileID: 11400000, guid: 5890b6c5c59189842bb128da2af2f8f6, type: 2}
+  _defaultAttachments: []

@@ -50,28 +50,52 @@ namespace Tests.EditMode
         private sealed class FakeMutationCharacter : IMutationCharacter
         {
             private readonly Dictionary<string, string> _equipped = new Dictionary<string, string>();
+            private readonly HashSet<string> _notInstallable = new HashSet<string>();
 
-            public bool SwapResult { get; set; } = true;
+            public SwapRequestOutcome RequestOutcome { get; set; } = SwapRequestOutcome.Applied;
             public int SwapCalls { get; private set; }
             public string LastSlotId { get; private set; }
             public string LastPartId { get; private set; }
+
+            public event Action<bool> SwapRequestResolved;
 
             public void Equip(string slotId, string partId)
             {
                 _equipped[slotId] = partId;
             }
 
-            public bool SwapPart(string slotId, string partId)
+            public void MarkNotInstallable(string partId)
+            {
+                _notInstallable.Add(partId);
+            }
+
+            public SwapRequestOutcome RequestSwapPart(string slotId, string partId)
             {
                 SwapCalls++;
                 LastSlotId = slotId;
                 LastPartId = partId;
-                if (SwapResult)
+                if (RequestOutcome == SwapRequestOutcome.Applied)
                 {
                     _equipped[slotId] = partId;
                 }
 
-                return SwapResult;
+                return RequestOutcome;
+            }
+
+            public bool CanInstall(string partId)
+            {
+                return !_notInstallable.Contains(partId);
+            }
+
+            /// <summary>Resolves a pending body-plan confirmation (the coordinator's role).</summary>
+            public void ResolvePending(bool installed)
+            {
+                if (installed && LastSlotId != null)
+                {
+                    _equipped[LastSlotId] = LastPartId;
+                }
+
+                SwapRequestResolved?.Invoke(installed);
             }
 
             public bool TryGetEquippedPartId(string slotId, out string partId)
@@ -270,7 +294,7 @@ namespace Tests.EditMode
         [Test]
         public void Selection_SwapFails_KeepsCardsBlankAndReagents()
         {
-            _character.SwapResult = false;
+            _character.RequestOutcome = SwapRequestOutcome.Rejected;
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
             SocketBoth();
 
@@ -280,6 +304,72 @@ namespace Tests.EditMode
             Assert.AreEqual(2, _socketing.SocketedArtifacts(_skull.InstanceId).Count);
             Assert.AreEqual(1, _rack.Blanks.Count);
             Assert.IsTrue(_view.Visible);
+        }
+
+        [Test]
+        public void PendingConfirmation_ConfirmCommitsTheUnseal()
+        {
+            _character.RequestOutcome = SwapRequestOutcome.PendingConfirmation;
+            _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
+            SocketBoth();
+
+            _view.RaiseSelected(0);
+
+            // The confirm dialog is up: the blank and reagents are untouched, cards stay.
+            Assert.AreEqual(2, _socketing.SocketedArtifacts(_skull.InstanceId).Count);
+            Assert.AreEqual(1, _rack.Blanks.Count);
+            Assert.IsTrue(_view.Visible);
+
+            _character.ResolvePending(true);
+
+            // Confirmed: commit-on-unseal fires as in the synchronous path.
+            Assert.AreEqual(0, _socketing.SocketedArtifacts(_skull.InstanceId).Count);
+            Assert.AreEqual(0, _rack.Blanks.Count);
+            Assert.IsFalse(_view.Visible);
+        }
+
+        [Test]
+        public void PendingConfirmation_DeclineLeavesBlankAndCardsUntouched()
+        {
+            _character.RequestOutcome = SwapRequestOutcome.PendingConfirmation;
+            _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
+            SocketBoth();
+
+            _view.RaiseSelected(0);
+            _character.ResolvePending(false);
+
+            // FR7 decline: body, blank, and sockets untouched; the cards stay up.
+            Assert.AreEqual(2, _socketing.SocketedArtifacts(_skull.InstanceId).Count);
+            Assert.AreEqual(1, _rack.Blanks.Count);
+            Assert.IsTrue(_view.Visible);
+        }
+
+        [Test]
+        public void PendingConfirmation_CardClicksBehindTheModalAreIgnored()
+        {
+            _character.RequestOutcome = SwapRequestOutcome.PendingConfirmation;
+            _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
+            SocketBoth();
+
+            _view.RaiseSelected(0);
+            _view.RaiseSelected(0);
+
+            Assert.AreEqual(1, _character.SwapCalls);
+        }
+
+        [Test]
+        public void NotInstallablePart_IsNotOffered()
+        {
+            // Body plans: a part whose bones have no home on the governing frame is
+            // filtered out of the offers entirely.
+            _character.MarkNotInstallable("part.head.fang");
+            _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
+            _partCatalog.Add("slot.head", "part.head.club", ("heavy", 0.9f));
+
+            SocketBoth();
+
+            Assert.AreEqual(1, _view.LastShown.Count);
+            Assert.AreEqual("part.head.club", _view.LastShown[0].Front.PartName);
         }
 
         [Test]

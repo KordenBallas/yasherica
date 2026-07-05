@@ -7,7 +7,8 @@
 > sockets** on the one open-inventory screen; **filling the last socket unseals** the blank into a
 > small **menu of variant mutations** (authored body parts of the blank's slot, deterministically
 > scored against the socketed reagents' traits); the pick installs via the character system's
-> `SwapPart`, consumes the reagents, and spends the blank (commit-on-unseal). The variant scoring
+> body-plan-aware install request (an ordinary part = instant swap; a frame-changing part may
+> first confirm-and-shed), consumes the reagents, and spends the blank (commit-on-unseal). The variant scoring
 > runs the socketed profiles through the **same emergent fusion grammar as the cauldron**
 > (`inventory-subsystem.md` R16), so sockets interact — an emergent third property counts.
 > Part-derived ability grants are unchanged: a swapped part changes the character's combat ability
@@ -39,9 +40,18 @@
   socketed reagents' combined (post-grammar) profile × a rarity gate that unlocks with the combined
   tier. Deterministic (same sockets → same menu); **no zero-score filter** — raw-only socketing is
   weak, never dead.
-- R6. **Commit-on-unseal.** Picking a variant swaps the part on the live character
-  (`IMutationCharacter.SwapPart`), consumes the socketed artifacts, and removes the blank; the
-  unchosen variants are lost. A failed swap keeps the menu up for a retry.
+- R6. **Commit-on-unseal.** Picking a variant requests the install on the live character
+  (`IMutationCharacter.RequestSwapPart` → `Applied | PendingConfirmation | Rejected`); on `Applied`
+  the socketed artifacts are consumed and the blank removed; the unchosen variants are lost. A
+  `Rejected` install keeps the menu up for a retry. **Body plans (P2-1):** a frame-changing pick
+  that would shed parts returns `PendingConfirmation` — the character system's confirm modal opens
+  over the cards; a confirmed install commits the unseal (`SwapRequestResolved(true)`), a decline
+  leaves the body, blank, and sockets untouched with the cards still up. Card clicks behind the
+  modal are ignored.
+- R6b. **Offers are installable.** Candidates that cannot be installed on the current body
+  (`IMutationCharacter.CanInstall` — e.g. base legs while a legless frame governs) are filtered out
+  of the menu, and a slot's dormant occupant (a losing frame-changer) is excluded like an equipped
+  part.
 - R7. **Sockets interact.** The socketed profiles are combined through the cauldron's
   `TraitFusionRuleSet` grammar before scoring, so authored rules can add emergent traits the parts'
   affinities respond to.
@@ -91,7 +101,7 @@ Cross-system reuse: the variant builder and trend evaluator consume the **Invent
 | `MutationCandidatePart` | A part in Core terms: slot/part ids, display label, rarity as int tier, trait-affinity map (built by `MutationPartCatalog`). |
 | `MutationOption` | One offered variant (slot id, part id, blank species archetype id for the tint, display name). |
 | `SocketingTrend` / `ISocketingTrendSource` / `SocketingTrendEvaluator` | The cauldron-voice seam: recomputes a blank's post-grammar trait profile on every socket change and raises `OnTrendChanged`. No consumer ships yet (ROADMAP). |
-| `IMutationCharacter` | Port onto the live character: `SwapPart(slotId, partId)`, `TryGetEquippedPartId(slotId)`. Implemented by `ModularCharacterMutationAdapter` over `ModularCharacterVisual` (lazy — an unassembled rig just fails the swap). |
+| `IMutationCharacter` | Port onto the live character: `RequestSwapPart(slotId, partId)` → `SwapRequestOutcome` (`Applied` / `PendingConfirmation` / `Rejected`) + `SwapRequestResolved(bool)` event, `CanInstall(partId)`, `TryGetEquippedPartId(slotId)` (active **or dormant** occupant). Implemented by `ModularCharacterMutationAdapter` over the `BodyPlanSwapCoordinator` + `ModularCharacterVisual` (lazy — an unassembled rig rejects the request); see character-system.md §2.3b. |
 
 ### 2.3 Operating-table UI (the rack left of the cauldron)
 
@@ -151,9 +161,12 @@ of the cauldron, layer `InventoryFocus`): three `BlankAnchor`s and a disabled `B
    - **Mini-model popover** — hovering the part picture asks `IMutationModelPreview` for a live
      render of the hero wearing the offered part (`ModelPreviewPopoverView`, a RawImage showing the
      rig's RenderTexture). If no assembled hero exists yet the popover simply does not open.
-5. **Pick** — `IMutationCharacter.SwapPart`; on success `ConsumeSockets` + `IBlankRack.Remove` +
-   hide. A failed swap keeps the cards up. An empty menu (nothing authored for the slot) is logged
-   and skipped — the validator warns about such blanks at startup.
+5. **Pick** — `IMutationCharacter.RequestSwapPart`; on `Applied`, `ConsumeSockets` +
+   `IBlankRack.Remove` + hide. `Rejected` keeps the cards up. `PendingConfirmation` (a
+   frame-changing part that sheds — R6) keeps the cards up behind the body-plan confirm modal and
+   commits/aborts on `SwapRequestResolved`. An empty menu (nothing authored for the slot, or
+   nothing installable — R6b) is logged and skipped — the validator warns about such blanks at
+   startup.
 
 **The preview rig** (`MutationModelPreviewRig`, Infrastructure): a hidden clone of the modular hero
 built per request via `IModularCharacterFactory.Create(ModularCharacterVisual.Assembly, …)` at
@@ -173,8 +186,10 @@ geometry/light tunables live in `MutationConfig.Preview` (§3).
 - `IMutationPartCatalog` → `MutationPartCatalog` (builds candidates + per-part card data from the
   CharacterSystem `IPartCatalog`; constructor-injects the combat `IPartAbilityResolver` — bound by
   `AreaInstaller` on the shared `SceneContext` — so card ability lists match combat's composition).
-- `ModularCharacterVisual` `FromComponentInHierarchy`; `IMutationCharacter` →
-  `ModularCharacterMutationAdapter`.
+- `IMutationCharacter` → `ModularCharacterMutationAdapter` (via `BindInterfacesTo` — the adapter is
+  `IDisposable`, it unsubscribes from the body-plan coordinator). `ModularCharacterVisual` and the
+  `BodyPlanSwapCoordinator` are bound by `CharacterSystemInstaller` (their home system) and
+  resolved cross-installer here.
 - `IMutationModelPreview` → `MutationModelPreviewRig` `FromNewComponentOnNewGameObject`
   (`MutationPreviewRig`), lazy — only created when the card view injects it.
 - `IMutationChoiceView` → `MutationChoiceView` `FromComponentInNewPrefab`

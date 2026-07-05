@@ -63,13 +63,17 @@ namespace CharacterSystem.Core
 
             var issues = new List<ValidationIssue>();
 
+            // Authoring provenance only (which bindpose family the mesh was baked against).
+            // Since body plans (P2-1), cross-frame fit is enforced structurally by the
+            // MissingBone / SocketParentBoneMissing errors below, so a base-frame part may
+            // legitimately ride another skeleton whose shared bones all resolve.
             if (!string.Equals(part.TargetSkeletonId, skeleton.SkeletonId, StringComparison.Ordinal))
             {
                 issues.Add(new ValidationIssue(
-                    ValidationSeverity.Error,
+                    ValidationSeverity.Warning,
                     ValidationIssueCode.SkeletonMismatch,
                     part.PartId,
-                    $"Part '{part.PartId}' targets skeleton '{part.TargetSkeletonId}' but is being validated against '{skeleton.SkeletonId}'."));
+                    $"Part '{part.PartId}' was authored for skeleton '{part.TargetSkeletonId}' but is being fitted onto '{skeleton.SkeletonId}'; structural fit is enforced by bone resolution."));
             }
 
             if (part.BoneNames.Count == 0)

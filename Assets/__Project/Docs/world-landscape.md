@@ -108,10 +108,16 @@ per run — so it streams window-by-window with zero lookahead and same-seed rep
 
 ### 2.3 Runtime flow
 
-1. `AreaSceneEntrypoint.GenerateArea` resolves the theme's `BiomeAppearanceDefinition` from
-   `IBiomeAppearanceCatalog`, maps it to `BiomeLandscapeSettings`, derives the route seed
+1. `AreaSceneEntrypoint.GenerateArea` reads the run's **initial theme from the biome journey**
+   (`IBiomeJourney.ForWindow(0)` — see `biome-journey.md`; the fixed-Forest hardcode is gone),
+   resolves that theme's `BiomeAppearanceDefinition` from `IBiomeAppearanceCatalog`, maps it to
+   `BiomeLandscapeSettings`, derives the route seed
    (`LootSeed.Derive(runSeed, "landscape-route")`, overridable by the inspector `seed` field), and
-   builds `RunRouteModel` + `RouteLandmarkSpawner`, threading both into `AreaGenerator`.
+   builds `RunRouteModel` + `RouteLandmarkSpawner`, threading both into `AreaGenerator`. On each
+   later **biome-stretch crossing** the entrypoint (as `IBiomeStretchObserver`) re-resolves the new
+   biome's appearance, calls `RouteLandmarkSpawner.ApplyBiome` (landmarks placed from then on wear
+   the new kit/tint/shape; spawned ones keep theirs), and rebuilds the backdrop. The **route model
+   itself keeps the entry biome's settings** for the whole run (§6).
 2. `AreaGenerator.CalculatePlatformPosition` places each platform at
    `(cursorX, Sample.TierY, Sample.LateralZ)` — X marches with the cursor (R2), Z weaves (R1/R3),
    Y is the tier (R7).
@@ -122,7 +128,8 @@ per run — so it streams window-by-window with zero lookahead and same-seed rep
 4. `RouteLandmarkSpawner` instantiates an authored kit prefab when the biome provides one,
    otherwise a procedural placeholder silhouette (peak for Mountain/Cave, dome for Forest/Desert)
    tinted with the biome's muted landmark tint. No colliders, no shadows.
-5. `AreaSceneEntrypoint.CreateWorldBackdrop` builds the backdrop rig once per run
+5. `AreaSceneEntrypoint.CreateWorldBackdrop` builds the backdrop rig once per biome stretch
+   (rebuilt on a stretch crossing; a hard cut — transition art is M5)
    (`WorldBackdropBuilder`: far + near ridge strips from `BackdropSilhouetteModel`, sky gradient
    quad, all unlit vertex-color), rotated to the camera yaw and with every part **lowered** by
    `distance × tan(pitch)` (both from `CameraConfig.IsometricRotation`) so the horizon lands in
@@ -260,6 +267,11 @@ The pure-C# suites run outside Unity via the bundled-Roslyn workaround; verified
 - **Toward-camera sign is a constant.** `RunRouteModel.TowardCameraSign = -1` assumes the fixed
   isometric rig looks from the −X/−Z side; if a camera pass ever changes that, flip the one
   constant.
+- **Route shape is frozen to the entry biome.** The biome journey (`biome-journey.md`) swaps
+  landmark dressing and the backdrop per stretch, but `RunRouteModel` keeps the first biome's
+  `BiomeLandscapeSettings` (corridor/weave/tier character) for the whole run — swapping mid-run
+  would discontinuously jump `Sample(x)` and desync the landmark scan cursor. A piecewise blended
+  multi-biome route belongs to the M5 transition-art pass (ROADMAP).
 - **Route is site-blind.** A site block spanning a tier step or an arc apex may fight the future
   "reads as one place" dressing; `GraphNode.Site` is available if site-aware flattening is needed
   (ROADMAP).

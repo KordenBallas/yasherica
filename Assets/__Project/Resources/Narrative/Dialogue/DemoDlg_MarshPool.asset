@@ -17,10 +17,6 @@ MonoBehaviour:
   _startKnot: start
   _declaredVariables:
   - npc_name
-  _declaredFactWrites:
-  - _namespace: 0
-    _subjectToken:
-    _key: reads_as_frogfolk
-    _valueType: 0
+  _declaredFactWrites: []
   _dialogueTags:
   - marsh-pool

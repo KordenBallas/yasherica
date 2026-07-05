@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Part_LegR_A
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
   _id: part.leg.r.a
+  _displayName: 
   _slot: {fileID: 11400000, guid: d0278c87d51cdd04d85209c472cd4751, type: 2}
   _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
   _partPrefab: {fileID: 3694222351966304037, guid: c780854f4418b524c9ce78958892d3da, type: 3}
@@ -21,3 +22,11 @@ MonoBehaviour:
   - LowerLeg.R
   - Foot.R
   _contributedSockets: []
+  _activeAbilities: []
+  _passiveAbilities: []
+  _traitAffinities: []
+  _rarity: 0
+  _choiceIcon: {fileID: 0}
+  _governsBodyPlan: 0
+  _bodyPlanPriority: 0
+  _raceId: 

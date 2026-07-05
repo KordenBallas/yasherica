@@ -1,0 +1,375 @@
+﻿Could not extract 'FileID' at "9900000000000000001" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 3. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000002" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 23. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000003" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 43. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000004" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 66. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000005" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 89. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000006" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 106. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000011" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 123. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000012" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 142. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000013" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 164. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000014" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 172. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000015" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 202. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000021" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 228. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000022" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 247. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000023" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 266. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000024" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 274. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000025" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 363. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000031" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 383. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000032" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 402. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000033" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 421. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000034" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 429. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000035" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 518. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000041" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 538. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000042" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 556. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000043" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 577. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000045" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 603. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000051" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 623. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000052" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 643. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000053" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 663. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000054" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 671. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000055" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 701. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000056" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 745. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000061" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 765. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000062" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 783. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000063" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 802. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000064" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 810. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000071" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 899. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000072" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 919. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000073" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 939. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000074" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 947. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000075" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 977. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000076" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1021. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000081" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1041. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000082" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1059. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000083" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1078. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000084" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1086. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000001" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 3. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000002" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 23. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000003" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 43. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000004" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 66. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000005" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 89. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000006" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 106. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000011" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 123. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000012" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 142. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000013" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 164. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000014" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 172. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000015" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 202. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000021" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 228. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000022" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 247. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000023" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 266. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000024" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 274. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000025" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 363. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000031" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 383. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000032" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 402. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000033" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 421. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000034" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 429. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000035" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 518. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000041" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 538. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000042" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 556. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000043" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 577. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000045" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 603. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000051" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 623. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000052" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 643. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000053" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 663. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000054" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 671. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000055" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 701. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000056" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 745. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000061" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 765. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000062" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 783. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000063" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 802. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000064" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 810. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000071" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 899. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000072" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 919. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000073" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 939. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000074" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 947. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000075" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 977. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000076" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1021. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000081" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1041. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000082" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1059. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000083" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1078. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000084" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1086. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000001" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 3. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000002" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 23. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000003" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 43. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000004" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 66. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000005" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 89. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000006" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 106. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000011" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 123. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000012" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 142. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000013" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 164. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000014" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 172. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000015" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 202. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000021" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 228. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000022" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 247. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000023" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 266. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000024" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 274. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000025" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 363. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000031" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 383. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000032" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 402. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000033" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 421. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000034" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 429. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000035" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 518. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000041" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 538. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000042" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 556. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000043" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 577. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000045" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 603. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000051" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 623. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000052" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 643. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000053" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 663. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000054" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 671. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000055" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 701. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000056" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 745. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000061" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 765. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000062" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 783. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000063" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 802. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000064" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 810. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000071" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 899. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000072" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 919. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000073" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 939. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000074" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 947. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000075" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 977. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000076" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1021. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000081" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1041. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000082" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1059. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000083" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1078. This number overflows internal type.
+
+Could not extract 'FileID' at "9900000000000000084" in text file Assets/__Project/Resources/Prefabs/UI/BodyPlanConfirmPanel.prefab at line 1086. This number overflows internal type.
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+
+Bones do not match bindpose.
+UnityEngine.Renderer:set_localBounds (UnityEngine.Bounds)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartPrefab (string,UnityEngine.Mesh,UnityEngine.Material) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:402)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:CreatePartDefinition (Editor.CharacterSystem.PlaceholderFrameLibrary/FramePartSpec,System.Collections.Generic.Dictionary`2<string, UnityEngine.Transform>,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,CharacterSystem.Data.Definitions.SkeletonDefinition) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:335)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateFrame (Editor.CharacterSystem.PlaceholderFrameLibrary/FrameSpec,Editor.CharacterSystem.PlaceholderCharacterGenerator/Materials,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SlotDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SocketDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.PartDefinition>,System.Collections.Generic.Dictionary`2<string, CharacterSystem.Data.Definitions.SkeletonDefinition>) (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:110)
+Editor.CharacterSystem.PlaceholderCharacterGenerator:GenerateAll () (at Assets/__Project/Scripts/Editor/CharacterSystem/PlaceholderCharacterGenerator.cs:52)
+

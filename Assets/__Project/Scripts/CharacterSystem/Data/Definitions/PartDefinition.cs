@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Combat.Data.Definitions;
 using UnityEngine;
+using World.Races.Data;
 
 namespace CharacterSystem.Data.Definitions
 {
@@ -57,6 +58,18 @@ namespace CharacterSystem.Data.Definitions
         [Tooltip("Icon shown on the mutation choice button when this part is offered.")]
         [SerializeField] private Sprite _choiceIcon;
 
+        [Header("Body plan")]
+        [Tooltip("Rare frame-changing parts only: while equipped, this part is a candidate to govern the whole body plan — its Target Skeleton becomes the body's frame when it wins the priority resolution (body-plan-skeleton-swap.md).")]
+        [SerializeField] private bool _governsBodyPlan;
+
+        [Tooltip("Priority among equipped frame-changing parts: higher wins; ties break by ordinal part id. Ignored unless Governs Body Plan is set.")]
+        [SerializeField] private int _bodyPlanPriority;
+
+        [Header("Race (passport marker)")]
+        [Tooltip("Race this part reads as for the passport (races-passport.md); empty = kindless. Any tagged part counts toward that race's acceptance tier.")]
+        [RaceId]
+        [SerializeField] private string _raceId;
+
         public string Id => _id;
         public string DisplayName => _displayName;
         public SlotDefinition Slot => _slot;
@@ -69,5 +82,17 @@ namespace CharacterSystem.Data.Definitions
         public IReadOnlyList<TraitAffinity> TraitAffinities => _traitAffinities ?? (IReadOnlyList<TraitAffinity>)System.Array.Empty<TraitAffinity>();
         public MutationRarity Rarity => _rarity;
         public Sprite ChoiceIcon => _choiceIcon;
+
+        /// <summary>True for the rare frame-changing parts that pull in their own skeleton
+        /// (their <see cref="TargetSkeleton"/> governs the body when they win the resolution).</summary>
+        public bool GovernsBodyPlan => _governsBodyPlan;
+
+        /// <summary>Higher wins among equipped frame-changers; ties break by ordinal part id.</summary>
+        public int BodyPlanPriority => _bodyPlanPriority;
+
+        /// <summary>Race id this part is tagged to (passport marker); empty = kindless. An id string
+        /// rather than a RaceDefinition reference, mirroring the M2 id-string decoupling; the
+        /// [RaceId] attribute only drives the inspector drop-down.</summary>
+        public string RaceId => _raceId;
     }
 }

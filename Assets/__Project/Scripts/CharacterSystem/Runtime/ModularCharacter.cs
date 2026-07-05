@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using CharacterSystem.Core;
 using CharacterSystem.Data.Definitions;
@@ -32,6 +33,20 @@ namespace CharacterSystem.Runtime
         public bool DetachFromSocket(string socketId) => _controller.DetachFromSocket(socketId);
 
         public IReadOnlyDictionary<string, string> EquippedParts => _controller.EquippedParts;
+
+        public IReadOnlyCollection<PartDefinition> EquippedPartDefinitions => _controller.EquippedPartDefinitions;
+
+        public IReadOnlyCollection<PartDefinition> DormantParts => _controller.DormantParts;
+
+        public string SkeletonId => _controller.SkeletonId;
+
+        public bool EquipDormant(PartDefinition part) => _controller.EquipDormant(part);
+
+        public event Action PartsChanged
+        {
+            add => _controller.PartsChanged += value;
+            remove => _controller.PartsChanged -= value;
+        }
 
         public IReadOnlyList<SocketInfo> GetAvailableSockets() => _controller.GetAvailableSockets();
 

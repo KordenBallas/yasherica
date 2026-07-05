@@ -4,6 +4,7 @@ using System.Linq;
 using CharacterSystem.Runtime;
 using Core.Events;
 using Core.Logging;
+using LevelGeneration.Journey;
 using Narrative.Actors.Data;
 using Narrative.Casting.Core;
 using Narrative.Director.Core;
@@ -22,7 +23,9 @@ namespace LevelGeneration
     /// platform is realised as an <see cref="NpcContent"/> carrying the planner's minted actor and
     /// committed story; an ambient-combat platform as an <see cref="EnemyContent"/> with the planner's
     /// biome-pool pick; a loot platform via the area generator's biome table roll; the entry adapter
-    /// runs story encounters through the data-driven engine.
+    /// runs story encounters through the data-driven engine. Before each window is planned, the biome
+    /// stretch director applies the journey's biome for that window (theme provider + tier fact +
+    /// appearance observers), so the planner's live theme reads see the active stretch.
     /// </summary>
     public sealed class RunStreamingCoordinator : IDisposable
     {
@@ -35,6 +38,7 @@ namespace LevelGeneration
         private readonly NpcIntentResolver _intentResolver;
         private readonly INpcInteractionService _interactionService;
         private readonly AreaGenerator _areaGenerator;
+        private readonly BiomeStretchDirector _biomeDirector;
         private readonly IGameLogger _logger;
 
         private int _windowIndex;
@@ -52,6 +56,7 @@ namespace LevelGeneration
             NpcIntentResolver intentResolver,
             INpcInteractionService interactionService,
             AreaGenerator areaGenerator,
+            BiomeStretchDirector biomeDirector,
             IGameLogger logger = null)
         {
             _planner = planner;
@@ -63,6 +68,7 @@ namespace LevelGeneration
             _intentResolver = intentResolver;
             _interactionService = interactionService;
             _areaGenerator = areaGenerator;
+            _biomeDirector = biomeDirector;
             _logger = logger;
         }
 
@@ -98,6 +104,10 @@ namespace LevelGeneration
 
         private void GenerateNextWindow()
         {
+            // Apply the biome stretch BEFORE planning: the planner's allocators and the area
+            // generator's loot rolls read the theme provider live.
+            _biomeDirector?.ApplyForWindow(_windowIndex);
+
             var plan = _planner.PlanWindow(_windowIndex, _facts);
             var nodes = MapWindow(plan);
             _areaGenerator.AppendPlatforms(nodes);

@@ -15,10 +15,16 @@ namespace Mutation.Presenter
     /// Drives the unseal variant choice: when a blank's last socket is filled
     /// (<see cref="ISocketingModel.OnBlankReady"/>), it scores the authored parts of
     /// the blank's slot against the socketed reagents and shows the variant cards.
-    /// The player's pick swaps the part on the live character, consumes the
+    /// The player's pick installs the part on the live character, consumes the
     /// socketed artifacts (commit-on-unseal), and removes the blank from the rack.
-    /// A failed swap (e.g. the rig is not yet assembled) keeps the cards up for a
-    /// retry. Blanks that ripen while a menu is showing queue and open next.
+    /// A rejected install (e.g. the rig is not yet assembled) keeps the cards up for
+    /// a retry. Blanks that ripen while a menu is showing queue and open next.
+    ///
+    /// Body plans (P2-1): a frame-changing pick can defer behind the shed-confirm
+    /// dialog (PendingConfirmation) — the cards stay up behind the modal and the
+    /// unseal commits only on a confirmed install; a decline leaves the blank,
+    /// sockets, and body untouched. Offers are additionally filtered to parts that
+    /// can actually be installed on the current body (CanInstall).
     /// </summary>
     public class MutationVariantPresenter : IInitializable, IDisposable
     {
@@ -38,6 +44,7 @@ namespace Mutation.Presenter
         private readonly Queue<int> _readyBlanks = new Queue<int>();
         private int _shownBlankInstanceId = -1;
         private bool _isShowing;
+        private bool _awaitingBodyPlanDecision;
 
         public MutationVariantPresenter(
             ISocketingModel socketing,
@@ -69,6 +76,7 @@ namespace Mutation.Presenter
         {
             _socketing.OnBlankReady += HandleBlankReady;
             _view.OnChoiceSelected += HandleChoiceSelected;
+            _character.SwapRequestResolved += HandleSwapRequestResolved;
             _view.SetVisible(false);
         }
 
@@ -76,6 +84,7 @@ namespace Mutation.Presenter
         {
             _socketing.OnBlankReady -= HandleBlankReady;
             _view.OnChoiceSelected -= HandleChoiceSelected;
+            _character.SwapRequestResolved -= HandleSwapRequestResolved;
         }
 
         private void HandleBlankReady(int blankInstanceId)
@@ -111,7 +120,7 @@ namespace Mutation.Presenter
                 blank,
                 CollectSocketedProfiles(blankInstanceId),
                 _partCatalog.AllCandidates,
-                CollectEquippedPart(blank.SlotId),
+                CollectExcludedParts(blank.SlotId),
                 _config.MaxVariantOptions,
                 new VariantScoringParameters(_config.RarityWeight, _config.TierUnlockPerRarityTier));
             if (options.Count == 0)
@@ -141,6 +150,12 @@ namespace Mutation.Presenter
 
         private void HandleChoiceSelected(int index)
         {
+            if (_awaitingBodyPlanDecision)
+            {
+                // A body-plan confirm dialog is up; ignore card clicks behind the modal.
+                return;
+            }
+
             if (index < 0 || index >= _offered.Count)
             {
                 _logger.Warning(LogCategory.Mutation,
@@ -149,15 +164,46 @@ namespace Mutation.Presenter
             }
 
             var option = _offered[index];
-            if (!_character.SwapPart(option.SlotId, option.PartId))
+            switch (_character.RequestSwapPart(option.SlotId, option.PartId))
             {
-                // Keep the cards up so the player can retry once the swap can be applied.
-                _logger.Error(LogCategory.Mutation,
-                    $"[MutationVariantPresenter] Failed to swap part '{option.PartId}' into slot " +
-                    $"'{option.SlotId}'.");
+                case SwapRequestOutcome.Applied:
+                    CommitUnseal();
+                    break;
+
+                case SwapRequestOutcome.PendingConfirmation:
+                    // The shed-confirm dialog is up; the cards stay behind it and the
+                    // unseal commits (or not) in HandleSwapRequestResolved.
+                    _awaitingBodyPlanDecision = true;
+                    break;
+
+                default:
+                    // Keep the cards up so the player can retry once the install can be applied.
+                    _logger.Error(LogCategory.Mutation,
+                        $"[MutationVariantPresenter] Failed to install part '{option.PartId}' into slot " +
+                        $"'{option.SlotId}'.");
+                    break;
+            }
+        }
+
+        private void HandleSwapRequestResolved(bool installed)
+        {
+            if (!_awaitingBodyPlanDecision)
+            {
                 return;
             }
 
+            _awaitingBodyPlanDecision = false;
+            if (installed)
+            {
+                CommitUnseal();
+            }
+
+            // Declined: the body, blank, and sockets are untouched (FR7) - the cards
+            // simply stay up so the player can pick a different variant.
+        }
+
+        private void CommitUnseal()
+        {
             // Commit-on-unseal: the socketed reagents are consumed and the blank is
             // spent; the unchosen variants evaporate with it.
             _socketing.ConsumeSockets(_shownBlankInstanceId);
@@ -186,16 +232,35 @@ namespace Mutation.Presenter
             return profiles;
         }
 
-        private IReadOnlyCollection<string> CollectEquippedPart(string slotId)
+        private IReadOnlyCollection<string> CollectExcludedParts(string slotId)
         {
-            if (!string.IsNullOrEmpty(slotId)
-                && _character.TryGetEquippedPartId(slotId, out var partId)
-                && !string.IsNullOrEmpty(partId))
+            var excluded = new HashSet<string>(StringComparer.Ordinal);
+            if (string.IsNullOrEmpty(slotId))
             {
-                return new[] { partId };
+                return excluded;
             }
 
-            return Array.Empty<string>();
+            // The current occupant (active or dormant) is never re-offered.
+            if (_character.TryGetEquippedPartId(slotId, out var occupantId)
+                && !string.IsNullOrEmpty(occupantId))
+            {
+                excluded.Add(occupantId);
+            }
+
+            // Body plans: parts that cannot be installed on the current body (their bones
+            // have no home on the governing frame and they change nothing) are never offered,
+            // so every card shown is actually pickable.
+            foreach (var candidate in _partCatalog.AllCandidates)
+            {
+                if (string.Equals(candidate.SlotId, slotId, StringComparison.Ordinal)
+                    && !excluded.Contains(candidate.PartId)
+                    && !_character.CanInstall(candidate.PartId))
+                {
+                    excluded.Add(candidate.PartId);
+                }
+            }
+
+            return excluded;
         }
 
         private MutationChoiceViewData ToViewData(MutationOption option)

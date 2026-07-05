@@ -22,6 +22,8 @@ MonoBehaviour:
   - LowerArm.L
   - Hand.L
   _contributedSockets: []
+  _activeAbilities: []
+  _passiveAbilities: []
   _traitAffinities:
   - _traitId: sharp
     _weight: 0.6
@@ -29,3 +31,6 @@ MonoBehaviour:
     _weight: 0.5
   _rarity: 1
   _choiceIcon: {fileID: 0}
+  _governsBodyPlan: 0
+  _bodyPlanPriority: 0
+  _raceId: lizard

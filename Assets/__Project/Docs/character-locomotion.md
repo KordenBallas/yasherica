@@ -28,8 +28,13 @@
   the placeholder art faces **−Z** (tail/back on +Z, per `PlaceholderRigBuilder`), `ModularCharacterVisual`
   applies a `_localRotationEuler` of `(0,180,0)` so the model's front leads. Real art that faces +Z
   uses `(0,0,0)`.
-- **R5** The run blend is just an animator parameter — the Animator is **never rebound**, so part
-  swaps stay seamless mid-run (see `character-system.md` R3).
+- **R5** *(revised by P2-1)* The run blend is just an animator parameter, so ordinary same-frame
+  part swaps stay seamless mid-run (see `character-system.md` R3). A **body-plan change** is the
+  deliberate exception: it replaces the rig — and its Animator — wholesale, binding the governing
+  frame's own controller (`SkeletonDefinition.AnimatorController`, e.g. the serpent slither).
+  `CharacterLocomotionView` therefore re-resolves its cached Animator every call by reference-
+  comparing against `ModularCharacterVisual.Animator` (and re-probes the `Speed` parameter on
+  change); the fresh Animator starts at `Speed 0` and picks up motion the next tick — no T-pose.
 
 ### 1.2 Non-functional requirements
 
@@ -96,11 +101,13 @@ the `LocomotionConfig`) on the SceneContext. None of them create, delete, or mov
 `CharacterLocomotionView` writes `Speed` only when the active controller exposes that float parameter,
 so a rig still on an idle-only controller degrades to facing-only without log spam.
 
-`ModularCharacterVisual` binds the run controller to the assembled rig's Animator **in code** at
-startup — its serialized `_animatorController` if set, otherwise the placeholder controller loaded from
-`Resources/CharacterSystem/Animation/PlaceholderLocomotion`. This is deliberate: the rig prefab's
-serialized controller reference can come up unbound at runtime after the controller is rebuilt by
-editor scripting, so a direct code assignment is the reliable path.
+`ModularCharacterVisual` binds the locomotion controller to the assembled rig's Animator **in
+code** on every assembly (initial build and every body-plan change), with per-skeleton precedence:
+the governing frame's `SkeletonDefinition.AnimatorController` first (each body plan animates with
+its own gait), then the visual's serialized `_animatorController`, then the placeholder controller
+loaded from `Resources/CharacterSystem/Animation/PlaceholderLocomotion`. Direct code assignment is
+deliberate: the rig prefab's serialized controller reference can come up unbound at runtime after
+the controller is rebuilt by editor scripting.
 
 ---
 

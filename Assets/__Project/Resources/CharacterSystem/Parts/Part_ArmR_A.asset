@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Part_ArmR_A
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
   _id: part.arm.r.a
+  _displayName: 
   _slot: {fileID: 11400000, guid: caed2d9552e42d14c941e393ce1db477, type: 2}
   _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
   _partPrefab: {fileID: 3579434295579345194, guid: 8f53986bd83a0094cbd685a90bf59a1c, type: 3}
@@ -21,3 +22,11 @@ MonoBehaviour:
   - LowerArm.R
   - Hand.R
   _contributedSockets: []
+  _activeAbilities: []
+  _passiveAbilities: []
+  _traitAffinities: []
+  _rarity: 0
+  _choiceIcon: {fileID: 0}
+  _governsBodyPlan: 0
+  _bodyPlanPriority: 0
+  _raceId: 

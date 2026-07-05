@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25430177c8d611545a60df7399d5a0f6, type: 3}
+  m_Name: Part_SpineSerpent
+  m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
+  _id: part.spine.serpent
+  _displayName: Serpent Spine
+  _slot: {fileID: 11400000, guid: 0f4fc15c574ccbf418982851d15ae25a, type: 2}
+  _targetSkeleton: {fileID: 11400000, guid: 3653f35bf0fbcc24e8af1b07982c8f85, type: 2}
+  _partPrefab: {fileID: 4996889757648052628, guid: 4774d42fccb1d844aa190c9b20af2340, type: 3}
+  _boneNames:
+  - Pelvis
+  - Tail.0
+  - Tail.1
+  - Tail.2
+  - Tail.3
+  - Tail.4
+  - Tail.5
+  _contributedSockets: []
+  _activeAbilities: []
+  _passiveAbilities: []
+  _traitAffinities:
+  - _traitId: toxic
+    _weight: 0.7
+  - _traitId: water
+    _weight: 0.5
+  - _traitId: sharp
+    _weight: 0.3
+  _rarity: 2
+  _choiceIcon: {fileID: 0}
+  _governsBodyPlan: 1
+  _bodyPlanPriority: 20
+  _raceId: 

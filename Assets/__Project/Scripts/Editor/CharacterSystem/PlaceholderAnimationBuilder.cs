@@ -16,45 +16,43 @@ namespace Editor.CharacterSystem
         private const float ClipLength = 2f;
         private const int SamplesPerSecond = 30;
 
+        /// <summary>Base-frame idle (kept for LocomotionControllerRebuilder; the generator goes
+        /// through <see cref="BuildSwayClip"/> with the frame library's sway tables).</summary>
         public static AnimationClip BuildIdleClip(string assetPath)
         {
-            var clip = new AnimationClip { name = "PlaceholderIdle" };
-
-            AddSwayCurve(clip, "Root/Pelvis/Spine", Vector3.forward, 5f, 0.5f, 0f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Neck/Head", Vector3.right, 6f, 0.5f, 0.2f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Neck/Head/Ear.L", Vector3.right, 12f, 1.5f, 0f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Neck/Head/Ear.R", Vector3.right, 12f, 1.5f, 0.5f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Shoulder.L/UpperArm.L", Vector3.right, 20f, 0.5f, 0f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Shoulder.R/UpperArm.R", Vector3.right, 20f, 0.5f, 0.5f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Wing.L", Vector3.forward, 25f, 1f, 0f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Wing.R", Vector3.forward, -25f, 1f, 0f);
-            AddSwayCurve(clip, "Root/Pelvis/Tail.0", Vector3.up, 15f, 0.5f, 0f);
-            AddSwayCurve(clip, "Root/Pelvis/Tail.0/Tail.1", Vector3.up, 15f, 0.5f, 0.15f);
-            AddSwayCurve(clip, "Root/Pelvis/Tail.0/Tail.1/Tail.2", Vector3.up, 15f, 0.5f, 0.3f);
-
-            return FinalizeLoopingClip(clip, assetPath);
+            return BuildSwayClip("PlaceholderIdle", assetPath, PlaceholderFrameLibrary.Base.IdleSways, PlaceholderFrameLibrary.Base.BonePath);
         }
 
+        /// <summary>Base-frame run. The gait's fore/aft sign lives in the frame library's sway
+        /// table (-1 reads forward for the -Z-facing placeholder model).</summary>
         public static AnimationClip BuildRunClip(string assetPath)
         {
-            var clip = new AnimationClip { name = "PlaceholderRun" };
+            return BuildSwayClip("PlaceholderRun", assetPath, PlaceholderFrameLibrary.Base.RunSways, PlaceholderFrameLibrary.Base.BonePath);
+        }
 
-            // Sign of the fore/aft gait. Negating it mirrors every X-axis swing angle front-to-back,
-            // flipping the apparent travel direction. -1 makes the cycle read forward for the
-            // placeholder model (which faces -Z and is oriented forward by ModularCharacterVisual's
-            // 180 yaw). If the run ever reads reversed again, flip this to +1f.
-            const float RunGaitSign = -1f;
-
-            // Two strides over the 2 s loop (frequency * ClipLength is integral, so it loops
-            // seamlessly). Left/right limbs are half a cycle out of phase; arms counter-swing
-            // the opposite leg; knees flex around a bent center; the spine bobs twice per stride.
-            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.L", Vector3.right, RunGaitSign * 35f, 1f, 0f);
-            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.R", Vector3.right, RunGaitSign * 35f, 1f, 0.5f);
-            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.L/LowerLeg.L", Vector3.right, RunGaitSign * 30f, 1f, 0.25f, RunGaitSign * -30f);
-            AddSwayCurve(clip, "Root/Pelvis/UpperLeg.R/LowerLeg.R", Vector3.right, RunGaitSign * 30f, 1f, 0.75f, RunGaitSign * -30f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Shoulder.L/UpperArm.L", Vector3.right, RunGaitSign * 30f, 1f, 0.5f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine/Chest/Shoulder.R/UpperArm.R", Vector3.right, RunGaitSign * 30f, 1f, 0f);
-            AddSwayCurve(clip, "Root/Pelvis/Spine", Vector3.right, RunGaitSign * 5f, 2f, 0f);
+        /// <summary>
+        /// Builds a looping clip from a frame's sway table: each entry becomes a sampled sine
+        /// oscillation on the bone resolved to its full path by <paramref name="bonePath"/>.
+        /// Frequencies must divide evenly into the clip length for a seamless loop.
+        /// </summary>
+        public static AnimationClip BuildSwayClip(
+            string clipName,
+            string assetPath,
+            System.Collections.Generic.IReadOnlyList<PlaceholderFrameLibrary.SwaySpec> sways,
+            System.Func<string, string> bonePath)
+        {
+            var clip = new AnimationClip { name = clipName };
+            foreach (var sway in sways)
+            {
+                AddSwayCurve(
+                    clip,
+                    bonePath(sway.Bone),
+                    sway.Axis,
+                    sway.AmplitudeDegrees,
+                    sway.FrequencyHz,
+                    sway.PhaseFraction,
+                    sway.CenterOffsetDegrees);
+            }
 
             return FinalizeLoopingClip(clip, assetPath);
         }

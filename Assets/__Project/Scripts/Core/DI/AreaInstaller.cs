@@ -22,6 +22,8 @@ using Platform;
 using UnityEngine;
 using World.Biomes;
 using World.Biomes.Data;
+using World.Races.Core;
+using World.Races.Data;
 using Zenject;
 
 namespace Core.DI
@@ -36,6 +38,10 @@ namespace Core.DI
         private const int MaxAbilityQueueSizeDefault = 3;
 
         private const string BiomeAppearanceResourcePath = "World/Biomes";
+        private const string BiomeProgressionResourcePath = "World/Biomes/BiomeProgressionConfig";
+        private const string RacesResourcePath = "World/Races";
+        /// <summary>Seed-context for the journey's own random stream (kept apart from the narrative-slice stream).</summary>
+        private const string BiomeJourneySeedContext = "biome-journey";
 
         [Header("Configuration ScriptableObjects")]
         [SerializeField] private CombatMovementConfig _movementConfig;
@@ -47,6 +53,12 @@ namespace Core.DI
         [Tooltip("Per-biome landscape appearance (routed path / tiers / backdrop); auto-loads from " +
                  "Resources/World/Biomes when empty. An unauthored biome uses code defaults")]
         [SerializeField] private List<BiomeAppearanceDefinition> _biomeAppearances;
+        [Tooltip("Biome rotation for the run (tier / weight / stretch per biome); auto-loads from " +
+                 "Resources/World/Biomes/BiomeProgressionConfig when unset. Missing = fixed Forest")]
+        [SerializeField] private BiomeProgressionConfig _biomeProgressionConfig;
+        [Tooltip("The race roster (races-passport.md); auto-loads from Resources/World/Races when " +
+                 "empty. Missing = a raceless world (every part reads kindless)")]
+        [SerializeField] private List<RaceDefinition> _raceDefinitions;
 
         [Header("Data Definitions (Optional - for data-driven system)")]
         [Tooltip("Status effect definitions for the data-driven system")]
@@ -70,6 +82,7 @@ namespace Core.DI
 
             InstallGameCoreBindings();
             InstallWorldBiomeBindings();
+            InstallRaceBindings();
             InstallPlatformBindings();
             InstallCombatBindings();
 
@@ -130,6 +143,54 @@ namespace Core.DI
             var captured = appearances;
             Container.Bind<IBiomeAppearanceCatalog>()
                 .FromMethod(ctx => new BiomeAppearanceCatalog(captured, ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
+
+            // Biome journey (biome-selection-along-the-run): tier/weight/stretch roster mapped to the
+            // pure settings record; the journey itself rides its OWN seeded stream so stretch draws
+            // never perturb the shared narrative-slice stream (and vice versa).
+            if (_biomeProgressionConfig == null)
+            {
+                _biomeProgressionConfig = Resources.Load<BiomeProgressionConfig>(BiomeProgressionResourcePath);
+                if (_biomeProgressionConfig == null)
+                {
+                    Debug.LogWarning("[AreaInstaller] BiomeProgressionConfig not assigned and not found at " +
+                                     $"Resources/{BiomeProgressionResourcePath} — the run stays in fixed Forest.");
+                }
+            }
+
+            var progressionConfig = _biomeProgressionConfig;
+            Container.Bind<LevelGeneration.Journey.BiomeProgressionSettings>()
+                .FromMethod(ctx => BiomeProgressionConfigMapper.ToSettings(
+                    progressionConfig, ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
+
+            Container.Bind<LevelGeneration.Journey.IBiomeJourney>()
+                .FromMethod(ctx =>
+                {
+                    int runSeed = ctx.Container.Resolve<Loot.Core.IRunSeedProvider>().RunSeed;
+                    var random = new Narrative.Director.Core.DeterministicRandom(
+                        unchecked((ulong)Loot.Core.LootSeed.Derive(runSeed, BiomeJourneySeedContext)));
+                    return new LevelGeneration.Journey.BiomeJourney(
+                        ctx.Container.Resolve<LevelGeneration.Journey.BiomeProgressionSettings>(),
+                        random,
+                        ctx.Container.Resolve<IGameLogger>());
+                })
+                .AsSingle();
+        }
+
+        private void InstallRaceBindings()
+        {
+            // The race roster (races-passport.md): one RaceDefinition asset per race, mapped to the
+            // UnityEngine-free IRaceRoster. An empty roster is a valid (raceless) world.
+            var races = _raceDefinitions;
+            if (races == null || races.Count == 0)
+            {
+                races = new List<RaceDefinition>(Resources.LoadAll<RaceDefinition>(RacesResourcePath));
+            }
+
+            var captured = races;
+            Container.Bind<IRaceRoster>()
+                .FromMethod(ctx => RaceRosterMapper.ToRoster(captured, ctx.Container.Resolve<IGameLogger>()))
                 .AsSingle();
         }
 

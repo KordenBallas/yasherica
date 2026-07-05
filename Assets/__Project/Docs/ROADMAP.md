@@ -94,15 +94,26 @@ Order — **Ibex** (Mountain), **Lizard** (Desert), **Fox** (Forest); the hero i
 - [x] `[content]` **Race roster & passport model — DESIGNED.** *(Design done — `design/narrative/races.md`,
   `design/world/overview.md` §5; verified PO brief `product-requirements/race-roster-and-passport.md`.
   Was the parked "race roster"; unblocks the code items below and the downstream content.)*
-- [ ] `[arch]` **Races as data + part race-tags.** A small **roster of races** as data (home biome +
-  belonging colour + display name, mirroring the one-asset-per-theme pattern), and a **race tag on
-  every `PartDefinition`** (or *kindless*; the hero's starting parts are kindless). New race / re-tag
-  = data only. *(brief: `race-roster-and-passport.md`)* *(character + world + narrative)*
-- [ ] `[arch]` **Passport = per-race acceptance tier by part count.** Derive, per race, an acceptance
-  tier = **count of that race's equipped parts** clamped to {0 outsider, 1 tolerated, 2+ kin}, and
-  **project it as a per-race count/tier fact** the director/dialogue gate on (replaces the single
-  passport boolean; no hard part-conflict — the trade-off is the slot budget). Rides the
-  actor/faction-scoped eligibility enabler. *(brief: `race-roster-and-passport.md`)* *(narrative + character)*
+- [x] `[arch]` **Races as data + part race-tags.** *(Done 2026-07-04 — `RaceDefinition` roster
+  (`Resources/World/Races/Race_{Ibex,Lizard,Fox}`, id + home biome + belonging colour + display name)
+  mapped to a pure `IRaceRoster`; `PartDefinition._raceId` string tag (empty = kindless, inspector
+  drop-down over the authored races), hero's `_A` starting set kindless, `_B` demo parts tagged.
+  New race / re-tag = data only. See CHANGELOG; `races-passport.md`.)*
+- [x] `[arch]` **Passport = per-race acceptance tier by part count.** *(Done 2026-07-04 —
+  `RaceAcceptanceCalculator` clamps the equipped tagged-part count to {0,1,2+};
+  `RacePassportProjector` (single writer) publishes `faction.<raceId>.reads_as_tier` (Int,
+  PerFaction, one key for all races) on assembly + every part swap; the demo `frog_marsh` thread
+  gates on `reads_as_tier(fox) ≥ 1` with a literal subject token, replacing the card-set
+  `reads_as_frogfolk` bool. See CHANGELOG; `races-passport.md`.)*
+- [ ] `[arch]` **Belonging colour consumer.** `RaceDefinition._belongingColor` is authored but nothing
+  reads it yet — wire it into the quest-offer / mutation card hue grammar (the P1-6 card treatment).
+  *(races + narrative view)*
+- [ ] `[arch]` **Reconcile mutation species vs. race tag.** `PartBlankDefinition.SpeciesArchetypeId`
+  (what a *blank* reads as) and `PartDefinition.RaceId` (what an equipped part reads as) are separate
+  axes; decide whether an unsealed part inherits a race from its blank's archetype. *(mutation + races)*
+- [ ] `[arch]` **Un-equip path raises `PartsChanged`.** The assembly controller only swaps parts today,
+  so passport tiers move on swap; a future remove/un-equip surface must fire the same event (and the
+  projector already resets un-worn races to 0). *(character)*
 - [ ] `[content]` **Per-race content — questlines, NPC casts, signature enemies.** The next content
   step; hangs off the roster (`design/narrative/races.md` §6). *(narrative)*
 - [ ] `[arch]` **Exposure / betrayal.** Deeper mutation / being caught flips a race's trust to
@@ -191,11 +202,19 @@ Deferred design (from `narrative-procedural.md` §6):
   story pool + tonal register (and optionally density) as the run climbs.
 - [ ] `[arch]` **D20 — Meta-scoped fact horizon.** Distinguish run-scoped facts (reset on death) from
   meta-scoped facts (persist across runs); long arcs (spine cursor, mirror-lore flags, cauldron memory)
-  ride the meta horizon. The director reads both.
-- [ ] `[arch]` **R8 — First-class threads.** Promote `_threadId` from a string label to a `Thread`
-  entity (id + stage) the director balances and the player can read; express "a choice in thread A
-  affects thread C" as A's effect read by C's precondition (already the mechanism — this adds the
-  first-class entity + balancing).
+  ride the meta horizon. The director reads both. *(P2-3 — 2026-07-04: the run/meta **boundary/partition**
+  is drawn in the P2-3 threads brief so save/load persists a clean split; the cross-run **store + file
+  IO** is R14/P2-2 and the long-arc **consumers** are this item's reading side (P3-3, after P2-2). See
+  `product-requirements/director-threads-and-continuity.md`.)*
+- [ ] `[arch]` **R8 — First-class threads + cross-window continuity (P2-3, spec-ready).** Promote
+  `_threadId` from a string label to a `Thread` entity (id + state) the director balances; express "a
+  choice in thread A affects thread C" as A's effect read by C's precondition (already the mechanism —
+  this adds the first-class entity + balancing). *(Verified PO brief
+  `product-requirements/director-threads-and-continuity.md`, 2026-07-04: ephemeral(expire)/arc kinds;
+  retirement = **fact-conflict fail** (incl. arc) **or** ephemeral **expiry**, indicator-only, no
+  closure storylet; concurrency cap (advance-over-open, wait not force-drop); continuity = hold a
+  consequence beat until its cause fact is live + never re-place an offered/resolved/failed story
+  (correctness over density); draws the D20 run/meta boundary. D7 spine lane stays P3-1, D19 P3-2.)*
 - [~] `[arch]` **Story-first streaming director (cutover).** Replace actor-first per-encounter selection
   with a budgeted, windowed planner that generates platforms window-by-window as the player advances;
   entering a window locks it, the next is planned from live facts (R7). Phases:
@@ -228,25 +247,43 @@ Deferred design (from `narrative-procedural.md` §6):
     roll the biome platform table on the streaming path. Deterministic. See CHANGELOG;
     `narrative-procedural.md` §2.6. Subsumed the "Streaming-path loot" item; the biome half remains
     below.)*
-- [ ] `[content]` **Biome selection along the run.** The streaming generator still runs a fixed biome
-    (`AreaSceneEntrypoint` hardcodes Forest); fold progression/biome selection into the planner so the
-    biome (and with it the monster pool + loot table) changes as the run advances. Biomes are
-    **race homelands** (`product-requirements/race-roster-and-passport.md`) — race placement/ordering
-    ties in here. *(Verified PO brief: `product-requirements/biome-selection-along-the-run.md` —
-    seeded escalation-tier pool, travel in stretches, Cave out of rotation, current tier published as
-    a fact; D19 difficulty/tone/density escalation stays a separate thread.)*
+- [x] `[content]` **Biome selection along the run — DONE (P0-2, 2026-07-04).** *(Done — the biome
+    journey (`biome-journey.md`; brief `biome-selection-along-the-run.md`): authored, seeded,
+    tier-climbing biome stretches (planning windows) via the new pure `LevelGeneration.Journey` core
+    (`BiomeJourney`/`BiomeStretchDirector`) + `BiomeProgressionConfig` SO; crossing a stretch
+    switches monster pool + loot table (live `ICurrentThemeProvider`; `AreaGenerator` reads it live
+    now) + landmark dressing + backdrop; Cave excluded by data; journeys diverge by seed on their own
+    random stream; `run_escalation_tier` world fact published (the D19 seam). Race
+    homelands/passport context ride the existing per-theme configs as they land (P0-3). See
+    CHANGELOG. Follow-ups below; D19 escalation stays a separate thread.)*
+- [ ] `[content]` **Real Mountain/Desert monster rosters.** `MonsterPool_Mountain` /
+    `MonsterPool_Desert` are placeholders reusing the two Forest demo enemies so ambient combat
+    survives outside Forest; author distinct per-biome enemies on the ambient-monster content pass
+    (P1-13). *(combat + world)*
+- [ ] `[content]` **Per-stretch route/landscape character + biome-transition legibility.** The route
+    model keeps the entry biome's `BiomeLandscapeSettings` for the whole run (a mid-run swap would
+    discontinuously jump `Sample(x)` and desync the landmark scan); the backdrop swap is a hard cut.
+    A piecewise blended multi-biome route + gate/skyline transition art rides the M5
+    world-backdrop/site-dressing pass. *(world + tech-art)*
+- [ ] `[arch]` **D19 consumers of `run_escalation_tier`.** The tier fact is published but consumed
+    by nothing; escalation (pool/register/density/difficulty shifts by tier) is the separate
+    Escalation design thread (D19 above). The journey's own PRNG state also folds into the
+    window/horizon save-state item. *(narrative)*
 - [ ] `[debt]` **Remove the dead platform-loot chance API.** Loot-platform *presence* is owned by the
     density allocator now; `LootRollService.ShouldPlaceLootOnPlatform` and
     `BiomeLootDefinition._platformLootChance` have no callers — delete them (and their
     `BiomeLootData` field) on the next loot pass. *(loot)*
 - [ ] `[arch]` **Director pacing — thread balancing.** Cross-window thread continuity/quotas beyond the
-  planner's within-window thread preference (ties into R8 first-class threads).
+  planner's within-window thread preference. *(Folded into **R8/P2-3** above — verified brief
+  `product-requirements/director-threads-and-continuity.md`: causal-order placement + no stale
+  re-placement + concurrency cap.)*
 - [ ] `[content]` **Demo fact-web sharpeners.** The deeper two-thread demo (`narrative-procedural.md` §4)
-  defers, to sharpen director fact-analysis coverage later: (a) **numeric-threshold facts** — an int fact
-  (e.g. `village_hunger`) exercising `Gt/Gte/Lt/Lte` (today all demo facts are Bool/`Eq`); (b) replace the
-  card-set `world.reads_as_frogfolk` **passport stand-in** with the real mutation→fact projection (D15);
-  (c) a **single NPC offering several resolution cards at once** (`npc-encounter-cards.md` §3), which needs
-  multiple quest slots per story (one today).
+  defers, to sharpen director fact-analysis coverage later: (a) ~~numeric-threshold facts~~ and
+  (b) ~~the real mutation→fact passport projection~~ — **both done 2026-07-04** by the races/passport
+  work: the `frog_marsh` thread now gates on the body-derived int tier `faction.fox.reads_as_tier`
+  with `Gte`/`Lt` (D15; see `races-passport.md`); (c) a **single NPC offering several resolution cards
+  at once** (`npc-encounter-cards.md` §3), which needs multiple quest slots per story (one today) —
+  still open.
 - [x] `[content]` **Quest-carried item rewards.** *(Done — item rewards live on `QuestDefinition._rewards`
   and are granted on completion by `QuestRewardGranter` (no longer a no-op) via the `PlatformCompletedState`
   hook. Item rewards only; currency/experience/ability kinds still lack a receiving system. See CHANGELOG;
@@ -631,6 +668,25 @@ Known points (from `character-system.md`):
   bootstrap + preview window); consider play-mode test coverage.
 
 New work:
+- [x] `[arch]` **P2-1 — Independent body-plans + skeleton-swap runtime.** ✅ Shipped 2026-07-04
+  (`character-system.md` R19–R24, supersedes the old R3/R4/R10 single-superset reading; brief
+  `product-requirements/body-plan-skeleton-swap.md`). Frame-changing parts (`GovernsBodyPlan` +
+  priority) re-form the body on their own skeleton; structural cross-frame fit; confirm-and-shed
+  to the new part inventory; losing governors carried dormant; serpent + spider placeholder
+  frames prove both shed directions and the priority test. See CHANGELOG. Follow-ups below.
+- [ ] `[arch]` **P2-1 follow-ups (body plans).**
+  (a) **Re-install-from-inventory flow** + an explicit `RemovePart`/unequip API — today shed parts
+  are visible in the stash but cannot be re-equipped, and a governor leaves only by slot
+  replacement; until it ships, going back to the base frame leaves a legless biped.
+  (b) **DormantInstall UX feedback** — a losing frame-changer installs silently (log only); needs
+  a toast/voice line.
+  (c) **Dormant-part semantics review** — dormant parts contribute no abilities/race markers by
+  design; revisit once designers author real frame-changers (is a dormant serpent spine truly
+  inert?).
+  (d) **Per-frame host fit** — the hero's `CharacterController` capsule and the visual's local TRS
+  offsets are frame-invariant (a serpent hovers at biped pelvis height); needs per-skeleton
+  placement/collider data when production frames land (P5-6).
+  (e) **Frame/stash persistence** rides the save/load work (P2-2).
 - [ ] `[content]` **M5 — Production body-part assets.** Replace placeholder box parts with
   production-ready meshes/materials across all slots. Includes the per-race **signature marker parts**
   (Ibex horns/hooves/coat · Lizard scales/frill/tail · Fox tail/ears/fur) named in

@@ -64,8 +64,8 @@ Design decisions and content/art authoring. Several **unblock** the coding model
 | ID | Task | Model | Owner | Unblocks |
 |---|---|---|---|---|
 | **P0-1** | Race roster & signature markers — ✅ **done (design)**; brief `race-roster-and-passport.md` | Opus (design) | **Designer** | narrative content · per-race body-plans · marker parts · silhouette sheets |
-| **P0-2** | Biome selection along the run (unhardcode Forest) — brief `biome-selection-along-the-run.md` | Opus | Code | biome-visual payoff · per-biome monster/loot · race homelands (brief `race-roster-and-passport.md`) |
-| **P0-3** | Races as data + part race-tags + passport acceptance-tier fact | Opus | Code | passport-gated narrative (Pillar 2) · per-race body-plans (P2-1); consumes brief `race-roster-and-passport.md` |
+| ~~**P0-2**~~ | ~~Biome selection along the run (unhardcode Forest)~~ ✅ shipped 2026-07-04 (`biome-journey.md`); follow-ups filed in `ROADMAP.md` (real Mtn/Desert rosters · per-stretch route character · D19 consumers) | Opus | Code | biome-visual payoff · per-biome monster/loot · race homelands (brief `race-roster-and-passport.md`) |
+| ~~**P0-3**~~ | ~~Races as data + part race-tags + passport acceptance-tier fact~~ ✅ shipped 2026-07-04 (`races-passport.md`); follow-ups filed in `ROADMAP.md` (belonging-colour consumer · species-vs-race reconcile · un-equip event) | Opus | Code | passport-gated narrative (Pillar 2) · per-race body-plans (P2-1); consumed brief `race-roster-and-passport.md` |
 
 ## P1 — Core loop & moment-to-moment
 *Ready now, high felt-value, mostly cheap, parallelisable. None need Fable.*
@@ -92,9 +92,9 @@ Design decisions and content/art authoring. Several **unblock** the coding model
 
 | ID | Task | Model | Owner | Note / dep |
 |---|---|---|---|---|
-| **P2-1** | Independent body-plans + skeleton-swap runtime (supersedes character-system R10/R3) | **Fable** | Hybrid | **after P0-1/P0-3**; you author the per-race marker part meshes (brief `race-roster-and-passport.md`) |
+| ~~**P2-1**~~ | ~~Independent body-plans + skeleton-swap runtime~~ ✅ shipped 2026-07-04 (`character-system.md` R19–R24): machinery + serpent/spider placeholder frames + confirm-and-shed + part stash; follow-ups filed in `ROADMAP.md` (re-install flow · dormant UX · per-frame host fit) | **Fable** | Code | superseded character-system R10/R3; consumed brief `body-plan-skeleton-swap.md`; production frame meshes = P5-6 |
 | **P2-2** | Save/load — file IO (R14) + window/horizon state + run-state | **Fable** | Code | unblocks P3-3 + mirror-lore |
-| **P2-3** | Director depth — R8 threads + cross-window continuity | **Fable** | Code | the fragile bit today |
+| **P2-3** | Director depth — R8 first-class threads + cross-window continuity + run/meta fact boundary | **Fable** | Code | **spec-ready** — verified brief `product-requirements/director-threads-and-continuity.md`; the fragile bit today. Thread entity + ephemeral(expire)/arc kinds + fact-conflict fail (incl. arc) + concurrency cap + causal-order placement (no stale re-placement) + draws the run/meta fact partition so **P2-2** persists it clean. D7/D19/D20-consumers stay P3 |
 | **P2-4** | Smarter ability-using enemy AI | Opus *(Fable opt.)* | Code | combat depth |
 
 ## P3 — Systems depth & correctness
@@ -104,7 +104,7 @@ Design decisions and content/art authoring. Several **unblock** the coding model
 |---|---|---|---|---|
 | **P3-1** | Director — D7 reserved spine lane + reveal cap | Opus | Code | ≤1–2 reveals/run |
 | **P3-2** | Director — D19 escalation tier gating | Opus | Hybrid | ← escalation design (you) |
-| **P3-3** | Director — D20 meta-scoped fact horizon | Opus | Code | **after P2-2** |
+| **P3-3** | Director — D20 meta-scoped fact horizon (long-arc **consumers** reading meta) | Opus | Code | **after P2-2**; the run/meta **partition** now lands earlier in **P2-3**, so this is the cross-run reading side only (mirror-lore echoes, cauldron memory, spine cursor) |
 | **P3-4** | Reactive-rule cascade layer (R11) | Opus | Code | optional central cascade |
 | **P3-5** | OR / boolean precondition composition | Opus | Code | AND-only today |
 | **P3-6** | Progression — AND/OR conditions + StoryNodeRequirement gating | Opus | Code | consume Required* fields |

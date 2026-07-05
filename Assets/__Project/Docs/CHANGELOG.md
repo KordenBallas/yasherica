@@ -9,6 +9,139 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Character System — body-plan demo scene + part-selection dev console** (dev tooling;
+  `character-system.md` §3.1): new `Tools/Character System/Build Body-Plan Demo Scene` builds and
+  saves `Scenes/BodyPlanDemo.unity` — a small walled platform (walls on the hero's wall layer so
+  dashes stay penned), the Hero prefab (WASD movement → per-frame gait is visible), an
+  `EventSystem` + Input System UI module, and a left-side console with **one TMP dropdown per
+  authored slot** listing every catalog part (`[frame]` / `(dormant)` tags). Picks route through
+  `BodyPlanSwapCoordinator` — instant same-frame swaps, real confirm-and-shed for frame-changers,
+  shed parts visible in the part-stash readout. New `BodyPlanDemoConsoleView` /
+  `BodyPlanDemoConsolePresenter` (MVP) + `BodyPlanDemoInstaller` (logger via `LoggingInstaller`,
+  `ICharacterRegistry`, stash trio, console; character system + locomotion from their own
+  installers). `YashericaEditor.asmdef` gains a `Unity.InputSystem` reference (the builder places
+  the UI input module). Compile green (main + editor) via Rider MSBuild.
+- **Character System — independent body-plans + skeleton-swap runtime (P2-1)** (verified brief
+  `product-requirements/body-plan-skeleton-swap.md` FR1–FR11; `character-system.md` R19–R24,
+  supersedes R3/R4/R10's single-fixed-superset reading): a rare part marked **`GovernsBodyPlan`**
+  (+ authored **`BodyPlanPriority`**) pulls in its own skeleton — the body tears down and re-forms
+  on the governing frame under the same host root, ordinary parts with no structural home shed to
+  the new **part inventory**, and losing frame-changers stay **equipped-but-dormant** (governance
+  falls back to them when the winner leaves). New pure Core: `BodyPlanResolver` (highest priority
+  wins, ordinal tie-break, order-independent — FR3/FR11) + `BodyPlanChangePlanner`
+  (`InstantSwap`/`DormantInstall`/`FrameChange`/`Incompatible`; structural fit = every skinned bone
+  and contributed-socket parent resolves — FR4/FR6) + `IShedPartSink` port. Runtime:
+  `BodyPlanSwapCoordinator` (build-before-destroy transaction: the new body is fully staged
+  inactive before the live rig is torn down — a failed build changes nothing), factory overload
+  `Create(skeleton, activeParts, dormantParts, …)` (all-or-nothing),
+  `ModularCharacterVisual.ReplaceCharacter` (re-points `Character`/`Animator`, binds the frame's
+  `SkeletonDefinition.AnimatorController`, re-fires `CharacterAssembled` so the passport binder
+  re-binds), controller dormancy (`EquipDormant`/`DormantParts`/`EquippedPartDefinitions`), and
+  `CharacterLocomotionView` animator re-resolution. **Confirm-and-shed flow (FR7)**: new
+  `BodyPlanConfirmPanel.prefab` + `BodyPlanConfirmView`/`BodyPlanConfirmPresenter`
+  (`IBodyPlanConfirmPrompt`); declining leaves body, blank, and sockets untouched.
+- **Inventory — part stash for shed body parts (P2-1 FR8)** (`inventory-subsystem.md` §2.4b):
+  `PartInventoryModel` (pure multiset of part ids) + `PartInventorySink` (implements the character
+  system's `IShedPartSink`) + read-only corner readout (`PartInventoryPanel.prefab`,
+  `PartInventoryPresenter`, names via `IPartCatalog`, hidden while empty). Re-install-from-stash is
+  a ROADMAP follow-up.
+- **Mutation — body-plan-aware unseal (P2-1)** (`mutation-subsystem.md` R6/R6b):
+  `IMutationCharacter.SwapPart` → **`RequestSwapPart`** (`Applied | PendingConfirmation |
+  Rejected`) + `SwapRequestResolved`; the card pick commits the unseal only on an
+  applied/confirmed install, a declined frame change keeps the cards, blank, and sockets intact;
+  offers are pre-filtered through `CanInstall` and a slot's dormant occupant is excluded like an
+  equipped part. Adapter now routes through the `BodyPlanSwapCoordinator`.
+- **Placeholder frames — serpent + spider demonstrators (P2-1 FR9/FR10)**: the generator is
+  restructured around per-frame data tables (`PlaceholderFrameLibrary`: base biped 27 bones ·
+  legless **serpent** = −6 leg bones +`Tail.3..5` · **spider** = −legs +8 radial
+  `SpiderHip/SpiderTip` chains; shared bones keep identical names + rest TRS so exactly the legs
+  shed) and now regenerates **in place** (GUIDs and hand-authored part fields survive; the old
+  delete-folder regen would have severed `Hero.prefab`/blank references). Per frame: rig prefab,
+  sway-table idle/run clips + `Speed` blend controller (slither / scuttle), skeleton def (+ display
+  name + controller), frame-changer part (`part.spine.serpent` slot.tail prio 20 ·
+  `part.legs.spider` new **`slot.legs.cluster`** prio 10 — both equippable at once for the FR3
+  priority test), preview assemblies. Hand-authored equip triggers `Blank_SerpentSpine` /
+  `Blank_SpiderCluster` + `Slot_LegsCluster`. **Run `Tools/Character System/Generate Placeholder
+  Assets` once to materialize the frames.**
+- **Races & Passport — races as data, part race-tags, acceptance-tier fact (P0-3)** (new
+  `races-passport.md`; brief `product-requirements/race-roster-and-passport.md` R1–R8): the world's
+  peoples exist as data and read the player's body. New `Scripts/World/Races/` — pure core
+  (`RaceData`, `IRaceRoster`/`RaceRoster`, `RaceAcceptanceCalculator`: tier = count of a race's
+  tagged parts equipped, clamped {0 outsider, 1 tolerated, 2+ kin}, kindless/unknown ids never
+  count), data (`RaceDefinition` SO — `Create → World → Race`: id, display name, home biome,
+  belonging colour — + `RaceRosterMapper`, auto-loaded from `Resources/World/Races` in
+  `AreaInstaller`), and integration (`RacePassportProjector` — the **single writer** of the new
+  per-faction Int fact **`faction.<raceId>.reads_as_tier`** (one key covers every race via its
+  subject; `FactionFacts.ReadsAsTier` + `Fact_ReadsAsTier` registered) — and `RacePassportBinder`,
+  `NonLazy` in `NarrativeSliceInstaller`). `PartDefinition` gains a **`_raceId` string tag**
+  (empty = kindless; `[RaceId]` drop-down drawer over the authored races — data-only extension, no
+  enum), and the body now surfaces change events: `CharacterAssemblyController.PartsChanged` (via
+  `IModularCharacter`) + `ModularCharacterVisual.CharacterAssembled` — every swap recomputes all
+  roster tiers synchronously (R7). Authored the three starting races (Ibex/Mountain slate-blue,
+  Lizard/Desert sun-gold, Fox/Forest russet); the hero's `_A` starting set is kindless, the `_B`
+  parts carry demo tags (2× ibex / 2× lizard / 2× fox so tier 2 is reachable). Wearing parts of two
+  races reads tier-1 to both — no hard conflict (R5). Tests: `RaceRosterMapperTests`,
+  `RaceAcceptanceCalculatorTests` (6/6 green via the Roslyn runner), `RacePassportProjectorTests`
+  incl. the precondition-gating integration; plus a 10-check Roslyn end-to-end smoke (real
+  projector + `FactStore` + `PreconditionEvaluator`, literal race-id subjects). Full compile +
+  test compile green.
+
+### Changed
+- **Character System — `AssemblyValidator.SkeletonMismatch` demoted Error → Warning (P2-1 FR4)**:
+  a part's `TargetSkeleton` is authoring provenance, not a gate; cross-frame fit is enforced
+  structurally by the `MissingBone`/`SocketParentBoneMissing` Errors (a base part whose bones all
+  resolve legitimately rides another frame; a serpent spine on the base rig still fails on
+  `Tail.3..5`). `ModularCharacterVisual` binding moved `MutationInstaller` →
+  `CharacterSystemInstaller` (its home system). Tests: `BodyPlanResolverTests` +
+  `BodyPlanChangePlannerTests` + `PartInventoryModelTests` + validator/presenter updates — 35/35
+  new-suite green via the Roslyn runner; full compile (main + editor + tests assemblies) green.
+- **Narrative demo — the marsh passport is now the real body-derived tier, not a card flag**
+  (`races-passport.md` §4.3, narrative-procedural.md §4): `DemoStory_FrogElderOpen` gates on
+  `faction.fox.reads_as_tier ≥ 1` (`Gte`, literal subject `fox` — the first authored int-threshold
+  precondition), `DemoStory_FrogElderClosed`/`DemoStory_MarshPool` on `< 1`; `MarshPool.ink` no
+  longer writes any fact — the hermit now *teaches* the rule (wear the fox's marks), and the elder
+  prose reads the fox markers (`FrogElderOpen/Closed.ink` + hand-recompiled JSONs;
+  `DemoDlg_MarshPool` fact-write footprint emptied). Equipping one fox-tagged part via a mutation
+  flips the marsh from closed to open — the passport loop end-to-end.
+
+### Removed
+- **`world.reads_as_frogfolk` (the D15/D16 card-set passport stand-in)** — superseded by
+  `faction.<raceId>.reads_as_tier`; `DemoFact_ReadsAsFrogfolk.asset` deleted and unregistered from
+  `DemoFactKeyRegistry`. (`RunWindowPlannerTests` keeps a synthetic bool passport to isolate planner
+  flip mechanics; the tier-side flip is covered by `RacePassportProjectorTests`.)
+
+### Fixed
+- **`TypedFactsTests.DriftCheck_FlagsMissingRef` hard-coded "exactly 1 missing curated ref"** and so
+  broke whenever `TypedFacts.All()` grew — it was already latently red after `run_escalation_tier`
+  (P0-2) and surfaced with `reads_as_tier` (P0-3). The expected warning count is now derived from
+  `TypedFacts.All()` minus the refs the test declares. Full editor EditMode suite on a project
+  clone: 1156/1156 green after the fix (1155/1156 before, this test the only failure).
+
+### Added
+- **Biome Journey — biome selection along the run (P0-2)** (new `biome-journey.md`; brief
+  `product-requirements/biome-selection-along-the-run.md` R1–R11): the run's biome is no longer a
+  hardcoded Forest. A new pure core `LevelGeneration.Journey` (`BiomeJourney` + `BiomeStretch` +
+  `BiomeStretchDirector`) advances the biome in authored, seeded, **tier-climbing stretches** of
+  planning windows: stretch *s* draws a weighted pick from the *s*-th lowest authored escalation
+  tier (clamped at top; previous biome excluded when the tier offers an alternative, so a boundary
+  is a visible crossing) — journeys **diverge by seed** (D18) and are deterministic on their **own
+  random stream** (`LootSeed.Derive(runSeed, "biome-journey")`), so stretch draws never perturb the
+  shared narrative-slice stream. `RunStreamingCoordinator` applies the stretch **before** planning
+  each window; crossing a stretch switches the live `ICurrentThemeProvider` (monster pools + loot
+  follow automatically — `AreaGenerator` now reads the provider live instead of a frozen ctor
+  theme), swaps landmark dressing (`RouteLandmarkSpawner.ApplyBiome`), rebuilds the world backdrop
+  (hard cut; transition art is M5), and publishes the new world fact **`run_escalation_tier`**
+  (Int; the D19 seam — nothing consumes it yet; registered in `TypedFacts` + the fact registry).
+  New data surface: **`BiomeProgressionConfig`** SO (`Create → World → Biome Progression`;
+  tier/weight/stretch-windows per biome) + mapper, bound in `AreaInstaller`
+  (`Resources/World/Biomes/BiomeProgressionConfig`); authored Forest t1 · Mountain t2 · Desert t2
+  (weight 1, stretch 3–4 windows), **Cave excluded by data** (no entry). Placeholder
+  `MonsterPool_Mountain`/`MonsterPool_Desert` assets reuse the two demo enemies so ambient combat
+  survives outside Forest. Missing/empty config degrades to fixed Forest (warned). The route
+  model's landscape *shape* stays frozen to the entry biome (known limitation → M5). Tests:
+  `BiomeJourneyTests` (11) + `BiomeStretchDirectorTests` (4) — 15/15 green via the Roslyn runner —
+  plus `BiomeProgressionConfigMapperTests`; full compile + test compile green.
+
 - **World Landscape Read — routed path, elevation tiers, world backdrop (P5-2)** (new
   `world-landscape.md`; brief `product-requirements/world-backdrop-and-elevation.md` FR A–D): the
   traversal field now reads as a landscape you route through. **Routed path**: platform depth (Z)

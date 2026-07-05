@@ -444,9 +444,10 @@ namespace Tests.EditMode
         [Test]
         public void PassportFact_FlipsClosedDoorToOpen()
         {
-            // D15/D16 passport gating (frog_marsh thread): two stories on OPPOSITE values of one world fact
-            // (reads_as_frogfolk). While false only the closed-door story is eligible; flipping the passport
-            // true swaps it for the open-door (quest-offering) story. The passport flip in miniature.
+            // D15/D16 passport gating (frog_marsh thread): two stories on OPPOSITE values of one fact.
+            // A synthetic bool passport keeps the planner mechanics isolated; the shipped demo now gates
+            // on the per-race int tier (faction.fox.reads_as_tier, races-passport.md) — the tier-side
+            // flip is covered by RacePassportProjectorTests.GatingIntegration_FoxTierGte1_FlipsAfterOneFoxPart.
             var settings = new RunPacingSettings(windowSize: 1, lookAheadWindows: 1);
             var closed = Story("frog_closed", 10, new[] { "frogfolk" },
                 precondition: World("reads_as_frogfolk", false), thread: "frog_marsh");

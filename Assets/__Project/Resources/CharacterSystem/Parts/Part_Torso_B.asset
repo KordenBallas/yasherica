@@ -31,3 +31,6 @@ MonoBehaviour:
     _weight: 0.4
   _rarity: 1
   _choiceIcon: {fileID: 21300000, guid: 280d26cdc412f4c4795e41f8b873186b, type: 3}
+  _governsBodyPlan: 0
+  _bodyPlanPriority: 0
+  _raceId: lizard

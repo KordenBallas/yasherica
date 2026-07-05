@@ -27,7 +27,7 @@ namespace LevelGeneration
         private readonly AreaGeneratorConfig _config;
         private readonly Platform.Platform.Factory _platformFactory;
         private readonly ILootRollService _lootRollService;
-        private readonly LevelTheme _theme;
+        private readonly ICurrentThemeProvider _themeProvider;
         private readonly PlatformShapeSettings _shapeSettings;
         private readonly IRunSeedProvider _seedProvider;
         private readonly PlatformSurfaceGenerator _surfaceGenerator = new();
@@ -49,7 +49,7 @@ namespace LevelGeneration
             RunRouteModel routeModel,
             Platform.Platform.Factory platformFactory,
             ILootRollService lootRollService,
-            LevelTheme theme,
+            ICurrentThemeProvider themeProvider,
             PlatformShapeSettings shapeSettings,
             IRunSeedProvider seedProvider,
             AreaGeneratorConfig config = null,
@@ -60,7 +60,7 @@ namespace LevelGeneration
             _routeModel = routeModel ?? new RunRouteModel(BiomeLandscapeSettings.CreateDefault(), 0);
             _platformFactory = platformFactory;
             _lootRollService = lootRollService;
-            _theme = theme;
+            _themeProvider = themeProvider;
             _shapeSettings = shapeSettings ?? PlatformShapeSettings.CreateDefault();
             _seedProvider = seedProvider;
             _config = config ?? new AreaGeneratorConfig();
@@ -324,7 +324,9 @@ namespace LevelGeneration
             // the biome table carrying the tag get their weight multiplied (the loot layer's existing
             // BiasTags machinery) — direction, not a dedicated table.
             var tags = string.IsNullOrEmpty(flavor) ? null : new[] { flavor };
-            var context = new LootRollContext(_theme, $"platform:{nodeId}", tags);
+            // Read the theme live, not a frozen ctor copy: the biome journey advances the provider
+            // per stretch, and platform loot must roll the active biome's table.
+            var context = new LootRollContext(_themeProvider.CurrentTheme, $"platform:{nodeId}", tags);
             var items = _lootRollService.RollPlatformLoot(context);
             if (items.Count == 0)
             {

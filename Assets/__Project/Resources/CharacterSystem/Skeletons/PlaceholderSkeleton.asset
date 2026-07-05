@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: PlaceholderSkeleton
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.SkeletonDefinition
   _id: skeleton.placeholder
+  _displayName: Base biped
   _rigPrefab: {fileID: 6411899002628711950, guid: 00abfe43488170146941681bff21b514, type: 3}
   _boneNames:
   - Root
@@ -51,3 +52,4 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 8d96a027164a12c4f94309a4690acd50, type: 2}
   - {fileID: 11400000, guid: 871ad8f69c880fc4dac3d2a622a3fac4, type: 2}
   - {fileID: 11400000, guid: 60428f5d7c2ae1241a25ba1958f8f8b1, type: 2}
+  _animatorController: {fileID: 9100000, guid: b1a10117252e2d44394e6413cbe9801a, type: 2}

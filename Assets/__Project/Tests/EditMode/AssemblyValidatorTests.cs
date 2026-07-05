@@ -46,15 +46,31 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void ValidatePart_WrongTargetSkeleton_ReportsError()
+        public void ValidatePart_WrongTargetSkeleton_ReportsWarningOnly()
         {
+            // Since body plans (P2-1) the authored target skeleton is provenance, not a gate:
+            // a cross-authored part whose bones all resolve is structurally legal (FR4).
             var part = Part("part.alien", "slot.torso", targetSkeletonId: "skeleton.other");
 
             var issues = _validator.ValidatePart(part, _skeleton);
 
             var issue = issues.Single(i => i.Code == ValidationIssueCode.SkeletonMismatch);
-            Assert.AreEqual(ValidationSeverity.Error, issue.Severity);
+            Assert.AreEqual(ValidationSeverity.Warning, issue.Severity);
             Assert.AreEqual("part.alien", issue.SubjectId);
+            Assert.IsFalse(issues.Any(i => i.Severity == ValidationSeverity.Error));
+        }
+
+        [Test]
+        public void ValidatePart_WrongTargetSkeletonWithMissingBones_StillReportsBoneErrors()
+        {
+            var part = Part("part.alien", "slot.torso",
+                targetSkeletonId: "skeleton.other",
+                boneNames: new[] { "Spine", "SpiderHip.0" });
+
+            var issues = _validator.ValidatePart(part, _skeleton);
+
+            Assert.IsTrue(issues.Any(i =>
+                i.Code == ValidationIssueCode.MissingBone && i.Severity == ValidationSeverity.Error));
         }
 
         [Test]

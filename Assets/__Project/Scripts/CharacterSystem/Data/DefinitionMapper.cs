@@ -55,7 +55,9 @@ namespace CharacterSystem.Data
                 definition.Slot != null ? definition.Slot.Id : null,
                 definition.TargetSkeleton != null ? definition.TargetSkeleton.Id : null,
                 new List<string>(definition.BoneNames),
-                sockets);
+                sockets,
+                definition.GovernsBodyPlan,
+                definition.BodyPlanPriority);
         }
     }
 }

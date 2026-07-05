@@ -110,6 +110,7 @@ Dependencies point inward: views raise events → presenters call domain → dom
 
 - `InventoryConfig` instance (validated non-null), `IArtifactCatalog`, `IRecipeBook`, `ITraitCatalog`, `IArtifactTraitSource` → `ArtifactTraitIndex`, `TraitFusionRuleSet` (via `FusionRuleSetBuilder`), `FusionSettings` (from config). Definitions auto-load from `Resources/Artifacts/{Definitions,Recipes,Traits,FusionRules}` when the inspector lists are empty.
 - `IInventoryModel`, `EmergentFusionCalculator`, `ArtifactByTraitSelector`, `IFusionResolver` → `FusionResolver`, `ICraftingSession` (with `ItemsToCombine`), `BubbleLayoutCalculator`.
+- **Part inventory (P2-1, §2.6):** `IPartInventoryModel` → `PartInventoryModel`, `CharacterSystem.Core.IShedPartSink` → `PartInventorySink`, and (when `Resources/Prefabs/UI/PartInventoryPanel` exists) `IPartInventoryView` `FromComponentInNewPrefab` + `PartInventoryPresenter` NonLazy — a missing prefab only disables the readout, never the stash.
 - `ArtifactContentValidator` via `BindInterfacesTo` + `NonLazy`.
 - `IInventoryHudView` (scene instance or instantiated from `Resources/Prefabs/UI/InventoryHud.prefab`); `IPotView`/`ICraftingSlotsView`/`IInventoryStageView` (on the InventoryStage scene instance) and `IMovementInputLock`/`ICharacterFacing`/`IBellyAnchorProvider` (on the hero scene instance) via `FromComponentInHierarchy`.
 - Both presenters (`InventoryPresenter`, `CraftingPresenter`) via `BindInterfacesAndSelfTo` + `NonLazy`.
@@ -117,6 +118,25 @@ Dependencies point inward: views raise events → presenters call domain → dom
 - The fusion bindings (`EmergentFusionCalculator`, `TraitFusionRuleSet`, `FusionSettings`, `IArtifactTraitSource`) are also consumed by the Mutation subsystem's socketing (same `SceneContext`); see [Mutation Subsystem](mutation-subsystem.md).
 
 `AreaInstaller` additionally binds `CombatActivityTracker` (`BindInterfacesAndSelfTo`); `Platform/States/CombatActiveState.cs` sets it on combat enter/exit.
+
+### 2.4b Part inventory — the stash for shed body parts (P2-1)
+
+The player's stash of body parts that are owned but not on the body. Today it is filled by exactly
+one source: parts **shed by a body-plan change** (character-system.md R21 — a legless frame orphans
+the legs; they return here, never destroyed). Distinct from the artifact inventory by design: parts
+carry no per-instance state, so the model is a plain multiset of part definition ids.
+
+- **`IPartInventoryModel` / `PartInventoryModel`** *(Core, pure C#)* — `Add(partId)`, `PartIds`
+  (insertion order, duplicates allowed), `OnPartAdded`. No take/remove API yet — the
+  re-install-from-inventory flow is a deferred ROADMAP item.
+- **`PartInventorySink`** *(Integration)* — implements the character system's
+  `CharacterSystem.Core.IShedPartSink` port over the model; the only bridge between the two layers
+  (the character system never references Inventory).
+- **`PartInventoryPresenter` / `IPartInventoryView` / `PartInventoryView`** — MVP readout: on every
+  addition the presenter aggregates the multiset into name×count rows (friendly names via the
+  CharacterSystem `IPartCatalog` — the same pragmatic cross-read `MutationPartCatalog` uses) and
+  pushes them to a small corner panel (`Resources/Prefabs/UI/PartInventoryPanel.prefab`, bottom-right,
+  hidden while empty). Read-only: no interactions until the re-install flow ships.
 
 ### 2.5 Scene & prefab setup
 
@@ -162,6 +182,7 @@ Sample signature set shipped: fire+water→snake, fire+rock→lizard, water+bact
 Edit-mode tests in `Assets/__Project/Tests/EditMode/`:
 
 - `InventoryModelTests` — add/remove/return semantics, unique ids, duplicate definitions, events.
+- `PartInventoryModelTests` — insertion order, duplicate accumulation, event payloads, null/empty guard, empty default (the P2-1 shed-part stash, §2.4b).
 - `RecipeBookTests` — order independence, multiset exactness, disambiguation, no-match.
 - `ArtifactTraitProfileTests` — normalization (drop empty, dedupe, ordinal order), tier clamp, `Has`.
 - `TraitFusionRuleSetTests` — ordinal rule ordering, duplicate-id fail-fast, malformed-rule validation.

@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Part_Tail_A
   m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.PartDefinition
   _id: part.tail.a
+  _displayName: 
   _slot: {fileID: 11400000, guid: 0f4fc15c574ccbf418982851d15ae25a, type: 2}
   _targetSkeleton: {fileID: 11400000, guid: 297bec6ec50d50140a8a71cf223c14c5, type: 2}
   _partPrefab: {fileID: 4097689084767138645, guid: 7fe8420fcd31b12448cd85b7ff40ee3a, type: 3}
@@ -22,3 +23,11 @@ MonoBehaviour:
   - Tail.2
   _contributedSockets:
   - {fileID: 11400000, guid: 321e274d92bd2df4ab100ef1b58c2233, type: 2}
+  _activeAbilities: []
+  _passiveAbilities: []
+  _traitAffinities: []
+  _rarity: 0
+  _choiceIcon: {fileID: 0}
+  _governsBodyPlan: 0
+  _bodyPlanPriority: 0
+  _raceId: 

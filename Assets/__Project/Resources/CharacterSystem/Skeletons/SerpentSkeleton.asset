@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97559d3565b4e044bbb4604b0ed11a02, type: 3}
+  m_Name: SerpentSkeleton
+  m_EditorClassIdentifier: Yasherica::CharacterSystem.Data.Definitions.SkeletonDefinition
+  _id: skeleton.serpent
+  _displayName: Serpent frame
+  _rigPrefab: {fileID: 2861736292145130364, guid: 4283f712dc9c8194eb4829a5e2d01aa9, type: 3}
+  _boneNames:
+  - Root
+  - Pelvis
+  - Spine
+  - Chest
+  - Neck
+  - Head
+  - Ear.L
+  - Ear.R
+  - Shoulder.L
+  - UpperArm.L
+  - LowerArm.L
+  - Hand.L
+  - Shoulder.R
+  - UpperArm.R
+  - LowerArm.R
+  - Hand.R
+  - Wing.L
+  - Wing.R
+  - Tail.0
+  - Tail.1
+  - Tail.2
+  - Tail.3
+  - Tail.4
+  - Tail.5
+  _tier1Sockets:
+  - {fileID: 11400000, guid: 07b6672888f79b74996fe5252adfe143, type: 2}
+  - {fileID: 11400000, guid: bbd8a40930fdf45409ddbb8a25d0d03a, type: 2}
+  - {fileID: 11400000, guid: 963a2ea294930c54ba6f5e38fb7ebb42, type: 2}
+  - {fileID: 11400000, guid: a592692b7a6135a4eb86b85250e8b86b, type: 2}
+  - {fileID: 11400000, guid: 871ad8f69c880fc4dac3d2a622a3fac4, type: 2}
+  - {fileID: 11400000, guid: 60428f5d7c2ae1241a25ba1958f8f8b1, type: 2}
+  _animatorController: {fileID: 9100000, guid: c3b5143ad31a3374e8d1a2167bda1a7b, type: 2}

@@ -105,11 +105,12 @@ namespace Core.DI
             // Every candidate part (built from the CharacterSystem part catalog).
             Container.BindInterfacesAndSelfTo<MutationPartCatalog>().AsSingle();
 
-            // The live character is a scene/prefab component; the adapter resolves its assembled
-            // character lazily so an unassembled rig just fails the swap (no MonoBehaviour in Core).
-            // Both stay lazy - they are only resolved when the presenter below binds.
-            Container.Bind<ModularCharacterVisual>().FromComponentInHierarchy().AsSingle();
-            Container.Bind<IMutationCharacter>().To<ModularCharacterMutationAdapter>().AsSingle();
+            // The adapter resolves the assembled character lazily so an unassembled rig just
+            // rejects the request (no MonoBehaviour in Core). ModularCharacterVisual and the
+            // body-plan coordinator are bound by CharacterSystemInstaller (their home system)
+            // and resolved cross-installer here. Interfaces binding gives Zenject the
+            // IDisposable lifecycle (the adapter unsubscribes from the coordinator).
+            Container.BindInterfacesTo<ModularCharacterMutationAdapter>().AsSingle();
 
             // The card's mini-model popover: a hidden hero clone rendered to a RenderTexture at a
             // far world offset. Lazy - only resolved when the card view injects it.

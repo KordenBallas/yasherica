@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7d8e9f0a1b2c3d4e5f60718293a4b5d, type: 3}
+  m_Name: Blank_SerpentSpine
+  m_EditorClassIdentifier:
+  _id: blank.spine.serpent
+  _displayName: Sealed Serpent Spine
+  _description: A dormant spine blank, coiled and patient. Whatever wakes inside
+    it will not stand on legs. It reads as lizardfolk.
+  _slot: {fileID: 11400000, guid: 0f4fc15c574ccbf418982851d15ae25a, type: 2}
+  _speciesArchetypeId: reptile
+  _socketCount: 2
+  _icon: {fileID: 0}
