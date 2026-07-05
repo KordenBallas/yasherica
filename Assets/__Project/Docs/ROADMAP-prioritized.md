@@ -118,7 +118,7 @@ Design decisions and content/art authoring. Several **unblock** the coding model
 | **P3-14** | Loot — capacity feedback (R11) + progression gating (R13) + despawn on leave | Sonnet | Code | rebind capacity policy |
 | **P3-15** | Platform — unit grounding per-model override + ContentSpawner on concave islands | Sonnet | Code | place on CenterCell |
 | **P3-16** | Platform — camera/entry pass at arena scale | Opus | Code | play-mode tune |
-| **P3-17** | Sites — `NPC·quest-bearer` as a fill beat (Camp's shady offer) | Opus | Hybrid | needs a small design pass (you) |
+| **P3-17** | Sites — `NPC·quest-bearer` as a fill beat (Camp's shady offer) | Opus | Hybrid | **spec-ready** — verified brief `product-requirements/camp-shady-offer.md` (2026-07-05): shady = derived from outlaw occupancy (no new flavor) · passport-free (any beast) · boss fronts camp, crew fight *behind* the deal · power/combat currency + cauldron tempter · deterministic, no asset/kind change |
 
 ## P4 — Arena (the networked half)
 *Self-contained, Pillar-4-only. Offline arena ships; this is the netcode.*
