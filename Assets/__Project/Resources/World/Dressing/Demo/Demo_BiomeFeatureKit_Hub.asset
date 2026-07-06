@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dea94f6dd1b5f9f4cbe9c023e9a33510, type: 3}
+  m_Name: Demo_BiomeFeatureKit_Hub
+  m_EditorClassIdentifier: Yasherica::World.Dressing.Data.BiomeFeatureKitDefinition
+  _kitId: demo-hub-features
+  _groundMaterial: {fileID: 2100000, guid: e759ad607cda4acaacc98a0d58725f9a, type: 2}
+  _features:
+  - _prefab: {fileID: 2318272937317203139, guid: b897b91def57a2940a0f0042d364c50d, type: 3}
+    _kind: 2
+    _weight: 2
+    _scaleMin: 0.8
+    _scaleMax: 1.2
+  - _prefab: {fileID: 3908896426618710466, guid: 3d672b1b497d64e48aa47e37b86514bb, type: 3}
+    _kind: 2
+    _weight: 2
+    _scaleMin: 0.8
+    _scaleMax: 1.2
+  - _prefab: {fileID: 3827549956472576141, guid: db21cd8e08e0814498a2711e0b6ed107, type: 3}
+    _kind: 1
+    _weight: 3
+    _scaleMin: 0.8
+    _scaleMax: 1.1
+  - _prefab: {fileID: 1435283653269720, guid: 00e2e59cbc04eab4a982218df54ce70b, type: 3}
+    _kind: 0
+    _weight: 3
+    _scaleMin: 0.7
+    _scaleMax: 1

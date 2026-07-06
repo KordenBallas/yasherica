@@ -118,7 +118,10 @@ dependency arrows are `LevelGeneration → Combat.Battlefield` and `Platform →
    flat `NotchFills` patches so the floor continues across the sewn notches, the drooping rim strip
    starting at the stitched outline, side skirt, and a mirrored concave-safe bottom), the
    `MeshCollider`, and `PlatformColliderBuilder` walls on the stitched `TopBoundary` — the rim lies
-   beyond the walls, which is what makes it physically non-walkable (R4). Characters land/teleport
+   beyond the walls, which is what makes it physically non-walkable (R4). The build lives on a
+   standalone `Initialize(PlatformHexSurface, List<Vector3>)` overload (O1: the Hub's single
+   island renders through this exact path with no `IPlatform` entity); the `IPlatform` overload
+   just unwraps the visual. Characters land/teleport
    via `PlatformAnchor` (center cell for spawns and
    instant moves, nearest cell for neighbor jumps) — cell centers sit a full hex inradius inside
    the walls, so a jump can never strand the hero outside the pen (the raw centroid

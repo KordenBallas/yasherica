@@ -61,6 +61,24 @@
   through the single `SurfaceHexGrid` / `PlatformAnchor` path; blocked cells remain ground/mesh
   (the obstacle prefab keeps its colliders, so out-of-combat free-move respects it too).
 
+### 1.3a Functional requirements — decoration footprint & edge-fit (Track E polish, 2026-07-06)
+
+*(Brief `product-requirements/decoration-footprint-and-edge-fit.md` — placement discipline over the
+E2 pool; kit contract, tone, density, and determinism unchanged.)*
+
+- **R17** Every feature entry carries a **rough footprint radius** (world units at scale 1),
+  defaulting by kind (small 0.35 / large 0.9 / blocking 1.0) with an optional per-entry override
+  (`_footprintOverride`, 0 = default). Placement keeps a **keep-clear margin from the true platform
+  silhouette** (`surface.Outline`) equal to the footprint × the drawn scale.
+- **R18** **Poke inward, don't drop**: a cluster member that would overhang is **deterministically
+  nudged inward** to where it fits (`PlatformEdgeFit.TryFitInside` — pure geometry off the
+  already-seeded position); it is skipped only if it genuinely cannot fit. A blocking obstacle
+  cannot leave its cell centre, so an unfittable footprint **skips that cell** instead.
+- **R19** The rim-framing overhang is an **opt-in style**: only entries flagged `_mayOverhang`
+  (tall trees/crags) may anchor on the decorative rim and lean past the walkable edge — with a
+  **tighter member jitter** so the base keeps its foothold (a lean, not a launch). Every unflagged
+  prop obeys the footprint margin. Demo: the desert `Tree_01` is flagged; nothing else.
+
 ### 1.3 Functional requirements — site dressing (E3)
 
 - **R12** A site dressing kit lists **role lists**: `_structures` (skyline houses, blocking),
@@ -166,6 +184,13 @@ Seed streams (`LootSeed.Derive` off the run seed): `biome-features:{nodeId}` ·
 `AreaGenerator` ctor (optional params, null = no dressing — the `landmarkSpawner` pattern).
 Duplicate kit ids / theme ids: first wins, warned.
 
+**Second consumer — the Hub (O1, `hub-staging.md`):** `HubInstaller.InstallHubBiomeDressing`
+mirrors the same bindings with the two run-scoped providers pre-set (`ICurrentThemeProvider` →
+`LevelTheme.Hub`, `IRunSeedProvider` → the Hub's fixed platform seed); `HubPlatformAssembler`
+then dresses the Hub's single island through the identical planner → blocked-cells-fold →
+ground-resolve → spawn sequence. The **Hub biome** is authored like any biome:
+`BiomeAppearance_Hub.asset` → `Demo_BiomeFeatureKit_Hub.asset` (+ `Demo_Ground_Hub.mat`).
+
 ---
 
 ## 3. ScriptableObject Reference
@@ -184,6 +209,8 @@ Loaded from `Resources/World/Dressing/` (any subfolder; demo kits live in `Demo/
 | `_features[i]._kind` | FeatureKind | `SmallDecorative` / `LargeDecorative` / `Blocking` | SmallDecorative |
 | `_features[i]._weight` | int ≥ 0 | Draw weight among same-kind entries | 1; 0 = never drawn |
 | `_features[i]._scaleMin/Max` | float | Uniform per-instance scale range | 0.8–1.2 |
+| `_features[i]._footprintOverride` | float ≥ 0 | Rough horizontal radius kept clear of the platform edge (R17) | 0 = kind default (0.35 / 0.9 / 1.0) |
+| `_features[i]._mayOverhang` | bool | Framing opt-in (R19): may anchor on the rim and lean past the edge | off — grant to a few tall trees/crags only |
 
 ### `SiteDressingKitDefinition` (asset menu: `Create → World → Dressing → Site Dressing Kit`)
 
@@ -267,6 +294,9 @@ ground materials (`Demo_Ground_*`). Mountain/Cave bind no kit (base layer, by de
 test fails the build); never reorder `_features`; a null prefab entry is kept at weight 0 and
 warned, not dropped (index stability); duplicate `_kitId`/`_dressingThemeId` — first wins, warned;
 kit materials need no manual muting — the bind-time treatment tones (and URP-converts) them.
+Footprints: leave `_footprintOverride` at 0 (kind default) for almost everything, override only an
+outlier (an unusually wide rock); grant `_mayOverhang` to the few tall framing props only — it is
+the sole way a prop may cross the walkable edge.
 
 ---
 
@@ -277,7 +307,10 @@ Roslyn workaround — 29 dressing tests green 2026-07-06, plus the hexsurface/co
 
 - `BiomeFeaturePlannerTests` — same-seed identity; blockers off the protected set; battlefield
   minimum under hostile density; pairwise spacing; connectivity; decor-vs-blocker decoupling; rear
-  bias statistic; empty/null pool + zero density fail-safes.
+  bias statistic; empty/null pool + zero density fail-safes; **edge-fit**: grounded placements
+  clear the silhouette by their scaled footprint, a may-overhang prop still leans past the edge.
+- `PlatformEdgeFitTests` — signed clearance inside/outside; fitting point untouched; overhanging
+  and fully-outside points nudged back in; genuinely-unfittable footprint fails; determinism.
 - `SiteDressingPlannerTests` — same-seed replay; block-shared scale; rear placement + camera-facing
   fronts; structure cells blocked with guards; gate only on the anchor, approach side; camp focal
   stack + facing ring geometry; wild/empty-kit fail-safes; placements within platform bounds.
@@ -314,3 +347,9 @@ read, "muted but biomes read" — density and tone are data dials on the biome a
   data-only fix, the spawner warns and skips broken entries at runtime.
 - **Prop animation** (banner sway, fire light/smoke) — later polish; the demo campfire is unlit
   geometry by owner decision (composed hanger + stones + log).
+- **Footprints are rough authored numbers**, not mesh-derived bounds; deriving them from mesh
+  geometry is a possible later refinement (edge-fit brief, out of scope). **Prop-vs-prop
+  overlap/spacing** is likewise untouched — the edge-fit rule guards only the platform edge.
+- **Site dressing props are not footprint-checked** — they place inward by construction (skyline
+  band, gate at the lane, focal ring); fold them under the footprint rule in a follow-up if a site
+  prop is seen overhanging (edge-fit brief, out of scope).

@@ -21,7 +21,9 @@ namespace Tests.EditMode
                 .SetValue(target, value);
         }
 
-        private static object MakeEntry(GameObject prefab, FeatureKind kind, int weight)
+        private static object MakeEntry(
+            GameObject prefab, FeatureKind kind, int weight,
+            float footprintOverride = 0f, bool mayOverhang = false)
         {
             var entry = new BiomeFeatureKitDefinition.FeatureEntry();
             Set(entry, "_prefab", prefab);
@@ -29,6 +31,8 @@ namespace Tests.EditMode
             Set(entry, "_weight", weight);
             Set(entry, "_scaleMin", 0.8f);
             Set(entry, "_scaleMax", 1.2f);
+            Set(entry, "_footprintOverride", footprintOverride);
+            Set(entry, "_mayOverhang", mayOverhang);
             return entry;
         }
 
@@ -127,6 +131,27 @@ namespace Tests.EditMode
             Assert.AreEqual(2, pool.Entries.Count);
             Assert.AreEqual(0, pool.Entries[0].Weight, "Broken entry keeps its slot, never drawn.");
             Assert.AreEqual(5, pool.Entries[1].Weight);
+        }
+
+        [Test]
+        public void BiomeCatalog_ResolvesFootprintAndOverhang()
+        {
+            // Zero override = the kind default (light authoring, edge-fit brief FR2); an override
+            // and the may-overhang flag carry through verbatim.
+            var kit = MakeBiomeKit(
+                "forest-kit",
+                MakeEntry(new GameObject("tuft"), FeatureKind.SmallDecorative, 1),
+                MakeEntry(new GameObject("rock"), FeatureKind.LargeDecorative, 1, footprintOverride: 1.7f),
+                MakeEntry(new GameObject("tree"), FeatureKind.LargeDecorative, 1, mayOverhang: true));
+            var catalog = DressingKitMapper.ToBiomeCatalog(
+                new[] { MakeAppearance(LevelTheme.Forest, kit) });
+
+            Assert.IsTrue(catalog.TryGet(LevelTheme.Forest, out var pool, out _));
+            Assert.AreEqual(FeatureEntryData.SmallFootprintDefault, pool.Entries[0].FootprintRadius);
+            Assert.IsFalse(pool.Entries[0].MayOverhang);
+            Assert.AreEqual(1.7f, pool.Entries[1].FootprintRadius);
+            Assert.AreEqual(FeatureEntryData.LargeFootprintDefault, pool.Entries[2].FootprintRadius);
+            Assert.IsTrue(pool.Entries[2].MayOverhang);
         }
 
         [Test]

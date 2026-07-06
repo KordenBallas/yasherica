@@ -29,12 +29,21 @@ namespace World.Dressing.Data
             [SerializeField] private float _scaleMin = 0.8f;
             [Min(0.01f)]
             [SerializeField] private float _scaleMax = 1.2f;
+            [Tooltip("Rough horizontal radius (world units at scale 1) kept clear of the platform " +
+                     "edge; 0 = the kind's default (small 0.35 / large 0.9 / blocking 1.0)")]
+            [Min(0f)]
+            [SerializeField] private float _footprintOverride = 0f;
+            [Tooltip("Framing style opt-in: this prop may anchor on the rim and lean past the " +
+                     "walkable edge (tall trees/crags only) — everything else obeys the footprint")]
+            [SerializeField] private bool _mayOverhang = false;
 
             public GameObject Prefab => _prefab;
             public FeatureKind Kind => _kind;
             public int Weight => _weight;
             public float ScaleMin => _scaleMin;
             public float ScaleMax => _scaleMax;
+            public float FootprintOverride => _footprintOverride;
+            public bool MayOverhang => _mayOverhang;
         }
 
         [Tooltip("Platform top material for this biome (toned at bind time); empty = keep the default ground")]

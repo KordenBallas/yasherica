@@ -1,6 +1,11 @@
 # The Hub Is Just Another Biome — One Platform, the World's Own Camera & Controls — Product Requirements
 
-> Status: **Corrective brief** (discussed with the product owner, ready for the code track) · 2026-07-06
+> Status: **CONSUMED** (shipped 2026-07-06 — the as-implemented behavior lives in
+> `hub-staging.md`; CHANGELOG "The Hub is just another biome"). The parallel Hub
+> camera/locomotion/platform implementation was removed: the Area's Cinemachine rig +
+> locomotion installer, the island through `PlatformView` + the dressing chain as the
+> first-class `LevelTheme.Hub` biome, placement verified in the shared camera's screen basis.
+> Original status: **Corrective brief** (discussed with the product owner, ready for the code track) · 2026-07-06
 > Level: product-owner (what & feel). The code track owns the technical "how".
 > Track O · O1 **rework**. Supersedes the **scene-assembly / camera / control** parts of
 > `hub-staging-and-launch.md` (and its as-implemented `hub-staging.md`). The staging **domain** of

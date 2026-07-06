@@ -97,7 +97,8 @@ namespace World.Dressing.Data
                 }
 
                 entries.Add(new FeatureEntryData(
-                    entry.Kind, entry.Weight, entry.ScaleMin, entry.ScaleMax));
+                    entry.Kind, entry.Weight, entry.ScaleMin, entry.ScaleMax,
+                    entry.FootprintOverride, entry.MayOverhang));
             }
 
             return new FeaturePoolData(kit.KitId, entries);

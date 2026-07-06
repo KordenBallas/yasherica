@@ -42,7 +42,8 @@
   table** follow the live `ICurrentThemeProvider`; the **landmark dressing** and **world backdrop**
   are swapped by the entrypoint observer. Already-generated platforms keep their look.
 - **R7** **Cave is excluded by data**: it has no entry in the authored config (weight 0 would also
-  exclude). No code check anywhere.
+  exclude). No code check anywhere. The same convention keeps **`LevelTheme.Hub`** (O1 — the
+  junkyard's own first-class biome, `hub-staging.md`) out of the run rotation.
 - **R8** The current stretch's tier is published as the world fact **`run_escalation_tier`**
   (Int, global). Nothing consumes it yet — it is the D19 seam.
 - **R9** **Determinism**: the journey rides its own random stream

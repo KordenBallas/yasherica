@@ -35,6 +35,9 @@ namespace Core.DI
         private const string VoiceLinesResourcePath = "Hub/HubVoiceLines";
         private const string SceneConfigResourcePath = "Hub/HubSceneConfig";
         private const string PlatformShapeResourcePath = "LevelGeneration/PlatformShapeConfig";
+        private const string BiomeAppearanceResourcePath = "World/Biomes";
+        /// <summary>Kit assets load recursively from here (Demo/ rides in), the Area convention.</summary>
+        private const string DressingKitsResourcePath = "World/Dressing";
 
         /// <summary>The staging presenter must deal the offer + homelands before the world
         /// entrypoint raises the portals and the voice presenter reads the offer.</summary>
@@ -86,10 +89,11 @@ namespace Core.DI
 
         private void InstallWorld()
         {
-            // The walkable junkyard island (O1 rework): the shared platform shape dials + the
-            // Hub's own dressing config feed the standalone platform builder; the entrypoint
-            // assembles the world (platform, keeper NPC, labelled portals) and registers the
-            // F-spots on the proximity presenter, which ticks the walk-up prompts.
+            // The walkable junkyard island (O1 rework, hub-as-a-normal-platform.md): ONE normal
+            // world platform, dressed as the Hub biome through the exact Area chain — shared
+            // shape dials, pre-set theme/seed providers, the environment-dressing planner/spawner,
+            // and PlatformView. The entrypoint assembles the world (platform, keeper NPC,
+            // labelled portals) and registers the F-spots on the proximity presenter.
             var shapeConfig = Resources.Load<LevelGeneration.Data.PlatformShapeConfig>(PlatformShapeResourcePath);
             Container.Bind<LevelGeneration.Surface.PlatformShapeSettings>()
                 .FromInstance(LevelGeneration.Data.PlatformShapeConfigMapper.ToSettings(shapeConfig))
@@ -106,7 +110,8 @@ namespace Core.DI
             }
 
             Container.BindInstance(sceneConfig).AsSingle();
-            Container.Bind<Hub.View.HubPlatformBuilder>().AsSingle();
+            InstallHubBiomeDressing(sceneConfig);
+            Container.Bind<Hub.View.HubPlatformAssembler>().AsSingle();
 
             Container.Bind<Narrative.Interaction.IInteractionInput>()
                 .To<Narrative.Interaction.View.NpcInteractionInput>()
@@ -117,6 +122,61 @@ namespace Core.DI
 
             Container.BindInterfacesTo<Hub.View.HubSceneEntrypoint>().AsSingle().NonLazy();
             Container.BindExecutionOrder<Hub.View.HubSceneEntrypoint>(SceneEntrypointExecutionOrder);
+        }
+
+        private void InstallHubBiomeDressing(HubSceneConfig sceneConfig)
+        {
+            // The dressing chain (mirrors AreaInstaller.InstallDressingBindings) with the two
+            // run-scoped providers PRE-SET — both throw on read-before-set, and the Hub's world
+            // is fixed: theme = the Hub biome, seed = the config's platform seed.
+            Container.Bind<Loot.Core.IRunSeedProvider>()
+                .FromMethod(_ =>
+                {
+                    var provider = new Loot.Core.RunSeedProvider();
+                    provider.SetSeed(sceneConfig.PlatformSeed);
+                    return provider;
+                })
+                .AsSingle();
+            Container.Bind<Loot.Core.ICurrentThemeProvider>()
+                .FromMethod(_ =>
+                {
+                    var provider = new Loot.Core.CurrentThemeProvider();
+                    provider.SetTheme(LevelGeneration.LevelTheme.Hub);
+                    return provider;
+                })
+                .AsSingle();
+
+            var appearances = new List<World.Biomes.Data.BiomeAppearanceDefinition>(
+                Resources.LoadAll<World.Biomes.Data.BiomeAppearanceDefinition>(BiomeAppearanceResourcePath));
+            Container.Bind<World.Biomes.IBiomeAppearanceCatalog>()
+                .FromMethod(ctx => new World.Biomes.BiomeAppearanceCatalog(
+                    appearances, ctx.Container.Resolve<Core.Logging.IGameLogger>()))
+                .AsSingle();
+
+            var siteKits = new List<World.Dressing.Data.SiteDressingKitDefinition>(
+                Resources.LoadAll<World.Dressing.Data.SiteDressingKitDefinition>(DressingKitsResourcePath));
+            var biomeKits = new List<World.Dressing.Data.BiomeFeatureKitDefinition>(
+                Resources.LoadAll<World.Dressing.Data.BiomeFeatureKitDefinition>(DressingKitsResourcePath));
+
+            Container.Bind<World.Dressing.Core.IBiomeFeaturePoolCatalog>()
+                .FromMethod(ctx => World.Dressing.Data.DressingKitMapper.ToBiomeCatalog(
+                    appearances, ctx.Container.Resolve<Core.Logging.IGameLogger>()))
+                .AsSingle();
+            Container.Bind<World.Dressing.Core.ISiteDressingCatalog>()
+                .FromMethod(ctx => World.Dressing.Data.DressingKitMapper.ToSiteCatalog(
+                    siteKits, ctx.Container.Resolve<Core.Logging.IGameLogger>()))
+                .AsSingle();
+            Container.Bind<World.Dressing.Core.IEnvironmentDressingPlanner>()
+                .To<World.Dressing.Core.EnvironmentDressingPlanner>()
+                .AsSingle();
+            Container.Bind<World.Dressing.Data.DressingKitLibrary>()
+                .FromMethod(ctx => new World.Dressing.Data.DressingKitLibrary(
+                    biomeKits, siteKits, ctx.Container.Resolve<Core.Logging.IGameLogger>()))
+                .AsSingle();
+            Container.Bind<World.Dressing.View.ToneMaterialCache>().AsSingle();
+            Container.Bind<LevelGeneration.IEnvironmentDressingSpawner>()
+                .To<World.Dressing.View.EnvironmentDressingSpawner>()
+                .AsSingle();
         }
 
         private void InstallPartCards()

@@ -200,6 +200,57 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void GroundedPlacements_FitFullyWithinTheSilhouette()
+        {
+            // No entry is overhang-flagged: every placement (blockers, cluster members, near-rim
+            // jitter included) must clear the platform edge by its scaled footprint (edge-fit
+            // brief FR1/FR3/FR4).
+            for (ulong seed = 1; seed <= 8; seed++)
+            {
+                var surface = GenerateSurface(seed);
+                var pool = BuildPool();
+                var plan = Plan(surface, seed, pool);
+                foreach (var placement in plan.Placements)
+                {
+                    float required = pool.Entries[placement.EntryIndex].FootprintRadius * placement.Scale;
+                    float clearance = PlatformEdgeFit.SignedClearance(
+                        surface.Outline, placement.LocalX, placement.LocalZ);
+                    Assert.GreaterOrEqual(clearance, required - 1e-3f,
+                        $"Seed {seed}: grounded prop overhangs the edge (clearance {clearance:F2} < {required:F2}).");
+                }
+            }
+        }
+
+        [Test]
+        public void OverhangFlaggedEntry_StillLeansPastTheEdge()
+        {
+            // The deliberate framing style survives as an opt-in: a flagged large prop anchors on
+            // the rim (beyond the walkable outline) at least somewhere across seeds (brief FR5).
+            var pool = new FeaturePoolData("framing", new[]
+            {
+                new FeatureEntryData(FeatureKind.LargeDecorative, 1, 1f, 1f, mayOverhang: true)
+            });
+
+            bool leanedOut = false;
+            for (ulong seed = 1; seed <= 12 && !leanedOut; seed++)
+            {
+                var surface = GenerateSurface(seed);
+                var plan = Plan(surface, seed, pool);
+                foreach (var placement in plan.Placements)
+                {
+                    if (PlatformEdgeFit.SignedClearance(
+                            surface.Outline, placement.LocalX, placement.LocalZ) < 0f)
+                    {
+                        leanedOut = true;
+                        break;
+                    }
+                }
+            }
+
+            Assert.IsTrue(leanedOut, "A may-overhang prop never anchored beyond the walkable edge.");
+        }
+
+        [Test]
         public void PlanCarriesKitKeyAndKind()
         {
             var surface = GenerateSurface();

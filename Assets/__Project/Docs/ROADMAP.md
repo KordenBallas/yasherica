@@ -787,10 +787,18 @@ only**.
   **Forest-at-tier-2** as a pure-data climb-pool tuning option (after a Desert/Mountain start,
   stretch 1 is forced to the other tier-2 theme); **movement lock while the card panel is open**
   (`IMovementInputLock` hookup — today the hero can walk with the cards up). *(scoped)*
-- [ ] `[art]` **Hub junkyard ground material + portal/keeper dressing.** The platform ground is a
-  code-fallback tint until a junkyard `Material` is authored on
-  `HubSceneConfig._platformMaterial`; the portals are flat tinted discs and the keeper is the
-  placeholder humanoid — the Hub half of the Track M art pass. *(designer)*
+- [x] `[arch]` ~~**O1 corrective — the Hub is just another biome** (brief
+  `hub-as-a-normal-platform.md`)~~ ✅ shipped 2026-07-06: the parallel Hub camera/locomotion/
+  platform implementation removed — the Area's Cinemachine rig + `CharacterLocomotionInstaller`
+  in the scene, the island built through `PlatformView` (new standalone `Initialize` overload) +
+  the dressing chain as the first-class **`LevelTheme.Hub`** biome (authored
+  `BiomeAppearance_Hub` + hub feature kit, excluded from the rotation by data), placement in the
+  shared camera's screen basis with unblocked-cell snapping.
+- [ ] `[art]` **Author the Hub biome's real junkyard look.** `Demo_Ground_Hub.mat` is a flat
+  muted tint and `Demo_BiomeFeatureKit_Hub` reuses the Desert demo rocks — swap in a real
+  junkyard ground texture + scrap-pile decor prefabs (data-only, the kit contract); the portals
+  are flat tinted discs and the keeper is the placeholder humanoid — the Hub half of the Track M
+  art pass. *(designer)*
 - [ ] `[arch]` **P1-10 absorbs the Hub voice.** When the full bark channel lands, migrate
   `HubVoiceLinesConfig`'s moment/race pools onto it as the hub-presence slots (the SO was shaped
   for this). *(with P1-10)*

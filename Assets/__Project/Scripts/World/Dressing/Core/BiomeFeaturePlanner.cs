@@ -25,8 +25,12 @@ namespace World.Dressing.Core
         /// <summary>Cluster members scatter within this many cell radii of the cluster seed.</summary>
         private const float ClusterRadiusCells = 1.2f;
 
-        /// <summary>Every Nth large cluster anchors on the decorative rim instead of a cell.</summary>
+        /// <summary>Every Nth overhang-flagged large cluster anchors on the decorative rim.</summary>
         private const int RimAnchorEvery = 3;
+
+        /// <summary>Rim-anchored members jitter tighter, so a leaning prop keeps its foothold on
+        /// the rim strip — a lean, not a launch (decoration-footprint brief FR6).</summary>
+        private const float OverhangJitterCells = 0.4f;
 
         /// <summary>Bias split between rearness and edge distance when scoring blocker cells.</summary>
         private const float RearScoreWeight = 0.6f;
@@ -108,12 +112,23 @@ namespace World.Dressing.Core
                     continue;
                 }
 
-                blocked.Add(cell);
                 int entryIndex = DrawWeighted(pool, blockingEntries, rng);
+                var entry = pool.Entries[entryIndex];
+                float yaw = NextFloat(rng) * 360f;
+                float scale = DrawScale(entry, rng);
                 var (x, z) = surface.GetCellCenterLocal(cell);
+
+                // An obstacle stays on its cell centre (it IS the cell), so it cannot be nudged:
+                // a footprint that doesn't clear the silhouette skips this cell (brief FR1/FR2).
+                if (PlatformEdgeFit.SignedClearance(surface.Outline, x, z) < entry.FootprintRadius * scale)
+                {
+                    blockedSet.Remove(cell);
+                    continue;
+                }
+
+                blocked.Add(cell);
                 placements.Add(new DressingPlacement(
-                    DressingRole.Feature, entryIndex, x, z,
-                    NextFloat(rng) * 360f, DrawScale(pool.Entries[entryIndex], rng)));
+                    DressingRole.Feature, entryIndex, x, z, yaw, scale));
             }
 
             return blocked;
@@ -147,13 +162,15 @@ namespace World.Dressing.Core
                 var entry = pool.Entries[entryIndex];
                 bool isLarge = entry.Kind == FeatureKind.LargeDecorative;
 
+                // The rim-framing overhang is an opt-in style (decoration-footprint brief FR5):
+                // only a flagged prop may anchor on the rim and lean past the walkable edge.
+                bool overhangCluster = false;
                 float seedX;
                 float seedZ;
-                if (isLarge && ++largeClusterOrdinal % RimAnchorEvery == 0
+                if (isLarge && entry.MayOverhang && ++largeClusterOrdinal % RimAnchorEvery == 0
                     && TryPickRimAnchor(surface, rng, out seedX, out seedZ))
                 {
-                    // Anchored on the decorative rim strip: frames the space from beyond the
-                    // walkable edge (brief FR8).
+                    overhangCluster = true;
                 }
                 else if (!TryPickClusterSeed(surface, protectedSet, rearSorted, isLarge, rng, out seedX, out seedZ))
                 {
@@ -161,16 +178,28 @@ namespace World.Dressing.Core
                 }
 
                 int members = ClusterSizeMin + rng.NextInt(ClusterSizeMax - ClusterSizeMin + 1);
-                float maxRadius = ClusterRadiusCells * surface.HexSize;
+                float maxRadius = (overhangCluster ? OverhangJitterCells : ClusterRadiusCells)
+                    * surface.HexSize;
                 for (int m = 0; m < members; m++)
                 {
                     float angle = NextFloat(rng) * 2f * (float)Math.PI;
                     float radius = NextFloat(rng) * maxRadius;
+                    float memberX = seedX + radius * (float)Math.Cos(angle);
+                    float memberZ = seedZ + radius * (float)Math.Sin(angle);
+                    float yaw = NextFloat(rng) * 360f;
+                    float scale = DrawScale(entry, rng);
+
+                    // Grounded props must fit fully within the silhouette: nudge inward by the
+                    // footprint, skip only when the prop genuinely cannot fit (brief FR1/FR3/FR4).
+                    if (!overhangCluster && !PlatformEdgeFit.TryFitInside(
+                            surface.Outline, memberX, memberZ, entry.FootprintRadius * scale,
+                            out memberX, out memberZ))
+                    {
+                        continue;
+                    }
+
                     placements.Add(new DressingPlacement(
-                        DressingRole.Feature, entryIndex,
-                        seedX + radius * (float)Math.Cos(angle),
-                        seedZ + radius * (float)Math.Sin(angle),
-                        NextFloat(rng) * 360f, DrawScale(entry, rng)));
+                        DressingRole.Feature, entryIndex, memberX, memberZ, yaw, scale));
                 }
             }
         }

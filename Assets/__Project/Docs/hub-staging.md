@@ -1,13 +1,15 @@
 # Hub Staging (The Junkyard) — Requirements & Design
 
 > The pre-run staging ground (Track O · O1): the main menu's **Journey** leads to the **Hub
-> scene** — a single **walkable hex platform** (a regular platform in the Hub's own biome look)
-> where the hero walks up to the **junk-keeper NPC** (F → the starting-part cards drawn from the
-> tasted-forms catalog) and to one of three **labelled portals** (F → launch into that homeland),
-> with the cauldron's commentary throughout; **death returns here** (the Hades reform point — no
-> game-over screen). Realizes the MVP of the canonical "direction + floor, not a vending machine"
-> dig (`design/narrative/hub-junkyard.md`).
-> Status: current as of 2026-07-06 (walkable-platform rework, same day).
+> scene** — **one normal world platform in the Hub's own biome** (`hub-as-a-normal-platform.md`:
+> the world's Cinemachine camera, the world's movement and locomotion, the world's platform
+> pipeline — indistinguishable from a run platform except in style and content) where the hero
+> walks up to the **junk-keeper NPC** (F → the starting-part cards drawn from the tasted-forms
+> catalog) and to one of three **labelled portals** (F → launch into that homeland), with the
+> cauldron's commentary throughout; **death returns here** (the Hades reform point — no game-over
+> screen). Realizes the MVP of the canonical "direction + floor, not a vending machine" dig
+> (`design/narrative/hub-junkyard.md`).
+> Status: current as of 2026-07-06 (hub-as-a-normal-platform corrective rework, same day).
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -29,9 +31,17 @@
   P2-2 PO note): entering the Hub touches nothing; using a portal writes the one-shot
   `run-setup.json` and deletes any abandoned `run.json`. Backing out of the Hub keeps Continue
   alive. A second launch is guarded (one commit per visit).
-- **R2a** **The Hub is a walkable world**: one regular hex platform (the shared shape profile,
-  fixed seed, perimeter walls) with the Hub's own ground material (`HubSceneConfig`); the scene
-  hero free-walks it with the standard movement controller (WASD + dash).
+- **R2a** **The Hub is one normal world platform** (`hub-as-a-normal-platform.md`): the shared
+  shape profile at a fixed seed, built through the **world's own `PlatformView`** (mesh, walkable
+  colliders, perimeter walls) and dressed through the **Track-E dressing chain** as the
+  first-class **`LevelTheme.Hub` biome** (authored `BiomeAppearance_Hub` → its feature kit's
+  toned ground + decor + blockers) — never a parallel implementation.
+- **R2b** **World-matching camera & movement**: the Area's exact Cinemachine rig (Brain on the
+  orthographic Main Camera + the IsometricCamera vcam at euler 30/45/0, distance 10, damping
+  1/1/1, tracking the hero) and the Area's locomotion (`CharacterLocomotionInstaller` on the
+  SceneContext — run blend + facing). Movement is the hero prefab's own world-absolute
+  controller. From camera and controls alone the Hub is indistinguishable from a run platform.
+- **R2c** **A calm platform**: no enemies, combat, or run streaming on the Hub.
 - **R3** The Hub deals a **starting-part offer of up to 3 cards** from the pool of **tasted**
   parts (`world.<partId>.arena_tasted`, meta-persistent) that fit the base skeleton
   (`!GovernsBodyPlan`). The draw is deterministic per (pool, upcoming-run index) and
@@ -86,8 +96,10 @@ Scripts/Hub/
   Data/       — HubVoiceLinesConfig + HubSceneConfig (SOs) + HubVoiceLinesMapper (SO -> Core),
                 HubStartingPoolSource, RaceTintCatalog/IRaceTintCatalog, HubMetaReader
   Presenter/  — HubStagingPresenter, CauldronVoicePresenter, HubProximityPresenter (pure C#)
-  View/       — HubPlatformBuilder (standalone hex platform, the ArenaPlatformBuilder treatment),
-                HubSceneEntrypoint (world assembly: platform + keeper + portals),
+  View/       — HubPlatformAssembler (pure orchestration over the WORLD path: surface generator →
+                dressing planner → PlatformView → dressing spawner; zero platform logic here),
+                HubSceneEntrypoint (world assembly: platform + keeper + portals, all placement in
+                the shared camera's screen basis, snapped to unblocked cells),
                 HubOverheadLabelView/IHubPromptView (billboard name + F prompt),
                 HubStagingView (chosen-part readout), HubVoicePlaqueView
 Scripts/Core/DI/HubInstaller.cs
@@ -116,14 +128,20 @@ Scenes/Hub.unity
    and deals `StartingPartSelector.Draw(pool, 3, runCount + 1)` over
    `HubStartingPoolSource.BuildPool()` (tasted ∩ catalog ∩ base-skeleton) into the model — the
    card panel stays hidden until the keeper is talked to. `HubSceneEntrypoint.Initialize`
-   (order −5) then assembles the world: `HubPlatformBuilder.Build()` (the shared shape profile
-   from the config's fixed seed; mesh + walkable colliders + perimeter walls; the ground material
-   from `HubSceneConfig`), the keeper NPC (the placeholder humanoid assembly, slightly left of
-   the platform's centre cell) and one portal disc per homeland on the far arc, each with a
-   billboarded overhead name + F prompt — all registered as F-spots on `HubProximityPresenter`.
-   `CauldronVoicePresenter.Initialize` finally consumes the death-return marker (greeting) or
-   speaks the empty-offer line. The scene hero simply walks (the prefab's own move/dash actions;
-   `PlatformRegistry` absence is a tolerated no-op).
+   (order −5) then assembles the world: `HubPlatformAssembler.Build()` — the **normal-platform
+   path**: `PlatformSurfaceGenerator` (shared shape profile, the config's fixed seed) →
+   `IEnvironmentDressingPlanner.Plan` for the Hub biome (blockers folded into the surface
+   **before** the mesh) → `PlatformView.SetConfig` (the kit's toned ground; code tint only when
+   no kit is authored) + the standalone `PlatformView.Initialize(surface, outline)` →
+   `IEnvironmentDressingSpawner.Spawn` (decor) — then the keeper NPC (placeholder humanoid,
+   **screen-left** of the centre cell under the shared camera basis) and one portal disc per
+   homeland straddling the **screen-far arc** (−5°/45°/95°), every spot snapped to the nearest
+   **unblocked, unclaimed** cell (each placed spot reserves its cell so two portals can never
+   collapse onto one), each with a billboarded overhead name + F prompt — all
+   registered as F-spots on `HubProximityPresenter`. `CauldronVoicePresenter.Initialize` finally
+   consumes the death-return marker (greeting) or speaks the empty-offer line. The hero walks
+   with its own world-absolute controller under the Area's locomotion animation; the Cinemachine
+   vcam follows exactly as on a run platform (`PlatformRegistry` absence is a tolerated no-op).
 3. **Walk-up interactions.** `HubProximityPresenter.Tick` samples the player (via
    `ICharacterRegistry`) and asks the pure `HubProximity.FindNearest` for the in-range nearest
    spot; that spot's prompt shows; **F** (`IInteractionInput`, the NPC-interaction key) fires the
@@ -154,14 +172,20 @@ stores), `ISceneLoader`, `ICharacterRegistry` (hero prefab dep), the card stack
 `MutationChoicePanel` prefab → `IMutationChoiceView` with a missing-prefab guard), the staging
 domain (tasted reader, pool source, selector, `HubMetaReader`, `IRaceRoster` +
 `IRaceTintCatalog` from `Resources/World/Races`), the voice
-(`Resources/Hub/HubVoiceLines` → mapper → `CauldronVoiceLines`), and the **world**
-(`PlatformShapeSettings` from `Resources/LevelGeneration/PlatformShapeConfig`, `HubSceneConfig`
-from `Resources/Hub/HubSceneConfig` — missing = code defaults, `HubPlatformBuilder`,
-`IInteractionInput` → the NPC-interaction F key, `HubProximityPresenter` (ITickable), and
-`HubSceneEntrypoint` pinned between the staging presenter and default order). The scene itself
-carries only the camera, light, EventSystem, canvas (title + voice plaque + chosen-part
-readout), the Hero prefab, and the SceneContext — the platform, keeper, and portals are built
-at boot.
+(`Resources/Hub/HubVoiceLines` → mapper → `CauldronVoiceLines`), and the **world**:
+`PlatformShapeSettings` from `Resources/LevelGeneration/PlatformShapeConfig`, `HubSceneConfig`
+from `Resources/Hub/HubSceneConfig` (missing = code defaults), the **hub-biome dressing chain**
+(mirrors `AreaInstaller.InstallDressingBindings` — `IRunSeedProvider` pre-seeded with the
+platform seed and `ICurrentThemeProvider` pre-set to `LevelTheme.Hub` (both throw on
+read-before-set), `IBiomeAppearanceCatalog` from `Resources/World/Biomes`, the dressing
+catalogs/planner/library/tone-cache/spawner from `Resources/World/Dressing`),
+`HubPlatformAssembler`, `IInteractionInput` → the NPC-interaction F key, `HubProximityPresenter`
+(ITickable), and `HubSceneEntrypoint` pinned between the staging presenter and default order.
+The scene itself carries the **Area camera rig verbatim** (orthographic Main Camera +
+CinemachineBrain, the IsometricCamera vcam tracking the hero — no `CameraService`: its
+combat/belly consumers never run here), `CharacterLocomotionInstaller` on the SceneContext,
+light, EventSystem, canvas (title + voice plaque + chosen-part readout), the Hero prefab, and
+the SceneContext — the platform, keeper, and portals are built at boot.
 
 Deliberately absent: `MutationInstaller` (its blank rack drags the inventory fusion graph),
 narrative slice, combat, `MetaMemoryBootstrap` (the Hub reads meta.json snapshots directly).
@@ -199,14 +223,16 @@ missing = code defaults. The single authored instance: `Resources/Hub/HubSceneCo
 
 | Field | Type | Meaning | Default / notes |
 |---|---|---|---|
-| `_platformMaterial` | `Material` | The Hub platform's ground look — its "own biome" texture | empty = code-fallback junkyard tint |
 | `_platformSeed` | int | Deterministic hex-shape seed (the Hub always looks the same) | 777 |
 | `_npcDisplayName` | string | The junk-keeper's overhead name | "Junk Keeper" |
 | `_npcInteractRadius` | float | The keeper's F-interaction circle (world units) | 2.5 |
 | `_portalInteractRadius` | float | Each portal's F-interaction circle — deliberately small | 2 |
 
-Referenced assets: the ground `Material` (the designer's texture swap point — the platform mesh
-itself is the shared hex pipeline).
+No referenced assets. The platform's LOOK is deliberately **not** here — it is the **Hub
+biome's** authored appearance (`environment-dressing.md`): `Resources/World/Biomes/
+BiomeAppearance_Hub.asset` (`_theme: Hub`) → `Resources/World/Dressing/Demo/
+Demo_BiomeFeatureKit_Hub.asset` (`_groundMaterial` = `Demo_Ground_Hub.mat`, plus the decor
+pool + densities), exactly like any world biome.
 
 ---
 
@@ -214,10 +240,12 @@ itself is the shared hex pipeline).
 
 ### Reskin the Hub platform / retune the Hub world
 
-1. Author a `Material` for the ground (the junkyard texture) and assign it to
-   `Resources/Hub/HubSceneConfig.asset` → `_platformMaterial`.
-2. In the same asset: retune the platform seed (a different island shape), the keeper's name,
-   and the two interaction radii. No code changes.
+1. The Hub's look is the **Hub biome's** data (the same recipe as any biome,
+   `environment-dressing.md`): edit `Demo_BiomeFeatureKit_Hub.asset` (ground material, decor
+   pool) and `BiomeAppearance_Hub.asset` (tone tint/strength, blocker + cluster densities) under
+   `Resources/World/...`. Swap `Demo_Ground_Hub.mat` for the real junkyard texture when it lands.
+2. In `Resources/Hub/HubSceneConfig.asset`: retune the platform seed (a different island shape),
+   the keeper's name, and the two interaction radii. No code changes.
 
 ### Add or retune cauldron-voice lines
 
@@ -277,12 +305,11 @@ hero, the full menu → Hub → launch → death → Hub loop.
 ## 6. Known limitations / open points
 
 - **No hub meta-progression, no recurring cast** — MVP is staging + return only (brief scope).
-- **Placeholder scene dressing** — the platform ground is a code-fallback tint until a junkyard
-  material is authored (`HubSceneConfig._platformMaterial`); the portals are flat tinted discs;
-  the keeper is the placeholder humanoid assembly. The junkyard art pass is deferred (Track M).
+- **Placeholder hub-biome art** — `Demo_Ground_Hub.mat` is a flat muted tint and the hub kit
+  reuses the Desert demo rocks; the portals are flat tinted discs; the keeper is the placeholder
+  humanoid assembly. Authoring the real junkyard kit is the designer's art item (data-only).
 - **Movement is not locked while the card panel is open** — the hero can walk with the cards up;
   harmless today, an `IMovementInputLock` hookup is a polish item.
-- **The camera is static** — fine for one platform; no follow rig.
 - **The launch voice line is effectively unseen** (the scene loads immediately); a short
   linger/fade is a ROADMAP polish item.
 - **No match/cross soft hint** — the brief's optional "at-home vs marked-outsider" hint on the

@@ -8,6 +8,14 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Fixed
+- **Hub portals collapsing into one (O1)** [hub]: the three biome portals sat on a narrow 60°
+  arc at a small radius and each snapped **independently** to the nearest cell, so two adjacent
+  portals landed on the **same** cell (only two portals reachable). Fix: widen the arc
+  (−5°/45°/95°) + larger radius, and — the guarantee — each placed spot (keeper + portals) now
+  **reserves its cell** so `HubSceneEntrypoint` snaps every next spot to the nearest unblocked
+  **and unclaimed** cell. `HubProximityPresenter`/domain unchanged.
+
 ### Added
 - **Environment Dressing — kit contract, biome feature kits & site/camp dressing (Track E:
   E1+E2+E3; E4 backdrop deferred)** [environment-dressing · platform-generation · world-landscape ·
@@ -50,6 +58,17 @@ Every functional change appends an entry **in the same change as the code** (CLA
     `SiteDressingPlannerTests`, `EnvironmentDressingPlannerTests`,
     `PlatformHexSurfaceBlockedCellsTests`) + in-editor `DressingKitMapperTests` and the
     `DemoPackQuarantineTests` clean-swap guard; hexsurface (32) + combat (55) regressions green.
+  - **Decoration footprint & edge-fit (Track E polish, R17–R19)** (brief
+    `product-requirements/decoration-footprint-and-edge-fit.md`): wide props no longer spill past
+    the platform edge. Every feature entry carries a **rough footprint radius** (kind defaults
+    0.35/0.9/1.0 + optional `_footprintOverride`); cluster members are **deterministically nudged
+    inward** to fit fully within the silhouette (new pure `PlatformEdgeFit` —
+    signed-clearance-to-outline + inward nudge; skip only when genuinely unfittable), blocking
+    obstacles skip a cell their footprint doesn't clear. The **rim-framing overhang became
+    opt-in**: only `_mayOverhang`-flagged entries (demo: the desert `Tree_01`) anchor on the rim
+    and lean past the edge, with tighter member jitter so the base keeps its foothold. Density,
+    clustering, dials, and determinism unchanged; 38 dressing tests green (+6 `PlatformEdgeFitTests`,
+    +2 planner edge-fit tests, mapper footprint-resolution test).
   - **Fixed (same pass, playtest): platform ground now actually reads as the biome.** Two defects
     kept the platform texture unchanged: the legacy per-platform **debug color variation**
     (`colorVariation`, on in `Area.unity`) created a material instance and overwrote its color
@@ -116,6 +135,37 @@ Every functional change appends an entry **in the same change as the code** (CLA
     `RunStateServiceTests`, `RunLifecycleTests`, `MainMenuPresenterTests`).
 
 ### Changed
+- **The Hub is just another biome — one normal platform, the world's camera & controls (O1
+  corrective rework)** [hub · platform · camera · biomes] (brief
+  `product-requirements/hub-as-a-normal-platform.md`; `hub-staging.md` re-written): the Hub's
+  parallel-world implementation is gone — standing on the Hub is now indistinguishable from a
+  normal world platform except in style and content.
+  - **World camera**: the Area's Cinemachine rig cribbed verbatim into `Hub.unity` (orthographic
+    Main Camera + Brain, IsometricCamera vcam at euler 30/45/0, distance 10, damping 1/1/1,
+    tracking the hero) — the bespoke static yaw-180 perspective camera (which inverted WASD
+    relative to the screen) is deleted; no `CameraService` (its combat/belly consumers never
+    run here).
+  - **World locomotion**: `CharacterLocomotionInstaller` added to the Hub SceneContext — run
+    blend + facing now match the Area exactly.
+  - **World platform**: `HubPlatformBuilder` (the ArenaPlatformBuilder copy) **deleted**; new
+    `HubPlatformAssembler` is pure orchestration over the world path —
+    `PlatformSurfaceGenerator` → `IEnvironmentDressingPlanner` (blockers folded before the
+    mesh) → **`PlatformView`** (new standalone `Initialize(surface, topBoundary)` overload; the
+    `IPlatform` overload delegates — mesh/material/collider logic in exactly one place) →
+    `IEnvironmentDressingSpawner`. The Hub island reshapes once (seed path changed) — cosmetic.
+  - **The Hub is a first-class biome**: `LevelTheme.Hub` appended (excluded from the run
+    rotation by data — no `BiomeProgressionConfig` entry, the Cave convention); authored
+    `BiomeAppearance_Hub.asset` + `Demo_BiomeFeatureKit_Hub.asset` + `Demo_Ground_Hub.mat`
+    drive the toned junkyard ground and decor through the Track-E dressing chain
+    (`HubInstaller.InstallHubBiomeDressing` mirrors the Area bindings with theme/seed providers
+    pre-set). `HubSceneConfig` dropped `_platformMaterial` — the look is biome data now.
+  - **Placement verified against the real camera**: keeper = screen-left (world −X,+Z) of the
+    centre cell, portals on the screen-far arc; every F-spot snaps to the nearest unblocked
+    cell (`PlatformAnchor.NearestCellWorld`).
+  - Tests: all Hub/biome/journey fixtures green in the clone-project batch runner (55/55 on the
+    affected fixtures; the 5 failing `DressingKitMapperTests` are the parallel dressing
+    session's in-flight refactor — its `Set` reflection helper misses private base-class
+    fields after `_kitId` moved to the abstract `DressingKitDefinition` — unrelated).
 - **Journey routing & the new-run commit point (O1, revises the P2-2 PO note)** [main-menu ·
   persistence]: the menu's Journey now loads the **Hub** and no longer deletes the run save —
   the delete moved to the Hub's **launch**, so backing out of the Hub keeps Continue alive.

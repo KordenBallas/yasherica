@@ -1,6 +1,7 @@
 using System.Linq;
 using Combat.Battlefield;
 using Core.Logging;
+using LevelGeneration;
 using LevelGeneration.Surface;
 using Narrative.Director.Core;
 using UnityEngine;
