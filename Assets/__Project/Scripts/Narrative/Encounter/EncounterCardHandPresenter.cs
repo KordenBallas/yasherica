@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Combat.Core;
 using Core.Logging;
 using Narrative.Dialogue;
 using Zenject;
@@ -143,10 +144,11 @@ namespace Narrative.Encounter
             }
         }
 
-        private void HandleCombatTriggered(string enemyId)
+        private void HandleCombatTriggered(string enemyId, CombatInitiator initiator)
         {
             // Combat runs outside Ink; hide the hand until the encounter reports a result (DialogueActiveState
             // routes the combat, then ReportCombatResult resumes the runner and any post-combat line re-shows).
+            // The initiator is consumed by DialogueActiveState, not here.
             _view.SetVisible(false);
         }
 
@@ -190,11 +192,13 @@ namespace Narrative.Encounter
                 case EncounterCardType.Attack:
                     if (card.InkIndex >= 0)
                     {
-                        _runner.SelectChoice(card.InkIndex); // Ink-authored attack: keep its combat consequence
+                        // Ink-authored attack: keep its combat consequence, but the player picking it means
+                        // the player initiated the fight (D2) even though it routes through start-combat.
+                        _runner.SelectChoice(card.InkIndex, playerInitiatesCombat: true);
                     }
                     else
                     {
-                        _runner.TriggerCombat(); // system Monster verb
+                        _runner.TriggerCombat(); // system Monster verb (already player-initiated)
                     }
 
                     break;

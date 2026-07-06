@@ -13,6 +13,7 @@ namespace Combat.Battlefield
     public sealed class PlatformHexSurface
     {
         private readonly HashSet<HexCoordinates> _cellSet;
+        private readonly HashSet<HexCoordinates> _blockedSet;
 
         /// <param name="cells">The whole cells of the top surface; stored sorted by (Q, R).</param>
         /// <param name="orientation">Hex orientation shared with the combat grid.</param>
@@ -27,6 +28,9 @@ namespace Combat.Battlefield
         /// never walkable, never a combat cell.</param>
         /// <param name="notchFills">Flat floor triangles paving the sewn notches (local XZ, wound
         /// clockwise = up-facing), so the top surface reaches the stitched outline everywhere.</param>
+        /// <param name="blockedCells">Cells consumed by blocking dressing features
+        /// (environment-dressing): still ground/mesh, but unavailable to movement/combat.
+        /// Filtered to cells actually on the surface; null/empty = fully open.</param>
         public PlatformHexSurface(
             IReadOnlyList<HexCoordinates> cells,
             HexOrientation orientation,
@@ -35,7 +39,8 @@ namespace Combat.Battlefield
             IReadOnlyList<(float X, float Z)> outline,
             IReadOnlyList<(float X, float Z)> subdividedOutline,
             IReadOnlyList<(float X, float Z)> rimRing,
-            IReadOnlyList<((float X, float Z) A, (float X, float Z) B, (float X, float Z) C)> notchFills = null)
+            IReadOnlyList<((float X, float Z) A, (float X, float Z) B, (float X, float Z) C)> notchFills = null,
+            IReadOnlyCollection<HexCoordinates> blockedCells = null)
         {
             if (cells == null || cells.Count == 0)
             {
@@ -60,6 +65,22 @@ namespace Combat.Battlefield
             NotchFills = notchFills
                 ?? Array.Empty<((float X, float Z) A, (float X, float Z) B, (float X, float Z) C)>();
             CenterCell = FindCenterCell();
+
+            _blockedSet = new HashSet<HexCoordinates>();
+            if (blockedCells != null)
+            {
+                foreach (var cell in blockedCells)
+                {
+                    if (_cellSet.Contains(cell))
+                    {
+                        _blockedSet.Add(cell);
+                    }
+                }
+            }
+
+            var blockedSorted = new List<HexCoordinates>(_blockedSet);
+            blockedSorted.Sort(CompareCells);
+            BlockedCells = blockedSorted;
         }
 
         /// <summary>The whole cells of the top surface, sorted by (Q, R) for determinism.</summary>
@@ -92,12 +113,24 @@ namespace Combat.Battlefield
         public IReadOnlyList<(float X, float Z)> RimRing { get; }
 
         /// <summary>
-        /// Cells unavailable to movement/combat. Always empty today — the documented seam for the
-        /// biome-features brief (features occupy whole cells; brief §9).
+        /// Cells consumed by blocking dressing features (environment-dressing): part of the ground
+        /// and the mesh, but unavailable to movement/combat — the grid and the anchors skip them.
+        /// Sorted by (Q, R) for determinism.
         /// </summary>
-        public IReadOnlyCollection<HexCoordinates> BlockedCells { get; } = Array.Empty<HexCoordinates>();
+        public IReadOnlyCollection<HexCoordinates> BlockedCells { get; }
 
         public bool Contains(HexCoordinates hex) => _cellSet.Contains(hex);
+
+        /// <summary>True when the cell is consumed by a blocking dressing feature.</summary>
+        public bool IsBlocked(HexCoordinates hex) => _blockedSet.Contains(hex);
+
+        /// <summary>A copy of this surface with the given blocked cells (dressing bind time).</summary>
+        public PlatformHexSurface WithBlockedCells(IReadOnlyCollection<HexCoordinates> blockedCells)
+        {
+            return new PlatformHexSurface(
+                Cells, Orientation, HexSize, CenterOffset, Outline, SubdividedOutline, RimRing,
+                NotchFills, blockedCells);
+        }
 
         /// <summary>Local XZ center of a cell, recentered by <see cref="CenterOffset"/>.</summary>
         public (float X, float Z) GetCellCenterLocal(HexCoordinates hex)

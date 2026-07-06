@@ -48,6 +48,7 @@ namespace CharacterProgression.Core
         public IReadOnlyCollection<string> CompletedQuests => QuestsWithStatus(QuestStatus.Completed);
         public IReadOnlyCollection<string> FailedQuests => QuestsWithStatus(QuestStatus.Failed);
         public IReadOnlyCollection<string> EncounteredNpcs => _encounteredNpcs;
+        public IReadOnlyDictionary<string, string> Choices => _choices;
 
         public void StartQuest(string questId)
         {

@@ -87,16 +87,44 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void DuplicateTheme_FirstWins()
+        public void SameThemeAtDifferentTiers_BothKept()
+        {
+            // O1 authoring: a homeland sits at tier 1 (the entry pool) AND at its climb tier.
+            var config = Config(
+                Entry(LevelTheme.Desert, tier: 1, weight: 1, min: 3, max: 4),
+                Entry(LevelTheme.Desert, tier: 2, weight: 1, min: 3, max: 4));
+
+            var settings = BiomeProgressionConfigMapper.ToSettings(config);
+
+            Assert.AreEqual(2, settings.Entries.Count);
+            Assert.AreEqual(1, settings.Entries[0].EscalationTier);
+            Assert.AreEqual(2, settings.Entries[1].EscalationTier);
+        }
+
+        [Test]
+        public void DuplicateThemeTierPair_FirstWins()
         {
             var config = Config(
                 Entry(LevelTheme.Forest, tier: 1, weight: 1, min: 3, max: 4),
-                Entry(LevelTheme.Forest, tier: 9, weight: 9, min: 1, max: 1));
+                Entry(LevelTheme.Forest, tier: 1, weight: 9, min: 1, max: 1));
 
             var settings = BiomeProgressionConfigMapper.ToSettings(config);
 
             Assert.AreEqual(1, settings.Entries.Count);
-            Assert.AreEqual(1, settings.Entries[0].EscalationTier);
+            Assert.AreEqual(1, settings.Entries[0].SelectionWeight);
+        }
+
+        [Test]
+        public void DuplicatePair_ComparedPostNormalization()
+        {
+            // Tier 0 normalizes to 1, so it must collide with an authored tier-1 twin.
+            var config = Config(
+                Entry(LevelTheme.Forest, tier: 1, weight: 1, min: 3, max: 4),
+                Entry(LevelTheme.Forest, tier: 0, weight: 9, min: 1, max: 1));
+
+            var settings = BiomeProgressionConfigMapper.ToSettings(config);
+
+            Assert.AreEqual(1, settings.Entries.Count);
             Assert.AreEqual(1, settings.Entries[0].SelectionWeight);
         }
 

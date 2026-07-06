@@ -48,8 +48,11 @@ namespace Platform
         /// </summary>
         public IPlatformState CreateActiveState(IPlatform platform)
         {
-            // Check for enemy content -> Combat state
-            if (HasContentType(platform, ContentType.Enemy))
+            // Landing never starts a fight: combat is entered by engagement only (an enemy's aggro
+            // radius, the camp boss's circle, or a dialogue combat branch — all via the explicit
+            // overload below). Activation auto-enters combat only for an already-engaged platform,
+            // so re-landing resumes a begun battle (CombatAutoStartRule).
+            if (CombatAutoStartRule.ShouldAutoStartCombat(platform.Contents))
             {
                 _logger.Info(LogCategory.Platform,$"[PlatformStateFactory] Creating CombatActiveState for platform {platform.Id}");
                 return _combatActiveStateFactory.Create();

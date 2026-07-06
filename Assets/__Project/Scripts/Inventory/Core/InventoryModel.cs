@@ -75,6 +75,29 @@ namespace Inventory.Core
             return false;
         }
 
+        public int NextInstanceId => _nextInstanceId;
+
+        public void RestoreFrom(IReadOnlyList<ArtifactInstance> items, int nextInstanceId)
+        {
+            _items.Clear();
+            _nextInstanceId = nextInstanceId;
+            if (items == null)
+            {
+                return;
+            }
+
+            foreach (var item in items)
+            {
+                if (item == null)
+                {
+                    continue;
+                }
+
+                _items.Add(item);
+                OnItemAdded?.Invoke(item);
+            }
+        }
+
         public ArtifactInstance CreateDetachedInstance(string definitionId)
         {
             if (string.IsNullOrEmpty(definitionId))

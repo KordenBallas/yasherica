@@ -64,16 +64,42 @@ namespace Narrative.Director.Core
             _platformsSinceSite = _settings.MinPlatformsBetweenSites;
         }
 
-        public SlotAllocation AllocateSlot(bool questAvailable)
+        /// <summary>The queued (not yet emitted) site-block slots, in emit order (P2-2 run save).</summary>
+        public IReadOnlyList<SiteSlot> PendingSlots => System.Array.AsReadOnly(_pending.ToArray());
+
+        /// <summary>The site-spacing cursor (P2-2 run save).</summary>
+        public int PlatformsSinceSite => _platformsSinceSite;
+
+        /// <summary>The next run-unique site instance id (P2-2 run save).</summary>
+        public int NextInstanceId => _nextInstanceId;
+
+        /// <summary>Restores the run-scoped site cursors from a run save: the pending block queue,
+        /// the spacing counter, and the instance-id allocator.</summary>
+        public void RestoreState(IReadOnlyList<SiteSlot> pendingSlots, int platformsSinceSite, int nextInstanceId)
+        {
+            _pending.Clear();
+            if (pendingSlots != null)
+            {
+                foreach (var slot in pendingSlots)
+                {
+                    _pending.Enqueue(slot);
+                }
+            }
+
+            _platformsSinceSite = platformsSinceSite;
+            _nextInstanceId = nextInstanceId;
+        }
+
+        public SlotAllocation AllocateSlot(bool questAvailable, int currentTier)
         {
             if (_pending.Count > 0)
             {
-                return ToAllocation(_pending.Dequeue());
+                return ToAllocation(_pending.Dequeue(), currentTier);
             }
 
             _platformsSinceSite++;
 
-            var inner = _inner.AllocateSlot(questAvailable);
+            var inner = _inner.AllocateSlot(questAvailable, currentTier);
             if (inner.Kind == WorldSlotKind.Quest)
             {
                 // The rarer beat wins the slot; the planner decides via TryReserveSettlement whether
@@ -87,7 +113,16 @@ namespace Narrative.Director.Core
                 if (site != null)
                 {
                     // The site claims the slot: the inner ambient draw is superseded by the anchor.
-                    return ToAllocation(Reserve(site));
+                    var anchor = Reserve(site);
+                    if (site.HasBossLedAnchor && anchor.Beat.Kind == ContentBaseKind.Combat)
+                    {
+                        // A boss-led site's Combat anchor becomes boss + crew (bandit-camp brief):
+                        // only the immediately-emitted anchor converts — queued fill slots stay plain,
+                        // and multi-anchor boss sites are unsupported (documented limitation).
+                        return AllocateCampAnchor(anchor, site, currentTier);
+                    }
+
+                    return ToAllocation(anchor, currentTier);
                 }
             }
 
@@ -200,7 +235,7 @@ namespace Narrative.Director.Core
             return null;
         }
 
-        private SlotAllocation ToAllocation(SiteSlot slot)
+        private SlotAllocation ToAllocation(SiteSlot slot, int currentTier)
         {
             switch (slot.Beat.Kind)
             {
@@ -208,7 +243,7 @@ namespace Narrative.Director.Core
                     return new SlotAllocation(WorldSlotKind.Loot, 0, slot.Beat.Flavor, slot.Stamp);
 
                 case ContentBaseKind.Combat:
-                    return AllocateSiteCombat(slot);
+                    return AllocateSiteCombat(slot, currentTier);
 
                 case ContentBaseKind.Npc:
                     return new SlotAllocation(WorldSlotKind.Npc, 0, slot.Beat.Flavor, slot.Stamp);
@@ -218,38 +253,81 @@ namespace Narrative.Director.Core
             }
         }
 
-        private SlotAllocation AllocateSiteCombat(SiteSlot slot)
+        private SlotAllocation AllocateSiteCombat(SiteSlot slot, int currentTier)
         {
-            var theme = _themeProvider.CurrentTheme;
-            var pool = _monsterPools.GetPool(theme, slot.Beat.Flavor);
-            if (pool.Count == 0 && !string.IsNullOrEmpty(slot.Beat.Flavor))
-            {
-                // No enemy carries the flavor tag: fall back to the unfiltered biome pool so the
-                // beat still lands (the fight matters more than its flavor), warned once per flavor.
-                pool = _monsterPools.GetPool(theme);
-                if (pool.Count > 0 && _warnedFlavors.Add(slot.Beat.Flavor))
-                {
-                    _logger?.Warning(LogCategory.Narrative,
-                        $"[SiteAwareSlotAllocator] No '{theme}' enemy carries the flavor tag " +
-                        $"'{slot.Beat.Flavor}' - falling back to the unfiltered pool.");
-                }
-            }
-
+            var pool = ResolveCombatPool(slot.Beat.Flavor, currentTier);
             if (pool.Count == 0)
             {
-                if (!_warnedEmptyPool)
-                {
-                    _warnedEmptyPool = true;
-                    _logger?.Warning(LogCategory.Narrative,
-                        $"[SiteAwareSlotAllocator] No monster pool authored for biome " +
-                        $"'{theme}' - site combat slots downgrade to empty.");
-                }
-
                 return new SlotAllocation(WorldSlotKind.Empty, 0, null, slot.Stamp);
             }
 
             return new SlotAllocation(WorldSlotKind.Combat, pool[_random.NextInt(pool.Count)],
                 slot.Beat.Flavor, slot.Stamp);
+        }
+
+        /// <summary>
+        /// Converts a boss-led site's Combat anchor into a Camp allocation: rolls the crew size, then
+        /// each crew enemy from the anchor flavor's pool — fixed draw order on the shared stream, so
+        /// same seed → same camp. An empty pool lands the boss with no crew (his fight still exists via
+        /// his own cast enemy); the boss himself is cast by the planner from <see cref="SlotAllocation.Flavor"/>.
+        /// </summary>
+        private SlotAllocation AllocateCampAnchor(SiteSlot anchor, SiteDefinitionData site, int currentTier)
+        {
+            int crewCount = site.BossCrewMin;
+            if (site.BossCrewMax > site.BossCrewMin)
+            {
+                crewCount += _random.NextInt(site.BossCrewMax - site.BossCrewMin + 1);
+            }
+
+            var pool = ResolveCombatPool(anchor.Beat.Flavor, currentTier);
+            int[] crew;
+            if (pool.Count == 0 || crewCount == 0)
+            {
+                crew = System.Array.Empty<int>();
+            }
+            else
+            {
+                crew = new int[crewCount];
+                for (int i = 0; i < crewCount; i++)
+                {
+                    crew[i] = pool[_random.NextInt(pool.Count)];
+                }
+            }
+
+            return new SlotAllocation(WorldSlotKind.Camp, 0, site.BossStoryFlavor, anchor.Stamp, crew);
+        }
+
+        /// <summary>
+        /// The flavor→unfiltered→empty pool fallback chain shared by site combat and camp crew, gated by
+        /// the run-escalation tier (D19): only in-band creatures are drawn, and the unflavored fallback
+        /// stays tier-scoped too, so a site fight toughens with the climb like the ambient draw.
+        /// </summary>
+        private IReadOnlyList<int> ResolveCombatPool(string flavor, int currentTier)
+        {
+            var theme = _themeProvider.CurrentTheme;
+            var pool = _monsterPools.GetPool(theme, flavor, currentTier);
+            if (pool.Count == 0 && !string.IsNullOrEmpty(flavor))
+            {
+                // No in-band enemy carries the flavor tag: fall back to the unfiltered (but still
+                // tier-scoped) biome pool so the beat still lands, warned once per flavor.
+                pool = _monsterPools.GetPool(theme, currentTier);
+                if (pool.Count > 0 && _warnedFlavors.Add(flavor))
+                {
+                    _logger?.Warning(LogCategory.Narrative,
+                        $"[SiteAwareSlotAllocator] No in-band '{theme}' enemy carries the flavor tag " +
+                        $"'{flavor}' at tier {currentTier} - falling back to the unfiltered pool.");
+                }
+            }
+
+            if (pool.Count == 0 && !_warnedEmptyPool)
+            {
+                _warnedEmptyPool = true;
+                _logger?.Warning(LogCategory.Narrative,
+                    $"[SiteAwareSlotAllocator] No monster pool authored for biome " +
+                    $"'{theme}' at tier {currentTier} - site combat slots downgrade to empty.");
+            }
+
+            return pool;
         }
     }
 }

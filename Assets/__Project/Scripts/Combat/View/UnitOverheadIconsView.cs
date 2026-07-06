@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Combat.Data.Providers;
 using Combat.Player;
-using TMPro;
 using UnityEngine;
 
 namespace Combat.View
@@ -15,13 +14,15 @@ namespace Combat.View
     /// </summary>
     public sealed class UnitOverheadIconsView : MonoBehaviour, IUnitPlanIconsView
     {
-        private const string MoveGlyph = "»";
-
         private ICombatUnitViewRegistry _registry;
         private IAbilityDefinitionCatalog _catalog;
         private Camera _camera;
 
         private readonly Dictionary<int, Transform> _rows = new Dictionary<int, Transform>();
+
+        // D3 readiness cue: rows built from enemy committed intents read as restless (jitter/pulse) so a
+        // wound-up threat reads at a glance. Uniform across all armed enemies; cleared when the row empties.
+        private readonly HashSet<int> _armedEnemyRows = new HashSet<int>();
 
         public void Initialize(ICombatUnitViewRegistry registry, IAbilityDefinitionCatalog catalog)
         {
@@ -38,10 +39,30 @@ namespace Combat.View
                 if (_camera == null) return;
             }
 
-            foreach (var row in _rows.Values)
+            float baseHeight = TelegraphStyle.IconsHeightAboveUnit;
+            float phase = Time.time * TelegraphStyle.ReadyCuePulseSpeed;
+
+            foreach (var kv in _rows)
             {
-                if (row != null)
-                    row.rotation = _camera.transform.rotation;
+                var row = kv.Value;
+                if (row == null)
+                    continue;
+
+                row.rotation = _camera.transform.rotation;
+
+                if (_armedEnemyRows.Contains(kv.Key))
+                {
+                    // Restless: a small vertical jitter + a scale pulse so the queued threat reads as loaded.
+                    float jitter = Mathf.Sin(phase) * TelegraphStyle.ReadyIconJitterAmplitude;
+                    float pulse = 1f + (Mathf.Sin(phase) * 0.5f + 0.5f) * TelegraphStyle.ReadyIconPulseAmplitude;
+                    row.localPosition = new Vector3(0f, baseHeight + jitter, 0f);
+                    row.localScale = Vector3.one * pulse;
+                }
+                else
+                {
+                    row.localPosition = new Vector3(0f, baseHeight, 0f);
+                    row.localScale = Vector3.one;
+                }
             }
         }
 
@@ -59,7 +80,16 @@ namespace Combat.View
                 Destroy(row.GetChild(i).gameObject);
 
             if (icons == null || icons.Count == 0)
+            {
+                _armedEnemyRows.Remove(unitId);
                 return;
+            }
+
+            // An enemy row (built from a committed intent) reads as "armed" → restless in LateUpdate.
+            if (icons[0].IsEnemyIntent)
+                _armedEnemyRows.Add(unitId);
+            else
+                _armedEnemyRows.Remove(unitId);
 
             for (int i = 0; i < icons.Count; i++)
             {
@@ -76,6 +106,7 @@ namespace Combat.View
                     Destroy(row.gameObject);
             }
             _rows.Clear();
+            _armedEnemyRows.Clear();
         }
 
         private Transform GetOrCreateRow(int unitId, Transform visualRoot)
@@ -95,39 +126,27 @@ namespace Combat.View
             if (_rows.TryGetValue(unitId, out var row) && row != null)
                 Destroy(row.gameObject);
             _rows.Remove(unitId);
+            _armedEnemyRows.Remove(unitId);
         }
 
         private void CreateIcon(Transform row, PlanIconModel model, Vector3 localOffset)
         {
-            var iconGo = new GameObject(model.IsMoveIntent ? "MoveIntent" : $"Ability_{model.AbilityId}");
+            var iconGo = new GameObject($"Ability_{model.AbilityId}");
             iconGo.transform.SetParent(row, false);
             iconGo.transform.localPosition = localOffset;
 
-            if (model.IsMoveIntent)
+            // Ability icon (the committed-move `»` glyph was retired in D3 — a board arrow reads the move).
+            // Sprite lives on a scaled child so the hover collider on the icon root keeps its world size.
+            var spriteGo = new GameObject("Sprite");
+            spriteGo.transform.SetParent(iconGo.transform, false);
+            var spriteRenderer = spriteGo.AddComponent<SpriteRenderer>();
+            if (_catalog != null && _catalog.TryGet(model.AbilityId, out var definition) && definition.Icon != null)
             {
-                var glyph = iconGo.AddComponent<TextMeshPro>();
-                glyph.alignment = TextAlignmentOptions.Center;
-                glyph.fontSize = TelegraphStyle.MoveGlyphFontSize;
-                glyph.color = Color.white;
-                glyph.enableWordWrapping = false;
-                glyph.rectTransform.sizeDelta = new Vector2(1f, 1f);
-                glyph.text = MoveGlyph;
-            }
-            else
-            {
-                // Sprite lives on a scaled child so the hover collider on the icon root
-                // keeps its authored world size.
-                var spriteGo = new GameObject("Sprite");
-                spriteGo.transform.SetParent(iconGo.transform, false);
-                var spriteRenderer = spriteGo.AddComponent<SpriteRenderer>();
-                if (_catalog != null && _catalog.TryGet(model.AbilityId, out var definition) && definition.Icon != null)
-                {
-                    spriteRenderer.sprite = definition.Icon;
-                    var spriteSize = definition.Icon.bounds.size;
-                    float largestSide = Mathf.Max(spriteSize.x, spriteSize.y);
-                    if (largestSide > 0f)
-                        spriteGo.transform.localScale = Vector3.one * (TelegraphStyle.IconWorldSize / largestSide);
-                }
+                spriteRenderer.sprite = definition.Icon;
+                var spriteSize = definition.Icon.bounds.size;
+                float largestSide = Mathf.Max(spriteSize.x, spriteSize.y);
+                if (largestSide > 0f)
+                    spriteGo.transform.localScale = Vector3.one * (TelegraphStyle.IconWorldSize / largestSide);
             }
 
             var collider = iconGo.AddComponent<BoxCollider>();

@@ -49,7 +49,14 @@ namespace Narrative.Director.Core
             _platformsSinceQuest = _settings.MinPlatformsBetweenQuests;
         }
 
-        public SlotAllocation AllocateSlot(bool questAvailable)
+        /// <summary>The quest-spacing cursor, exposed for the run save (P2-2): it carries across
+        /// window boundaries, so a resumed run must continue counting where it left off.</summary>
+        public int PlatformsSinceQuest => _platformsSinceQuest;
+
+        /// <summary>Restores the quest-spacing cursor from a run save.</summary>
+        public void RestoreCursor(int platformsSinceQuest) => _platformsSinceQuest = platformsSinceQuest;
+
+        public SlotAllocation AllocateSlot(bool questAvailable, int currentTier)
         {
             _platformsSinceQuest++;
 
@@ -61,10 +68,10 @@ namespace Narrative.Director.Core
                 return new SlotAllocation(WorldSlotKind.Quest);
             }
 
-            return AllocateAmbient();
+            return AllocateAmbient(currentTier);
         }
 
-        private SlotAllocation AllocateAmbient()
+        private SlotAllocation AllocateAmbient(int currentTier)
         {
             int total = _settings.EmptyWeight + _settings.LootWeight + _settings.CombatWeight;
             if (total <= 0)
@@ -84,12 +91,14 @@ namespace Narrative.Director.Core
                 return new SlotAllocation(WorldSlotKind.Loot);
             }
 
-            return AllocateCombat();
+            return AllocateCombat(currentTier);
         }
 
-        private SlotAllocation AllocateCombat()
+        private SlotAllocation AllocateCombat(int currentTier)
         {
-            var pool = _monsterPools.GetPool(_themeProvider.CurrentTheme);
+            // Run-escalation (D19): draw only creatures whose tier band contains the current altitude,
+            // so higher tiers field tougher monsters. Unbanded creatures stay eligible at every tier.
+            var pool = _monsterPools.GetPool(_themeProvider.CurrentTheme, currentTier);
             if (pool.Count == 0)
             {
                 if (!_warnedEmptyPool)
@@ -97,7 +106,7 @@ namespace Narrative.Director.Core
                     _warnedEmptyPool = true;
                     _logger?.Warning(LogCategory.Narrative,
                         $"[WorldContentAllocator] No ambient monster pool authored for biome " +
-                        $"'{_themeProvider.CurrentTheme}' - combat slots downgrade to empty.");
+                        $"'{_themeProvider.CurrentTheme}' at tier {currentTier} - combat slots downgrade to empty.");
                 }
 
                 return new SlotAllocation(WorldSlotKind.Empty);

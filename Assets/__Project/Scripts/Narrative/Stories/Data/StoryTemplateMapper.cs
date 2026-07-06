@@ -56,7 +56,8 @@ namespace Narrative.Stories.Data
                 new List<string>(template.StoryTags),
                 template.ThreadId,
                 template.IsSpine,
-                template.Weight);
+                template.Weight,
+                template.TierBand.ToCore());
         }
     }
 }

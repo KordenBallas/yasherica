@@ -40,6 +40,12 @@ namespace Platform
             float bestZ = 0f;
             foreach (var cell in surface.Cells)
             {
+                // A landing must never target a cell consumed by a dressing obstacle.
+                if (surface.IsBlocked(cell))
+                {
+                    continue;
+                }
+
                 var (x, z) = surface.GetCellCenterLocal(cell);
                 float dx = platformPosition.x + x - worldPoint.x;
                 float dz = platformPosition.z + z - worldPoint.z;

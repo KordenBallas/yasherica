@@ -7,6 +7,7 @@ using Loot.Core;
 using Narrative.Director.Core;
 using Platform;
 using UnityEngine;
+using World.Dressing.Core;
 using Zenject;
 
 namespace LevelGeneration
@@ -33,9 +34,12 @@ namespace LevelGeneration
         private readonly PlatformSurfaceGenerator _surfaceGenerator = new();
         private readonly IGameLogger _logger;
         private readonly IRouteLandmarkSpawner _landmarkSpawner;
+        private readonly IEnvironmentDressingPlanner _dressingPlanner;
+        private readonly IEnvironmentDressingSpawner _dressingSpawner;
 
         private readonly Dictionary<int, IPlatform> _platforms = new();
         private readonly Dictionary<int, PlatformView> _platformViews = new();
+        private readonly Dictionary<int, PlatformDressingPlan> _pendingDressing = new();
         private IPlatform _entryPlatform;
         private IPlatform _lastAppended;
         private GameObject _areaGameObject;
@@ -43,6 +47,9 @@ namespace LevelGeneration
         private float _landmarkScanX = 0f;
 
         public IPlatform EntryPlatform => _entryPlatform;
+
+        /// <summary>Looks up a generated platform by its node id (P2-2 continue: hero re-placement).</summary>
+        public bool TryGetPlatform(int nodeId, out IPlatform platform) => _platforms.TryGetValue(nodeId, out platform);
 
         public AreaGenerator(
             PlatformGraphData graph,
@@ -54,7 +61,9 @@ namespace LevelGeneration
             IRunSeedProvider seedProvider,
             AreaGeneratorConfig config = null,
             IGameLogger logger = null,
-            IRouteLandmarkSpawner landmarkSpawner = null)
+            IRouteLandmarkSpawner landmarkSpawner = null,
+            IEnvironmentDressingPlanner dressingPlanner = null,
+            IEnvironmentDressingSpawner dressingSpawner = null)
         {
             _graph = graph;
             _routeModel = routeModel ?? new RunRouteModel(BiomeLandscapeSettings.CreateDefault(), 0);
@@ -66,6 +75,8 @@ namespace LevelGeneration
             _config = config ?? new AreaGeneratorConfig();
             _logger = logger;
             _landmarkSpawner = landmarkSpawner;
+            _dressingPlanner = dressingPlanner;
+            _dressingSpawner = dressingSpawner;
         }
 
         /// <summary>
@@ -193,6 +204,7 @@ namespace LevelGeneration
             }
 
             _platforms.Clear();
+            _pendingDressing.Clear();
             _entryPlatform = null;
         }
 
@@ -239,12 +251,27 @@ namespace LevelGeneration
             // Grow the hex surface deterministically: per-platform seed, content-kind profile, and
             // the battlefield-minimum floor for anything that can host a fight (brief §5–§8).
             var rng = CreatePlatformRng(node.Id);
-            PlatformContentKind kind = PlatformContentKindResolver.Resolve(node);
+            PlatformContentKind kind = node.ShapeKindOverride ?? PlatformContentKindResolver.Resolve(node);
             var profile = _shapeSettings.ProfileFor(kind);
             int guaranteedMinCells = kind == PlatformContentKind.Combat ? _shapeSettings.BattlefieldMinimumCells : 0;
             var surface = _surfaceGenerator.Generate(
                 profile, guaranteedMinCells, _shapeSettings.HexSize, _shapeSettings.Orientation,
                 _shapeSettings.RimWidth, _shapeSettings.RimJitterPercent, rng);
+
+            // Environment dressing (data-driven, deterministic): plan the platform's decoration and
+            // fold blocking features into the surface BEFORE the mesh/grid consume it. No planner
+            // bound (or nothing to dress) = the base layer — generation is unchanged.
+            if (_dressingPlanner != null)
+            {
+                var dressingPlan = _dressingPlanner.Plan(
+                    node.Id, node.Site, kind, surface, guaranteedMinCells);
+                if (dressingPlan.BlockedCells.Count > 0)
+                {
+                    surface = surface.WithBlockedCells(dressingPlan.BlockedCells);
+                }
+
+                _pendingDressing[node.Id] = dressingPlan;
+            }
 
             var visual = new PlatformVisual();
             visual.Surface = surface;
@@ -371,16 +398,34 @@ namespace LevelGeneration
             // Add PlatformView component
             var platformView = platformGO.AddComponent<PlatformView>();
 
+            // The dressing plan made for this node (if any): its kit may re-ground the platform,
+            // and its placements spawn under the platform transform after the view initializes.
+            _pendingDressing.TryGetValue(platform.Id, out var dressingPlan);
+            Material groundMaterial = dressingPlan != null && _dressingSpawner != null
+                ? _dressingSpawner.ResolveGroundMaterial(dressingPlan)
+                : null;
+
+            // A dressed ground is the biome's look — the debug per-platform color variation must
+            // not stomp it (PlatformView overwrites the material color when a tint is passed).
+            Color? debugTint = groundMaterial == null && _config.colorVariation
+                ? GetPlatformColor(platform.Id)
+                : null;
+
             // Configure PlatformView with config
             platformView.SetConfig(
-                _config.platformMaterial,
+                groundMaterial != null ? groundMaterial : _config.platformMaterial,
                 _shapeSettings.PlatformThickness,
                 _shapeSettings.RimDropHeight,
                 _shapeSettings.CellInset,
-                _config.colorVariation ? GetPlatformColor(platform.Id) : null
+                debugTint
             );
 
             platformView.Initialize(platform);
+
+            if (dressingPlan != null && _dressingSpawner != null)
+            {
+                _dressingSpawner.Spawn(dressingPlan, platformGO.transform);
+            }
 
             // Store the view
             _platformViews[platform.Id] = platformView;

@@ -26,5 +26,9 @@ MonoBehaviour:
     _subjectToken:
     _key: raider_offer_taken
     _valueType: 0
+  - _namespace: 0
+    _subjectToken:
+    _key: raider_pact_sworn
+    _valueType: 0
   _dialogueTags:
   - raider-motive

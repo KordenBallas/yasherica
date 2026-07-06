@@ -14,7 +14,9 @@ namespace Narrative.Director.Core
         /// <summary>An ambient aggressive monster from the biome pool — no dialogue or quest attached.</summary>
         Combat = 2,
         /// <summary>A simple low-tier loot find rolled from the biome platform table.</summary>
-        Loot = 3
+        Loot = 3,
+        /// <summary>A boss-led camp: a boss story encounter fronting a crew of pre-placed enemies.</summary>
+        Camp = 4
     }
 
     /// <summary>
@@ -45,8 +47,12 @@ namespace Narrative.Director.Core
         /// <summary>The platform's site membership; <see cref="SiteStamp.Wild"/> outside a site block.</summary>
         public SiteStamp Site { get; }
 
+        /// <summary>The crew enemy ids behind a camp's boss; non-empty only when <see cref="Kind"/> is Camp.</summary>
+        public System.Collections.Generic.IReadOnlyList<int> CrewEnemyIds { get; }
+
         private PlannedPlatform(PlannedPlatformKind kind, StoryTemplateData story, NpcInstance actor,
-            bool isCombat, int enemyId, string flavor, SiteStamp site)
+            bool isCombat, int enemyId, string flavor, SiteStamp site,
+            System.Collections.Generic.IReadOnlyList<int> crewEnemyIds = null)
         {
             Kind = kind;
             Story = story;
@@ -55,6 +61,7 @@ namespace Narrative.Director.Core
             EnemyId = enemyId;
             Flavor = flavor ?? string.Empty;
             Site = site;
+            CrewEnemyIds = crewEnemyIds ?? System.Array.Empty<int>();
         }
 
         public static PlannedPlatform StoryEncounter(StoryTemplateData story, NpcInstance actor, bool isCombat,
@@ -69,5 +76,11 @@ namespace Narrative.Director.Core
 
         public static PlannedPlatform EmptyFiller(SiteStamp site = default) =>
             new PlannedPlatform(PlannedPlatformKind.Empty, null, null, false, 0, null, site);
+
+        /// <summary>A boss-led camp: the boss's story encounter plus the crew that joins his one fight.</summary>
+        public static PlannedPlatform CampEncounter(StoryTemplateData story, NpcInstance actor,
+            System.Collections.Generic.IReadOnlyList<int> crewEnemyIds, string flavor = null,
+            SiteStamp site = default) =>
+            new PlannedPlatform(PlannedPlatformKind.Camp, story, actor, true, 0, flavor, site, crewEnemyIds);
     }
 }

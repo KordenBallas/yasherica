@@ -7,8 +7,8 @@ namespace World.Biomes.Data
     /// <summary>
     /// The only bridge from the <see cref="BiomeProgressionConfig"/> SO to the UnityEngine-free
     /// <see cref="BiomeProgressionSettings"/> Core record (CLAUDE.md §7). Falls back to the fixed
-    /// Forest default when no config asset is wired; duplicate themes keep the first authored entry
-    /// (the catalog convention).
+    /// Forest default when no config asset is wired; duplicate (theme, tier) pairs keep the first
+    /// authored entry (the catalog convention) — the same theme at different tiers is legitimate.
     /// </summary>
     public static class BiomeProgressionConfigMapper
     {
@@ -22,7 +22,10 @@ namespace World.Biomes.Data
             }
 
             var entries = new List<BiomeProgressionEntry>();
-            var seenThemes = new HashSet<LevelGeneration.LevelTheme>();
+            // Deduped on the (theme, tier) pair — the same theme at SEVERAL tiers is legitimate
+            // authoring (O1: the homelands sit at tier 1 as the entry pool AND at their climb tier),
+            // compared post-normalization so a sloppy tier 0 still collides with its tier-1 twin.
+            var seenKeys = new HashSet<(LevelGeneration.LevelTheme, int)>();
             foreach (var entry in config.Biomes)
             {
                 if (entry == null)
@@ -30,16 +33,18 @@ namespace World.Biomes.Data
                     continue;
                 }
 
-                if (!seenThemes.Add(entry.Theme))
+                var mapped = new BiomeProgressionEntry(
+                    entry.Theme, entry.EscalationTier, entry.SelectionWeight,
+                    entry.StretchMinWindows, entry.StretchMaxWindows);
+                if (!seenKeys.Add((mapped.Theme, mapped.EscalationTier)))
                 {
                     logger?.Warning(LogCategory.LevelGeneration,
-                        $"[BiomeProgressionConfigMapper] Duplicate entry for {entry.Theme}; first authored wins.");
+                        $"[BiomeProgressionConfigMapper] Duplicate entry for {mapped.Theme} at tier " +
+                        $"{mapped.EscalationTier}; first authored wins.");
                     continue;
                 }
 
-                entries.Add(new BiomeProgressionEntry(
-                    entry.Theme, entry.EscalationTier, entry.SelectionWeight,
-                    entry.StretchMinWindows, entry.StretchMaxWindows));
+                entries.Add(mapped);
             }
 
             return new BiomeProgressionSettings(entries);

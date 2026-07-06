@@ -68,6 +68,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable, I
     [Inject]
     private IModularCharacterFactory _modularFactory;
     [Inject]
+    private CharacterSystem.Runtime.IDemoRoleTintApplier _tintApplier;
+    [Inject]
     private IFactStore _factStore;
     [Inject]
     private ICastingFactory _castingFactory;
@@ -85,6 +87,20 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable, I
     private Core.Camera.CameraConfig _cameraConfig;
     [Inject]
     private IGameLogger _logger;
+    [Inject]
+    private Narrative.Actors.Core.ILiveActorRegistry _actorRegistry;
+    [Inject]
+    private System.Collections.Generic.IReadOnlyList<Narrative.Stories.Core.StoryTemplateData> _storyTemplates;
+    [Inject]
+    private Core.Persistence.RunRestoreContext _restoreContext;
+    [Inject]
+    private LevelGeneration.WorldStatePersistenceBridge _worldPersistence;
+    [Inject]
+    private Core.Persistence.AutosaveService _autosave;
+    [Inject]
+    private World.Dressing.Core.IEnvironmentDressingPlanner _dressingPlanner;
+    [Inject]
+    private IEnvironmentDressingSpawner _dressingSpawner;
 
     private IPlayer _localPlayer;
 
@@ -132,7 +148,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable, I
         // needs a pre-built graph or pre-assigned narrative (levelNarrative is null on this path).
         areaGenerator = new AreaGenerator(
             new PlatformGraphData(), routeModel, _platformFactory, _lootRollService, _currentThemeProvider,
-            _platformShapeSettings, _runSeedProvider, config, _logger, landmarkSpawner);
+            _platformShapeSettings, _runSeedProvider, config, _logger, landmarkSpawner,
+            _dressingPlanner, _dressingSpawner);
 
         CreateWorldBackdrop(biomeAppearance, landscapeSettings, routeSeed);
 
@@ -143,9 +160,16 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable, I
 
         coordinator = new RunStreamingCoordinator(
             _windowPlanner, _archetypeCatalog, _modularFactory, _factStore, _castingFactory,
-            _fragmentLibrary, _intentResolver, _interactionService, areaGenerator, biomeDirector, _logger);
+            _fragmentLibrary, _intentResolver, _interactionService, areaGenerator, biomeDirector,
+            _actorRegistry, _storyTemplates, _logger, _tintApplier);
+        _worldPersistence.Attach(coordinator);
 
-        IPlatform entry = coordinator.Begin();
+        // Continue (P2-2): a valid run save rebuilds the recorded world (windows behind + beats
+        // ahead) and returns the platform the hero stood on; a fresh run plans window 0 live. The
+        // restore coordinator has already replayed facts/RNG/actors/quests/inventory by now.
+        IPlatform entry = _restoreContext.IsRestoring
+            ? coordinator.BeginRestored(_restoreContext.Snapshot.World)
+            : coordinator.Begin();
 
         if (areaView == null)
         {
@@ -178,6 +202,15 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable, I
         if (contentSpawner == null)
         {
             contentSpawner = _container.InstantiateComponent<Platform.ContentSpawner>(gameObject);
+        }
+
+        // The initial savepoint (A1): the run is continuable from the moment the world exists —
+        // quitting before crossing a single platform still resumes at the entry platform. On a
+        // continue the existing run.json IS the valid savepoint: re-saving here would capture the
+        // pre-rig-assembly instant (the hero body applies in Start) and could lose the saved body.
+        if (!_restoreContext.IsRestoring)
+        {
+            _autosave.Save();
         }
     }
 

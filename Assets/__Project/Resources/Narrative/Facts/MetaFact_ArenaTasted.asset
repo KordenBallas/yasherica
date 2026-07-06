@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a1639f41f9faa245be8a645a100f78d, type: 3}
+  m_Name: MetaFact_ArenaTasted
+  m_EditorClassIdentifier: Yasherica::Narrative.Facts.Data.FactKeyDefinition
+  _namespace: 0
+  _scope: 6
+  _key: arena_tasted
+  _horizon: 1
+  _valueType: 0
+  _defaultBool: 0
+  _defaultInt: 0
+  _defaultFloat: 0
+  _defaultString:
+  _description: 'Meta-horizon tasted-forms catalog (P4-5), subject = part id: true
+    once the hero has carried the part in any run (equipped or dormant). Written only
+    by TastedFormsRecorder as a passive side effect of play; read only by the Arena
+    draft to widen the shared board. No currency, no unlock action; never feeds back
+    into Journey.'

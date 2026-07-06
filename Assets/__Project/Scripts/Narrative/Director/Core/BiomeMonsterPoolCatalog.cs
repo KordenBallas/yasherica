@@ -68,6 +68,49 @@ namespace Narrative.Director.Core
             return matched;
         }
 
+        public IReadOnlyList<int> GetPool(LevelTheme theme, int tier)
+        {
+            if (!_pools.TryGetValue(theme, out var entries) || entries == null)
+            {
+                return EmptyPool;
+            }
+
+            var matched = new List<int>();
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (entries[i].Band.Contains(tier))
+                {
+                    matched.Add(entries[i].Id);
+                }
+            }
+
+            return matched;
+        }
+
+        public IReadOnlyList<int> GetPool(LevelTheme theme, string flavor, int tier)
+        {
+            if (string.IsNullOrEmpty(flavor))
+            {
+                return GetPool(theme, tier);
+            }
+
+            if (!_pools.TryGetValue(theme, out var entries) || entries == null)
+            {
+                return EmptyPool;
+            }
+
+            var matched = new List<int>();
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (HasTag(entries[i].Tags, flavor) && entries[i].Band.Contains(tier))
+                {
+                    matched.Add(entries[i].Id);
+                }
+            }
+
+            return matched;
+        }
+
         private static bool HasTag(IReadOnlyList<string> tags, string flavor)
         {
             for (int i = 0; i < tags.Count; i++)

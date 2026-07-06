@@ -4,8 +4,11 @@
 > readability layer on top of it: hero facing legibility, overhead plan icons on every unit, and
 > the one-shot / hover-replay ghost preview of an ability's full outcome. Implements the three
 > verified PO briefs `combat-hero-facing.md`, `combat-turn-intent-phase.md`, and
-> `combat-ability-ghost-telegraph.md` (Track C) as one combat pass.
-> Status: current as of 2026-07-03.
+> `combat-ability-ghost-telegraph.md` (Track C) as one combat pass, plus the D2 initiative +
+> turn-order strip (`combat-initiative-and-turn-queue.md`; the aim/fire input half lives in
+> `ability-subsystem.md` R8) and the D3 ability animation + move arrow + enemy readiness cue
+> (`combat-ability-animation.md`, R15–R18).
+> Status: current as of 2026-07-05.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -31,9 +34,13 @@
   moved *into* the committed cells, they are hit.
 - **R3** A committed **move** whose destination became invalid or occupied at resolve **fizzles**
   (the enemy stays; it does not pick a new destination). A dead or stunned committer is skipped.
-- **R4** Resolution order is **player, then enemies**: player actions resolve live during Act;
-  enemy intents resolve one by one (with visual pacing) in Resolve. Win conditions are checked
-  after every resolved intent — combat can end mid-resolve.
+- **R4** Resolution order is **initiator-led for the opening round, player-then-enemies after**
+  (D2, `combat-initiative-and-turn-queue.md`): the fight's **initiator acts first** in round 1 — a
+  player-initiated fight runs Act→Resolve (player first), an enemy-initiated fight (ambush or an NPC
+  that turned hostile) runs Resolve→Act (enemies first). Rounds 2+ are player-then-enemies. Within
+  each phase, player actions resolve live during Act; enemy intents resolve one by one (with visual
+  pacing) in Resolve. Win conditions are checked after every resolved intent — combat can end
+  mid-resolve. (The multi-round lead policy — alternate/persist/re-roll — stays deferred.)
 - **R5** The player is **not** locked: only enemy intent is pre-committed. Player queueing /
   execution semantics are unchanged (`ability-subsystem.md` R7–R8). Player actions are accepted
   only during PlayerAct; free actions (turning) stay legal after the unit has acted.
@@ -46,6 +53,19 @@
   (`TacticalAI` / `ConfigurableTacticalAI`) is untouched — only decide-timing (round start) and
   commitment (lock + reveal) changed.
 
+**Initiative & turn-order strip** (brief `combat-initiative-and-turn-queue.md`, D2)
+
+- **R4a** **The initiator leads the opening round.** Who caused the fight is captured as a
+  `CombatInitiator` (`Player` / `Enemy`) and threaded to the controller: a player-chosen Attack
+  (the encounter's system Attack card **or** a `card: attack` Ink choice) → `Player`; an ambush /
+  aggro cross, or a plain `start-combat:` tag (an NPC turning hostile on its own) → `Enemy` (the
+  default). `RoundLeadPolicy.EnemyLeadsThisRound(turnNumber, initiator)` gates the reorder to round 1
+  only. Determinism holds: same seed + same initiator → same order.
+- **R4b** A **horizontal turn-order strip** in the **top-right** lists the round's actors in order —
+  the player and each **live** enemy — leader-first per R4a, with the current side and any
+  already-acted side marked, dead units dropped, cleared when combat ends. It is a **read-out only**
+  (adds no way to act). Demo placement — final HUD layout/portraits are a later pass.
+
 **Facing legibility** (brief `combat-hero-facing.md`; the aiming model is in `ability-subsystem.md`)
 
 - **R8** A unit's model visually points along its domain `FacingDirection` (`UnitFacingRotator`
@@ -56,9 +76,10 @@
 **Overhead plan icons** (brief `combat-ability-ghost-telegraph.md` §5)
 
 - **R9** Every unit — player **and** enemy — shows its plan as **icons above it, in order**:
-  the player's queued abilities (by `ExecutionOrder`), an enemy's committed intent (its ability's
-  icon, or a `»` glyph for a committed move). Enemy icons appear the moment plans are revealed at
-  EnemyPlan, before the player acts. Dead units show nothing; an executed queue clears the row.
+  the player's queued abilities (by `ExecutionOrder`), an enemy's committed **ability** intent (its
+  ability icon). Enemy icons appear the moment plans are revealed at EnemyPlan, before the player
+  acts. Dead units show nothing; an executed queue clears the row. *(D3: a committed **move** no
+  longer shows an overhead `»` glyph — its read is the board direction arrow, R17.)*
 
 **Ghost preview** (brief `combat-ability-ghost-telegraph.md` §2–§4, §6–§7)
 
@@ -79,6 +100,27 @@
   Standard material), fade-in → hold → fade-out, all clutter (HP labels, icon rows) stripped
   from clones. The aim-time affected-cell highlight (the "where" layer) is untouched.
 
+**Ability animation, move arrow & enemy readiness** (brief `combat-ability-animation.md`, D3)
+
+- **R15** **Every ability plays a code-authored placeholder animation that spans its whole affected
+  area** — a **cell-sweep**: each struck cell flashes/pops, swept outward along the caster's line for
+  a **Line** and simultaneously for a **Ring**, matched to the ability's shape (not a caster-only
+  pose). Shape-driven; `AbilityDefinition._animationTrigger` stays the seam for real clips later.
+- **R16** The animation plays in **two treatments**: **translucent** as the ghost preview (on
+  queue-submit and on hover-replay, for the player's queue **and** an enemy's committed intent, R10/R11)
+  and **opaque** on **live execution** — for the player's queue **and** the enemy's paced resolve, so
+  an enemy action is **visibly not instant**. Live playback is emitted from the shared executor after
+  the outcome applies (`AbilityFiredCue`), so it never changes outcomes, cells, or timing.
+- **R17** An enemy's committed **move** shows a **direction arrow on the board** (from its plan-time
+  origin toward the committed destination) during the plan phase — replacing the `»` glyph. If the
+  move whiffs because the board shifted, that is consistent with the committed-intent model (R2/R3).
+- **R18** An enemy holding a **committed intent reads as "armed / about to act"** during the plan
+  phase, via two combined cues: its overhead plan icons go **restless** (jitter/pulse) **and** it holds
+  a placeholder **wind-up body pose** (a transform lean/scale/bob — the rig has no attack state). The
+  cue is **enemies only**, **uniform** (no turn-order escalation), and **clears when the round enters
+  `EnemyResolve`** (the enemy acts/moves) — the move arrow and pose both stop, so the pose never fights
+  the enemy's movement. The pose is applied as an additive offset (never an absolute position). Presentation only.
+
 ### 1.2 Non-functional requirements
 
 - **N1** Round/intent/outcome logic is pure C# (no UnityEngine beyond math types) and unit-tested;
@@ -96,19 +138,21 @@
 
 ```
 Scripts/Combat/
-  Core/            RoundPhase, EnemyIntent, AbilityOutcome, FacingGeometry,
-                   DisplacementResolver (pure C#)
+  Core/            RoundPhase, EnemyIntent, AbilityOutcome, AbilityFiredCue (D3),
+                   FacingGeometry, DisplacementResolver (pure C#)
   TurnManagement/  EnemyIntentPlanner (pure), TurnManager (round counter, acting player)
-  Execution/       EnemyIntentResolver, AbilityExecutor.ExecuteAbilityAtCells,
-                   AbilityOutcomeCalculator (pure)
+  Execution/       EnemyIntentResolver, AbilityExecutor.ExecuteAbilityAtCells (emits AbilityFiredCue),
+                   AbilityOutcomeCalculator (pure), IAbilityFiredSink/AbilityFiredSink (D3 relay)
   Controller/      CombatController — the round orchestrator (StartRound / CheckTurnEnd /
                    ResolveNextEnemyIntent / EndRound)
   Player/          EnemyRoundController (paced resolve coroutine),
                    UnitPlanIconsPresenter, GhostPlaybackPresenter,
-                   GhostPlaybackPlan(+Builder), PlanIconModel (pure presenters/models)
+                   GhostPlaybackPlan(+Builder), PlanIconModel,
+                   EnemyIntentTelegraphPresenter(+Model, D3) (pure presenters/models)
   View/            UnitFacingRotator, UnitOverheadIconsView, AbilityIconMarker,
                    GhostPlaybackView, GhostVisualCloner, CombatUnitViewRegistry,
-                   TelegraphStyle (thin MonoBehaviours + constants)
+                   AbilityCellFlash/AbilityAreaSweep, LiveAbilityAnimationView,
+                   EnemyIntentTelegraphView (D3), TelegraphStyle (thin MonoBehaviours + constants)
   Input/           AbilityIconHoverController (thin hover raycast adapter)
   Data/Providers/  AbilityDefinitionCatalog (icon lookup by ability id)
 ```
@@ -134,7 +178,13 @@ StartRound (CombatController)
   EnemyIntentPlanner.Plan(state)        every enemy decides, in UnitId order
   state = state.WithEnemyIntents(...)   locked
   OnEnemyPlansRevealed                  UnitPlanIconsPresenter draws enemy icons
-  RoundPhase = PlayerAct; OnTurnStarted(human)
+  RoundLeadPolicy.EnemyLeadsThisRound?  (opening round + enemy initiator)
+    enemy-led → RoundPhase = EnemyResolve   (enemies resolve first)
+    else      → BeginPlayerAct()            RoundPhase = PlayerAct; OnTurnStarted(human)
+
+  Per-round flags (_playerActedThisRound / _enemiesResolvedThisRound) drive the second phase:
+    CheckTurnEnd (player done)   → EnemyResolve if enemies haven't resolved, else EndRound
+    Resolve exhausted            → BeginPlayerAct() if the player hasn't acted, else EndRound
 
 PlayerAct
   player turns freely (free ChangeDirectionAction), schedules (queue icons appear,
@@ -160,11 +210,31 @@ first Plan phase commits intents against the **full** board.
   `CharacterCombatInitializer` / `EnemyCombatIntegrator` (which also attach `UnitFacingRotator`),
   cleared on combat exit.
 - `CombatActiveState.OnEnter` creates per-combat: `UnitOverheadIconsView` (+ pure
-  `UnitPlanIconsPresenter`) and `GhostPlaybackView` (+ pure `GhostPlaybackPresenter` +
-  `AbilityIconHoverController`); `OnExit` disposes them all.
+  `UnitPlanIconsPresenter`), `GhostPlaybackView` (+ pure `GhostPlaybackPresenter` +
+  `AbilityIconHoverController`), the D2 **`TurnOrderStripView`** (+ pure `TurnOrderStripPresenter`),
+  and the D3 **`LiveAbilityAnimationView`** + **`EnemyIntentTelegraphView`** (+ pure
+  `EnemyIntentTelegraphPresenter`); `OnExit` disposes them all. The strip is a **code-built**
+  screen-space overlay (its own `ScreenSpaceOverlay` Canvas + top-right `HorizontalLayoutGroup` of
+  per-actor cells), following the same no-new-prefab convention as the icon/ghost views (N3). PvE
+  (Area) only — the Arena orders by its own `IArenaResolutionOrder` and its presentation is Track G.
+- **D3 ability animation** (`combat-ability-animation.md`): the placeholder motion is one shared
+  cell-sweep — `AbilityAreaSweep` spawns a self-animating `AbilityCellFlash` (a ground quad that pops
+  → fades) per affected cell, staggered by distance from the caster for a Line (sweep) and together for
+  a Ring. It is played **opaque** by `LiveAbilityAnimationView` (subscribed to the executor's
+  `IAbilityFiredSink` — player queue + enemy resolve) and **translucent** by `GhostPlaybackView` (over
+  the plan's `AffectedCellPositions`, alongside the existing outcome clones/labels). Timing/tint live in
+  `TelegraphStyle` (`AbilitySweepSeconds` ≤ the enemy resolve beat). `AbilityFiredCue` is pure — the
+  executor stays UnityEngine-free.
+- **D3 enemy telegraph** (`EnemyIntentTelegraphView`, driven by the pure `EnemyIntentTelegraphPresenter`
+  reading `EnemyIntents`): a ground **move-direction arrow** (`LineRenderer` chevron toward the committed
+  destination) and the **"armed" wind-up pose** (a transform lean/scale/bob on the enemy visual root,
+  position/scale only — `UnitFacingRotator` owns rotation — cleared when the intent resolves). The
+  **restless-icon** half of the readiness cue lives in `UnitOverheadIconsView` (jitter/pulse on rows
+  built from enemy intents). Enemies only, uniform.
 - Icons: code-built world-space rows (`SpriteRenderer` per ability icon via
-  `AbilityDefinitionCatalog`, TMP `»` for moves), billboarded, each icon carrying a small trigger
-  `BoxCollider` + `AbilityIconMarker { UnitId, QueueIndex, IsEnemyIntent }`. Hover raycast filters
+  `AbilityDefinitionCatalog`; the committed-move `»` glyph was retired in D3 — R17), billboarded, each
+  icon carrying a small trigger `BoxCollider` + `AbilityIconMarker { UnitId, QueueIndex, IsEnemyIntent }`.
+  Hover raycast filters
   `Physics.RaycastAll` hits by that component — no layer/project-settings changes.
 - Ghosts: `GhostVisualCloner` instantiates the unit visual under an **inactive holder** (so no
   cloned combat component ever wakes up), strips behaviours/colliders/physics/labels, and swaps
@@ -175,11 +245,23 @@ first Plan phase commits intents against the **full** board.
 ### 2.5 DI wiring
 
 `AreaInstaller`: `EnemyIntentPlanner`, `EnemyIntentResolver`, `IAbilityOutcomeCalculator`,
-`IAbilityDefinitionCatalog`, `ICombatUnitViewRegistry`, `EnemyRoundController` — all `AsSingle`.
+`IAbilityDefinitionCatalog`, `ICombatUnitViewRegistry`, `EnemyRoundController`, and the D3
+`IAbilityFiredSink` (`AbilityFiredSink`) — all `AsSingle`. The sink is `[InjectOptional]` on
+`AbilityExecutor`, so headless/tests and the Arena (which does not bind it) stay null-safe.
 `CombatControllerFactory` threads the planner/resolver into each `CombatController` it creates.
 `TurnManager` still implements `ITurnManager` but is degenerate: `CurrentPlayer` is pinned to the
 human player (every `IsPlayerTurn` consumer keeps working) and `NextTurn()` only advances the
 round counter.
+
+**Initiator threading (D2).** The fight's `CombatInitiator` is captured at the engagement sites and
+stored on `EnemyContent.Initiator` (default `Enemy`): the `DialogueRunner.OnCombatTriggered` event
+carries it (player-Attack vs. `start-combat:` tag, distinguished by a one-shot player-combat latch so
+a `card: attack` Ink choice reads as player-initiated), `DialogueActiveState` stamps it onto every
+latched `EnemyContent`, and `NpcEncounterStarter` sets `Enemy` for an ambush. `CombatActiveState.OnEnter`
+reduces the engaged contents to one opening initiator (`Player` if any engaged content is player-led)
+and passes it to `ICombatController.Initialize(..., openingInitiator)`, exposed as
+`ICombatController.OpeningInitiator` for the strip. `ArenaCombatController` ignores it (Arena orders by
+`IArenaResolutionOrder`).
 
 ---
 
@@ -239,9 +321,24 @@ Roslyn workaround when the editor holds the project lock):
   execution; prediction never mutates state.
 - `UnitPlanIconsPresenterTests` — icon models per unit kind, reveal timing, cleared rows.
 - `GhostPlaybackPlanTests` — outcome→world mapping, replay-reflects-current-board.
+- `RoundLeadPolicyTests` (D2) — the opening-round-only initiator-lead decision.
+- `TurnOrderStripPresenterTests` (D2) — actors leader-first, enemies in resolution order, dead
+  dropped, current/already-acted side derived from phase + lead, cleared on game end.
+- `DialogueRunnerTests` / `EncounterCardHandPresenterTests` (D2) — the captured initiator: a
+  `start-combat:` tag reads `Enemy`, a system/`card: attack` Attack reads `Player`.
+- `AbilityFiredCueTests` (D3) — executing an ability notifies the fired-cue sink with the caster,
+  shape, and struck cells; the executor is null-safe when no sink is bound.
+- `EnemyIntentTelegraphPresenterTests` (D3) — armed enemies only (dead/player excluded), a committed
+  move carries its from/to cells, cleared on game end.
+- `GhostPlaybackPlanTests` (D3, extended) — the plan carries the affected-cell world positions +
+  sweep origin, line vs ring.
 
-Verified manually in play mode (thin adapters): `CombatController` round orchestration,
-`EnemyRoundController` pacing, `UnitFacingRotator`, `UnitOverheadIconsView`, `GhostPlaybackView`,
+Verified manually in play mode (thin adapters): `CombatController` round orchestration (incl. the
+D2 initiator-led phase reorder), `EnemyRoundController` pacing, the D2 aim/fire input
+(`PCInputController` Enter hold-to-aim/release-to-execute, `AbilityInputHandler` volley routing), the
+D3 ability animation (`AbilityCellFlash`/`AbilityAreaSweep`, `LiveAbilityAnimationView`, the animated
+ghost) + enemy telegraph (`EnemyIntentTelegraphView` arrow/pose, the restless-icon jitter/pulse),
+`TurnOrderStripView`, `UnitFacingRotator`, `UnitOverheadIconsView`, `GhostPlaybackView`,
 `GhostVisualCloner`, `AbilityIconHoverController`.
 
 ---
@@ -251,16 +348,19 @@ Verified manually in play mode (thin adapters): `CombatController` round orchest
 - **No queue simulation.** Ghost previews run against the current board, so a chain (ability B
   after A's push) may not preview perfectly — accepted per the brief; "dry-run the queue then
   preview" is a later upgrade. *(ROADMAP)*
-- **Resolution order is fixed player-then-enemies.** Initiative/speed-based ordering is deferred.
-  *(ROADMAP)*
+- **Initiator-led opening round only (D2).** The opening round leads with the fight's initiator;
+  rounds 2+ are player-then-enemies. **Speed/stat-based** initiative (a fast unit leaping ahead) and
+  the **multi-round lead policy** (alternate/persist/re-roll) stay deferred. *(ROADMAP — Track K)*
 - **TacticalAI aims blindly**: it scores an ability equally for all six facings, so ties break
   deterministically toward the first direction — pre-existing; the smarter-AI item covers it.
   *(ROADMAP)*
-- **Ghost caster is a static clone** (no skeletal animation): `_animationTrigger` is authored but
-  not consumed; playing the ability's animation on the ghost is a tech-art follow-up. *(ROADMAP)*
-- **Move-intent icon is a placeholder `»` glyph**; committed-move destination is not drawn on the
-  board. *(ROADMAP)*
-- **`TelegraphStyle` constants are code constants**, not a config SO. *(ROADMAP)*
+- **Ability animation + enemy pose are code-authored placeholders (D3).** Abilities play a
+  shape-driven **cell-sweep** and armed enemies a **transform wind-up pose**; production clips/VFX
+  and consuming `AbilityDefinition._animationTrigger` (a real skeletal animation per ability) are a
+  later art pass. The pose writes the enemy root's position/scale, so it is cleared before a move
+  resolves to avoid fighting the mover. *(ROADMAP — P5-9 / render-look)*
+- **`TelegraphStyle` constants are code constants**, not a config SO (now also the D3 sweep/arrow/
+  readiness dials). *(ROADMAP)*
 - **Ring push unsupported** (`ability-subsystem.md` §5). *(ROADMAP)*
 - **Round-effects cadence** changed from per-own-turn to per-round-all-units — equivalent for a
   two-party fight; would need revisiting if a third party ever joins a combat.

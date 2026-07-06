@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a1639f41f9faa245be8a645a100f78d, type: 3}
+  m_Name: MetaFact_RaiderPactSworn
+  m_EditorClassIdentifier: Yasherica::Narrative.Facts.Data.FactKeyDefinition
+  _namespace: 0
+  _scope: 0
+  _key: raider_pact_sworn
+  _horizon: 1
+  _valueType: 0
+  _defaultBool: 0
+  _defaultInt: 0
+  _defaultFloat: 0
+  _defaultString:
+  _description: 'Meta-horizon landmark deed (P3-3 demo): the hero once swore the raider''s
+    pact (the power side of the barn moral fork; set alongside the run-scoped
+    world.raider_offer_taken in RaiderMotive.ink). Persists across deaths so the
+    conquest-leaning mirror-lore echo can read the player''s history. The alliance
+    lean reuses world.barn_bounty_honored.'

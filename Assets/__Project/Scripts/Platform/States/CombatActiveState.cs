@@ -35,12 +35,14 @@ namespace Platform
         private readonly EnemyCombatIntegrator _enemyIntegrator;
         private readonly EnemyRoundController _enemyRoundController;
         private readonly IEnemyDataProvider _enemyDataProvider;
+        private readonly EnemyVisualSpawner _enemySpawner;
         private readonly CombatActivityTracker _combatActivityTracker;
         private readonly Loot.Application.IEnemyLootDropper _enemyLootDropper;
         private readonly DialogueRunner _dialogueRunner;
         private readonly Combat.View.ICombatUnitViewRegistry _unitViewRegistry;
         private readonly Combat.Data.Providers.IAbilityDefinitionCatalog _abilityCatalog;
         private readonly Combat.Execution.IAbilityOutcomeCalculator _outcomeCalculator;
+        private readonly Combat.Execution.IAbilityFiredSink _abilityFiredSink;
         private readonly Combat.Config.HexDirectionConfig _hexDirectionConfig;
         private readonly IGameLogger _logger;
 
@@ -52,6 +54,11 @@ namespace Platform
         private Combat.View.GhostPlaybackView _ghostView;
         private GhostPlaybackPresenter _ghostPresenter;
         private AbilityIconHoverController _iconHoverController;
+        private Combat.View.TurnOrderStripView _turnOrderStripView;
+        private TurnOrderStripPresenter _turnOrderStripPresenter;
+        private Combat.View.LiveAbilityAnimationView _liveAbilityAnimationView;
+        private Combat.View.EnemyIntentTelegraphView _enemyTelegraphView;
+        private EnemyIntentTelegraphPresenter _enemyTelegraphPresenter;
 
         public CombatActiveState(
             IFactory<ICombatController> controllerFactory,
@@ -63,12 +70,14 @@ namespace Platform
             EnemyCombatIntegrator enemyIntegrator,
             EnemyRoundController enemyRoundController,
             IEnemyDataProvider enemyDataProvider,
+            EnemyVisualSpawner enemySpawner,
             CombatActivityTracker combatActivityTracker,
             Loot.Application.IEnemyLootDropper enemyLootDropper,
             DialogueRunner dialogueRunner,
             Combat.View.ICombatUnitViewRegistry unitViewRegistry,
             Combat.Data.Providers.IAbilityDefinitionCatalog abilityCatalog,
             Combat.Execution.IAbilityOutcomeCalculator outcomeCalculator,
+            Combat.Execution.IAbilityFiredSink abilityFiredSink,
             Combat.Config.HexDirectionConfig hexDirectionConfig,
             IGameLogger logger)
         {
@@ -81,12 +90,14 @@ namespace Platform
             _enemyIntegrator = enemyIntegrator;
             _enemyRoundController = enemyRoundController;
             _enemyDataProvider = enemyDataProvider;
+            _enemySpawner = enemySpawner;
             _combatActivityTracker = combatActivityTracker;
             _enemyLootDropper = enemyLootDropper;
             _dialogueRunner = dialogueRunner;
             _unitViewRegistry = unitViewRegistry;
             _abilityCatalog = abilityCatalog;
             _outcomeCalculator = outcomeCalculator;
+            _abilityFiredSink = abilityFiredSink;
             _hexDirectionConfig = hexDirectionConfig;
             _logger = logger;
         }
@@ -171,6 +182,29 @@ namespace Platform
                 _iconHoverController = ghostGo.AddComponent<AbilityIconHoverController>();
                 _iconHoverController.Initialize(_ghostPresenter);
 
+                // Turn-order strip (D2): a top-right read-out of who acts, in order, this round —
+                // code-built like the other combat overlays, subscribed before the round loop starts.
+                var turnOrderGo = new GameObject("TurnOrderStripView");
+                _turnOrderStripView = turnOrderGo.AddComponent<Combat.View.TurnOrderStripView>();
+                _turnOrderStripPresenter = new TurnOrderStripPresenter(_controller, _turnOrderStripView);
+
+                // Live ability animation (D3): plays the opaque cell-sweep whenever an ability fires
+                // (player queue + enemy resolve share the executor's fired-cue sink).
+                var liveAnimGo = new GameObject("LiveAbilityAnimationView");
+                _liveAbilityAnimationView = liveAnimGo.AddComponent<Combat.View.LiveAbilityAnimationView>();
+                _liveAbilityAnimationView.Initialize(
+                    _abilityFiredSink,
+                    _unitViewRegistry,
+                    coords => _controller.Battlefield.HexToWorld(coords));
+
+                // Enemy intent board telegraph (D3): committed-move direction arrow + "armed" wind-up pose.
+                var enemyTelegraphGo = new GameObject("EnemyIntentTelegraphView");
+                _enemyTelegraphView = enemyTelegraphGo.AddComponent<Combat.View.EnemyIntentTelegraphView>();
+                _enemyTelegraphView.Initialize(
+                    _unitViewRegistry,
+                    coords => _controller.Battlefield.HexToWorld(coords));
+                _enemyTelegraphPresenter = new EnemyIntentTelegraphPresenter(_controller, _enemyTelegraphView);
+
                 // Collect all players (human + AI enemies)
                 List<IPlayer> allPlayers = new List<IPlayer>();
 
@@ -203,6 +237,20 @@ namespace Platform
                 // Initialize combat controller with all players
                 if (allPlayers.Count > 0)
                 {
+                    // Who leads the opening round (D2): the player only if an engaged enemy on this
+                    // platform was latched by the player's Attack card; otherwise the enemy leads
+                    // (ambush/aggro or an NPC that turned hostile — the default on EnemyContent).
+                    var openingInitiator = CombatInitiator.Enemy;
+                    foreach (var content in platform.Contents)
+                    {
+                        if (content is EnemyContent engaged && engaged.Engaged &&
+                            engaged.Initiator == CombatInitiator.Player)
+                        {
+                            openingInitiator = CombatInitiator.Player;
+                            break;
+                        }
+                    }
+
                     // Create initial combat state
                     var units = new List<IUnit>(); // Units will be added by character and enemy initializers
                     var initialState = new CombatState(
@@ -215,7 +263,8 @@ namespace Platform
                     );
 
                     // Initialize combat controller with turn system
-                    _controller.Initialize(initialState, allPlayers);
+                    _controller.Initialize(initialState, allPlayers, openingInitiator);
+                    _logger.Info(LogCategory.Platform,$"[CombatActiveState] Opening initiator: {openingInitiator}");
                     _logger.Info(LogCategory.Platform,$"[CombatActiveState] CombatController initialized with {allPlayers.Count} players");
 
                     // Verify turn manager state
@@ -327,11 +376,17 @@ namespace Platform
         {
             _logger.Info(LogCategory.Platform,"[CombatActiveState] Checking for uninstantiated enemies");
 
+            int spawnIndex = 0;
             foreach (var content in platform.Contents)
             {
                 if (content is EnemyContent enemyContent && !enemyContent.HasBeenInstantiated)
                 {
-                    InstantiateEnemy(platform, enemyContent);
+                    InstantiateEnemy(platform, enemyContent, spawnIndex);
+                }
+
+                if (content is EnemyContent)
+                {
+                    spawnIndex++;
                 }
             }
         }
@@ -340,7 +395,7 @@ namespace Platform
         /// Instantiates a single enemy from EnemyContent.
         /// Creates AIPlayer, spawns GameObject, and initializes combat component.
         /// </summary>
-        private void InstantiateEnemy(IPlatform platform, EnemyContent enemyContent)
+        private void InstantiateEnemy(IPlatform platform, EnemyContent enemyContent, int spawnIndex)
         {
             _logger.Info(LogCategory.Platform,$"[CombatActiveState] Instantiating enemy {enemyContent.EnemyId} from NPC transition");
 
@@ -355,38 +410,12 @@ namespace Platform
             // Create AIPlayer for this enemy
             var enemyPlayer = _enemyIntegrator.CreateEnemyPlayer(enemyContent.EnemyId, enemyData);
 
-            // Load enemy prefab - prefer EnemyDefinition.Prefab, fallback to Resources
-            GameObject enemyPrefab = enemyData.Prefab;
-            if (enemyPrefab == null)
-            {
-                enemyPrefab = Resources.Load<GameObject>("Prefabs/Enemy");
-                if (enemyPrefab == null)
-                {
-                    _logger.Error(LogCategory.Platform,$"[CombatActiveState] Enemy prefab not found for enemy {enemyContent.EnemyId}");
-                    return;
-                }
-            }
-
-            // Instantiate enemy above platform center (will fall via gravity to surface)
-            const float spawnHeightOffset = 2f;
-            Vector3 spawnPosition = platform.Visual.Position + Vector3.up * spawnHeightOffset;
-            GameObject enemyGO = Object.Instantiate(enemyPrefab, spawnPosition, Quaternion.identity);
-            enemyGO.name = $"Enemy_{enemyContent.EnemyId}";
-
-            // Get or add combat component
-            var combatComponent = enemyGO.GetComponent<Combat.Enemy.EnemyCombatComponent>();
+            // Spawn the body via the shared spawner (humanoid assembly first, prefab/capsule fallback)
+            var combatComponent = _enemySpawner.Spawn(
+                enemyData, enemyContent.EnemyId, platform.Visual.Position, spawnIndex);
             if (combatComponent == null)
             {
-                combatComponent = enemyGO.AddComponent<Combat.Enemy.EnemyCombatComponent>();
-            }
-
-            // Add Rigidbody for gravity simulation if not present
-            var rb = enemyGO.GetComponent<Rigidbody>();
-            if (rb == null)
-            {
-                rb = enemyGO.AddComponent<Rigidbody>();
-                rb.constraints = RigidbodyConstraints.FreezeRotation;
-                _logger.Info(LogCategory.Platform,$"[CombatActiveState] Added Rigidbody to enemy {enemyContent.EnemyId} for gravity simulation");
+                return;
             }
 
             // Store in content
@@ -496,6 +525,28 @@ namespace Platform
             {
                 Object.Destroy(_ghostView.gameObject);
                 _ghostView = null;
+            }
+
+            _turnOrderStripPresenter?.Dispose();
+            _turnOrderStripPresenter = null;
+            if (_turnOrderStripView != null)
+            {
+                Object.Destroy(_turnOrderStripView.gameObject);
+                _turnOrderStripView = null;
+            }
+
+            _enemyTelegraphPresenter?.Dispose();
+            _enemyTelegraphPresenter = null;
+            if (_enemyTelegraphView != null)
+            {
+                Object.Destroy(_enemyTelegraphView.gameObject);
+                _enemyTelegraphView = null;
+            }
+
+            if (_liveAbilityAnimationView != null)
+            {
+                Object.Destroy(_liveAbilityAnimationView.gameObject);
+                _liveAbilityAnimationView = null;
             }
 
             _unitViewRegistry.Clear();

@@ -89,7 +89,9 @@ namespace Combat.Data.Providers
                 MaxHP = definition.MaxHP,
                 Abilities = abilities,
                 AIType = aiType,
+                Assembly = definition.Assembly,
                 Prefab = definition.Prefab,
+                DemoTint = definition.DemoTint,
                 LootSlots = Loot.Data.LootSlotMapper.ToData(definition.LootSlots)
             };
         }

@@ -113,8 +113,99 @@ namespace Combat.Arena.Networking
         }
     }
 
+    /// <summary>Client → host: the local tasted-forms catalog (pre-draft, P4-5).</summary>
+    public struct TastedCatalogData : INetworkSerializable
+    {
+        public string[] PartIds;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            SerializationHelpers.SerializeStringArray(serializer, ref PartIds);
+        }
+    }
+
+    /// <summary>One draftable board instance on the wire.</summary>
+    public struct DraftBoardEntryData : INetworkSerializable
+    {
+        public int EntryId;
+        public string PartId;
+        public string SlotId;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref EntryId);
+            serializer.SerializeValue(ref PartId);
+            serializer.SerializeValue(ref SlotId);
+        }
+    }
+
+    /// <summary>
+    /// Host → all: the draft handshake. The composed board travels in full (host-authoritative
+    /// composition — only the host holds every participant's catalog); the slot loadout rides
+    /// along so completion can never diverge.
+    /// </summary>
+    public struct DraftStartData : INetworkSerializable
+    {
+        public float PickTimerSeconds;
+        public string[] SlotLoadout;
+        public DraftBoardEntryData[] Board;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref PickTimerSeconds);
+            SerializationHelpers.SerializeStringArray(serializer, ref SlotLoadout);
+            SerializationHelpers.SerializeArray(serializer, ref Board);
+        }
+    }
+
+    /// <summary>One draft action on the wire (request and canonical broadcast share the shape).</summary>
+    public struct DraftPickData : INetworkSerializable
+    {
+        public int PickIndex;
+        public int PlayerId;
+        public int EntryId;
+        public bool WasAutoPick;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref PickIndex);
+            serializer.SerializeValue(ref PlayerId);
+            serializer.SerializeValue(ref EntryId);
+            serializer.SerializeValue(ref WasAutoPick);
+        }
+    }
+
+    /// <summary>Host → all: one canonically applied pick + departures since the last broadcast.</summary>
+    public struct DraftPickAppliedData : INetworkSerializable
+    {
+        public DraftPickData Pick;
+        public int[] DepartedPlayerIds;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref Pick);
+            SerializationHelpers.SerializeIntArray(serializer, ref DepartedPlayerIds);
+        }
+    }
+
     internal static class SerializationHelpers
     {
+        public static void SerializeStringArray<T>(BufferSerializer<T> serializer, ref string[] array)
+            where T : IReaderWriter
+        {
+            int length = array?.Length ?? 0;
+            serializer.SerializeValue(ref length);
+            if (serializer.IsReader)
+            {
+                array = new string[length];
+            }
+
+            for (int i = 0; i < length; i++)
+            {
+                serializer.SerializeValue(ref array[i]);
+            }
+        }
+
         public static void SerializeIntArray<T>(BufferSerializer<T> serializer, ref int[] array)
             where T : IReaderWriter
         {

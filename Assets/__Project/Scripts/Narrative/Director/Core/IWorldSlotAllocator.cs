@@ -12,8 +12,12 @@ namespace Narrative.Director.Core
     /// </summary>
     public interface IWorldSlotAllocator
     {
-        /// <summary>Allocates the next platform slot; site-block slots drain before new draws.</summary>
-        SlotAllocation AllocateSlot(bool questAvailable);
+        /// <summary>
+        /// Allocates the next platform slot; site-block slots drain before new draws.
+        /// <paramref name="currentTier"/> is the run-escalation altitude (D19): combat draws pull only
+        /// creatures whose tier band contains it, so the monster pool toughens as the run climbs.
+        /// </summary>
+        SlotAllocation AllocateSlot(bool questAvailable, int currentTier);
 
         /// <summary>
         /// Called by the planner once per landed quest slot, with the chosen anchor story's tags.

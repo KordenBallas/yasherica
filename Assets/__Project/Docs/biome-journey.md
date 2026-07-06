@@ -4,7 +4,9 @@
 > journey** decides which biome (and escalation tier) is active for each planning window, in
 > multi-window **stretches**. Crossing into a new stretch switches the live monster pool, loot
 > table, landmark dressing, and world backdrop, and publishes the tier as a world fact.
-> Status: current as of 2026-07-04. Brief: `product-requirements/biome-selection-along-the-run.md`.
+> Status: current as of 2026-07-06. Brief: `product-requirements/biome-selection-along-the-run.md`;
+> the **entry point** was refined by O1 (`hub-staging.md`): the player chooses the run's starting
+> homeland on the Hub, the climb after entry stays this seeded pool.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -26,6 +28,13 @@
   entries, so different seeds route through different homelands (D18 divergence). When the tier
   offers an alternative, the previous stretch's biome is excluded so a boundary is a visible
   crossing; a single-biome tier legitimately repeats.
+- **R4a (O1)** An optional **starting-theme override** forces the window-0 stretch to the
+  Hub-chosen homeland: the seeded pick still runs (burned, so the entry stretch keeps its seeded
+  length), then the pick is replaced by the chosen theme's entry-tier entry. A theme absent from
+  the entry tier's pool warns and keeps the seeded pick (fail-safe). The climb from stretch 1 on
+  is unchanged machinery and fully deterministic per (seed, override) — the resume contract.
+  **Without an override, window 0 is a seeded pick over the three tier-1 homelands** (behavior
+  change from "always Forest": all three homelands are now authored at tier 1).
 - **R5** The run travels in **stretches**: an authored `[min, max]` range of planning windows per
   biome (windows, not platforms — the planning atom; one window = `RunPacingConfig.WindowSize`
   platforms), rolled seeded per stretch.
@@ -86,7 +95,13 @@ Selection algorithm (`BiomeJourney.AppendNextStretch`): eligible tiers = distinc
 with ≥1 positive-weight entry, ascending `T[0..K-1]`; stretch `s` draws from `T[min(s, K-1)]`;
 weighted pick over the tier pool (previous biome excluded when an alternative exists — if the
 exclusion empties the pool because of duplicate-theme authoring, it is undone); stretch length =
-`min + NextInt(max − min + 1)` windows. Exactly two draws per stretch regardless of pool size.
+`min + NextInt(max − min + 1)` windows. With a starting-theme override (O1), stretch 0's weighted
+pick is burned and replaced by the override's entry (warn + keep the seeded pick when the theme
+has no positive-weight entry in the entry tier).
+
+The **same theme at several tiers** is legitimate authoring (O1: the homelands sit at tier 1 as
+the entry pool AND at their climb tier); the mapper dedupes on the **(theme, tier)** pair,
+post-normalization, first authored wins.
 
 ### 2.3 Runtime flow
 
@@ -117,7 +132,9 @@ platform. The `run_escalation_tier` fact therefore leads the player's position b
 
 `AreaInstaller`: inspector field `_biomeProgressionConfig`, auto-loads from
 `Resources/World/Biomes/BiomeProgressionConfig` when unset (missing → warning + fixed-Forest
-default). Binds `BiomeProgressionSettings` (mapped) and `IBiomeJourney` `AsSingle`.
+default). Binds `BiomeProgressionSettings` (mapped) and `IBiomeJourney` `AsSingle`; the
+`IBiomeJourney` factory resolves `RunStartConditions` and threads `TryGetStartingTheme` into the
+`BiomeJourney` ctor (empty conditions = no override — direct editor play keeps working).
 `BiomeStretchDirector` is constructed by the entrypoint (it needs the scene-object observer), not
 container-bound. `ICurrentThemeProvider` stays bound in `LootInstaller`; the director is its only
 writer now.
@@ -145,10 +162,12 @@ per-theme configs (`BiomeAppearanceDefinition` in `Resources/World/Biomes`,
 `BiomeMonsterPoolDefinition` in `Resources/Combat/MonsterPools`, `BiomeLootDefinition` in
 `Resources/Loot/Biomes`) — this config only decides **which biome is active** for a stretch.
 
-Current authored data (PO-approved 2026-07-04): Forest tier 1 · Mountain tier 2 · Desert tier 2
-(all weight 1, stretch 3–4 windows); **Cave has no entry**. Mountain+Desert sharing tier 2 is what
-makes journeys diverge by seed today; the lore's "desert sits high" re-tiering is a data edit once
-a fourth biome exists.
+Current authored data (PO-approved 2026-07-06, O1): **five entries** — Forest tier 1 · Desert
+tier 1 · Mountain tier 1 (the homeland/entry pool) · Desert tier 2 · Mountain tier 2 (the shipped
+climb pool); all weight 1, stretch 3–4 windows; **Cave has no entry**. Distinct tiers stay [1, 2],
+so `run_escalation_tier` climbs 1 → 2 exactly as before. Balance note: after a Desert or Mountain
+start, stretch 1 is forced to the *other* tier-2 theme by the boundary exclusion; authoring Forest
+at tier 2 as well is a pure-data tuning option left open (ROADMAP).
 
 Related asset: the fact key **`Fact_RunEscalationTier`** (`Resources/Narrative/Facts/`,
 `_key: run_escalation_tier`, Int/Global/World) is registered in `DemoFactKeyRegistry` — the fact
@@ -184,8 +203,9 @@ store is fail-closed, so deleting it from the registry silently drops the tier p
 - Edit `_stretchMinWindows`/`_stretchMaxWindows` per biome. One window =
   `RunPacingConfig.WindowSize` platforms (4 today), so 3–4 windows ≈ 12–16 platforms.
 
-**Authoring constraints / gotchas:** duplicate `LevelTheme` entries — first authored wins
-(warning); inverted min/max — swapped silently; a tier whose entries are all weight-0 is not an
+**Authoring constraints / gotchas:** duplicate **(theme, tier)** pairs — first authored wins
+(warning); the same theme at *different* tiers is legitimate (the O1 homeland authoring);
+inverted min/max — swapped silently; a tier whose entries are all weight-0 is not an
 eligible tier; a biome without a monster pool asset downgrades its ambient-combat slots to Empty
 (allocator warning), and without a loot/appearance asset falls back to code defaults — author all
 three for a legible crossing.
@@ -202,13 +222,17 @@ Roslyn runner, 15/15, 2026-07-04):
   stretch lengths in authored range and contiguous tiling; unlisted theme never appears (Cave);
   zero-weight never picked; no immediate repeat when the tier offers an alternative; single-biome
   top tier repeats without error; empty settings → Forest fallback + one warning; `ForWindow`
-  idempotent and query-order-independent.
+  idempotent and query-order-independent; **O1 override**: forces the entry stretch for every
+  homeland (tier stays 1), tier sequence still climbs, stretch 1 crosses away from the override,
+  missing theme warns + keeps the seeded pick, entry stretch keeps its seeded length, same
+  (seed, override) → identical journey.
 - `BiomeStretchDirectorTests` — first window sets theme + publishes tier fact + notifies; repeat
   windows of a stretch write nothing; stretch change switches theme/fact/notification; null
   observer safe.
 - `BiomeProgressionConfigMapperTests` (SO-touching; compile-checked, runs in-editor) — null config
-  → Forest default; field mapping; inverted range normalized; duplicate theme first-wins;
-  zero-weight passes through.
+  → Forest default; field mapping; inverted range normalized; same theme at different tiers both
+  kept; duplicate (theme, tier) pair first-wins (compared post-normalization); zero-weight passes
+  through.
 
 Verified manually in play mode (thin adapters): the entrypoint observer (backdrop rebuild +
 landmark re-dress on crossing), coordinator hook ordering, `AreaGenerator` live loot theme.
@@ -230,8 +254,10 @@ landmark re-dress on crossing), coordinator hook ordering, `AreaGenerator` live 
   content item (P1-13). *(ROADMAP: Data-Driven Procedural Narrative)*
 - **Nothing consumes `run_escalation_tier` yet** — published only (the D19 escalation seam:
   difficulty/tone/density scaling by tier is the separate Escalation design thread).
-- **No cross-run persistence** of the journey (rides the general save/load work, R14/P2-2); the
-  journey's own `DeterministicRandom.State` is serializable when that lands.
+- ~~No cross-run persistence of the journey~~ — **resolved by P2-2** (`save-persistence.md`)
+  without persisting any journey state: the journey is seeded and `ForWindow` is idempotent, so the
+  continue path replays `ApplyForWindow(0..k)` over the recorded windows and reconstructs the exact
+  stretches (its private RNG advances identically).
 - **Platform ground/material look does not change per biome** — that is the biome-visual-styles
   brief (P1-2), which extends `BiomeAppearanceDefinition`; the journey already switches whichever
   appearance exists.

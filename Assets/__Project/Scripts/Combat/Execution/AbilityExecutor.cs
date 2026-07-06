@@ -4,6 +4,7 @@ using Combat.Battlefield;
 using Combat.Config;
 using Combat.Core;
 using Combat.Core.StatusEffects;
+using Zenject;
 
 namespace Combat.Execution
 {
@@ -18,17 +19,21 @@ namespace Combat.Execution
         private readonly StatusEffectTriggerProcessor _triggerProcessor;
         private readonly IAbilityShapeCalculator _shapeCalculator;
         private readonly HexDirectionConfig _hexConfig;
+        private readonly IAbilityFiredSink _firedSink;
 
+        [Inject]
         public AbilityExecutor(
             IDamageSystem damageSystem,
             StatusEffectTriggerProcessor triggerProcessor,
             IAbilityShapeCalculator shapeCalculator,
-            HexDirectionConfig hexConfig)
+            HexDirectionConfig hexConfig,
+            [InjectOptional] IAbilityFiredSink firedSink = null)
         {
             _damageSystem = damageSystem;
             _triggerProcessor = triggerProcessor;
             _shapeCalculator = shapeCalculator;
             _hexConfig = hexConfig;
+            _firedSink = firedSink;
         }
 
         public ICombatState ExecuteAbility(ICombatState gameState, IUnit caster, ScheduledAbility scheduledAbility)
@@ -143,6 +148,11 @@ namespace Combat.Execution
                         newState, updatedCaster, StatusEffectTriggerType.OnAttack);
                 }
             }
+
+            // D3: after the outcome has applied, surface a read-only cue so a presentation view can play
+            // the live ability animation over these cells (player queue + enemy resolve share this path).
+            _firedSink?.Notify(new AbilityFiredCue(
+                caster.Id, ability.Shape.Type, affectedCells, lineDirection, isHealAbility));
 
             return newState;
         }

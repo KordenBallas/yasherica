@@ -34,7 +34,26 @@ namespace Narrative.Interaction
             view?.ShowPrompt(false);
 
             var handle = new NpcInteractionHandle(npc.Actor.InstanceId, npc.NpcVisual.transform, npc.Intent,
-                npc.Casting, npc.OwningPlatform, npc, view);
+                npc.Casting, npc.OwningPlatform, npc, view, npc.IsCampBoss);
+            _registry.Register(handle);
+        }
+
+        public void BindEnemy(EnemyContent enemy, IPlatform platform, string displayName)
+        {
+            var body = enemy?.EnemyCombatComponent != null ? enemy.EnemyCombatComponent.gameObject : null;
+            if (body == null || platform == null)
+            {
+                return;
+            }
+
+            INpcOverheadView view = CreateView(body.transform);
+            view?.SetName(displayName ?? string.Empty);
+            view?.SetIntentMarker(Core.NpcIntent.Hostile);
+            view?.ShowPrompt(false);
+
+            // The body's instance id keys the handle: enemy contents have no actor identity.
+            var handle = new NpcInteractionHandle($"enemybody_{body.GetInstanceID()}", body.transform,
+                Core.NpcIntent.Hostile, null, platform, null, view, isBoss: false, enemy: enemy);
             _registry.Register(handle);
         }
 

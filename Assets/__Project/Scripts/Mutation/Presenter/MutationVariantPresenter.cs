@@ -323,7 +323,8 @@ namespace Mutation.Presenter
             {
                 var ability = card.Abilities[i];
                 abilities[i] = new MutationAbilityIconViewData(
-                    ability.Name, ability.Description, ability.Icon, ability.IsPassive);
+                    ability.Name, ability.Description, ability.Icon, ability.IsPassive,
+                    ability.IsLine, ability.LineLength, ability.RingRadius, ability.AnimationTrigger);
             }
 
             return new MutationCardFaceViewData(card.DisplayName, card.Icon, abilities);

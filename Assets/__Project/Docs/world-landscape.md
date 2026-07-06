@@ -154,8 +154,11 @@ the same pattern as `AreaGenerator` itself.
 
 One asset per `LevelTheme`, loaded from `Resources/World/Biomes/` (or wired on the scene's
 `AreaInstaller`). Mapped by `BiomeAppearanceMapper` (the only Data→Core bridge); Unity-typed
-fields (kits, tints) are read by the view layer directly off the SO. This is the biome appearance
-config the biome-visual-styles pass (P1-2) will extend with feature-pool/palette/ground fields.
+fields (kits, tints) are read by the view layer directly off the SO. The environment-dressing pass
+(2026-07-06) extended this asset with the biome's **dressing binding** — `_featureKit` (whole-kit),
+`_toneTint`/`_toneStrength` (bind-time tone treatment), `_blockersPer100Cells` /
+`_decorClustersPer100Cells` / `_laneHalfWidthCells` (placement dials) — documented in
+`environment-dressing.md` §3, which owns those fields.
 
 | Field | Type | Meaning | Default |
 |---|---|---|---|

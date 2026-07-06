@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CharacterProgression.Core;
+using Combat.Core;
 using Core.Logging;
 using Narrative;
 using Narrative.Actors.Core;
@@ -133,7 +134,8 @@ namespace Tests.EditMode
                 }));
 
             string combatEnemy = null;
-            _runner.OnCombatTriggered += e => combatEnemy = e;
+            CombatInitiator? initiator = null;
+            _runner.OnCombatTriggered += (e, who) => { combatEnemy = e; initiator = who; };
 
             _runner.Begin(Cast("enemy_brute", null));
             Assert.AreEqual(DialogueRunnerState.AwaitingContinue, _runner.State); // gated on the prompt line
@@ -143,6 +145,7 @@ namespace Tests.EditMode
             // B1: suspended, no further Ink consumed, pass_cleared not yet written.
             Assert.AreEqual(DialogueRunnerState.AwaitingExternal, _runner.State);
             Assert.AreEqual("enemy_brute", combatEnemy);
+            Assert.AreEqual(CombatInitiator.Enemy, initiator); // a start-combat tag = the NPC turned hostile
             Assert.IsFalse(_store.GetOrDefault(FactKey.Global(FactNamespace.World, "pass_cleared"), FactValue.FromBool(false)).AsBool());
 
             _runner.ReportCombatResult(true);
@@ -172,7 +175,7 @@ namespace Tests.EditMode
             _fake.Script(FakeStoryManager.Frame.Line("draws", "start-combat: bandit"));
 
             bool combatRaised = false;
-            _runner.OnCombatTriggered += _ => combatRaised = true;
+            _runner.OnCombatTriggered += (_, __) => combatRaised = true;
 
             _runner.Begin(Cast(enemyId: null, quest: null)); // combat slot unfilled
             Assert.IsFalse(combatRaised);
@@ -392,13 +395,15 @@ namespace Tests.EditMode
         {
             _fake.Script(FakeStoryManager.Frame.Line("The raider blocks the road."));
             string enemy = null;
-            _runner.OnCombatTriggered += e => enemy = e;
+            CombatInitiator? initiator = null;
+            _runner.OnCombatTriggered += (e, who) => { enemy = e; initiator = who; };
 
             _runner.Begin(Cast("enemy_brute", null)); // gates on the line
             _runner.TriggerCombat();
 
             Assert.AreEqual(DialogueRunnerState.AwaitingExternal, _runner.State);
             Assert.AreEqual("enemy_brute", enemy);
+            Assert.AreEqual(CombatInitiator.Player, initiator); // the Attack card = the player chose to attack
 
             // The existing combat resume path then applies (the Monster verb reuses start-combat's machinery).
             _runner.ReportCombatResult(true);
@@ -410,7 +415,7 @@ namespace Tests.EditMode
         {
             _fake.Script(FakeStoryManager.Frame.Line("just a chat"));
             bool combatRaised = false;
-            _runner.OnCombatTriggered += _ => combatRaised = true;
+            _runner.OnCombatTriggered += (_, __) => combatRaised = true;
 
             _runner.Begin(Cast(enemyId: null, quest: null)); // no combat slot
             int before = _logger.Warnings.Count;

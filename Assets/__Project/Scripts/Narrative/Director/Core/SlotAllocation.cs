@@ -18,7 +18,9 @@ namespace Narrative.Director.Core
         /// <summary>A rare NPC story slot — the planner selects an eligible story for it.</summary>
         Quest = 3,
         /// <summary>A non-quest NPC beat (site fill): the planner picks a story by the slot's flavor.</summary>
-        Npc = 4
+        Npc = 4,
+        /// <summary>A boss-led camp anchor: a boss NPC (cast by the slot's flavor) fronting a crew of enemies.</summary>
+        Camp = 5
     }
 
     /// <summary>
@@ -29,12 +31,13 @@ namespace Narrative.Director.Core
     public readonly struct SlotAllocation
     {
         public SlotAllocation(WorldSlotKind kind, int enemyId = 0, string flavor = null,
-            SiteStamp site = default)
+            SiteStamp site = default, System.Collections.Generic.IReadOnlyList<int> crewEnemyIds = null)
         {
             Kind = kind;
             EnemyId = enemyId;
             Flavor = flavor ?? string.Empty;
             Site = site;
+            CrewEnemyIds = crewEnemyIds ?? System.Array.Empty<int>();
         }
 
         public WorldSlotKind Kind { get; }
@@ -47,5 +50,8 @@ namespace Narrative.Director.Core
 
         /// <summary>The slot's site membership; <see cref="SiteStamp.Wild"/> outside a site block.</summary>
         public SiteStamp Site { get; }
+
+        /// <summary>The crew's enemy ids (boss's fight); non-empty only when <see cref="Kind"/> is Camp.</summary>
+        public System.Collections.Generic.IReadOnlyList<int> CrewEnemyIds { get; }
     }
 }

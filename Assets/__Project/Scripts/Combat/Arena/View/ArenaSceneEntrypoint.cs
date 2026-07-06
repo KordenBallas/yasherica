@@ -21,10 +21,12 @@ namespace Combat.Arena.View
     /// <summary>
     /// Thin bootstrap for the Arena scene. Networked path (default): the connect panel drives
     /// host/join; when the host's match setup arrives, every client seats the roster (its own
-    /// seat = the human, the rest = network players) and builds the identical world from the
-    /// match seed. Offline path (config flag — dev fallback): seats the local player + seeded AI
-    /// dummies immediately. Both paths share the same match build: platform → controller →
-    /// telegraph presentation → deterministic spawns → round loop.
+    /// seat = the human, the rest = network players). Offline path (config flag — dev
+    /// fallback): seats the local player + seeded AI dummies immediately. Both paths then run
+    /// the PARTS DRAFT (P4-5) — the board opens off the host's broadcast, every seat drafts a
+    /// body — and only the confirmed draft result starts the shared match build: platform →
+    /// controller → telegraph presentation → deterministic spawns (drafted loadouts) → the
+    /// untouched round loop.
     /// </summary>
     public class ArenaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable
     {
@@ -33,6 +35,7 @@ namespace Combat.Arena.View
         [Inject] private ArenaSpawnPlanner _spawnPlanner;
         [Inject] private ArenaHeroSpawner _heroSpawner;
         [Inject] private ArenaCombatController _controller;
+        [Inject] private ArenaMatchHost _matchHost;
         [Inject] private EnemyRoundController _resolvePacer;
         [Inject] private ArenaAICommitSource _aiCommitSource;
         [Inject] private ArenaPlayerDirectory _playerDirectory;
@@ -44,6 +47,9 @@ namespace Combat.Arena.View
         [Inject] private IAbilityDefinitionCatalog _abilityCatalog;
         [Inject] private IAbilityOutcomeCalculator _outcomeCalculator;
         [Inject] private HexDirectionConfig _hexDirectionConfig;
+        [Inject] private ArenaDraftFlow _draftFlow;
+        [Inject] private ArenaDraftHost _draftHost;
+        [Inject] private ArenaTastedCatalogSender _catalogSender;
         [Inject] private IGameLogger _logger;
 
         private UnitOverheadIconsView _planIconsView;
@@ -51,9 +57,13 @@ namespace Combat.Arena.View
         private GhostPlaybackView _ghostView;
         private GhostPlaybackPresenter _ghostPresenter;
         private bool _matchStarted;
+        private int _matchSeed;
+        private List<IPlayer> _players;
 
         public void Initialize()
         {
+            _draftFlow.ReadyForCombat += HandleDraftReady;
+
             if (_config.OfflineMode)
             {
                 StartOfflineMatch();
@@ -66,6 +76,7 @@ namespace Combat.Arena.View
         public void Dispose()
         {
             _transport.MatchSetupReceived -= HandleMatchSetupReceived;
+            _draftFlow.ReadyForCombat -= HandleDraftReady;
             _aiCommitSource?.Dispose();
             _resolvePacer?.Dispose();
             _planIconsPresenter?.Dispose();
@@ -82,7 +93,16 @@ namespace Combat.Arena.View
             _logger.Info(LogCategory.Combat, $"[ArenaSceneEntrypoint] Offline arena match, seed {matchSeed}");
 
             var players = SeatOfflinePlayers(matchSeed);
-            StartMatch(matchSeed, players);
+            BeginDraft(matchSeed, players);
+
+            // Offline has no session handshake: this machine is the host — submit the local
+            // catalog and open the draft directly (dummies auto-pick on the AI delay).
+            _catalogSender.SubmitNow();
+            var roster = players
+                .Select(p => new ArenaRosterSlot(0, p.Id, p.Id))
+                .ToList();
+            _draftHost.StartDraft(
+                matchSeed, roster, players.Where(p => p is AIPlayer).Select(p => p.Id).ToList());
         }
 
         private List<IPlayer> SeatOfflinePlayers(int matchSeed)
@@ -116,7 +136,7 @@ namespace Combat.Arena.View
 
             var players = SeatNetworkedPlayers(setup);
             _controller.SetHostRole(_session.IsHost);
-            StartMatch(setup.MatchSeed, players);
+            BeginDraft(setup.MatchSeed, players);
         }
 
         private List<IPlayer> SeatNetworkedPlayers(ArenaMatchSetup setup)
@@ -138,16 +158,34 @@ namespace Combat.Arena.View
             return players;
         }
 
-        // ---- shared match build ----
+        // ---- the draft gate ----
 
-        private void StartMatch(int matchSeed, List<IPlayer> players)
+        /// <summary>
+        /// Seats are known — hand over to the draft. The match build waits for the confirmed
+        /// draft result; combat input stays disabled throughout (the draft is pure UI).
+        /// </summary>
+        private void BeginDraft(int matchSeed, List<IPlayer> players)
         {
             _matchStarted = true;
+            _matchSeed = matchSeed;
+            _players = players;
 
             var localPlayer = players.First(p => p.Type == PlayerType.Human);
             _playerRegistry.RegisterLocalPlayer(localPlayer);
             _playerDirectory.Set(players);
 
+            _draftFlow.PrepareForDraft(players);
+        }
+
+        private void HandleDraftReady(ArenaDraftResult result)
+        {
+            BeginCombat(_matchSeed, _players, result);
+        }
+
+        // ---- shared match build ----
+
+        private void BeginCombat(int matchSeed, List<IPlayer> players, ArenaDraftResult draftResult)
+        {
             var platform = _platformBuilder.Build(matchSeed);
             _controller.InitializeBattlefield(platform.Surface, platform.Position);
 
@@ -168,7 +206,14 @@ namespace Combat.Arena.View
             var slots = players
                 .Select((p, i) => new ArenaSpawnSlot(p, i + 1, spawnCells[i], p.Type == PlayerType.Human))
                 .ToList();
-            _heroSpawner.SpawnAll(slots, _controller.Battlefield, _controller);
+            _heroSpawner.SpawnAll(slots, _controller.Battlefield, _controller, draftResult.LoadoutByPlayerId);
+
+            // Seats that dropped during the draft still spawned (identically on every client);
+            // the host folds them into round 1's departures so everyone kills them off the bundle.
+            if (_session.IsHost || _config.OfflineMode)
+            {
+                _matchHost.SeedDeparted(draftResult.DepartedPlayerIds);
+            }
 
             // Every seat is on the board — the last-standing check may go live.
             _controller.ArmWinCondition();

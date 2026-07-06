@@ -64,6 +64,13 @@ namespace World.Sites.Data
                     ? site.FillTable
                     : family != null ? family.DefaultFillTable : null);
 
+                string bossFlavor = site.OverrideBossAnchor ? site.BossStoryFlavor
+                    : family != null ? family.DefaultBossStoryFlavor : string.Empty;
+                int bossCrewMin = site.OverrideBossAnchor ? site.BossCrewMin
+                    : family != null ? family.DefaultBossCrewMin : 0;
+                int bossCrewMax = site.OverrideBossAnchor ? site.BossCrewMax
+                    : family != null ? family.DefaultBossCrewMax : 0;
+
                 records.Add(new SiteDefinitionData(
                     site.SiteId,
                     family != null ? family.FamilyId : string.Empty,
@@ -74,7 +81,10 @@ namespace World.Sites.Data
                     fillMin,
                     fillMax,
                     fillTable,
-                    site.DressingThemeId));
+                    site.DressingThemeId,
+                    bossFlavor,
+                    bossCrewMin,
+                    bossCrewMax));
             }
 
             return new SiteCatalog(records);

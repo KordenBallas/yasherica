@@ -28,5 +28,8 @@ namespace CharacterProgression.Core
         IReadOnlyCollection<string> CompletedQuests { get; }
         IReadOnlyCollection<string> FailedQuests { get; }
         IReadOnlyCollection<string> EncounteredNpcs { get; }
+
+        /// <summary>All recorded key choices — enumerable so the save layer can capture them (P2-2).</summary>
+        IReadOnlyDictionary<string, string> Choices { get; }
     }
 }

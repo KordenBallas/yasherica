@@ -18,5 +18,9 @@ namespace Narrative.Runtime.Snapshots
         /// <summary>Attempts to capture a snapshot; returns false (and leaves <paramref name="snapshot"/>
         /// null) when <see cref="CanCapture"/> is false.</summary>
         bool TryCapture(DialogueRunnerState dialogueState, out RunNarrativeSnapshot snapshot);
+
+        /// <summary>Replays a snapshot into the live services: facts (both horizons), thread + story
+        /// ledgers, and the PRNG state (B2 determinism). Null is a no-op.</summary>
+        void Restore(RunNarrativeSnapshot snapshot);
     }
 }

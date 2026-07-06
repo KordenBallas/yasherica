@@ -40,6 +40,8 @@ namespace Core.DI
         private const string BiomeAppearanceResourcePath = "World/Biomes";
         private const string BiomeProgressionResourcePath = "World/Biomes/BiomeProgressionConfig";
         private const string RacesResourcePath = "World/Races";
+        /// <summary>Kit assets load recursively from here, so Demo/ (the quarantine) rides in.</summary>
+        private const string DressingKitsResourcePath = "World/Dressing";
         /// <summary>Seed-context for the journey's own random stream (kept apart from the narrative-slice stream).</summary>
         private const string BiomeJourneySeedContext = "biome-journey";
 
@@ -59,6 +61,10 @@ namespace Core.DI
         [Tooltip("The race roster (races-passport.md); auto-loads from Resources/World/Races when " +
                  "empty. Missing = a raceless world (every part reads kindless)")]
         [SerializeField] private List<RaceDefinition> _raceDefinitions;
+
+        /// <summary>The biome appearance list InstallWorldBiomeBindings resolved (inspector or
+        /// Resources) — the dressing catalogs map the same assets, so both read one binding.</summary>
+        private List<BiomeAppearanceDefinition> _resolvedBiomeAppearances;
 
         [Header("Data Definitions (Optional - for data-driven system)")]
         [Tooltip("Status effect definitions for the data-driven system")]
@@ -80,8 +86,16 @@ namespace Core.DI
             // times" assert, even with IfNotBound).
             LoggingInstaller.Install(Container);
 
+            // Save-file stores + the run's persistence services (P2-2 save/continue).
+            PersistenceInstaller.Install(Container);
+            InstallPersistenceBindings();
+
+            // Scene navigation: the death return rides RunLifecycleService → Hub (O1).
+            Container.Bind<Core.SceneFlow.ISceneLoader>().To<Core.SceneFlow.SceneLoader>().AsSingle();
+
             InstallGameCoreBindings();
             InstallWorldBiomeBindings();
+            InstallDressingBindings();
             InstallRaceBindings();
             InstallPlatformBindings();
             InstallCombatBindings();
@@ -93,6 +107,85 @@ namespace Core.DI
             // Developer state overlay (quests + director facts). Editor/dev-build only; never ships.
             DevToolsInstaller.Install(Container);
 #endif
+        }
+
+        private void InstallPersistenceBindings()
+        {
+            // The pending-restore decision: lazy, so the run save file is read exactly once, at the
+            // first consumer (the seed provider, during container build).
+            Container.Bind<Core.Persistence.RunRestoreContext>()
+                .FromMethod(ctx => new Core.Persistence.RunRestoreContext(
+                    ctx.Container.Resolve<Core.Persistence.IRunSaveStore>().TryLoad(out var snapshot)
+                        ? snapshot
+                        : null))
+                .AsSingle();
+
+            // How this run starts (O1): restore wins (biome from the save), a fresh boot consumes
+            // the Hub's one-shot run-setup file, nothing on disk = defaults (bare hero, seeded pick).
+            Container.Bind<Core.Persistence.RunStartConditions>()
+                .FromMethod(ctx => Core.Persistence.RunStartConditions.Resolve(
+                    ctx.Container.Resolve<Core.Persistence.RunRestoreContext>(),
+                    ctx.Container.Resolve<Core.Persistence.IRunSetupStore>()))
+                .AsSingle();
+
+            // World memory into the fact store at boot; Meta-partition flush service for the
+            // savepoint/death writers. Both resolve narrative-slice bindings (IFactStore,
+            // IFactKeyRegistry) installed on this same SceneContext.
+            Container.BindInterfacesTo<Core.Persistence.MetaMemoryBootstrap>().AsSingle();
+            Container.Bind<Core.Persistence.IMetaMemoryFlush>()
+                .To<Core.Persistence.MetaMemoryFlushService>()
+                .AsSingle();
+
+            // The whole-run capture/restore aggregate and the world persistence bridge.
+            Container.Bind<Core.Persistence.IRunStateService>()
+                .To<Core.Persistence.RunStateService>()
+                .AsSingle();
+            Container.BindInterfacesAndSelfTo<LevelGeneration.WorldStatePersistenceBridge>().AsSingle();
+
+            // The hero-body save seam lives here, not in CharacterSystemInstaller: it needs the
+            // scene's hero visual eagerly (IInitializable), which only the Area scene guarantees.
+            Container.BindInterfacesAndSelfTo<CharacterSystem.Runtime.HeroBodyRestorer>().AsSingle();
+
+            // The tasted-forms catalog writer (P4-5): every part the hero carries becomes a
+            // Meta-horizon fact the Arena draft board reads. Same eager-hero-visual constraint
+            // as HeroBodyRestorer, hence Area-bound.
+            Container.BindInterfacesAndSelfTo<CharacterSystem.Integration.TastedFormsRecorder>().AsSingle();
+
+            // The Hub's starting-part install (O1): fresh runs only, applied once the rig assembles.
+            // Same eager-hero-visual constraint as HeroBodyRestorer, hence Area-bound.
+            Container.BindInterfacesAndSelfTo<CharacterSystem.Integration.StartingPartApplier>().AsSingle();
+
+            // The savepoint writer (platform entries, D7) and the death hook (Defeat → meta flush →
+            // run-save delete, FR2). The dialogue state feeds in as a delegate so the autosave
+            // stays pure C# testable without the whole runner graph.
+            Container.BindInterfacesAndSelfTo<Core.Persistence.AutosaveService>()
+                .FromMethod(ctx =>
+                {
+                    var runner = ctx.Container.Resolve<Narrative.Dialogue.DialogueRunner>();
+                    return new Core.Persistence.AutosaveService(
+                        ctx.Container.Resolve<Core.Persistence.IRunStateService>(),
+                        ctx.Container.Resolve<Core.Persistence.IRunSaveStore>(),
+                        ctx.Container.Resolve<Core.Persistence.IMetaMemoryFlush>(),
+                        () => runner.State,
+                        ctx.Container.Resolve<Core.Logging.IGameLogger>());
+                })
+                .AsSingle();
+            Container.BindInterfacesTo<Core.Persistence.RunLifecycleService>().AsSingle();
+
+            // Graceful-exit savepoint: quitting (or stopping play mode) saves the current
+            // platform's progress instead of falling back to the entry-time save.
+            Container.BindInterfacesTo<Core.Persistence.QuitSavepointHook>().AsSingle();
+
+            // Restore ordering (D6/D9): run restore first, then the always-on world memory on top,
+            // then everything else (including the entrypoint's world generation) at default order.
+            Container.BindInterfacesTo<Core.Persistence.RunRestoreCoordinator>().AsSingle();
+            Container.BindExecutionOrder<Core.Persistence.RunRestoreCoordinator>(-200);
+            Container.BindExecutionOrder<Core.Persistence.MetaMemoryBootstrap>(-100);
+
+            // The run counter ticks on top of the loaded memory (fresh boots only), before the
+            // entrypoint plans window 0 — spine soft floors read it (D7, P3-1).
+            Container.BindInterfacesTo<Core.Persistence.RunCounterService>().AsSingle();
+            Container.BindExecutionOrder<Core.Persistence.RunCounterService>(-90);
         }
 
         private void InstallGameCoreBindings()
@@ -140,6 +233,7 @@ namespace Core.DI
                 }
             }
 
+            _resolvedBiomeAppearances = appearances;
             var captured = appearances;
             Container.Bind<IBiomeAppearanceCatalog>()
                 .FromMethod(ctx => new BiomeAppearanceCatalog(captured, ctx.Container.Resolve<IGameLogger>()))
@@ -170,11 +264,56 @@ namespace Core.DI
                     int runSeed = ctx.Container.Resolve<Loot.Core.IRunSeedProvider>().RunSeed;
                     var random = new Narrative.Director.Core.DeterministicRandom(
                         unchecked((ulong)Loot.Core.LootSeed.Derive(runSeed, BiomeJourneySeedContext)));
+
+                    // The Hub-chosen entry homeland (O1) overrides only the window-0 pick; the
+                    // climb stays on the journey's own seeded stream.
+                    var conditions = ctx.Container.Resolve<Core.Persistence.RunStartConditions>();
+                    LevelGeneration.LevelTheme? startingTheme =
+                        conditions.TryGetStartingTheme(out var chosen)
+                            ? chosen
+                            : (LevelGeneration.LevelTheme?)null;
+
                     return new LevelGeneration.Journey.BiomeJourney(
                         ctx.Container.Resolve<LevelGeneration.Journey.BiomeProgressionSettings>(),
                         random,
-                        ctx.Container.Resolve<IGameLogger>());
+                        ctx.Container.Resolve<IGameLogger>(),
+                        startingTheme);
                 })
+                .AsSingle();
+        }
+
+        private void InstallDressingBindings()
+        {
+            // Environment dressing (dressing-kit contract): kit assets are the ONLY reachable home
+            // of store-pack references; the biome appearance assets bind feature kits whole-kit.
+            // No kits authored = every surface renders its base layer — never a failure.
+            var siteKits = new List<World.Dressing.Data.SiteDressingKitDefinition>(
+                Resources.LoadAll<World.Dressing.Data.SiteDressingKitDefinition>(DressingKitsResourcePath));
+            var biomeKits = new List<World.Dressing.Data.BiomeFeatureKitDefinition>(
+                Resources.LoadAll<World.Dressing.Data.BiomeFeatureKitDefinition>(DressingKitsResourcePath));
+
+            var appearances = _resolvedBiomeAppearances;
+            Container.Bind<World.Dressing.Core.IBiomeFeaturePoolCatalog>()
+                .FromMethod(ctx => World.Dressing.Data.DressingKitMapper.ToBiomeCatalog(
+                    appearances, ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
+
+            Container.Bind<World.Dressing.Core.ISiteDressingCatalog>()
+                .FromMethod(ctx => World.Dressing.Data.DressingKitMapper.ToSiteCatalog(
+                    siteKits, ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
+
+            Container.Bind<World.Dressing.Core.IEnvironmentDressingPlanner>()
+                .To<World.Dressing.Core.EnvironmentDressingPlanner>()
+                .AsSingle();
+
+            Container.Bind<World.Dressing.Data.DressingKitLibrary>()
+                .FromMethod(ctx => new World.Dressing.Data.DressingKitLibrary(
+                    biomeKits, siteKits, ctx.Container.Resolve<IGameLogger>()))
+                .AsSingle();
+            Container.Bind<World.Dressing.View.ToneMaterialCache>().AsSingle();
+            Container.Bind<IEnvironmentDressingSpawner>()
+                .To<World.Dressing.View.EnvironmentDressingSpawner>()
                 .AsSingle();
         }
 
@@ -433,6 +572,11 @@ namespace Core.DI
             Container.Bind<EnemyCombatIntegrator>()
                 .AsSingle();
 
+            // Single spawn path for enemy bodies (shared humanoid assembly first, prefab/capsule
+            // fallback), used by both platform combat states.
+            Container.Bind<Platform.EnemyVisualSpawner>()
+                .AsSingle();
+
             // Enemy round controller: paces the Resolve phase (committed intents fire one by one)
             Container.Bind<Combat.Player.EnemyRoundController>()
                 .AsSingle();
@@ -453,6 +597,8 @@ namespace Core.DI
 
             Container.Bind<IDamageSystem>().To<DamageSystem>().AsSingle();
             Container.Bind<IAbilityShapeCalculator>().To<AbilityShapeCalculator>().AsSingle();
+            // D3: the live ability-animation cue fan-in — the executor notifies it, the animation view reads it.
+            Container.Bind<IAbilityFiredSink>().To<AbilityFiredSink>().AsSingle();
             Container.Bind<IAbilityExecutor>().To<AbilityExecutor>().AsSingle();
             Container.Bind<IActionExecutor>().To<ActionExecutor>().AsSingle();
             Container.Bind<IActionValidator>().To<ActionValidator>().AsSingle();
@@ -492,6 +638,10 @@ namespace Core.DI
             Container.Bind<IFactory<ICombatController>>()
                 .To<CombatControllerFactory>()
                 .AsSingle();
+
+            // Per-fight controllers fan their outcomes into one scene-scoped relay (the P2-2 death
+            // hook listens here — a direct subscription would miss the factory-made controllers).
+            Container.Bind<ICombatOutcomeRelay>().To<CombatOutcomeRelay>().AsSingle();
         }
 
         private void InstallCombatStateFactories()

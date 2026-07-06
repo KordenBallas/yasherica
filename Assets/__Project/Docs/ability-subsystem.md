@@ -27,7 +27,7 @@ Status: current as of 2026-07-03.
 - R5. An ability is aimed with a hold-release interaction: **press and hold** the ability hotkey (Q/W/E/R/T/Y, configurable in `InputConfig`), **aim** with the mouse — the aim input **rotates the unit** (a free `ChangeDirectionAction`) and the battlefield highlight follows the new facing — then **release** the key to confirm. A Ring ability highlights its cells immediately on press; mouse direction is ignored.
 - R6. **Turning is free and unlimited**: changing facing costs no action and stays legal after the unit has acted, right up to executing the queue. The volley fires along the **final** facing. **Right-click** while holding cancels the aim.
 - R7. Confirming an ability does **not** execute it immediately — it is added to the unit's **execution queue**. Scheduling an ability ends the unit's turn. A Line ability needs no chosen direction to confirm — the unit always has a facing.
-- R8. Pressing **Enter** submits the execution queue for the player's unit. Queue execution is itself a turn-ending action.
+- R8. **Aim & fire the volley with Enter (hold-to-aim / release-to-execute, D2).** **Holding Enter** enters a volley-aim gesture: the hero turns to face the **mouse cursor** (a free `ChangeDirectionAction`, exactly like ability aiming), so the whole queued volley and its telegraphs re-point along the new facing while held. **Releasing Enter submits the execution queue** — it fires along the **final** facing. **Right-click while holding aborts** the aim, so the release does not fire. Queue execution is itself a turn-ending action. (Turning while aiming is free and unlimited, per R6.)
 - R9. Movement uses the same interaction pattern: hold **M**, aim with the mouse, release M to confirm. Movement executes immediately and ends the turn. (Movement details belong to the combat system document; listed here because the UX is shared.)
 
 **Execution semantics**
@@ -117,10 +117,13 @@ PCInputController (MonoBehaviour, raw keys/mouse)
   │ OnMovementDirectionChanged    — mouse moved while aiming (movement OR ability mode)
   │ OnAbilityConfirmed            — hotkey released (unless aborted)
   │ OnAbilityCancelled            — right-click while holding
-  │ OnExecuteQueueRequested       — Enter
+  │ OnVolleyAimStarted            — Enter pressed (hold-to-aim begins)
+  │ OnVolleyAimCancelled          — right-click while holding Enter (abort)
+  │ OnExecuteQueueRequested       — Enter released (fires the queue, unless aborted)
   ▼
 AbilityInputHandler (pure C#)
   │ converts world direction → HexDirection (DirectionToHexConverter.GetHexDirection)
+  │ while volley-aim active, mouse → UpdateVolleyAim (turns the unit, re-points the whole queue)
   ▼
 CombatAbilityPresenter (pure C#)
   SelectAbility(i)        highlight immediately: Ring cells, or the Line along the
@@ -129,7 +132,11 @@ CombatAbilityPresenter (pure C#)
                           the facing actually changes), re-highlight from the live unit's
                           new facing; Ring: ignore
   ConfirmAim()            submit ScheduleAbilityAction (no direction payload)
-  ExecuteQueue()          submit ExecuteAbilityQueueAction (Enter path)
+  ExecuteQueue()          submit ExecuteAbilityQueueAction (Enter-release path)
+  BeginVolleyAim()        highlight the WHOLE queued volley along the current facing (Enter held)
+  UpdateVolleyAim(d)      turn the unit (free ChangeDirectionAction, no ability selected) and
+                          re-highlight the whole queue from the new facing
+  EndVolleyAim()          clear the volley highlight (on execute or right-click cancel)
   CancelAbilitySelection()clear highlights and state
 ```
 

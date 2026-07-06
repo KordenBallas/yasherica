@@ -33,7 +33,9 @@
   subject = race id — that story/dialogue preconditions gate on (e.g. "reads as Fox ≥ 1"). This
   replaces the retired `world.reads_as_frogfolk` bool.
 - **R7** The tier updates as the body changes: every successful part swap recomputes and rewrites
-  all roster tiers before the next encounter reads them.
+  all roster tiers before the next encounter reads them. The Hub's starting-part install (O1,
+  `hub-staging.md`) yields the 1-marker "tolerated freak" through this **unchanged** projection —
+  no passport-side code knows about the Hub.
 - **R8** Determinism: the same equipped body always yields the same per-race tiers.
 
 ### 1.2 Non-functional requirements

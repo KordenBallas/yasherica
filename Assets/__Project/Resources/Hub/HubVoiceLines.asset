@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a0f6068f3f344239eea0cd25118fa01, type: 3}
+  m_Name: HubVoiceLines
+  m_EditorClassIdentifier: Yasherica::Hub.Data.HubVoiceLinesConfig
+  _partPickedByRace:
+  - _raceId: fox
+    _lines:
+    - A fox's grace. Doors will open for us — or we'll slip through them.
+    - Sly meat. I approve of the aftertaste.
+  - _raceId: lizard
+    _lines:
+    - Lizard flesh. Dry, patient, hard to kill. Good stock.
+    - Scales! The desert will half-trust you now.
+  - _raceId: ibex
+    _lines:
+    - Ibex bone. Stubborn as the mountain that grew it.
+    - Horns. Save them for someone who argues.
+  _partPickedGeneric:
+  - Bolt it on. It's not as if you have a shape to ruin.
+  - Any scrap beats no scrap. Usually.
+  _noPartAvailable:
+  - Nothing in the heap worth bolting on yet. Go taste the world; bring me back something with flavor.
+  - Bare as the day I fished you out. Walk carefully.
+  _launch:
+  - Down we go. Try to come back thicker.
+  - Off into the larder. Don't skimp on the seasoning.
+  _deathReturn:
+  - You again. The junkyard does love a returning customer.
+  - Reassembled. The parts were cheap — keep the next set longer.

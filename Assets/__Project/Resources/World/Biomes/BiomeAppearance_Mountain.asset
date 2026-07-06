@@ -35,3 +35,9 @@ MonoBehaviour:
   _skyTopTint: {r: 0.58, g: 0.64, b: 0.72, a: 1}
   _skyHorizonTint: {r: 0.8, g: 0.83, b: 0.86, a: 1}
   _hazeTint: {r: 0.72, g: 0.76, b: 0.81, a: 1}
+  _featureKit: {fileID: 0}
+  _toneTint: {r: 0.55, g: 0.56, b: 0.58, a: 1}
+  _toneStrength: 0.45
+  _blockersPer100Cells: 4
+  _decorClustersPer100Cells: 10
+  _laneHalfWidthCells: 1.1

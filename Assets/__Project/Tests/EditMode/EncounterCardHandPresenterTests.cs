@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Combat.Core;
 using Core.Logging;
 using Narrative;
 using Narrative.Actors.Core;
@@ -252,12 +253,14 @@ namespace Tests.EditMode
                 new[] { new Tests.EditMode.FakeStoryManager.Frame[0] }));
 
             string enemy = null;
-            _runner.OnCombatTriggered += e => enemy = e;
+            CombatInitiator? initiator = null;
+            _runner.OnCombatTriggered += (e, who) => { enemy = e; initiator = who; };
 
             _runner.Begin(Cast(enemyId: "7")); // hand = [QuestOffer Parley, Attack(system), Leave]
             _view.FireCard(1); // the system Attack card
 
             Assert.AreEqual("7", enemy);
+            Assert.AreEqual(CombatInitiator.Player, initiator); // the player chose to attack (D2)
             Assert.AreEqual(DialogueRunnerState.AwaitingExternal, _runner.State);
         }
 
@@ -273,7 +276,7 @@ namespace Tests.EditMode
                 new[] { new Tests.EditMode.FakeStoryManager.Frame[0], new Tests.EditMode.FakeStoryManager.Frame[0] }));
 
             bool combatRaised = false;
-            _runner.OnCombatTriggered += _ => combatRaised = true;
+            _runner.OnCombatTriggered += (_, __) => combatRaised = true;
 
             _runner.Begin(Cast(enemyId: "7"));
             _view.FireCard(0); // the tagged Attack card -> selects Ink choice 0, NOT TriggerCombat

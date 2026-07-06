@@ -20,11 +20,16 @@ namespace LevelGeneration.Journey
         private readonly IReadOnlyList<BiomeProgressionEntry> _entries;
         private readonly IReadOnlyList<int> _tiers;
         private readonly IRandomSource _random;
+        private readonly IGameLogger _logger;
+        private readonly LevelTheme? _startingTheme;
         private readonly List<BiomeStretch> _stretches = new List<BiomeStretch>();
 
-        public BiomeJourney(BiomeProgressionSettings settings, IRandomSource random, IGameLogger logger = null)
+        public BiomeJourney(BiomeProgressionSettings settings, IRandomSource random, IGameLogger logger = null,
+            LevelTheme? startingTheme = null)
         {
             _random = random;
+            _logger = logger;
+            _startingTheme = startingTheme;
 
             var entries = settings?.Entries;
             if (entries == null || !entries.Any(e => e.SelectionWeight > 0))
@@ -99,11 +104,38 @@ namespace LevelGeneration.Journey
             }
 
             BiomeProgressionEntry picked = PickWeighted(pool);
+            if (stretchIndex == 0 && _startingTheme.HasValue)
+            {
+                // The Hub-chosen entry homeland (O1) replaces the seeded window-0 pick. The weighted
+                // draw above still ran (burned), so the ENTRY stretch keeps its seeded length. Later
+                // stretches stay fully deterministic per (seed, override) — which is what a resume
+                // replays — but may differ from the no-override run: the boundary exclusion sees a
+                // different previous theme, and a collapsed single-entry pool skips a draw.
+                picked = ForceStartingTheme(pool, picked);
+            }
+
             int windowCount = picked.StretchMinWindows
                 + _random.NextInt(picked.StretchMaxWindows - picked.StretchMinWindows + 1);
             int firstWindow = stretchIndex == 0 ? 0 : _stretches[stretchIndex - 1].EndWindowExclusive;
 
             _stretches.Add(new BiomeStretch(picked.Theme, tier, stretchIndex, firstWindow, windowCount));
+        }
+
+        private BiomeProgressionEntry ForceStartingTheme(
+            IReadOnlyList<BiomeProgressionEntry> pool, BiomeProgressionEntry seededPick)
+        {
+            for (int i = 0; i < pool.Count; i++)
+            {
+                if (pool[i].Theme == _startingTheme.Value)
+                {
+                    return pool[i];
+                }
+            }
+
+            _logger?.Warning(LogCategory.LevelGeneration,
+                $"[BiomeJourney] Starting theme {_startingTheme.Value} has no positive-weight entry in " +
+                $"the entry tier's pool; keeping the seeded pick {seededPick.Theme}.");
+            return seededPick;
         }
 
         private BiomeProgressionEntry PickWeighted(IReadOnlyList<BiomeProgressionEntry> pool)

@@ -72,12 +72,25 @@ namespace Core.DI
 
         private void InstallRunContext()
         {
-            // The seed is fixed at install time so the seeded randoms created
-            // during injection (narrative generation, reward slots) and all loot
-            // rolls share one run seed.
-            var seedProvider = new RunSeedProvider();
-            seedProvider.SetSeed(ComputeEffectiveSeed());
-            Container.Bind<IRunSeedProvider>().FromInstance(seedProvider).AsSingle();
+            // The seed is fixed at FIRST RESOLVE (before any seeded random is created — every
+            // consumer resolves the provider lazily inside FromMethod bindings) so the narrative
+            // generation, reward slots, and all loot rolls share one run seed. On a continue
+            // (P2-2) the seed comes from the run save instead, so every derived stream re-derives
+            // identically; scenes without the persistence bindings (Arena) keep the fresh path.
+            Container.Bind<IRunSeedProvider>()
+                .FromMethod(ctx =>
+                {
+                    var seedProvider = new RunSeedProvider();
+                    var restore = ctx.Container.TryResolve<Core.Persistence.RunRestoreContext>();
+                    bool restoring = restore != null && restore.IsRestoring;
+                    seedProvider.SetSeed(restoring ? restore.Snapshot.RunSeed : ComputeEffectiveSeed());
+                    // One diagnostic line per run: geometry (platform shapes, route) is a pure
+                    // function of this seed — if a resumed world looks different, compare these.
+                    Debug.Log($"[LootInstaller] Run seed {seedProvider.RunSeed} " +
+                              (restoring ? "(restored from run save)" : "(fresh run)"));
+                    return seedProvider;
+                })
+                .AsSingle();
 
             Container.Bind<ICurrentThemeProvider>().To<CurrentThemeProvider>().AsSingle();
         }

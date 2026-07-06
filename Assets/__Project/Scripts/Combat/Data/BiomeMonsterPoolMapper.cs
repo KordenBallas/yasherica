@@ -44,7 +44,7 @@ namespace Combat.Data
                     if (enemy != null)
                     {
                         entries.Add(new Narrative.Director.Core.MonsterPoolEntry(
-                            enemy.EnemyId, new List<string>(enemy.EnemyTags)));
+                            enemy.EnemyId, new List<string>(enemy.EnemyTags), enemy.TierBand.ToCore()));
                     }
                 }
 

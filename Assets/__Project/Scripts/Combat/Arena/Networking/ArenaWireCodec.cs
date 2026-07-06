@@ -75,6 +75,72 @@ namespace Combat.Arena.Networking
                 data.Roster.Select(s => new ArenaRosterSlot(s.ClientId, s.PlayerId, s.UnitId)).ToList());
         }
 
+        // ---- draft (P4-5) ----
+
+        public static TastedCatalogData ToWire(IReadOnlyList<string> partIds)
+        {
+            return new TastedCatalogData { PartIds = partIds?.ToArray() ?? Array.Empty<string>() };
+        }
+
+        public static IReadOnlyList<string> FromWire(TastedCatalogData data)
+        {
+            return data.PartIds?.ToList() ?? new List<string>();
+        }
+
+        public static DraftStartData ToWire(ArenaDraftStart start)
+        {
+            return new DraftStartData
+            {
+                PickTimerSeconds = start.PickTimerSeconds,
+                SlotLoadout = start.SlotLoadout.ToArray(),
+                Board = start.Board
+                    .Select(e => new DraftBoardEntryData { EntryId = e.EntryId, PartId = e.PartId, SlotId = e.SlotId })
+                    .ToArray()
+            };
+        }
+
+        public static ArenaDraftStart FromWire(DraftStartData data)
+        {
+            return new ArenaDraftStart(
+                data.PickTimerSeconds,
+                data.SlotLoadout?.ToList() ?? new List<string>(),
+                (data.Board ?? Array.Empty<DraftBoardEntryData>())
+                    .Select(e => new ArenaDraftBoardEntry(e.EntryId, e.PartId, e.SlotId))
+                    .ToList());
+        }
+
+        public static DraftPickData ToWire(ArenaDraftPick pick)
+        {
+            return new DraftPickData
+            {
+                PickIndex = pick.PickIndex,
+                PlayerId = pick.PlayerId,
+                EntryId = pick.EntryId,
+                WasAutoPick = pick.WasAutoPick
+            };
+        }
+
+        public static ArenaDraftPick FromWire(DraftPickData data)
+        {
+            return new ArenaDraftPick(data.PickIndex, data.PlayerId, data.EntryId, data.WasAutoPick);
+        }
+
+        public static DraftPickAppliedData ToWire(ArenaDraftPickApplied applied)
+        {
+            return new DraftPickAppliedData
+            {
+                Pick = ToWire(applied.Pick),
+                DepartedPlayerIds = applied.DepartedPlayerIds.ToArray()
+            };
+        }
+
+        public static ArenaDraftPickApplied FromWire(DraftPickAppliedData data)
+        {
+            return new ArenaDraftPickApplied(
+                FromWire(data.Pick),
+                data.DepartedPlayerIds?.ToList() ?? new List<int>());
+        }
+
         // ---- commits / steps ----
 
         public static PlayerCommitData ToWire(ArenaCommit commit)

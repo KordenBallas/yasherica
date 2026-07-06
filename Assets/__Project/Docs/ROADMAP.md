@@ -61,8 +61,9 @@ a step is a prerequisite brief, not a design gap. See `product-requirements/READ
 3. In parallel after step 2: **Sites & landscape — DONE** (`world-sites-and-landscape.md`): the
    what-fills-where half shipped (site vocabulary + capacity recipes + block reservation + flavored
    content — see `world-sites.md` + `## Platform & Area Generation`); the visual "reads as one
-   place" half is the M5 Site-dressing item, which now has its `SiteStamp` data seam. **Biome
-   visual styles** (`biome-visual-styles.md`) remains open.
+   place" half shipped its demo pass with Track E (2026-07-06, `environment-dressing.md`). **Biome
+   visual styles** (`biome-visual-styles.md`) shipped its feature-pool/ground core the same day
+   (Track E · E2); the palette-key/light residue stays open below.
 
 **Track C — Combat — DONE (2026-07-03)**: all three briefs (`combat-hero-facing.md`,
 `combat-turn-intent-phase.md`, `combat-ability-ghost-telegraph.md`) shipped as one combat pass —
@@ -72,6 +73,35 @@ the honest full-outcome ghost with push displacement. See `combat-round-and-tele
 presentation, telegraph style SO, pull/dash kinds) is filed under `## Combat Experience`.
 
 Tracks A / B / C are independent and can proceed in parallel; Track A already has work in flight.
+
+**Track D — Bandit Camp & Combat Legibility II** (verified 2026-07-05; one initiative, three briefs).
+Turns the demo's placeholder **capsule** enemies into a **living humanoid bandit camp** and finishes the
+combat-legibility layer Track C deferred (ability animation, animated ghost, initiator-first order, move
+arrow). The three briefs are largely independent (the world half vs the two combat halves) and can run in
+parallel; within combat, the facing-input/order brief and the animation brief share the same combat pass and
+are best built together.
+1. ~~**Humanoid Bandit Camp** (`bandit-camp-humanoids.md`)~~ ✅ **shipped 2026-07-05 (D1)**: shared humanoid
+   model for enemies (capsule retired), demo colour-coding (green NPC / maroon boss / lighter crew, kept in
+   combat), boss + director-sized crew, the boss's larger platform-scoped engagement circle
+   (dialogue-or-fight), no aggro on landing, crew fights behind the boss. The boss's quest *content* is still
+   a placeholder pending `camp-shady-offer.md` (P3-17). Follow-ups (boss re-engagement, boss visual
+   continuity, general radius override) filed under `## NPC Interaction …`. See CHANGELOG.
+2. ~~**Combat — Initiative, Turn-Order Queue & Facing Input** (`combat-initiative-and-turn-queue.md`)~~
+   ✅ **shipped 2026-07-05 (D2)**: initiator-acts-first (player Attack vs. dialogue-turned/ambush enemy) via
+   `CombatInitiator` + the opening-round reorder in `CombatController.StartRound`, a code-built horizontal
+   top-right turn-order strip (PvE only), and Enter hold-to-aim/release-to-execute + right-click cancel.
+   Deterministic, no ability change. The *speed*-based + multi-round-policy halves stay deferred (Track K
+   P3-12). See `combat-round-and-telegraph.md` R4/R4a/R4b + `ability-subsystem.md` R8 + CHANGELOG.
+3. ~~**Combat — Ability Animation, Animated Ghost & Enemy Action Read** (`combat-ability-animation.md`)~~
+   ✅ **shipped 2026-07-05 (D3)**: a shape-driven **cell-sweep** placeholder animation
+   (`AbilityCellFlash`/`AbilityAreaSweep`) played translucent as the animated ghost and opaque on live
+   execution via a shared executor `AbilityFiredCue` sink (player queue + enemy paced resolve — the enemy
+   action now animates within its beat, visibly not instant); a board **move-direction arrow**
+   (`EnemyIntentTelegraphView`) replacing the `»` glyph; and an enemy **readiness cue** (restless plan icons
+   + placeholder wind-up pose — enemies only, uniform, cleared on resolve). Presentation only, PvE-wired.
+   Resolved the ghost-caster-animation follow-up (code placeholder; production clips + `_animationTrigger`
+   stay the art seam) + advanced move-intent presentation. See `combat-round-and-telegraph.md` R15–R18 +
+   CHANGELOG.
 
 ---
 
@@ -156,33 +186,34 @@ From `logging.md` §6:
 
 ## Narrative Generation
 
-Planned design (from `narrative-generation.md` §4):
-- [ ] `[arch]` **P1 — Story↔NPC compatibility scoring.** Score valid story+NPC pairs (tag overlap,
-  faction fit, combat capability); assign by best score instead of randomly. Hard requirements prune,
-  preferences only weight.
-- [ ] `[arch]` **P2 — Rule-based outcome quotas.** Config quotas (min combat stories, min peaceful);
-  satisfy quotas first, then fill by compatibility score; report shortfalls.
-- [ ] `[arch]` **P3 — Progression-driven selection.** Feed `GameContext` (`CharacterLevel`,
-  `Progress`, `StoryState`) into generation; derive difficulty/theme filters and weighting from progression.
-- [ ] `[content]` **P4 — Soft cooldowns.** Fold cooldown/repeatability into scoring (recently seen →
-  lower score) so a small pool degrades gracefully instead of producing empty levels.
+Planned design (from `narrative-generation.md` §4 — the **P3-8 "residue" audit**, 2026-07-06). Most of
+P1–P4 is already delivered or superseded by the streaming director; only P4 (+ optional P1) is live
+residue. Status per item below; the tombstone (`narrative-generation.md` § Residue) carries the same:
+- [ ] `[arch]` **P1 — Story↔NPC compatibility scoring** — *partially delivered / optional residue.* The
+  "hard requirements prune, preferences only weight" rule already ships as a soft archetype-tag
+  preference (`RunWindowPlanner.MatchArchetype`); the fuller multi-trait/faction-fit model is optional
+  P3-8 casting tuning.
+- [x] `[arch]` **P2 — Rule-based outcome quotas** — *superseded* by the two content-density budgets
+  (quest rarity/spacing + empty/loot/combat mix, D8/D9). No further work.
+- [x] `[arch]` **P3 — Progression-driven selection** — *superseded/delivered:* progression enters
+  selection through facts (D19 escalation tier + passport/race preconditions), not a `GameContext` input.
+- [ ] `[content]` **P4 — Soft cooldowns** — *the live P3-8 residue.* Fold cooldown/repeatability into a
+  soft score (recently seen → lower) so a small pool degrades gracefully instead of hard-gating; today
+  the director uses hard continuity gates (`StoryRunLedger`). Tracked as **Track I P3-8**.
 - [ ] `[arch]` **M2 — Progression- & experience-driven composition.** Extend P3 so generation reads
   the run progression record and character experience/mutation state to compose level content —
   combining stories, quests, NPCs, and rewards by rules — producing a unique but coherent experience
   per run. (Supersedes the standalone P3 once Character Progression + Quests exist.)
 
-Known limitations (§5):
-- [ ] `[arch]` Skipped story (no candidate NPC) is not backfilled, so a level may fall below `MinStories`.
-- [ ] `[arch]` `GameContext` not consulted by `LevelNarrativeGenerator`; `ScenarioGenerator` hardcodes difficulty to 10.
-- [x] `[content]` `RewardSlot.Condition` is stored but never evaluated. *(Done — `RewardResolver`
-  evaluates it against the run progression record via `RunConditionEvaluator`; see CHANGELOG,
-  `character-progression.md`. Only single-predicate conditions are supported — composition is a
-  Character Progression follow-up.)*
-- [ ] `[rule]` Generator logs via `Debug.Log/LogWarning` directly — violates the logger-abstraction rule (§9).
-- [ ] `[debt]` **Reconcile/retire `narrative-generation.md`.** §1–§3 describe the deleted legacy pipeline
-  (replaced by the streaming director — `narrative-procedural.md` / `narrative-director-requirements.md`).
-  Decide: fold any still-relevant P1–P4 planned design into the streaming docs and retire/trim this file.
-  Stale-banner added; reconciliation pending.
+Known limitations (§5) — *the legacy `LevelNarrativeGenerator` these described was **deleted** in the
+Phase-3 cutover, so they are moot; retained struck-through for history:*
+- ~~`[arch]` Skipped story (no candidate NPC) is not backfilled, so a level may fall below `MinStories`.~~ *(moot — legacy generator deleted)*
+- ~~`[arch]` `GameContext` not consulted by `LevelNarrativeGenerator`; `ScenarioGenerator` hardcodes difficulty to 10.~~ *(moot — deleted)*
+- ~~`[content]` `RewardSlot.Condition` is stored but never evaluated.~~ *(moot — the `RewardResolver` / `RewardSlot` reward channel was deleted; quests now grant a fixed `QuestRewardCore`. Progression AND/OR condition composition lives on as **P3-6**.)*
+- ~~`[rule]` Generator logs via `Debug.Log/LogWarning` directly.~~ *(moot — deleted)*
+- [x] `[debt]` **Reconcile/retire `narrative-generation.md`.** ✅ done 2026-07-06 (P6-1): retired to a
+  tombstone pointing at `narrative-procedural.md` / `narrative-director-requirements.md`, with §4
+  preserved as the **P3-8 residue** (statuses above). `loot-subsystem.md` refreshed alongside. See CHANGELOG.
 
 ---
 
@@ -195,17 +226,40 @@ Deferred design (from `narrative-procedural.md` §6):
   the satisfying live actor for recast (continuation semantics). New pure-C# `ILiveActorRegistry`/
   `LiveActorRegistry` bound `AsSingle`. Proven by the `RunWindowPlannerTests` raider-arc + negative
   tests. See CHANGELOG; `narrative-procedural.md` §2.2/§2.6.)*
-- [ ] `[arch]` **D7 — Spine reserved lane + per-run reveal cap.** Place spine reveal-beats first by
-  their own quota (mirroring the combat minimum), capped at ≤1–2/run, gated on mastery milestone + soft
-  floor; they never compete for the narrative density budget by weight. Decoupled from win/lose.
-- [ ] `[arch]` **D19 — Escalation tier gating.** Read an altitude/tier fact and shift the eligible
-  story pool + tonal register (and optionally density) as the run climbs.
-- [ ] `[arch]` **D20 — Meta-scoped fact horizon.** Distinguish run-scoped facts (reset on death) from
-  meta-scoped facts (persist across runs); long arcs (spine cursor, mirror-lore flags, cauldron memory)
-  ride the meta horizon. The director reads both. *(P2-3 — **boundary/partition SHIPPED 2026-07-05**:
-  `FactKeyDefinition._horizon` (Run/Meta) + the save snapshot's `Facts`/`MetaFacts` split, see
-  CHANGELOG. What remains of this item: the cross-run **store + file IO** (R14/P2-2) and the long-arc
-  **consumers** — the reading side (P3-3, after P2-2).)*
+- [x] `[arch]` **D7 — Spine reserved lane + per-run reveal cap — DONE (P3-1, 2026-07-06).**
+  *(Done — verified brief `product-requirements/director-spine-reveal-lane.md`: `_isSpine` stories
+  place through a reserved pre-slot-loop lane (never the quest/ambient channels), ≤1 per window,
+  throttled by `RunPacingConfig._maxSpineRevealsPerRun` (default 2); a **gated pool, not a queue** —
+  "never too early" is per-beat preconditions + a soft floor over the new meta fact
+  `world.run_count` (`RunCounterService`, fresh boots only); revealed = placed in `StoryRunLedger`
+  (zero new run-state, cap survives continue); bypasses the quest gate + thread ceiling
+  (owner-approved); seeded/deterministic, outcome-blind. Placeholder demo beats
+  `DemoSpine_CauldronHint`/`DemoSpine_MirrorGlimpse`. 1341/1341 green. See CHANGELOG;
+  `narrative-procedural.md` R15/§2.6/§4. Follow-up resolved by P3-3 (2026-07-06): the cross-run
+  cursor counts **seen**; within-run stays placed.)*
+- [x] `[arch]` **D19 — Escalation tier gating.** ✅ shipped 2026-07-06 (P3-2, `narrative-procedural.md`
+  §2.6): a **run-tier band** (`RunTierBand` / `RunTierBandAuthoring`, `min` + optional `max`, `max ≤ 0`
+  = open) on `StoryTemplate` and `EnemyDefinition`; the planner gates story eligibility and the
+  ambient/site monster-pool draw by `run_escalation_tier`. Pool-shift only — **no** stat multiplier,
+  **no** density change (owner's call); unbanded content stays eligible at every tier. See CHANGELOG.
+- [x] `[arch]` **D20 — Meta-scoped fact horizon — DONE (P2-3 + P2-2 + P3-3, 2026-07-06).**
+  Run-scoped facts reset on death; meta-scoped facts persist; long arcs ride the meta horizon and
+  the director reads both. *(P2-3 — **boundary/partition SHIPPED 2026-07-05**:
+  `FactKeyDefinition._horizon` (Run/Meta) + the save snapshot's `Facts`/`MetaFacts` split. P2-2 —
+  **cross-run store + file IO SHIPPED 2026-07-05**: `meta.json` persists the Meta partition across
+  deaths, proven by the demo fact `world.barn_bounty_honored`. P3-3 — **the reading consumers
+  SHIPPED 2026-07-06** (verified brief `product-requirements/director-meta-consumers.md`): the
+  **spine cursor** persists as `world.<storyId>.spine_seen` (new `FactScope.PerStory`; written by
+  `SpineSeenRecorder` at dialogue end, read by the planner's spine channel-split) — **PO decision:
+  cross-run never-again = seen, not placed** (a placed-but-never-visited beat returns next run;
+  the within-run cap stays run-ledger-based); **mirror-lore echoes** = cross-excluded spine pair
+  `DemoSpine_TyrantEcho_Conquest`/`_Alliance` over the new meta deed `world.raider_pact_sworn` +
+  the shipped `barn_bounty_honored`; **cauldron memory** = `DemoSpine_CauldronMemory` with a
+  "must have seen the hint" cursor floor. Sibling-exclusion and "seen Y" floors are authored
+  preconditions with literal story-id subjects — data-only. 1355/1355 green. See CHANGELOG;
+  `narrative-procedural.md` R15/§2.6/§4/§6; `save-persistence.md` §4. Known limitation filed:
+  echo sibling exclusion binds on seen, so cap ≥ 2 can place both variants in one run — run the
+  production spine at cap 1 or author distinct floors on a pair.)*
 - [x] `[arch]` **R8 — First-class threads + cross-window continuity — DONE (P2-3, 2026-07-05).**
   *(Done — verified brief `product-requirements/director-threads-and-continuity.md` FR1–FR12:
   `ThreadDefinition` SO (ephemeral/arc kinds, premise facts, resolution conditions, lifespan) +
@@ -272,10 +326,12 @@ Deferred design (from `narrative-procedural.md` §6):
     discontinuously jump `Sample(x)` and desync the landmark scan); the backdrop swap is a hard cut.
     A piecewise blended multi-biome route + gate/skyline transition art rides the M5
     world-backdrop/site-dressing pass. *(world + tech-art)*
-- [ ] `[arch]` **D19 consumers of `run_escalation_tier`.** The tier fact is published but consumed
-    by nothing; escalation (pool/register/density/difficulty shifts by tier) is the separate
-    Escalation design thread (D19 above). The journey's own PRNG state also folds into the
-    window/horizon save-state item. *(narrative)*
+- [x] `[arch]` **D19 consumers of `run_escalation_tier`.** ✅ shipped 2026-07-06 (P3-2): the published
+    tier is now consumed by the story eligibility gate and the ambient/site monster-pool draw — the
+    eligible pool shifts register and toward tougher creatures as the run climbs; **density is not**
+    modulated by tier and **no** per-tier stat multiplier is applied (owner's call). *(The journey's
+    PRNG needed no save-state after all: P2-2 replays the seeded, idempotent `ApplyForWindow(0..k)` on
+    restore.)* *(narrative)*
 - [ ] `[debt]` **Remove the dead platform-loot chance API.** Loot-platform *presence* is owned by the
     density allocator now; `LootRollService.ShouldPlaceLootOnPlatform` and
     `BiomeLootDefinition._platformLootChance` have no callers — delete them (and their
@@ -294,19 +350,20 @@ Deferred design (from `narrative-procedural.md` §6):
   and are granted on completion by `QuestRewardGranter` (no longer a no-op) via the `PlatformCompletedState`
   hook. Item rewards only; currency/experience/ability kinds still lack a receiving system. See CHANGELOG;
   `quest-subsystem.md`.)*
-- [ ] `[arch]` **Window/horizon save-state.** `RunNarrativeSnapshot` does not yet capture the streaming
-  planner's window/committed-horizon state, the `ILiveActorRegistry` live-actor set (recurring-actor
-  continuity, D11), **nor the `ILiveQuestRegistry` live-quest set** (cross-dialogue quest continuity, R8),
-  **nor the `WorldContentAllocator` quest-spacing counter** (world-content-density spacing across a
-  reload), **nor the `SiteAwareSlotAllocator` state** (pending site-block queue + site-spacing +
-  instance counters — a reload would drop a half-drained city block); add all five (ties to R14 file IO).
+- [x] `[arch]` **Window/horizon save-state — DONE (P2-2, 2026-07-05).** *(All five captured/restored:
+  the realized-window record + streaming cursors (`RunStreamingCoordinator.CaptureWorld/BeginRestored`),
+  the live-actor set (replayed `Register` by id), the live-quest set (lifecycle replay), the
+  quest-spacing counter, and the site-allocator state. See CHANGELOG; `save-persistence.md`.)*
 - [ ] `[arch]` **R11 — Reactive-rule cascade layer.** Optional central layer that derives cross-category
   cascades from fact reads/writes; cascades are explicit authored effects until then.
 - [ ] `[arch]` **OR/boolean precondition composition.** Preconditions are AND-only; add OR/grouping.
-- [ ] `[arch]` **R14 — Save/load file IO.** The serializable boundary (`INarrativeSaveService`, snapshot
-  DTOs incl. PRNG state) and the W3-1 suspended-non-savepoint rule exist and are tested; add the file
-  writer/reader and the full run-state aggregate (assemble quests/castings/sessions). Optional W3-1
-  option-b: persist a suspended dialogue + pending-external descriptor for mid-excursion saves.
+- [x] `[arch]` **R14 — Save/load file IO — DONE (P2-2, 2026-07-05).** *(The versioned/atomic file layer
+  (`run.json` + `meta.json` under `persistentDataPath/Saves`), the whole-run aggregate
+  (`RunStateService`), platform-entry autosave, death-consumes-save, the cross-run meta store, and the
+  MainMenu Continue entry point. See CHANGELOG; `save-persistence.md`.)*
+- [ ] `[arch]` **W3-1 option-b: mid-dialogue saves.** Persist a suspended dialogue's Ink state +
+  pending-external descriptor (the still-unpopulated `Sessions` DTO field) so a quit mid-conversation
+  resumes mid-conversation instead of at the platform's clean start. *(narrative)*
 - [x] `[arch]` **Dialogue view adapter.** *(Done — `DialogueRunnerViewPresenter` (MVP) drives the
   existing `IDialogueView` from the runner's events and is wired in `NarrativeSliceInstaller`; the runner
   gained continue-gated pumping (`AwaitingContinue` + `Continue()`) so multi-line knots are read one line
@@ -482,11 +539,11 @@ Known limitations (from `loot-subsystem.md` §4):
 - [ ] `[debt]` `WorldArtifactView` duplicates `BubbleView`'s depth-stack construction; extract a shared
   builder once a third consumer appears.
 - [ ] `[arch]` World pickups are not despawned when leaving a platform; they persist until collected or scene unload.
-- [ ] `[debt]` **Refresh `loot-subsystem.md` to the streaming cutover.** The doc (2026-06-12) describes the
-  deleted legacy reward path (`RewardResolver`/`ResolvedReward`, `StoryDefinition` reward slots,
-  `NpcAssignment.Rewards`, `NarrativeInstaller`/`ScenarioGenerator`/`PlatformGraphGenerator`) and a wrong
-  `QuestRewardGranter`; rewrite §1.6/§2 to the live state (fixed `QuestRewardCore` grant; `LootRollService`
-  dormant until "Streaming-path loot" lands). Stale-banner added; full rewrite pending.
+- [x] `[debt]` **Refresh `loot-subsystem.md` to the streaming cutover.** ✅ done 2026-07-06 (P6-1):
+  rewrote the requirements + §2 to the live state — loot-platform *presence* via the density allocator,
+  fixed `QuestRewardCore` grant (no roll), legacy reward channel deleted; flagged the dead
+  `ShouldPlaceLootOnPlatform` / `RollQuestRewards` / `_platformLootChance` for the **P6-4** cleanup.
+  Seed / `WeightedPicker` / biome-table Core and pickup runtime confirmed current. See CHANGELOG.
 
 ---
 
@@ -504,8 +561,9 @@ System doc: `platform-generation.md`.
 - [x] `[arch]` **M3 — Natural edges over a complete hex interior.** *(Done — hole-filled whole-cell
   interior; jittered non-walkable rim ring (width/jitter/drop tunables) beyond the walkable outline;
   wall colliders sit on the outline so the rim is physically unreachable. Whole-cell biome-feature
-  alignment has its data seam (`PlatformHexSurface.BlockedCells`, unused) — the feature content is
-  the biome-visual-styles brief. See CHANGELOG; `platform-generation.md`.)*
+  alignment went **live** with Track E (2026-07-06): `BlockedCells` is populated by the dressing
+  planners and excluded by grid/anchors — see `environment-dressing.md`. See CHANGELOG;
+  `platform-generation.md`.)*
 - [x] `[arch]` **M3 — Content-aware platform size & shape.** *(Done — per-content-kind
   `ShapeProfile`s + battlefield minimum (12 cells) on the one `PlatformShapeConfig` SO; kind resolved
   from the graph node (`Type == Combat` covers ambient + story-with-required-combat); per-platform
@@ -574,16 +632,21 @@ Follow-ups from the platform-hex rework (doc §6):
 - [ ] `[content]` **Sites — real per-flavor enemies.** `guard`/`den-monster` demo tags ride the two
   placeholder pool enemies (`TestEnemyDefinition`, `DemoEnemy_BanditBrute`); author distinct
   enemies per flavor on the next combat-content pass. *(world/sites + combat)*
-- [ ] `[content]` **M3 — Biome-driven platform appearance & features.** *(Verified PO brief:
-  `product-requirements/biome-visual-styles.md`.)* A **per-biome appearance config** — one SO per
-  `LevelTheme` (Forest/Desert/Mountain/Cave), mirroring the existing `BiomeLootDefinition` pattern —
-  defines ground material/mesh treatment, **palette key** (a muted key modulation of the master
-  palette, `design/art/render-look.md` §2), light, and a **feature pool**. Features place on **whole
-  hex cells** (platform brief); each is **decorative or blocking** (blocking = the cell is unavailable;
-  no cover/LoS), and blocking must not drop a combat platform below its battlefield minimum. Replaces
-  the single global `AreaGeneratorConfig.platformMaterial`. Data-authored (new biome / feature = no
-  code), deterministic. Biome = base layer only; **site dressing** and **biome placement along the
-  run** are separate. *(platform + world)*
+- [x] `[content]` **M3 / P1-2 — Biome-driven platform appearance & features — SHIPPED (Track E ·
+  E2, 2026-07-06).** *(Brief `product-requirements/biome-visual-styles.md`; see
+  `environment-dressing.md` + CHANGELOG.)* Per-biome **ground material + feature pool** bound as a
+  whole **biome-feature kit** on `BiomeAppearanceDefinition` (`_featureKit` + tone + density dials);
+  features place on **whole hex cells**, decorative (clustered, several per cell) or blocking
+  (`BlockedCells` live — one per cell, sparse, battlefield-minimum/lane/connectivity guards);
+  deterministic per node; overrides the global `AreaGeneratorConfig.platformMaterial` when bound.
+  Desert + Forest demo kits authored; Mountain/Cave stay base-layer.
+- [ ] `[content]` **Biome appearance residue — palette key + light.** The brief's per-biome
+  **palette-key modulation of the master palette** and **light** fields are not implemented (the
+  bind-time `_toneTint` tone treatment stands in); lands with the render-look pass (P5-8).
+  *(world + tech-art)*
+- [ ] `[content]` **Mountain & Cave biome-feature kits.** The two demo packs don't cover them —
+  both biomes render the base layer until a kit (demo or production) is authored. Data-only.
+  *(world · designer)*
 
 ---
 
@@ -604,15 +667,32 @@ Implemented — system doc `npc-proximity-interaction.md` (brief
 - [x] **Toggleable dev debug overlay** for the radii (`NpcRadiusDebugView`, F2, editor/dev-build only).
 
 Open / follow-ups:
+- [x] `[content]` **Track D · Humanoid bandit camp — SHIPPED (D1, 2026-07-05)** (verified PO brief
+  `product-requirements/bandit-camp-humanoids.md`; see CHANGELOG). Humanoid enemies (shared model, capsule
+  retired by data), demo role tints, boss-led camp (boss + seeded crew 2–4), larger platform-scoped boss
+  circle (talk-or-fight on cross), no aggro on landing, crew joins the one fight; deterministic +
+  save/restore-aware. Platform scoping applies to **all** NPCs (PO decision). Playtest extension
+  (2026-07-05, PO): landing never starts combat for **any** content — lone ambient monsters carry their
+  own hostile handle + aggro radius (R13), the legacy `ContentSpawner` capsule path is retired, every
+  enemy defaults to the shared humanoid + enemy-red tint, and camp frequency is demo-tuned (~1 per 16
+  platforms). Follow-ups filed below.
+- [ ] `[arch]` **Boss re-engagement after a peaceful talk.** A camp whose boss was talked to peacefully
+  stands forever: his handle is consumed and the crew can no longer be fought (PO-accepted for the demo).
+- [ ] `[arch]` **Boss visual continuity at fight start.** `StartAggro` destroys the boss's NPC body and
+  combat respawns an identical humanoid from `DemoEnemy_BanditBoss` (same assembly + tint — visually
+  seamless); reusing the exact GameObject instance is an `EnemyContent` refactor.
 - [ ] `[arch]` **Live fact-driven marker refresh.** The `?` currently clears when the encounter is started
   (consumed), not by per-frame re-evaluation of quest availability against the fact store.
-- [ ] `[arch]` **Per-NPC / per-archetype radius overrides.** Global values only today.
+- [ ] `[arch]` **Per-NPC / per-archetype radius overrides.** Still global values; the camp boss's larger
+  reach shipped with D1 as the single role carve-out (`_bossEngagementRadius`) — the general authored
+  override surface stays open.
 - [x] **No-quest-but-talkable-with-optional-fight now expressible.** Hostility requires a **required**
   (non-optional) combat slot; an optional combat slot is a dialogue branch, so the NPC stays talkable
   (e.g. `DemoStory_BarnRaid`'s fight-or-bribe raider). Resolved in `NpcIntentResolver`.
-- [ ] `[content]` **No forced-combat NPC in the demo.** All demo combat is a dialogue branch, so the
-  auto-aggro `!` path has no demo subject. A required-combat story would supply one, but see the next
-  item — an always-eligible combat story currently perturbs the seeded threads.
+- [x] `[content]` **No forced-combat NPC in the demo — FIXED (D1, 2026-07-05).** The hostile camp boss
+  (`DemoStory_CampBossHostile`, required combat slot) is the demo subject. Boss stories are **ambient
+  colour** (site-catalog boss flavors), so they never enter the quest channel and do not perturb the
+  seeded threads the way an always-eligible quest-channel combat story would.
 - [x] `[arch]` **Streaming planner does not enforce thread ordering / cross-window continuity (R8) —
   FIXED (P2-3, 2026-07-05).** *(The run-scoped `StoryRunLedger` means a story already placed or
   resolved is never re-placed regardless of fact staleness, a consequence beat stays held until its
@@ -640,17 +720,38 @@ New work (no system doc yet):
   (c) **path-following camera yaw** — parked escalation, revisit only if playtest reads the weave as
   "platforms sliding sideways"; (d) **route↔real-backdrop coupling** (thread the path through the
   actual horizon silhouette — causality is faked today); (e) **site-aware tier flattening** — the
-  route is site-blind, a site block spanning a tier step / arc apex may fight "reads as one place";
-  (f) P1-2 extends `BiomeAppearanceDefinition` with feature-pool/palette/ground fields.
-- [ ] `[content]` **M5 — Site dressing ("reads as one place").** Make a Site's island-cluster read as
-  one place via **aligned skyline + shared ground/palette + density gradient + a distant backdrop**,
-  with a **gate/threshold** at the boundary — **dressing only, gaps stay clean hops** (no walkable
-  bridges). Layer **biome base × site dressing kit** (same site, different biome = shared structures,
-  different materials). Art direction: `design/art/site-dressing.md`. *(Engine: place skyline/gate
-  pieces so adjacent islands align.)* **The data seam now exists** (world-sites): every platform's
-  `GraphNode.Site` carries a `SiteStamp` (siteId, instance, index-in-block, footprint,
-  `DressingThemeId`) — dressing reads it; the density-gradient ordering ("core in the middle") also
-  lands here.
+  route is site-blind, a site block spanning a tier step / arc apex may fight "reads as one place"
+  (now *felt*: Track E's shared skyline band tolerates the weave at demo scale but flattening would
+  sharpen it); ~~(f) P1-2 extends `BiomeAppearanceDefinition` with feature-pool/palette/ground
+  fields~~ ✅ done (Track E · E2, 2026-07-06 — `environment-dressing.md`; palette/light residue
+  filed under Platform & Area Generation).
+- [x] `[content]` **M5 / P5-3 — Site dressing ("reads as one place") — demo half SHIPPED (Track E ·
+  E3, 2026-07-06).** *(Brief `product-requirements/site-camp-dressing-kits-demo.md`; see
+  `environment-dressing.md` + CHANGELOG.)* `SiteStamp.DressingThemeId` is consumed: Settlement kit
+  (buildings on a block-shared skyline band + gate/threshold on the anchor + street ground —
+  Village/City share `settlement-kit`) and Camp kit (campfire focal + facing prop ring +
+  packed-dirt ground); biome-keyed recolour via the bind-time tone treatment; gaps stay clean hops
+  (platform-local placement by construction).
+- [ ] `[content]` **Site dressing follow-ups (production half).** (a) **Ruin / Lair kits** — the
+  demo packs don't target them, those sites stay undressed (data-only to add); (b) the
+  **biome×site material matrix** + production structures (the P5-3 art pass proper); (c)
+  **density-gradient ordering** ("core in the middle") and cross-island skyline *alignment* beyond
+  the shared band; (d) **prop animation** (banner sway, fire light/smoke — the demo campfire is
+  unlit by owner decision). *(world + art)*
+- [ ] `[arch]` **Dressing — variant-prefab reference verification.** The demo kits reference some
+  pack prefabs that are nested-prefab variants; their fileIDs were hand-computed
+  (source ^ instance). If any kit slot shows `None` in the inspector, re-drag the prefab — the
+  spawner warns and skips broken entries at runtime. One-time editor check. *(content)*
+- [ ] `[content]` **Track E · E4 — World backdrop fill (demo) — DEFERRED (owner, 2026-07-06).**
+  *(Verified brief `product-requirements/world-backdrop-fill-demo.md`.)* Real 3D low-poly distant
+  scatter (dunes/mesas behind the desert, hills/treeline behind the forest), heavily hazed,
+  deterministic, cheap (small reused mesh set, low density), non-walkable. The E1 kit contract is
+  shaped for it: one more `DressingKitDefinition` subclass + a binding field on
+  `BiomeAppearanceDefinition`; the distant-scatter placement layer is the code half.
+  *(world + art)*
+- [ ] `[content]` **Dressing — light biome pass under site dressing.** Site platforms currently
+  skip biome features entirely (one voice per place, KISS); a sparse decorative-only biome layer
+  under the site kit could soften the transition. *(world)*
 - [ ] `[content]` **M5 — Render-look & palette bible.** Foundational visual direction
   (`design/art/render-look.md`): **flat low-poly, no outline** (Windblown-side; supersedes the vision
   §5 Gunfire outlined-cel candidate); **warm muted base + reserved saturated gameplay accents**
@@ -659,6 +760,45 @@ New work (no system doc yet):
   colour. Follow-ups: concrete palette **swatches**, a **flat-shading / figure-ground shader spike**
   (tech-art), animation direction, per-archetype concept sheets (gated on the parked race roster),
   and the tier-glow / ability-telegraph **VFX language** (ties M4 combat readability).
+
+---
+
+## The Hub (Junkyard)
+
+**Verified PO build brief: `product-requirements/hub-staging-and-launch.md` (2026-07-06).** Design
+intent in `design/narrative/hub-junkyard.md`, `design/world/overview.md` §8/§11. Stands up the
+Junkyard Hub as a real scene — the pre-run staging ground **Journey** leads to (today it drops
+straight into a run) and the **death-return** reform point (Hades frame). MVP = **staging + return
+only**.
+
+- [x] `[arch]` ~~**O1 — Hub scene + start-of-run choices + death return.**~~ ✅ shipped 2026-07-06
+  (`hub-staging.md`; CHANGELOG "The Hub — staging scene, start-of-run choices & death return").
+  **Owner revisions over the brief (2026-07-06):** the offer is **drawn from the tasted-forms
+  pool** (up to 3 cards, deterministic variety-greedy `StartingPartSelector`, shared mutation card
+  panel) instead of 3 fixed authored organs; **bare launch is always allowed** (cold start = empty
+  pool = bare); all three homelands re-authored to **tier 1** (entry pool) while keeping the
+  tier-2 climb pool (mapper now dedupes on the (theme, tier) pair). Launch = the new-run **commit
+  point** (the Journey delete moved from the menu to the Hub launch); carriers = one-shot
+  `run-setup.json` / `hub-arrival.json`; `RunSaveSnapshot` v2 carries `StartingBiome`.
+- [ ] `[polish]` **O1 follow-ups.** Relocate `ArenaTastedCatalogReader` to a shared tasted-catalog
+  home (Hub + Arena both consume it); a short **launch-line linger/fade** (the launch voice line
+  is currently unseen — the scene loads immediately); a **death-return vignette/fade** (the cut to
+  the Hub is hard); the brief's optional **match/cross soft hint** on the portals;
+  **Forest-at-tier-2** as a pure-data climb-pool tuning option (after a Desert/Mountain start,
+  stretch 1 is forced to the other tier-2 theme); **movement lock while the card panel is open**
+  (`IMovementInputLock` hookup — today the hero can walk with the cards up). *(scoped)*
+- [ ] `[art]` **Hub junkyard ground material + portal/keeper dressing.** The platform ground is a
+  code-fallback tint until a junkyard `Material` is authored on
+  `HubSceneConfig._platformMaterial`; the portals are flat tinted discs and the keeper is the
+  placeholder humanoid — the Hub half of the Track M art pass. *(designer)*
+- [ ] `[arch]` **P1-10 absorbs the Hub voice.** When the full bark channel lands, migrate
+  `HubVoiceLinesConfig`'s moment/race pools onto it as the hub-presence slots (the SO was shaped
+  for this). *(with P1-10)*
+- [ ] `[content]` **Deferred (out of the O1 brief).** Hub **meta-progression** (persistent
+  investments/upgrades/currency), the **recurring hub cast** beyond the cauldron's voice, the dig
+  **beyond the starting offer** (raw-artifact digs · larger offers · mixed offers · cross-run dig
+  **meta-bias**), **starting biomes beyond the three homelands** (Cave/4th race), a full **run-choice
+  map**, and Hub **art production** + voice **audio**. *(design + art)*
 
 ---
 
@@ -689,7 +829,9 @@ New work:
   (d) **Per-frame host fit** — the hero's `CharacterController` capsule and the visual's local TRS
   offsets are frame-invariant (a serpent hovers at biped pelvis height); needs per-skeleton
   placement/collider data when production frames land (P5-6).
-  (e) **Frame/stash persistence** rides the save/load work (P2-2).
+  (e) ~~Frame/stash persistence~~ — **done (P2-2, 2026-07-05)**: the run save carries the governing
+  skeleton + equipped/dormant slot→part map (`HeroBodyRestorer`) and the shed-part stash; see
+  `save-persistence.md`.
 - [ ] `[content]` **M5 — Production body-part assets.** Replace placeholder box parts with
   production-ready meshes/materials across all slots. Includes the per-race **signature marker parts**
   (Ibex horns/hooves/coat · Lizard scales/frill/tail · Fox tail/ears/fur) named in
@@ -838,17 +980,79 @@ Follow-ups from Track C (doc §6):
   executor/preview support. *(combat)*
 - [ ] `[arch]` **Ring-shape push semantics.** `_pushDistance` on a Ring ability is ignored (no
   line direction); define radial push if a design wants it. *(combat)*
-- [ ] `[content]` **Ghost caster animation (tech-art).** Play the ability's `AnimationTrigger` on
-  the ghost clone (today: static clone); ties the M4 telegraph VFX language + render-look bible.
-  *(combat + tech-art)*
+- [x] `[content]` **Ghost/ability animation** — ✅ **D3 (2026-07-05)** ships a code **placeholder**
+  cell-sweep (animated ghost + live playback, player & enemy). **Still open (art):** production clips/VFX
+  and consuming the ability's `AnimationTrigger` for a real per-ability skeletal animation — ties the
+  render-look bible. *(combat + tech-art — Track M / render-look)*
 - [ ] `[arch]` **Queue-simulation preview.** Ghosts run against the current board (brief-accepted);
   a "dry-run the queue then preview" upgrade would make chained previews exact. *(combat)*
-- [ ] `[arch]` **Initiative/speed-based resolution order.** Fixed player-then-enemies today; some
-  fast enemies acting before the player is a deferred enhancement. *(combat)*
-- [ ] `[content]` **Move-intent presentation.** Committed enemy moves show a placeholder `»` glyph
-  and the destination cell is not drawn on the board. *(combat)*
+- [ ] `[arch]` **Speed-based resolution order + multi-round lead policy.** The **initiator-first**
+  opening round shipped with D2 (2026-07-05); still deferred: a per-unit **speed** stat letting a fast
+  enemy leap ahead of the initiator, and the **multi-round** lead policy (alternate/persist/re-roll).
+  *(combat — Track K P3-12)*
+- [ ] `[content]` **Move-intent presentation.** ✅ **D3 (2026-07-05)** replaced the `»` glyph with a
+  board **direction arrow** toward the committed destination. **Still open:** a full step-by-step
+  **path** line (see `combat-move-destination-telegraph.md`). *(combat)*
 - [ ] `[debt]` **`TelegraphStyle` constants → config SO.** Icon sizes/heights and ghost fade
   timings are code constants; promote to an authorable asset on the next combat-UI pass. *(combat)*
+
+Track D — Bandit Camp & Combat Legibility II (verified PO briefs, 2026-07-05):
+- [x] `[arch]` **Track D · Initiative, turn-order queue & facing input** (brief
+  `product-requirements/combat-initiative-and-turn-queue.md`) — ✅ **shipped 2026-07-05 (D2)**.
+  **Initiator acts first** — `CombatInitiator` captured at the engagement sites (player Attack vs.
+  dialogue-turned/ambush enemy) and threaded to `CombatController.StartRound`, which resolves enemy
+  intents before the player's Act phase for an enemy-led opening round (`RoundLeadPolicy`, round 1 only).
+  A code-built **horizontal top-right turn-order strip** (PvE only; Arena keeps `IArenaResolutionOrder`)
+  reads who acts and in what order, leader-first, updating as the round runs. **Aim/fire input:**
+  **hold Enter** turns the hero toward the **mouse cursor** (re-points the whole queued volley), **release
+  Enter executes** along the final facing, **right-click aborts**. Presentation + turn-flow only;
+  abilities/determinism unchanged. See `combat-round-and-telegraph.md` R4/R4a/R4b + `ability-subsystem.md`
+  R8 + CHANGELOG. *(combat)*
+- [x] `[content]` **Track D · Ability animation, animated ghost & enemy-action read** (brief
+  `product-requirements/combat-ability-animation.md`) — ✅ **shipped 2026-07-05 (D3)**. A code-authored
+  **placeholder cell-sweep** spanning each ability's affected area (`AbilityCellFlash`/`AbilityAreaSweep`,
+  shape-driven), played **translucent** as the now-animated ghost (queue-submit / icon-hover) and **opaque**
+  on live execution via a shared executor `AbilityFiredCue` sink — **player queue + the enemy's paced resolve**,
+  so an enemy action animates within its beat (readable, not instant). An enemy's committed **move** shows a
+  board **direction arrow** (`EnemyIntentTelegraphView`) replacing the `»` glyph. The **readiness cue** marks an
+  armed enemy: **restless plan icons** (jitter/pulse) + a placeholder **wind-up pose** (transform lean/scale/bob;
+  enemies only, uniform, cleared on resolve). Presentation only; outcomes/cells/turn-order unchanged. Production
+  art / per-ability choreography / queue-simulation / full path line stay deferred. See
+  `combat-round-and-telegraph.md` R15–R18 + CHANGELOG. *(combat + tech-art)*
+- [ ] `[arch]` **Track D · Clear dead units from the board on death** (D5; task description is enough, no brief).
+  Today a killed unit stays in its cell until the **whole** fight ends — it still reads as occupying the cell
+  (`CombatState.GetUnitAt` matches any unit at a position regardless of `IsAlive`, so movement's "skip if
+  occupied" and targeting treat a corpse as a blocker) and clutters the multi-enemy board. Remove a unit the
+  moment it dies: **free its cell** (movement/targeting) and drop the model, so the "fast chess" stays legible
+  (Pillar 4). **Placeholder = instant removal now; a death animation comes later** (rides D3's code-authored
+  placeholder approach). The **corpse-loot / "you are what you eat" drop must still fire** on death (the
+  separate combat/mutation channel — removal must not skip it). *(combat)*
+
+Track D play-test follow-ups on the shipped D2/D3 (2026-07-05; task description is enough, no brief):
+- [ ] `[arch]` **D6 — Combat unit uniformity: one code path for all units.** A bug cluster with a shared
+  likely root — **divergent per-origin combat code** (hero vs boss vs seeded crew vs ambient enemy).
+  **Symptoms:** the D3 board **move-direction arrow does not render for the bandit crew and some single
+  enemies**; the **crew spawns stacked in a single cell** (violates one-unit-per-cell); the **hero can
+  spawn onto an already-occupied cell** at battle start. **Requirement:** every unit resolves **spawn
+  placement, facing, and intent-telegraph through one uniform path** — no two units ever share a cell,
+  and **every unit orients toward its next move/action** (uniform facing, not just some). *Diagnose and
+  unify the paths; the arrow/stacking/facing defects are symptoms.* Hardens `combat-round-and-telegraph.md`
+  R4/R15–R18 + the one-unit-per-cell invariant. *(combat)*
+- [ ] `[arch]` **D7 — Aim input redesign: short-press fires, long-press aims.** Owner change to D2's
+  input, **superseding** hold-to-aim/release-to-execute (`combat-round-and-telegraph.md` R4b). **New
+  scheme:** a **short Enter tap** discharges the queued volley immediately **along the hero's current
+  facing** (no aim step); **holding Enter** enters **aim/orientation mode** (turn the hero toward the
+  cursor, re-pointing the whole queue + ghosts); **releasing Enter** discharges along the aimed facing.
+  **Right-click still cancels.** Press-duration threshold tunable. Deterministic; no ability change.
+  *(combat)*
+- [ ] `[content]` **D8 — Combat presentation bug fixes** (two independent read-the-board defects).
+  **(a) Smeared enemy move animation** — an enemy's move reads as a **teleport** (the figure vanishes in
+  the source cell and pops into the neighbour, recoiling slightly) instead of gliding; replace with a
+  **smooth cell-to-cell move** (rides D3's paced enemy resolve, R15–R18; if the crew moves via a divergent
+  path this may share D6's root). **(b) Planning-outline not reset** — the plan-phase **cell outline
+  sometimes fails to reset to the default (black)** after planning ends, leaving cells **stuck yellow for
+  the rest of the fight**; the highlight must always clear back to default when the plan phase closes.
+  *(combat)*
 
 ## Arena Mode (Multiplayer)
 
@@ -897,6 +1101,38 @@ The items below are post-MVP polish/hardening.
   `design/arena-mode.md`); PvP-specific balance / whether Arena bodies are PvE snapshots or a separate
   roster; matchmaking/lobby/ranking/reconnect/late-join; a dedicated Hub scene for the Journey branch;
   FFA variants beyond last-standing (rounds, teams, scoring); spectator polish. *(design + arch)*
+
+Character layer & draft (post-MVP):
+- [x] `[content]` **P4-5 — parts draft + tasted-forms catalog (model).** *(Done 2026-07-06 —
+  consumed brief `product-requirements/arena-part-draft-and-catalog.md`: deterministic
+  host-composed board (authored floor + seeded sample of the participants' catalog union),
+  snake order with denial, Meta-fact catalog `world.<partId>.arena_tasted` written passively in
+  Journey, lockstep draft over four new named messages, host-only deadlines/auto-pick. See
+  CHANGELOG; `arena-mode.md` §2.9.)* *(combat + persistence)*
+- [x] `[ui]` **G4 — parts-draft screen (UI & presentation).** *(Done 2026-07-06 — consumed brief
+  `product-requirements/arena-draft-ui.md`: slot-grouped 3D board + live-assembling local
+  monster on one stage RenderTexture, whose-pick/snake-order/timer reads, opponents as name +
+  parts text, remote-pick flights, part-info popover with legality-gated Draft + visible
+  rejection reasons, the "your monster" beat, and the **shared ability-preview popover**
+  (`ability-preview-popover.md`) also wired into the mutation cards. See CHANGELOG;
+  `arena-mode.md` §2.9.)* *(ui)*
+
+Parts-draft follow-ups (2026-07-06):
+- [ ] `[arch]` **Draft-loadout hash checkpoint.** A diverged draft replica currently surfaces
+  only as a local `REPLICA DIVERGENCE` log + round 1's `ArenaStateHash` mismatch; piggyback a
+  loadout hash on draft completion so the host catches it before the fight. *(combat)*
+- [ ] `[ui]` **Real part thumbnails on the draft board.** The board shows bind-pose meshes
+  bounds-normalised (odd silhouettes possible) with an icon-sprite fallback; production
+  thumbnails / posed captures are the art-quality pass. *(ui + art)*
+- [ ] `[debt]` **Relocate `PointerHoverRelay` out of `Mutation.View`** into a shared UI
+  namespace — the arena part-info popover now consumes it cross-system. *(debt)*
+- [ ] `[debt]` **Meta-file trailing-newline hygiene sweep.** ~900 `.meta` files lack a trailing
+  newline; Unity tolerates most but hard-failed 8 on a clean import (fixed 2026-07-06, see
+  CHANGELOG) — sweep the rest in a dedicated no-op commit so clean checkouts can never mint
+  fresh GUIDs. *(debt)*
+- [ ] `[content]` **Widen the "tasted" trigger?** Catalog records carried parts
+  (install-at-minimum per the brief); whether merely *seeing* a part in the world qualifies is
+  a tuning decision once the board wants more variety. *(design)*
 
 Deferred implementation follow-ups (2026-07-03 implementation plan):
 - [ ] `[debt]` **Rename `EnemyIntent` → `CommittedIntent` (+ `RoundPhase` members → Plan/Act/Resolve).**
@@ -1015,14 +1251,25 @@ See `dev-tools.md` for the implemented overlay.
 
 ## Backlog (unsorted)
 
-- [ ] `[arch]` Run-state persistence/save-load (needed once the progression record + per-run
-  mutation state matter across sessions).
+- [x] `[arch]` ~~Run-state persistence/save-load~~ — **done (P2-2, 2026-07-05)**: the whole-run
+  continue image (incl. the progression record and mutation-side rack/socketing state) persists at
+  platform-entry savepoints; see `save-persistence.md` and the CHANGELOG.
+- [ ] `[content]` **Currency model + its save section.** The P2-2 brief lists currency in the
+  continue image, but no wallet/currency model exists anywhere (quest rewards note the same gap);
+  when it lands, add a `PlayerStuffSnapshot` section for it. *(inventory + persistence)*
+- [ ] `[debt]` **Migrate `PlatformEvents` static event bus to Zenject signals.** The autosave (P2-2)
+  is the third consumer of the static seam (after the streaming coordinator and the area view);
+  signals would make the subscriptions container-scoped and testable without static teardown.
+  *(architecture)*
 - [ ] `[content]` Mutation preview on the live character model before the player confirms a choice.
   *(The **mini-model** popover on hovering a mutation card **shipped** with
   `product-requirements/mutation-choice-cards.md`; this backlog item is the **full live-hero**
   in-world preview beyond that.)*
-- [ ] `[debt]` Generalise the mutation card's `AbilityTooltipView` into a shared UI tooltip
-  service once a second consumer appears (it is deliberately mutation-local today — KISS).
+- [x] `[debt]` Generalise the mutation card's `AbilityTooltipView` into a shared UI tooltip
+  service once a second consumer appears. *(Done 2026-07-06 — the arena draft was the second
+  consumer: superseded by the **shared ability-preview popover** (`ability-preview-popover.md`,
+  `UI.AbilityPreview`), which shows description + a 3D hero demonstrating the cast;
+  `AbilityTooltipView` deleted. See CHANGELOG.)*
 - [ ] `[content]` Mutation card VFX polish (tech-art): a real tier-glow shader (today: frame
   brightness by rarity), a flip animation (today: instant face toggle), tooltip styling.
 - [ ] `[content]` Animated idle pose for the mutation card's mini-model preview (today: unanimated

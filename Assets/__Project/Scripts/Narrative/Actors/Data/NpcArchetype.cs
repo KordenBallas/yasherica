@@ -21,6 +21,8 @@ namespace Narrative.Actors.Data
         [Tooltip("Modular character recipe used to spawn the visual (IModularCharacterFactory)")]
         [SerializeField] private CharacterAssemblyDefinition _assembly;
         [SerializeField] private Sprite _portrait;
+        [Tooltip("Demo role tint applied over the shared model; alpha 0 = untinted (placeholder until real per-faction art)")]
+        [SerializeField] private Color _demoTint = new Color(0f, 0f, 0f, 0f);
 
         [Header("Disposition & Matching")]
         [Tooltip("Faction id this archetype belongs to (R10) - id only, no faction asset reference")]
@@ -34,6 +36,7 @@ namespace Narrative.Actors.Data
         public IReadOnlyList<string> DisplayNamePool => _displayNamePool;
         public CharacterAssemblyDefinition Assembly => _assembly;
         public Sprite Portrait => _portrait;
+        public Color DemoTint => _demoTint;
         public string FactionId => _factionId;
         public int BaseDisposition => _baseDisposition;
         public IReadOnlyList<string> ArchetypeTags => _archetypeTags;

@@ -54,8 +54,10 @@ From the verified PO brief (`product-requirements/world-sites-and-landscape.md`)
 - **N1** Site logic is pure C# (no UnityEngine), unit-tested outside Unity.
 - **N2** The Wild allocation path is byte-for-byte unchanged: with no sites authored, the world
   behaves exactly as the density brief shipped it (a passthrough, proven by regression test).
-- **N3** Visual dressing (skyline/gate/shared palette) is **out of scope** — this system only
-  threads the `SiteStamp` data seam the M5 site-dressing pass will read.
+- **N3** Visual dressing (skyline/gate/shared palette) is **out of scope for this system** — it
+  only threads the `SiteStamp` data seam. The seam is **consumed** since 2026-07-06 by the
+  environment-dressing pass (`environment-dressing.md`): `DressingThemeId` resolves a site-dressing
+  kit and the block's platforms are dressed deterministically off the persisted stamp.
 
 ---
 
@@ -85,9 +87,9 @@ roadmapped for extraction to a neutral namespace).
 | `WeightedBeat` | A fill-table entry: beat + integer draw weight. |
 | `SiteTriggerChannel` | Quest (NPC-anchored) vs Ambient (combat/loot-anchored) — derived, R9. |
 | `SiteStamp` | A platform's site membership: siteId, run-unique instanceId, index-in-block, footprint, dressingThemeId. `SiteStamp.Wild` = default. |
-| `SiteDefinitionData` | The immutable effective site record (post family-merge): footprint range, trigger weight, anchor beats, fill budget + table, dressing theme; derives its trigger channel from anchor[0]. |
+| `SiteDefinitionData` | The immutable effective site record (post family-merge): footprint range, trigger weight, anchor beats, fill budget + table, dressing theme; derives its trigger channel from anchor[0]. Boss-led sites add `BossStoryFlavor` + `BossCrewMin/Max` (`HasBossLedAnchor` when the flavor is set). |
 | `SiteSlot` | One built block slot: `ContentBeat` + `SiteStamp`. |
-| `ISiteCatalog` / `SiteCatalog` | The run's authored sites split by channel (ordered by site id for determinism) + `NpcFillFlavors` (union of NPC fill flavors — the planner's quest-pick exclusion set). |
+| `ISiteCatalog` / `SiteCatalog` | The run's authored sites split by channel (ordered by site id for determinism) + `NpcFillFlavors` and `BossStoryFlavors` (the planner's quest-pick exclusion sets). |
 | `SiteBlockBuilder` | Builds one site instance: rolls footprint, emits anchors first, rolls the fill budget (clamped to footprint − anchors), draws fills from the weighted table, pads with connective Empty; stamps every slot. |
 
 ### 2.3 The allocation seam (`Narrative.Director.Core`)
@@ -116,6 +118,28 @@ roadmapped for extraction to a neutral namespace).
 (the `SiteStamp`); `WorldSlotKind` gains `Npc` — a non-quest NPC beat (e.g. `NPC·townsfolk`) the
 planner fills by flavor, never by the quest path. `PlannedPlatform` carries the same two fields.
 
+**Boss-led camp anchor (bandit-camp brief, 2026-07-05).** When a triggered ambient site has
+`HasBossLedAnchor` and its (immediately-emitted) anchor beat is Combat, the allocator converts the
+anchor via `AllocateCampAnchor`: it rolls the crew size in `[BossCrewMin..BossCrewMax]`, then draws
+each crew enemy from the anchor flavor's pool (same flavor→unfiltered→empty fallback chain, now
+shared as `ResolveCombatPool`) — fixed draw order on the shared stream, so same seed → same camp.
+The result is `WorldSlotKind.Camp` with `CrewEnemyIds` and `Flavor = BossStoryFlavor`; an empty
+pool lands the boss crew-less. The planner (`PlaceCampBoss`) fills the Camp slot with a seeded pick
+among the eligible ambient-colour stories carrying the boss flavor — the authored pool decides the
+**quest-or-not ratio** (a hostile-boss story vs a job-bearing one); boss stories repeat per camp
+like any ambient colour. No boss story → the camp degrades to a plain crew fight (today's
+behaviour); no crew either → Empty. `PlannedPlatform.CampEncounter` carries story + actor +
+`CrewEnemyIds`; `RunStreamingCoordinator.MapWindow` realises it as one `NpcContent`
+(`isCampBoss: true`) + one `EnemyContent` per crew id on the same platform. Landing starts nothing —
+anywhere: `CombatAutoStartRule` (used by `PlatformStateFactory.CreateActiveState`) auto-enters combat
+only once some enemy is `Engaged` (re-landing resumes a begun battle). Engaging the boss (his larger
+circle — `npc-proximity-interaction.md` R10) latches every `EnemyContent` and the one fight sweeps
+them all in; a **lone ambient monster** likewise carries its own hostile handle + aggro radius
+(`npc-proximity-interaction.md` R13) — the camp crew never does (the boss owns the trigger).
+Save/restore: `WindowNodeSnapshot.CrewEnemyIds` (empty default keeps old saves valid) + the boss's
+`CastingSnapshot`; a missing boss story on restore degrades the camp to a plain crew fight (FR14).
+Only the immediately-emitted first anchor converts — multi-anchor boss-led sites are unsupported.
+
 **Flavored combat picks:** `IBiomeMonsterPoolCatalog` pools are tagged entries
 (`MonsterPoolEntry` = enemy id + its `EnemyDefinition.EnemyTags`, mapped by
 `BiomeMonsterPoolMapper`). A site Combat beat draws from `GetPool(theme, flavor)` (case-insensitive
@@ -138,8 +162,9 @@ Townsfolk platforms plan as ordinary `Story` encounters, so downstream (casting 
 loot path passes the flavor into `LootRollContext.Tags` (`AreaGenerator.CreateLootContent`), so a
 `Loot·market/stash/chest/relic` beat **biases** the biome platform table through the loot layer's
 existing `BiasTags × tagBiasMultiplier` machinery — direction, not a dedicated table. Combat and
-NPC content was already fully resolved at plan time; `GraphNode.Site` is otherwise inert data for
-the M5 dressing pass.
+NPC content was already fully resolved at plan time; `GraphNode.Site` is additionally read by the
+environment-dressing planner (`environment-dressing.md`), which dresses the block's platforms off
+the stamp's theme id / instance / index.
 
 `WorldContentDensitySettings` gains three dials (defaults preserve behavior until authored):
 `AveragePlatformsPerAmbientSite` (default 14; 0 disables), `MinPlatformsBetweenSites` (default 6),
@@ -174,6 +199,8 @@ Loaded indirectly — referenced by each `SiteDefinition._family`. Authored asse
 | `_defaultAnchorBeats` | List<ContentBeatEntry> | The family's default anchor beat(s) — kind + flavor. The **first** anchor's kind decides the trigger channel (Npc → quest roll; Combat/Loot → ambient roll) | Settlement: `NPC·quest-bearer`; Landmark: `Combat·den-monster` |
 | `_defaultFillBudgetMin/Max` | int | Default per-instance fill-budget roll range | Settlement 1–1; Landmark 0–1 |
 | `_defaultFillTable` | List<WeightedBeatEntry> | Default weighted fill table (kind + flavor + weight). **Never list corpse-loot** — it is a Combat outcome | Settlement: townsfolk 3 / scattered 1; Landmark: den-monster 2 / scattered 1 |
+| `_defaultBossStoryFlavor` | string | Family default boss story flavor (empty = not boss-led) | empty |
+| `_defaultBossCrewMin/Max` | int | Family default crew-size roll range | 0–0 |
 
 ### `SiteDefinition`  (asset menu: `Create → World → Sites → Site Definition`)
 
@@ -187,10 +214,11 @@ Authored assets: `Camp / Village / City / Ruin / Lair`.
 | `_family` | SiteFamilyDefinition | The family whose defaults this site inherits | null + no anchor override = skipped (warned) |
 | `_footprintMin/Max` | int | Contiguous platform-count range the block reserves | City 4–5, Village 2–3, Camp/Ruin/Lair 1–2 |
 | `_triggerWeight` | int | Relative weight among same-channel sites when a trigger lands | 0 = only via a `site:` tag |
-| `_dressingThemeId` | string | Dressing-theme key stamped on every block platform (M5 seam) | inert today |
+| `_dressingThemeId` | string | Dressing-theme key stamped on every block platform; resolves a `SiteDressingKitDefinition` (`environment-dressing.md`) | `settlement-kit` (Village/City), `camp-kit` (Camp); unknown id = undressed |
 | `_overrideAnchorBeats` + `_anchorBeats` | bool + List<ContentBeatEntry> | Toggle **on** = replace the family anchors (e.g. Camp → `Combat·bandit`) | off = inherit |
 | `_overrideFillBudget` + `_fillBudgetMin/Max` | bool + int | Toggle **on** = the site's own budget roll range (e.g. City 2–3) | off = inherit |
 | `_overrideFillTable` + `_fillTable` | bool + List<WeightedBeatEntry> | Toggle **on** = the site's own weighted fill table (e.g. City: townsfolk 5 / market 3 / guard 2) | off = inherit |
+| `_overrideBossAnchor` + `_bossStoryFlavor` + `_bossCrewMin/Max` | bool + string + int | Toggle **on** = boss-led camp: the Combat anchor becomes **boss + crew** — a boss NPC cast from a story carrying the flavor, fronting a crew rolled in the range (Camp: `bandit-boss`, 2–4). Empty flavor = not boss-led | off = inherit |
 
 `ContentBeatEntry` = `_kind` (`Empty/Loot/Combat/Npc`) + `_flavor` (open string).
 `WeightedBeatEntry` = the same + `_weight` (relative, ≥0).
@@ -265,9 +293,30 @@ quest slot, the site is reserved as a hard request (no roll). An unknown id warn
    picks. Authored now: `DemoStory_TownsfolkGossip` + `DemoStory_TownsfolkGrumbler` (the
    `arch_villager` archetype carries the `townsfolk` tag so villagers are preferred to play them).
 
+### Make a site boss-led (boss + crew — the bandit camp)
+
+1. On the site (or its family), toggle `_overrideBossAnchor` and set `_bossStoryFlavor` (e.g.
+   `bandit-boss`) + `_bossCrewMin/Max` (e.g. 2–4). The anchor beat stays `Combat·<flavor>` — the
+   crew draws from that flavor's monster pool.
+2. Author **boss stories** tagged with the flavor in `_storyTags` (they become ambient colour —
+   repeatable, never quest-channel). Two ship for the Camp:
+   - `DemoStory_CampBossHostile` — required Dialogue (`bandit-boss-threat`, cast-only, never shown)
+     + **required** Combat (`bandit-boss`) ⇒ the boss reads `!` and his circle starts the camp fight.
+   - `DemoStory_CampBossJob` — required Dialogue (`bandit-boss-job`) + required Quest
+     (`bandit-boss-job`) + optional Combat (`bandit-boss`) ⇒ the boss reads `?`, his circle opens the
+     talk (job on offer; the attack choice still fights). The quest-or-not ratio **is** the pool
+     composition (two stories ≈ 50/50).
+3. Tag a boss `EnemyDefinition` with the combat-slot tag (`DemoEnemy_BanditBoss`, tag `bandit-boss`,
+   id 9002) and a boss archetype with the story tag (`DemoArch_BanditBoss`) so casting and archetype
+   matching find them. The crew enemy only needs the anchor flavor tag (`bandit`).
+4. The crew never carries radii or quests — it is pre-placed `EnemyContent` that joins the boss's
+   one fight.
+
 **Authoring constraints / gotchas:** a duplicate `_siteId` is skipped (first wins); a site with no
 family and no anchor override is skipped; corpse-loot must never appear in a fill table (it is the
-outcome of a Combat beat); `NPC·quest-bearer` is an **anchor**, not a fill flavor (see §6).
+outcome of a Combat beat); `NPC·quest-bearer` is an **anchor**, not a fill flavor (see §6); a
+boss-led site converts only its **first** (immediately-emitted) anchor — keep boss-led sites
+single-anchor.
 
 ---
 
@@ -293,6 +342,12 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
   colour stories never satisfy Quest slots; a missing chatter pool degrades the fill to Empty
   keeping the stamp. The 16 pre-site planner tests run **unchanged over the site-aware allocator**
   (passthrough proof at the planner level).
+- Boss-led camp cases — `SiteAwareSlotAllocatorTests`: camp anchor allocates `WorldSlotKind.Camp`
+  with the crew in the authored range; same seed → identical crew; empty pool lands the boss
+  crew-less; non-boss sites keep the plain Combat anchor; catalog collects `BossStoryFlavors`.
+  `RunWindowPlannerTests`: a Camp slot plans the boss story + actor + crew ids; the quest-or-not
+  pick is seed-stable; boss stories never satisfy Quest slots; no boss story degrades to a plain
+  crew fight. `WorldRestoreTests`: a mid-stream restore reproduces Camp allocations crew-for-crew.
 - `SiteCatalogMapperTests` (7) — family inheritance; override toggles replace only their delta;
   trigger channel derives from the overridden anchor (Camp → Ambient despite family Settlement);
   no-anchor / missing-id / duplicate-id skipped; `NpcFillFlavors` from effective fill tables;
@@ -319,9 +374,13 @@ edit-mode runner.
 - **Deferred schema fields** *(PO decision 2026-07-03)*: occupancy/passport gating, tier/altitude
   eligibility + tonal register, and biome compatibility are not authored — their consuming systems
   don't exist yet. The additive-defaults contract (R7) makes adding them later migration-free.
-- **`NPC·quest-bearer` as a *fill* beat** (the design table's Camp "shady offer") is not supported:
-  an NPC fill flavor is planner-matched by story tag, and quest semantics on a fill slot are
-  undefined. Camps are authored without it; needs its own design pass if wanted.
+- **`NPC·quest-bearer` as a *fill* beat** is still not supported: an NPC fill flavor is
+  planner-matched by story tag, and quest semantics on a fill slot are undefined. The **supported**
+  quest-bearer-in-a-camp path is now the **boss-led anchor** (a job-bearing boss story) — the
+  shady-offer *content* (dark currency, cauldron tempter, passport-free acceptance) is still P3-17;
+  the shipped `DemoQst_CampJob` is an explicit placeholder for it.
+- **A peacefully-talked camp stays standing**: the boss handle is consumed, his crew idles and can
+  no longer be fought (PO-accepted for the demo; boss re-engagement is a ROADMAP item).
 - **Loot flavors bias, they don't own tables.** `market/stash/chest/relic` multiply weights of
   tagged entries in the one biome platform table; dedicated per-flavor tables (a chest that never
   drops the common snake) are a follow-up if bias proves too soft.

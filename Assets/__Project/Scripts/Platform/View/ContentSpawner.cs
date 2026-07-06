@@ -111,8 +111,11 @@ namespace Platform
         {
             return content.Type switch
             {
-                ContentType.Enemy => enemyPrefab,
-                ContentType.Npc => npcPrefab,
+                // Enemy bodies are spawned by CombatIdleState via EnemyVisualSpawner (the shared
+                // humanoid) and NPC bodies by NpcContent.SpawnModularVisual; this generic prefab
+                // path double-spawned legacy capsules on top of them — retired (bandit-camp brief).
+                ContentType.Enemy => null,
+                ContentType.Npc => null,
                 // Loot pickups are spawned by PlatformLootSpawnCoordinator with
                 // per-item visuals; the generic prefab path would double-spawn.
                 ContentType.Loot => null,

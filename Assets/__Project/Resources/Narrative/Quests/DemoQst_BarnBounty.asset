@@ -23,7 +23,17 @@ MonoBehaviour:
     _completionEffects: []
   _questTags:
   - bounty
-  _onCompleteEffects: []
+  _onCompleteEffects:
+  - _namespace: 0
+    _subjectToken:
+    _key: barn_bounty_honored
+    _op: 0
+    _value:
+      _valueType: 0
+      _boolValue: 1
+      _intValue: 0
+      _floatValue: 0
+      _stringValue:
   _onFailEffects: []
   _rewards:
   - _artifactId: rock

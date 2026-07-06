@@ -9,8 +9,9 @@ namespace Mutation.View
     /// Thin adapter for the mutation card hand: instantiates one <see cref="MutationCardView"/>
     /// per offered variant under an anchor, owns the presentation-only interaction state —
     /// two-step selection (first click selects a card, a second click on the same card
-    /// confirms and raises <see cref="OnChoiceSelected"/>), the shared ability tooltip, and
-    /// the mini-model popover (via <see cref="IMutationModelPreview"/>) — and toggles a panel
+    /// confirms and raises <see cref="OnChoiceSelected"/>), the shared ability-preview
+    /// popover (hover an ability icon → description + the hero casting it), and the
+    /// mini-model popover (via <see cref="IMutationModelPreview"/>) — and toggles a panel
     /// root with the choice's visibility. No business logic: what the cards show and what a
     /// confirmed pick does is the presenter's.
     /// </summary>
@@ -23,10 +24,10 @@ namespace Mutation.View
         [Tooltip("Parent transform the cards are laid out under")]
         [SerializeField] private Transform _choiceAnchor;
         [SerializeField] private MutationCardView _cardPrefab;
-        [SerializeField] private AbilityTooltipView _tooltip;
         [SerializeField] private ModelPreviewPopoverView _modelPopover;
 
         [Inject] private IMutationModelPreview _modelPreview;
+        [Inject] private UI.AbilityPreview.IAbilityPreviewPopover _abilityPopover;
 
         private readonly List<MutationCardView> _cards = new List<MutationCardView>();
         private readonly List<MutationChoiceViewData> _shown = new List<MutationChoiceViewData>();
@@ -130,18 +131,16 @@ namespace Mutation.View
         private void HandleAbilityHover(
             MutationAbilityIconViewData ability, Vector2 screenPosition, bool entering)
         {
-            if (_tooltip == null)
-            {
-                return;
-            }
-
             if (entering)
             {
-                _tooltip.Show(ability.Name, ability.Description, screenPosition);
+                _abilityPopover.Show(new UI.AbilityPreview.AbilityPreviewData(
+                        ability.Name, ability.Description, ability.IsPassive,
+                        ability.IsLine, ability.LineLength, ability.RingRadius, ability.AnimationTrigger),
+                    screenPosition);
             }
             else
             {
-                _tooltip.Hide();
+                _abilityPopover.Hide();
             }
         }
 
@@ -163,10 +162,7 @@ namespace Mutation.View
 
         private void HideOverlays()
         {
-            if (_tooltip != null)
-            {
-                _tooltip.Hide();
-            }
+            _abilityPopover?.Hide();
 
             if (_modelPopover != null)
             {

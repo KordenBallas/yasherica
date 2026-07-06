@@ -25,5 +25,25 @@ namespace Inventory.Core
             _partIds.Add(partId);
             OnPartAdded?.Invoke(partId);
         }
+
+        public void RestoreFrom(IReadOnlyList<string> partIds)
+        {
+            _partIds.Clear();
+            if (partIds == null)
+            {
+                return;
+            }
+
+            foreach (var partId in partIds)
+            {
+                if (string.IsNullOrEmpty(partId))
+                {
+                    continue;
+                }
+
+                _partIds.Add(partId);
+                OnPartAdded?.Invoke(partId);
+            }
+        }
     }
 }

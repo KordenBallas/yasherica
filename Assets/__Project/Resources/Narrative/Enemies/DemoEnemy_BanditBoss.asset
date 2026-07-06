@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b6b8bd1e42d7e5489ed5b442fd345a5, type: 3}
+  m_Name: DemoEnemy_BanditBoss
+  m_EditorClassIdentifier: Yasherica::Combat.Data.Definitions.EnemyDefinition
+  _enemyId: 9002
+  _name: Bandit Boss
+  _description: The camp's leader — the face of the deal and the first blade of the fight.
+  _maxHP: 80
+  _assembly: {fileID: 11400000, guid: fc1ee46c28382e64381e6548974aa94f, type: 2}
+  _prefab: {fileID: 0}
+  _demoTint: {r: 0.35, g: 0.05, b: 0.12, a: 1}
+  _abilities:
+  - {fileID: 11400000, guid: 19f7da520e6d4e8c962faf406ece53f0, type: 2}
+  _aiProfile: {fileID: 11400000, guid: b6aa4ef5ce17e964d93cefa3749bc7a5, type: 2}
+  _lootSlots: []
+  _enemyTags:
+  - bandit-boss

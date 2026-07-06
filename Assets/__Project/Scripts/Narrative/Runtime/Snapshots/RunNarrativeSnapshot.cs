@@ -20,6 +20,7 @@ namespace Narrative.Runtime.Snapshots
         public List<string> CompletedObjectives = new List<string>();
         public List<string> ObjectiveIds = new List<string>();
         public List<int> ObjectiveCounts = new List<int>();
+        public bool RewardsGranted;
     }
 
     /// <summary>Serialized thread lifecycle record (R8 first-class threads).</summary>
@@ -56,7 +57,9 @@ namespace Narrative.Runtime.Snapshots
         public string FactionId;
     }
 
-    /// <summary>Serialized casting binding (fragments referenced by id; context bag flattened).</summary>
+    /// <summary>Serialized casting binding (fragments referenced by id; context bag flattened).
+    /// The context bag itself is NOT restored from the flattened lists — the factory's bag is fully
+    /// derivable from the resolved actor + slots, so restore rebuilds it by the same recipe.</summary>
     [Serializable]
     public class CastingSnapshot
     {
@@ -64,6 +67,8 @@ namespace Narrative.Runtime.Snapshots
         public string DialogueId;
         public string QuestId;
         public string EnemyId;
+        public string StoryId;
+        public string ThreadId;
         public List<string> ContextSubjectTokens = new List<string>();
         public List<string> ContextSubjectValues = new List<string>();
     }

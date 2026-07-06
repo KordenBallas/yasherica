@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5746f9149bc147659943c02d1165e866, type: 3}
+  m_Name: AbilityPreviewConfig
+  m_EditorClassIdentifier: Yasherica::UI.AbilityPreview.AbilityPreviewConfig
+  _rigWorldOffset: {x: 4000, y: 0, z: -4000}
+  _textureSize: 384
+  _cameraHeight: 1.6
+  _cameraDistance: 3.4
+  _lookAtHeight: 0.9
+  _fieldOfView: 40
+  _farClipPlane: 50
+  _backgroundColor: {r: 0.09, g: 0.08, b: 0.1, a: 1}
+  _modelYawDegrees: 200
+  _lightLocalPosition: {x: 1.5, y: 2.5, z: -1.5}
+  _lightRange: 12
+  _lightIntensity: 1.4
+  _groundSize: 8
+  _groundColor: {r: 0.16, g: 0.15, b: 0.17, a: 1}
+  _cellSize: 0.5
+  _sweepTint: {r: 1, g: 0.55, b: 0.2, a: 1}
+  _sweepPeakAlpha: 0.85
+  _sweepSeconds: 0.6
+  _loopIntervalSeconds: 1.4

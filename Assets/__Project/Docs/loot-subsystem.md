@@ -1,23 +1,16 @@
 # Loot Subsystem
 
-> ⚠️ **STALE (predates the streaming Phase-3 cutover).** This doc references legacy narrative pieces
-> that have since been **deleted**: `RewardResolver` / `ResolvedReward`, `StoryDefinition` reward
-> slots, `NpcAssignment.Rewards`, `RewardDefinition`, `NarrativeInstaller`, `ScenarioGenerator`,
-> `PlatformGraphGenerator` (see ROADMAP "Delete legacy (Phase 3)"). Consequences: (1) the **live**
-> quest-reward path is in `quest-subsystem.md` — `QuestRewardGranter` grants the active quest's fixed
-> `QuestRewardCore` (id+count), **no roll**; the §2 description of the granter is wrong. (2) **Platform
-> loot is live on the streaming path (world-content-density, 2026-07-02):** loot-platform *presence* is
-> now decided by the density planner (`WorldContentAllocator` ambient draw, `narrative-procedural.md`
-> §2.6) — `PlannedPlatformKind.Loot` maps to `PlatformContentType.Loot` and
-> `AreaGenerator.CreateLootContent(nodeId)` rolls the biome `_platformTable` deterministically; the
-> pickup runtime (`PlatformLootSpawnCoordinator`/`WorldArtifactView`) is unchanged. Consequently
-> `ShouldPlaceLootOnPlatform` and `BiomeLootDefinition._platformLootChance` are **dead on the active
-> path** (no callers — presence lives in the density config; removal is a ROADMAP cleanup). Treat §1.6
-> (R6), the §2 "Generation integration" gating description, and the granter description as **outdated**
-> until this doc is refreshed (ROADMAP `[debt]`). The seed/`WeightedPicker`/biome-table **Core** is
-> still valid.
+> **Refreshed 2026-07-06 to the streaming/density path (P6-1).** The legacy narrative pipeline this doc
+> once leaned on was deleted in the Phase-3 cutover — `RewardResolver` / `ResolvedReward`,
+> `StoryDefinition` reward slots, `NpcAssignment.Rewards`, `RewardDefinition`, `NarrativeInstaller`,
+> `ScenarioGenerator`, `PlatformGraphGenerator` no longer exist (`narrative-generation.md` is the
+> tombstone). This document now describes the loot subsystem **as implemented**. Two Core operations
+> (`LootRollService.ShouldPlaceLootOnPlatform`, `RollQuestRewards`) and one field
+> (`BiomeLootDefinition._platformLootChance`) are **dead — no callers** — kept only until the P6-4
+> cleanup; they are flagged inline. The seed / `WeightedPicker` / biome-table Core and the pickup
+> runtime are current.
 
-Status: current as of 2026-06-12.
+Status: current as of 2026-07-06.
 
 Data-driven artifact rewards integrated with procedural level generation. Artifacts
 (the same definitions the pot inventory uses) are acquired through three paths:
@@ -26,10 +19,12 @@ platform discovery, enemy defeat, and quest completion.
 ## 1. Requirements
 
 ### Acquisition paths
-- **R1** Artifacts can be discovered on generated platforms: generation decides
-  per platform (biome-configured probability) whether it carries loot, and which
-  artifacts, at generation time. Pickups are interactable as soon as the platform
-  is entered.
+- **R1** Artifacts can be discovered on generated platforms. Whether a platform
+  carries loot is decided by the **world-content-density allocator** (`WorldContentAllocator`'s ambient
+  weighted draw, `narrative-procedural.md` §2.6) — **not** a per-biome platform-loot probability. A
+  `Loot` slot maps to `PlatformContentType.Loot`, and `AreaGenerator.CreateLootContent(nodeId)` rolls
+  **which** artifacts from the biome `_platformTable` at generation time. Pickups are interactable as
+  soon as the platform is entered.
 - **R2** Defeated enemies can drop artifacts at their death location. Drops wait
   in the world for player interaction. Drops happen only when the local player
   wins the combat.
@@ -47,21 +42,23 @@ platform discovery, enemy defeat, and quest completion.
   ids with probability, quantity range, and a bonus marker for low-probability,
   high-value extras. An enemy with no slots falls back to the biome enemy drop
   table.
-- **R6** Quests additionally deliver the fixed rewards already resolved by the
-  narrative system (`StoryDefinition` reward slots → `NpcAssignment.Rewards`);
-  this is the fixed/bonus reward channel. Item-type rewards reference artifacts
-  via `RewardDefinition.ItemId == ArtifactDefinition.Id`.
+- **R6** Completing a quest grants the quest's **fixed** rewards — each
+  `QuestRewardCore` (artifact id + count) authored on the `Quest` asset — directly to the inventory via
+  `QuestRewardGranter` (the live path; see `quest-subsystem.md`). **No roll.** (The legacy
+  `StoryDefinition` reward-slot / `RewardResolver` / `RewardDefinition` channel was deleted in the
+  Phase-3 cutover.)
 
 ### Determinism
-- **R7** Rewards are procedurally determined: the same quest/enemy/platform can
-  yield different artifacts in different runs, but results are reproducible
-  within a run. One run seed (the entrypoint's `seed` field; time-derived when 0)
-  is hashed with a stable context key (`platform:{nodeId}`,
-  `enemy:{platformId}:{enemyId}`, `quest:{storyId}:{npcId}`) into a per-roll
-  `System.Random`, making rolls independent of execution order and of
-  `UnityEngine.Random` state.
-- **R8** Story/NPC tags influence quest rewards: table entries with matching
-  `biasTags` get their weight multiplied by `LootConfig.TagBiasMultiplier`.
+- **R7** The *rolled* paths (platform discovery, enemy drops) are procedurally
+  determined: the same enemy/platform can yield different artifacts in different runs, but results are
+  reproducible within a run. One run seed (the entrypoint's `seed` field; time-derived when 0) is
+  hashed with a stable context key (`platform:{nodeId}`, `enemy:{platformId}:{enemyId}`) into a
+  per-roll `System.Random`, making rolls independent of execution order and of `UnityEngine.Random`
+  state. *(Quest rewards are fixed (R6), not rolled — the `quest:{storyId}:{npcId}` context key and
+  `RollQuestRewards` are dead, no callers; P6-4 cleanup.)*
+- **R8** Story/NPC tags bias the *rolled* reward tables: entries with matching
+  `biasTags` get their weight multiplied by `LootConfig.TagBiasMultiplier` (platform/enemy rolls only;
+  the quest-reward roll path is retired).
 
 ### Pickup interaction and visuals
 - **R9** Walking into a world artifact plays a placeholder pickup animation
@@ -94,16 +91,18 @@ platform discovery, enemy defeat, and quest completion.
   `BiomeStretchDirector` — see `biome-journey.md`; loot rolls follow the active
   stretch's biome table), `BiomeLootData` / `LootEntryData` / `LootSlotData` (plain
   snapshots), `LootRollContext` / `LootRollResult`, `WeightedPicker`,
-  `ILootEntryFilter` + `PassThroughLootFilter`, and `LootRollService` with the
-  four operations: `ShouldPlaceLootOnPlatform`, `RollPlatformLoot`,
-  `RollEnemyDrops` (slot rolls or biome fallback), `RollQuestRewards`.
+  `ILootEntryFilter` + `PassThroughLootFilter`, and `LootRollService`. The two live operations are
+  `RollPlatformLoot` (the artifacts on a density-placed loot platform) and `RollEnemyDrops` (slot rolls
+  or biome fallback). `ShouldPlaceLootOnPlatform` and `RollQuestRewards` are **dead — no callers**
+  (presence is owned by the density allocator; quest rewards are fixed) — kept until the P6-4 cleanup.
 - **Data**: `BiomeLootDefinition`, `LootConfig`, `WeightedArtifactEntry`,
   `ArtifactLootSlot` (ScriptableObjects/serializables, data only);
   `BiomeLootCatalog` and `LootSlotMapper` convert assets to Core snapshots at
   install time. `EnemyDefinition` gained `_lootSlots`;
   `EnemyData.LootSlots` carries the mapped slots through `IEnemyDataProvider`.
-- **Application**: `QuestRewardGranter` (bridges `ResolvedReward` item rewards +
-  procedural biome quest roll into `IInventoryModel`, idempotent per platform),
+- **Application**: `QuestRewardGranter` (scans the run-scoped `ILiveQuestRegistry` for a quest that
+  reached `QuestState.Completed` and not yet paid out, and adds each fixed `QuestRewardCore` item into
+  `IInventoryModel`, idempotent per quest — item rewards only, no roll),
   `EnemyLootDropper` (rolls and spawns drops at death positions),
   `PlatformLootSpawnCoordinator` (spawns discovery pickups on
   `PlatformEvents.OnPlatformEntered`), `WorldArtifactPresenter` (per pickup:
@@ -115,16 +114,16 @@ platform discovery, enemy defeat, and quest completion.
   Prefab: `Resources/Prefabs/Loot/WorldArtifact.prefab`.
 
 ### Generation integration
-- `ScenarioGenerator` gates `PlatformContentType.Loot` per platform requirement
-  via `ShouldPlaceLootOnPlatform(theme, index)` (requirement order matches graph
-  node ids).
-- `AreaGenerator.CreateLootContent(nodeId)` rolls the actual artifacts and
-  stores them on `LootContent` (items + per-item collected flags; nothing
+- Loot-platform **presence** is decided by the streaming **density allocator**
+  (`WorldContentAllocator`'s ambient weighted draw, `narrative-procedural.md` §2.6): a `WorldSlotKind.Loot`
+  slot becomes a `PlannedPlatformKind.Loot` platform → `PlatformContentType.Loot`. *(The legacy
+  `ScenarioGenerator` gate via `ShouldPlaceLootOnPlatform` is gone — that operation and
+  `BiomeLootDefinition._platformLootChance` are dead, P6-4.)*
+- `AreaGenerator.CreateLootContent(nodeId)` rolls the actual artifacts from the biome `_platformTable`
+  and stores them on `LootContent` (items + per-item collected flags; nothing
   respawns on re-entry).
-- `AreaSceneEntrypoint` consumes `IRunSeedProvider.RunSeed` for
-  `Random.InitState`; `ICurrentThemeProvider` is written by the biome journey's
-  `BiomeStretchDirector` per stretch (the entrypoint no longer sets it), and
-  `AreaGenerator` reads it live per loot roll.
+- `ICurrentThemeProvider` is written by the biome journey's `BiomeStretchDirector` per stretch, and
+  `AreaGenerator` reads it live per loot roll (the entrypoint no longer sets the theme).
 
 ### Runtime hooks
 - Enemy drops: `CombatActiveState.HandleCombatEnded` calls
@@ -139,21 +138,20 @@ platform discovery, enemy defeat, and quest completion.
 
 ### DI and seeding
 `LootInstaller` (registered in the Area scene's `SceneContext`) binds everything
-and computes the effective run seed **at install time** from the entrypoint's
-`seed` field (time-derived fallback when 0). This matters because
-`NarrativeInstaller` now seeds `RewardResolver` and `LevelNarrativeGenerator`
-with `System.Random` instances derived from the run seed, and those are
-constructed during injection — before `GenerateArea` runs. Assets auto-load from
-`Resources/Loot/Biomes`, `Resources/Configs/LootConfig` and
-`Resources/Prefabs/Loot/WorldArtifact` when inspector fields are empty.
+and fixes the effective run seed **at install time** via `IRunSeedProvider` — from the entrypoint's
+`seed` field, or the restored `RunSaveSnapshot.RunSeed` on a continue, time-derived when 0. Every
+subsystem derives its own per-context stream off that one root seed through `LootSeed.Derive` (loot
+rolls, and the narrative slice's own seed in `NarrativeSliceInstaller`), so results stay reproducible
+and order-independent. Assets auto-load from `Resources/Loot/Biomes`, `Resources/Configs/LootConfig`
+and `Resources/Prefabs/Loot/WorldArtifact` when inspector fields are empty.
 
 ### Adding content without code
 - New biome tuning: edit the `Biome_*.asset` under `Resources/Loot/Biomes`
   (Create → Loot → Biome Loot for new themes).
 - Enemy drops: add slots to the enemy's `EnemyDefinition` Loot section.
 - Animation/visual tuning: edit `Resources/Configs/LootConfig.asset`.
-- Fixed quest rewards: add `RewardDefinition` assets (type Item, `ItemId` set to
-  an artifact id) to `StoryDefinition` reward slots.
+- Fixed quest rewards: author the reward stacks on the `Quest` asset
+  (`QuestRewardSerial` — artifact id + count); see `quest-subsystem.md`.
 
 ## 3. Tests
 
@@ -164,8 +162,8 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
 - `LootRollServiceTests` — run/context determinism, probability edges, quantity
   ranges, biome fallback, tag bias, filter pipeline, bonus passthrough
   (pure C#, runnable outside Unity).
-- `QuestRewardGranterTests` — item rewards reach the inventory, non-item types
-  and unknown artifact ids are skipped, procedural rolls are deterministic
+- `QuestRewardGranterTests` — a completed quest's fixed `QuestRewardCore` rewards
+  reach the inventory, empty/unknown artifact ids are skipped, and the payout is idempotent per quest
   (uses ScriptableObject test fixtures, runs in the editor Test Runner).
 
 ## 4. Known limitations / open points
@@ -173,10 +171,11 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
 - "Quest completion" means the platform reached `PlatformCompletedState`;
   a dialogue the player walks away from still completes the platform and grants
   rewards. An explicit Ink completion signal is a possible refinement.
-- Filler platforms added by `PlatformGraphGenerator` (beyond the scenario's
-  requirements) never carry loot; only requirement-driven platforms roll it.
-- Non-item `RewardType`s (Currency, Experience, Ability, ...) have no receiving
-  system; the granter logs and skips them.
+- Only platforms the density allocator marks as `Loot` roll loot; Empty/traversal
+  and other content kinds never carry it.
+- Quest rewards are **item-only** (`QuestRewardCore` = artifact id + count); non-item reward *sinks*
+  (Currency, Experience, Ability) have no receiving system yet — deferred (Track H P1-12, pending a
+  currency model).
 - Inventory capacity feedback (R11) is unreachable while the inventory is
   unlimited; `UnlimitedCapacityPolicy` is the rebinding point.
 - Progression gating fields (R13) are serialized and surfaced in the roll

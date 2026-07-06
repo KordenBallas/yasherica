@@ -14,6 +14,9 @@ namespace Combat.View
     /// </summary>
     public sealed class GhostPlaybackView : MonoBehaviour, IGhostPlaybackView
     {
+        // Spectral tint for the ghost's cell-sweep (D3), matching GhostVisualCloner's ghost material.
+        private static readonly Color GhostSweepTint = new Color(0.55f, 0.8f, 1f);
+
         private ICombatUnitViewRegistry _registry;
         private Camera _camera;
 
@@ -58,6 +61,22 @@ namespace Combat.View
 
                 if (marker.Damage > 0 || marker.Heal > 0)
                     CreateNumberLabel(marker);
+            }
+
+            // D3: the preview now MOVES — a translucent cell-sweep across the ability's footprint,
+            // matched to its shape. The flashes self-animate; track them so Stop() clears any leftover.
+            if (plan.AffectedCellPositions.Count > 0)
+            {
+                var flashes = AbilityAreaSweep.Play(
+                    transform,
+                    plan.AffectedCellPositions,
+                    plan.SweepOrigin,
+                    plan.IsLine,
+                    GhostSweepTint,
+                    TelegraphStyle.GhostAlpha,
+                    TelegraphStyle.AbilitySweepSeconds,
+                    TelegraphStyle.AbilityFlashCellSize);
+                _spawned.AddRange(flashes);
             }
 
             _playback = StartCoroutine(PlayOnceThenFade());

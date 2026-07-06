@@ -1,14 +1,15 @@
+using System.Collections.Generic;
+using Combat.Battlefield;
 using UnityEngine;
 
 namespace Platform
 {
     public class PlatformView : MonoBehaviour
     {
-        private IPlatform platform;
         private GameObject platformMeshObject;
         private MeshRenderer meshRenderer;
         private MeshCollider meshCollider;
-        
+
         private Material platformMaterial;
         private float platformThickness = 1.0f;
         private float rimDropHeight = 0.4f;
@@ -26,13 +27,23 @@ namespace Platform
 
         public void Initialize(IPlatform platform)
         {
-            this.platform = platform;
-            CreatePlatformGameObject();
+            if (platform == null || platform.Visual == null)
+            {
+                return;
+            }
+
+            Initialize(platform.Visual.Surface, platform.Visual.TopBoundary);
         }
 
-        private void CreatePlatformGameObject()
+        /// <summary>
+        /// Standalone build over a bare surface (O1 rework): the Hub's single island renders
+        /// through the exact same mesh/material/collider path as a streamed world platform —
+        /// this overload is the one place that logic lives; the <see cref="IPlatform"/> overload
+        /// only unwraps the visual.
+        /// </summary>
+        public void Initialize(PlatformHexSurface surface, List<Vector3> topBoundary)
         {
-            if (platform == null || platform.Visual == null || platform.Visual.Surface == null) return;
+            if (surface == null) return;
 
             // Create mesh GameObject as child
             platformMeshObject = new GameObject("PlatformMesh");
@@ -41,7 +52,7 @@ namespace Platform
 
             // Build mesh from the hex surface (the same source of truth the combat grid reads).
             var mesh = PlatformHexSurfaceMeshBuilder.Build(
-                platform.Visual.Surface,
+                surface,
                 platformThickness,
                 rimDropHeight,
                 cellInset
@@ -83,7 +94,7 @@ namespace Platform
             // its geometry lies beyond the wall colliders.
             PlatformColliderBuilder.BuildPlatformColliders(
                 gameObject,
-                platform.Visual.TopBoundary,
+                topBoundary,
                 platformThickness
             );
 

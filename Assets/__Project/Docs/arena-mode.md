@@ -115,13 +115,23 @@ its own seat becomes the local `HumanPlayer`, remote seats become `NetworkPlayer
 match build runs (platform → controller → telegraph → spawns → rounds). **Nothing per-unit is
 replicated** — no NetworkObjects, no scene sync; the only traffic is the lockstep messages below,
 sent as NGO **custom named messages** (`NgoArenaTransport`): the local machine's own messages are
-raised directly, remote ones travel reliable-sequenced.
+raised directly, remote ones travel **reliable-fragmented-sequenced** (fragmented because the
+draft board and a full 4-player bundle exceed the ~1264-byte unfragmented MTU; one shared
+delivery pipeline keeps all messages mutually ordered).
 
 | Message | Direction | Payload |
 |---|---|---|
 | `yash.arena.setup` | host → joiners | match seed + seat roster (spawns/platform derive from the seed) |
 | `yash.arena.commit` | joiner → host | round number + the locked commit + previous round's state hash (R10) |
 | `yash.arena.bundle` | host → joiners | the canonical round: commits by ascending PlayerId + departed players |
+| `yash.arena.tasted` | joiner → host | the client's tasted-forms catalog (part ids), sent on session start |
+| `yash.arena.draftstart` | host → joiners | the composed draft board + slot loadout + pick timer (§2.9) |
+| `yash.arena.draftpick` | joiner → host | one draft pick request (pick index, player, entry) |
+| `yash.arena.draftapplied` | host → joiners | one canonically applied pick + departures since the last one |
+
+Between the setup and the round loop sits the **parts draft** (§2.9): the match build
+(`ArenaSceneEntrypoint.BeginCombat`) only runs once the draft's confirmed result — each seat's
+slot → part loadout — is in hand.
 
 ### 2.5 The round loop
 
@@ -192,7 +202,74 @@ singleton), `IArenaTransport → LoopbackArenaTransport` (Phase 3 swaps in the N
 win condition, spawn planner, platform builder, hero spawner, AI commit source, and the
 entrypoint (`BindInterfacesTo<ArenaSceneEntrypoint>.FromComponentInHierarchy`).
 
-Deliberately absent: narrative, mutation, loot, inventory, streaming-world installers.
+The draft slice (§2.9) adds: `PersistenceInstaller` (save stores only — the tasted-catalog
+read), `ArenaDraftConfig` (auto-loaded from `Arena/ArenaDraftConfig`, mapped to Core settings
+via `ArenaDraftConfigMapper`), the catalog reader/sender/registry, `ArenaDraftHost` (+
+`IArenaDraftClock → UnityArenaDraftClock`, `IArenaDraftPartInfoSource →
+PartCatalogDraftInfoSource`), `ArenaDraftFlow`, `IPartAbilityResolver`, the draft stage rig,
+the panel/part-info popover from prefabs (missing prefab → headless degrade, never a crash),
+the draft presenter, and the **shared ability-preview popover** (`AbilityPreviewInstaller`,
+hero source = `ArenaDraftHeroSource` — never the scene's `ModularCharacterVisual`, which is
+ambiguous once several heroes spawn).
+
+Deliberately absent: narrative, loot, inventory, streaming-world installers (the mutation
+subsystem stays absent too — the shared ability-preview module lives in `UI.AbilityPreview`,
+not in Mutation).
+
+### 2.9 The parts draft (P4-5 model + G4 screen)
+
+Every match opens with a **snake-order parts draft** off a **shared board** before any hero
+spawns (`arena-part-draft-and-catalog.md` + `arena-draft-ui.md`). The layer sits entirely above
+the round loop — transport, commits, resolution order, and win condition are untouched.
+
+**The tasted-forms catalog.** Journey records every part the hero has ever carried (equipped or
+dormant) as a Meta-horizon fact `world.<partId>.arena_tasted` — written by `TastedFormsRecorder`
+(Area scene, on `CharacterAssembled`/`PartsChanged`, idempotent), persisted by the existing
+`meta.json` flush points. The Arena scene reads it back with `ArenaTastedCatalogReader`
+(`IMetaMemoryStore.LoadOrEmpty()` directly — no narrative fact-store bootstrap), dropping ids the
+part catalog no longer knows and frame-changing parts (the draft stays on the base body-plan).
+The catalog is **read-only for Arena** and never feeds back into Journey. Since O1 the same
+reader also serves the **Hub** (`hub-staging.md`): the starting-part offer is drawn from the
+identical tasted + base-skeleton view — relocating `ArenaTastedCatalogReader` to a shared
+tasted-catalog home is filed ROADMAP debt.
+
+**Board composition (host-authoritative).** Each client submits its catalog on session start
+(`ArenaTastedCatalogSender` → host's `ArenaTastedCatalogRegistry`). On Start Match the host
+composes the board once (`ArenaDraftBoardComposer`): the **common floor** in full — an authored
+list where duplicates are copies, guaranteeing every seat a complete body (req 6) — plus a
+seeded sample (`LootSeed.Derive(seed, "arena-draft-board")`) of the participants' **catalog
+union** (single-copy — that is where denial bites). The composed board travels in
+`draftstart`; clients never recompute it.
+
+**The draft loop (lockstep by construction).** `ArenaDraftModel` (pure C#) is the state
+machine: snake order (`ArenaSnakeOrder`), pick legality (turn / entry available / slot open),
+denial, completion at seats × slots. The host (`ArenaDraftHost`) validates every `draftpick`
+request against its own model and broadcasts the applied pick; **every replica — the host's own
+`ArenaDraftFlow` included — advances only on `draftapplied` broadcasts**. Pick deadlines are
+host-only (`IArenaDraftClock` seam): humans get the generous soft timer, offline AI dummies a
+short pacing delay, departed seats fill immediately — all through the deterministic auto-pick
+(lowest loadout-slot order, then lowest entry id), so the draft can never hang (G4 req 13).
+Mid-draft departures piggyback on `draftapplied`; the entrypoint seeds them into
+`ArenaMatchHost` so round 1's bundle kills their (still deterministically spawned) units.
+
+**The screen (presentation only).** `ArenaDraftPresenter` (pure C#) reads the flow's replica and
+drives: `ArenaDraftStageRig` — a procedural far-offset 3D stage (one camera → RenderTexture)
+with the board's part models on a slot-grouped pedestal grid and the local monster assembling
+live via `IModularCharacterFactory`; `ArenaDraftView` (prefab
+`Resources/Prefabs/UI/ArenaDraftPanel`) — whose-pick banner, snake-order line, cosmetic
+countdown, the local dual readout (3D + name/parts text) and per-opponent name + parts readouts,
+remote-pick flights; `ArenaPartInfoPopoverView` — click a part model (board or hero) → part
+info + ability rows whose hover opens the **shared ability-preview popover**
+(`ability-preview-popover.md`) with the Draft button when the pick is legal right now (an
+illegal pick shows its reason — req 7). Completion shows the "your monster" beat
+(auto-continues after `_beatSeconds`), then the untouched match build runs. Missing prefabs
+degrade to a headless draft (host auto-picks) — never a crash.
+
+**Drafted body → combat.** `ArenaHeroSpawner` maps each seat's loadout through the same
+part→combat path PvE uses: actives/passives via `IPartAbilityResolver`, the visual via
+`SwapPart` per drafted part on the hero's modular rig; MaxHP stays `HeroDefinition.MaxHP`, and
+the HeroDefinition kit remains only as a loudly-logged fallback. Identical loadouts on every
+client ⇒ identical ability sets ⇒ the round loop's determinism holds unchanged.
 
 ---
 
@@ -214,6 +291,27 @@ Loaded from `Resources/Arena/ArenaMatchConfig` (or wired on the scene's `ArenaIn
 Referenced assets: the platform `Material` only. The hero and its abilities come from the
 existing `HeroDefinition` / `AbilityDefinition` SOs (see `ability-subsystem.md`).
 
+### `ArenaDraftConfig`  (asset menu: `Yasherica → Arena → Draft Config`)
+
+Loaded from `Resources/Arena/ArenaDraftConfig` (or wired on the scene's `ArenaInstaller`).
+Mapped to Core `ArenaDraftSettings` at install time by `ArenaDraftConfigMapper`, which drops
+misauthored rows loudly (frame-changers, slot-less parts, parts outside the loadout) and warns
+when the floor cannot cover a full lobby (P4-5 req 6).
+
+| Field | Type | Meaning | Default / notes |
+|---|---|---|---|
+| `_slotLoadout` | List\<SlotDefinition\> | The fixed Arena slot loadout — the draft completes when every seat fills each | the 7 base-biped slots |
+| `_floorParts` | List\<PartDefinition\> | The common floor, stocked in full; **list a part N times for N copies** | 4 copies per slot |
+| `_catalogSampleSize` | int | How many distinct tasted-catalog parts are sampled onto the board (single-copy) | 8 |
+| `_pickTimerSeconds` | float | Generous soft limit per human pick; on expiry the host auto-picks (G4 req 13) | 45 |
+| `_aiPickDelaySeconds` | float | Pacing delay before an offline AI dummy's pick lands | 1.5 |
+| `_beatSeconds` | float | How long the "your monster" beat holds before auto-continue | 4 |
+| `_baseAssembly` | CharacterAssemblyDefinition | The base body every drafted monster assembles onto (stage + spawn) | `PlaceholderAssembly_A` |
+
+### `AbilityPreviewConfig`
+
+Owned by the shared ability-preview popover — see `ability-preview-popover.md` §SO Reference.
+
 ---
 
 ## 4. Adding Content  *(mandatory — CLAUDE.md §8.1)*
@@ -227,9 +325,26 @@ existing `HeroDefinition` / `AbilityDefinition` SOs (see `ability-subsystem.md`)
 
 ### Change the arena hero or its abilities
 
-Asset-only through the existing recipes: the hero is the `HeroDefinition` at
-`Resources/Heroes/TestHeroDefinition` (stats + ability list), abilities are `AbilityDefinition`
-assets (`ability-subsystem.md` §Adding Content). Every player spawns the same hero (brief R6).
+Since the parts draft (P4-5/G4) an arena body is **drafted**, not fixed: abilities come from the
+drafted parts (`PartDefinition.ActiveAbilities` / `PassiveAbilities` — see
+`character-system.md`). The `HeroDefinition` at `Resources/Heroes/TestHeroDefinition` still
+supplies **MaxHP** and the loudly-logged ability fallback for a seat with no drafted actives.
+
+### Add a floor part / tune the draft board
+
+1. Author the part as usual (`character-system.md` §Adding Content) — any non-frame-changing
+   `PartDefinition` whose slot is in the loadout is draftable.
+2. Open `Resources/Arena/ArenaDraftConfig.asset` and add the part to `_floorParts` — **once per
+   copy** you want stocked (the floor must cover `_maxPlayers` per slot; the mapper warns if not).
+3. Tune `_catalogSampleSize` / `_pickTimerSeconds` / `_aiPickDelaySeconds` / `_beatSeconds` per §3.
+   No code — parts a player merely *tasted in Journey* appear on the board automatically.
+
+### Change the arena slot loadout
+
+Edit `_slotLoadout` on `ArenaDraftConfig` (SlotDefinition refs). The draft completes when every
+seat fills every listed slot; floor parts targeting removed slots are dropped with a warning.
+
+### Change the arena platform size/shape
 
 ### Change the arena platform size/shape
 
@@ -266,6 +381,24 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/` (all pure, runnable via t
   both land; a stunned caster's committed step is skipped; a mid-planning departure completes the
   round and kills the departed unit on the bundle.
 - `MainMenuPresenterTests` — menu routing (Phase 1).
+- `ArenaDraftModelTests` — snake order (wrap + the double pick at the turn), the pick legality
+  matrix (out of turn / taken / slot filled / stale index / after completion), denial removes
+  for everyone, completion at seats × slots, loadout correctness, auto-pick determinism +
+  slot-priority rule + the impossible-board throw.
+- `ArenaDraftBoardComposerTests` — board determinism (same seed + catalogs → identical), input
+  order independence, floor-only degrade on empty catalogs, duplicate floor stock as separate
+  entries, sample-size respect, floor/catalog dedupe, loadout filtering, sequential entry ids.
+- `ArenaDraftWireCodecTests` — the four draft messages round-trip (catalogs, board + loadout +
+  timer, pick requests, applied picks with departures).
+- `ArenaDraftFlowTests` — the full draft over the loopback transport with production wiring
+  (host + flow + registry): human picks + AI auto-picks to completion, host/replica loadout
+  agreement, out-of-turn rejection without state change, human-timeout auto-pick via the fake
+  clock, mid-draft departure auto-fill + departure surfacing, two independent same-seed drafts
+  composing identical boards.
+- `TastedFormsCatalogTests` — the recorder core (marks carried ids, idempotent, skips empties)
+  and the reader core (extracts exactly the tasted subjects from a fact snapshot).
+- `AbilityPreviewShapeTests` — the shared popover's mock-ground geometry (line length, 6R ring,
+  determinism).
 
 PvE regression: the combat suite (54 tests) stays green after the `RoundLifecycleProcessor`
 extraction. The NGO layer itself (named-message delivery, session approval) is play-tested: run
@@ -294,3 +427,14 @@ Unity's registry currently reports with an invalid signature.)
 - **True simultaneous mutual-kill is not a draw.** Sequential skip-dead resolution (R4) means the
   earlier unit in initiative survives a mutual lethal exchange and wins; the draw rule only fires
   when a round genuinely leaves zero units (a defensive path, not reachable via committed blows).
+- **The draft has no dedicated desync checkpoint.** A diverged draft replica logs a loud
+  `REPLICA DIVERGENCE` error locally but is otherwise only caught by round 1's `ArenaStateHash`;
+  a loadout hash piggybacked on draft completion is a ROADMAP item.
+- **Bind-pose part display.** The draft board shows part meshes extracted at bind pose
+  (standalone skinned meshes don't deform), bounds-normalised; odd silhouettes are possible.
+  Real part thumbnails are a ROADMAP item; the icon-sprite fallback covers mesh-less parts.
+- **Hero-part click targets are a name heuristic.** Colliders on the assembling monster map
+  renderers to slots by part-prefab name prefix; an unmatched part just isn't clickable on the
+  hero (the text readout stays the reliable info path).
+- **Reconnect during the draft is excluded** (as in the whole MVP): a drop is permanent — the
+  seat auto-drafts and its unit folds into round 1 dead.

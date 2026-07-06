@@ -21,7 +21,10 @@ namespace World.Sites.Core
             int fillBudgetMin,
             int fillBudgetMax,
             IReadOnlyList<WeightedBeat> fillTable,
-            string dressingThemeId)
+            string dressingThemeId,
+            string bossStoryFlavor = null,
+            int bossCrewMin = 0,
+            int bossCrewMax = 0)
         {
             SiteId = siteId ?? string.Empty;
             FamilyId = familyId ?? string.Empty;
@@ -37,6 +40,10 @@ namespace World.Sites.Core
             TriggerChannel = AnchorBeats.Count > 0 && AnchorBeats[0].Kind == ContentBaseKind.Npc
                 ? SiteTriggerChannel.Quest
                 : SiteTriggerChannel.Ambient;
+
+            BossStoryFlavor = bossStoryFlavor ?? string.Empty;
+            BossCrewMin = bossCrewMin < 0 ? 0 : bossCrewMin;
+            BossCrewMax = bossCrewMax < BossCrewMin ? BossCrewMin : bossCrewMax;
         }
 
         public string SiteId { get; }
@@ -64,5 +71,19 @@ namespace World.Sites.Core
 
         /// <summary>Derived from the first anchor's base kind — see <see cref="SiteTriggerChannel"/>.</summary>
         public SiteTriggerChannel TriggerChannel { get; }
+
+        /// <summary>
+        /// The story flavor a boss-led site's leader is cast from (e.g. "bandit-boss"); empty when the
+        /// site is not boss-led. On a boss-led site the Combat anchor becomes boss + crew: a talkable
+        /// or hostile boss NPC fronting a crew that joins his one fight (bandit-camp brief).
+        /// </summary>
+        public string BossStoryFlavor { get; }
+
+        /// <summary>Rolled per instance: how many crew enemies stand behind the boss.</summary>
+        public int BossCrewMin { get; }
+        public int BossCrewMax { get; }
+
+        /// <summary>True when the site's Combat anchor is a boss-led camp (a boss flavor is authored).</summary>
+        public bool HasBossLedAnchor => BossStoryFlavor.Length > 0;
     }
 }

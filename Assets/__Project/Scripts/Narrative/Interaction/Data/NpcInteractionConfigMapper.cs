@@ -11,15 +11,18 @@ namespace Narrative.Interaction.Data
     {
         private const float DefaultInteractionRadius = 3.5f;
         private const float DefaultAggroRadius = 2.5f;
+        private const float DefaultBossEngagementRadius = 6f;
 
         public static NpcInteractionSettings ToSettings(NpcInteractionConfig config)
         {
             if (config == null)
             {
-                return new NpcInteractionSettings(DefaultInteractionRadius, DefaultAggroRadius);
+                return new NpcInteractionSettings(
+                    DefaultInteractionRadius, DefaultAggroRadius, DefaultBossEngagementRadius);
             }
 
-            return new NpcInteractionSettings(config.InteractionRadius, config.AggroRadius);
+            return new NpcInteractionSettings(
+                config.InteractionRadius, config.AggroRadius, config.BossEngagementRadius);
         }
     }
 }

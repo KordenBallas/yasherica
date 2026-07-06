@@ -9,13 +9,17 @@ namespace Narrative.Director.Core
     /// </summary>
     public readonly struct MonsterPoolEntry
     {
-        public MonsterPoolEntry(int id, IReadOnlyList<string> tags)
+        public MonsterPoolEntry(int id, IReadOnlyList<string> tags, RunTierBand band = default)
         {
             Id = id;
             Tags = tags ?? System.Array.Empty<string>();
+            Band = band;
         }
 
         public int Id { get; }
         public IReadOnlyList<string> Tags { get; }
+
+        /// <summary>The run-escalation band where this creature belongs (D19); defaults to every tier.</summary>
+        public RunTierBand Band { get; }
     }
 }

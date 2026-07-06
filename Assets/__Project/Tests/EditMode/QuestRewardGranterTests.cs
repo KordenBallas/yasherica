@@ -45,6 +45,8 @@ namespace Tests.EditMode
             public bool Remove(int instanceId) => false;
             public bool TryGet(int instanceId, out ArtifactInstance instance) { instance = null; return false; }
             public ArtifactInstance CreateDetachedInstance(string definitionId) => new ArtifactInstance(_nextId++, definitionId);
+            public int NextInstanceId => _nextId;
+            public void RestoreFrom(IReadOnlyList<ArtifactInstance> items, int nextInstanceId) => _nextId = nextInstanceId;
         }
 
         private FakeStoryManager _fake;

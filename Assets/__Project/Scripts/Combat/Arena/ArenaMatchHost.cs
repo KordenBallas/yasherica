@@ -17,6 +17,7 @@ namespace Combat.Arena
         private readonly IArenaTransport _transport;
         private readonly IGameLogger _logger;
         private readonly List<int> _pendingDeparted = new List<int>();
+        private readonly List<int> _seededDeparted = new List<int>();
 
         private ulong _expectedPreviousHash;
         private bool _active;
@@ -57,6 +58,31 @@ namespace Combat.Arena
         {
             _roundBroadcast = false;
             _collector.BeginRound(roundNumber, alivePlayerIds);
+
+            // Seats that vanished during the pre-fight draft fold into this round's departures:
+            // they never commit, and every client kills their unit off the bundle.
+            if (_seededDeparted.Count > 0)
+            {
+                foreach (var playerId in _seededDeparted)
+                {
+                    _pendingDeparted.Add(playerId);
+                    _collector.RemovePlayer(playerId);
+                }
+
+                _seededDeparted.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Pre-loads departures that happened before the round loop existed (mid-draft drops),
+        /// so the first <see cref="BeginRound"/> folds them in like live departures.
+        /// </summary>
+        public void SeedDeparted(IReadOnlyList<int> playerIds)
+        {
+            if (playerIds != null)
+            {
+                _seededDeparted.AddRange(playerIds);
+            }
         }
 
         /// <summary>The host sim's own end-of-round hash — the reference every client is compared to.</summary>

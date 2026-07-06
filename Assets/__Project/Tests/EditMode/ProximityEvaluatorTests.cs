@@ -8,12 +8,14 @@ namespace Tests.EditMode
     public class ProximityEvaluatorTests
     {
         private readonly ProximityEvaluator _evaluator = new ProximityEvaluator();
-        private readonly NpcInteractionSettings _settings = new NpcInteractionSettings(interactionRadius: 3f, aggroRadius: 2f);
+        private readonly NpcInteractionSettings _settings = new NpcInteractionSettings(
+            interactionRadius: 3f, aggroRadius: 2f, bossEngagementRadius: 6f);
 
         private static PlanarPoint At(float x, float z) => new PlanarPoint(x, z);
 
-        private static NpcProximitySample Npc(string id, float x, float z, NpcIntent intent, bool consumed = false) =>
-            new NpcProximitySample(id, At(x, z), intent, consumed);
+        private static NpcProximitySample Npc(string id, float x, float z, NpcIntent intent, bool consumed = false,
+            bool isBoss = false, bool onPlayerPlatform = true) =>
+            new NpcProximitySample(id, At(x, z), intent, consumed, isBoss, onPlayerPlatform);
 
         [Test]
         public void NearestEligibleInsideInteractionRadius_GetsThePrompt()
@@ -76,6 +78,87 @@ namespace Tests.EditMode
 
             Assert.IsNull(result.NearestPromptNpcId);
             Assert.IsEmpty(result.AggroNpcIds);
+        }
+
+        // --- Camp boss engagement (bandit-camp brief reqs 7-9) ---
+
+        [Test]
+        public void HostileBoss_EngagesAtTheLargerRadius()
+        {
+            // 5.9 units: far beyond the normal aggro radius (2), inside the boss radius (6).
+            var npcs = new List<NpcProximitySample> { Npc("boss", 5.9f, 0f, NpcIntent.Hostile, isBoss: true) };
+
+            var result = _evaluator.Evaluate(At(0f, 0f), npcs, _settings);
+
+            CollectionAssert.AreEqual(new[] { "boss" }, result.AggroNpcIds);
+        }
+
+        [Test]
+        public void HostileBoss_OutsideBossRadius_DoesNothing()
+        {
+            var npcs = new List<NpcProximitySample> { Npc("boss", 6.1f, 0f, NpcIntent.Hostile, isBoss: true) };
+
+            var result = _evaluator.Evaluate(At(0f, 0f), npcs, _settings);
+
+            Assert.IsEmpty(result.AggroNpcIds);
+            Assert.IsEmpty(result.AutoTalkNpcIds);
+        }
+
+        [Test]
+        public void QuestBearerBoss_AutoTalksInsteadOfPrompting()
+        {
+            var npcs = new List<NpcProximitySample> { Npc("boss", 5f, 0f, NpcIntent.QuestBearer, isBoss: true) };
+
+            var result = _evaluator.Evaluate(At(0f, 0f), npcs, _settings);
+
+            Assert.IsNull(result.NearestPromptNpcId);
+            CollectionAssert.AreEqual(new[] { "boss" }, result.AutoTalkNpcIds);
+        }
+
+        [Test]
+        public void ConsumedBoss_DoesNotReEngage()
+        {
+            var npcs = new List<NpcProximitySample>
+            {
+                Npc("boss", 1f, 0f, NpcIntent.QuestBearer, consumed: true, isBoss: true)
+            };
+
+            var result = _evaluator.Evaluate(At(0f, 0f), npcs, _settings);
+
+            Assert.IsEmpty(result.AutoTalkNpcIds);
+        }
+
+        // --- Platform scoping (engagement is a local, on-platform act) ---
+
+        [Test]
+        public void OffPlatformNpcs_AreIneligibleAtAnyDistance()
+        {
+            var npcs = new List<NpcProximitySample>
+            {
+                Npc("boss", 1f, 0f, NpcIntent.Hostile, isBoss: true, onPlayerPlatform: false),
+                Npc("raider", 0.5f, 0f, NpcIntent.Hostile, onPlayerPlatform: false),
+                Npc("villager", 0.5f, 0.2f, NpcIntent.Plain, onPlayerPlatform: false)
+            };
+
+            var result = _evaluator.Evaluate(At(0f, 0f), npcs, _settings);
+
+            Assert.IsNull(result.NearestPromptNpcId);
+            Assert.IsEmpty(result.AggroNpcIds);
+            Assert.IsEmpty(result.AutoTalkNpcIds);
+        }
+
+        [Test]
+        public void OnPlatformNpc_StillEngages()
+        {
+            var npcs = new List<NpcProximitySample>
+            {
+                Npc("off", 1f, 0f, NpcIntent.QuestBearer, onPlayerPlatform: false),
+                Npc("on", 2f, 0f, NpcIntent.QuestBearer)
+            };
+
+            var result = _evaluator.Evaluate(At(0f, 0f), npcs, _settings);
+
+            Assert.AreEqual("on", result.NearestPromptNpcId);
         }
     }
 }

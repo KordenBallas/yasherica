@@ -15,15 +15,18 @@ namespace Combat.Arena
     {
         private readonly ArenaSessionService _session;
         private readonly IArenaTransport _transport;
+        private readonly ArenaDraftHost _draftHost;
         private readonly IGameLogger _logger;
 
         public ArenaMatchLauncher(
             ArenaSessionService session,
             IArenaTransport transport,
+            ArenaDraftHost draftHost,
             IGameLogger logger)
         {
             _session = session;
             _transport = transport;
+            _draftHost = draftHost;
             _logger = logger;
         }
 
@@ -46,6 +49,10 @@ namespace Combat.Arena
             _logger.Info(LogCategory.Combat,
                 $"[ArenaMatchLauncher] Starting match: {roster.Count} players, seed {matchSeed}");
             _transport.BroadcastMatchSetup(new ArenaMatchSetup(matchSeed, roster));
+
+            // The parts draft opens right behind the setup (P4-5): every networked seat is a
+            // human, so no AI ids ride along.
+            _draftHost.StartDraft(matchSeed, roster, Array.Empty<int>());
         }
     }
 }

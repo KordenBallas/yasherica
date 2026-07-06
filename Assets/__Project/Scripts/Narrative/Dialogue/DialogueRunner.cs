@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Combat.Core;
 using Core.Logging;
 using Narrative.Dialogue.Core;
 using Narrative.Facts.Core;
@@ -42,12 +43,25 @@ namespace Narrative.Dialogue
         private CastingModel _casting;
         private QuestInstance _activeQuest;
 
+        // One-shot latch (D2): set when the player picks an Attack choice, so the next start-combat this
+        // choice's Ink branch fires is classified as player-initiated (the player chose to attack) rather
+        // than enemy-initiated (an NPC that turned hostile on its own). Consumed at the combat trigger and
+        // cleared per encounter in Begin.
+        private bool _pendingPlayerCombat;
+
         public DialogueRunnerState State { get; private set; } = DialogueRunnerState.Ended;
 
         public event Action<string> OnSpeakerChanged;
         public event Action<string> OnLine;
         public event Action<IReadOnlyList<StoryChoice>> OnChoices;
-        public event Action<string> OnCombatTriggered;
+
+        /// <summary>
+        /// Raised when the encounter routes into combat, carrying the enemy id and <b>who initiated</b>
+        /// the fight (D2): <see cref="CombatInitiator.Player"/> from the Attack card (the player chose to
+        /// attack), <see cref="CombatInitiator.Enemy"/> from a <c>start-combat:</c> tag (the NPC turned
+        /// hostile). The initiator decides who leads the opening round.
+        /// </summary>
+        public event Action<string, CombatInitiator> OnCombatTriggered;
         public event Action<string> OnQuestStarted;
         public event Action<string> OnQuestCompleted;
         public event Action<string> OnQuestFailed;
@@ -108,6 +122,7 @@ namespace Narrative.Dialogue
                 ? live
                 : null;
             State = DialogueRunnerState.Running;
+            _pendingPlayerCombat = false;
             if (casting?.Actor != null)
             {
                 _recorder?.RecordNpcEncounter(casting.Actor.ArchetypeId);
@@ -117,11 +132,21 @@ namespace Narrative.Dialogue
             Pump();
         }
 
-        public void SelectChoice(int choiceIndex)
+        /// <summary>
+        /// Selects an Ink choice. <paramref name="playerInitiatesCombat"/> marks a player-chosen Attack
+        /// choice (D2): if the picked branch fires <c>start-combat:</c>, that fight is attributed to the
+        /// player, not the enemy — the encounter card-hand passes true for its Attack card.
+        /// </summary>
+        public void SelectChoice(int choiceIndex, bool playerInitiatesCombat = false)
         {
             if (State != DialogueRunnerState.Running || !_session.HasChoices)
             {
                 return;
+            }
+
+            if (playerInitiatesCombat)
+            {
+                _pendingPlayerCombat = true;
             }
 
             _session.Choose(choiceIndex);
@@ -178,7 +203,8 @@ namespace Narrative.Dialogue
             }
 
             State = DialogueRunnerState.AwaitingExternal;
-            OnCombatTriggered?.Invoke(_casting.OptionalEnemyId);
+            // The player chose to attack — the player leads the opening round.
+            OnCombatTriggered?.Invoke(_casting.OptionalEnemyId, CombatInitiator.Player);
         }
 
         /// <summary>
@@ -409,7 +435,11 @@ namespace Narrative.Dialogue
             }
 
             State = DialogueRunnerState.AwaitingExternal;
-            OnCombatTriggered?.Invoke(_casting.OptionalEnemyId);
+            // A player-chosen Attack choice leads with the player; a start-combat from any other branch
+            // means the NPC turned hostile on its own, so the enemy leads (D2). The latch is one-shot.
+            var initiator = _pendingPlayerCombat ? CombatInitiator.Player : CombatInitiator.Enemy;
+            _pendingPlayerCombat = false;
+            OnCombatTriggered?.Invoke(_casting.OptionalEnemyId, initiator);
             return false; // suspend; trailing tags in this step are ignored (B1)
         }
 

@@ -72,9 +72,9 @@ namespace Combat.Player
 
             if (intent.IsAbility)
                 return new[] { PlanIconModel.EnemyAbilityIntent(unit.Id, intent.AbilityId) };
-            if (intent.IsMove)
-                return new[] { PlanIconModel.EnemyMoveIntent(unit.Id) };
 
+            // A committed move no longer shows an overhead `»` glyph (D3): its read is the board
+            // direction arrow (EnemyIntentTelegraphView). The row stays empty for a move-only enemy.
             return Array.Empty<PlanIconModel>();
         }
     }

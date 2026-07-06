@@ -35,6 +35,7 @@ namespace Inventory.Presenter
         private readonly InventoryConfig _config;
         private readonly BubbleLayoutCalculator _layoutCalculator;
         private readonly IGameLogger _logger;
+        private readonly global::Core.Persistence.RunRestoreContext _restoreContext;
 
         private bool _isOpen;
 
@@ -54,7 +55,8 @@ namespace Inventory.Presenter
             ICombatActivityTracker combatActivityTracker,
             InventoryConfig config,
             BubbleLayoutCalculator layoutCalculator,
-            IGameLogger logger)
+            IGameLogger logger,
+            [Zenject.InjectOptional] global::Core.Persistence.RunRestoreContext restoreContext = null)
         {
             _hudView = hudView;
             _potView = potView;
@@ -70,6 +72,7 @@ namespace Inventory.Presenter
             _config = config;
             _layoutCalculator = layoutCalculator;
             _logger = logger;
+            _restoreContext = restoreContext;
         }
 
         public void Initialize()
@@ -214,6 +217,20 @@ namespace Inventory.Presenter
 
         private void SeedStartingInventory()
         {
+            // A continued run's inventory is savepoint-true — re-seeding the dev items there would
+            // duplicate them on every load (P2-2).
+            if (_restoreContext != null && _restoreContext.IsRestoring)
+            {
+                return;
+            }
+
+            // Dev seed only while the inventory is untouched, so a later re-initialize never
+            // duplicates items (mirrors the blank-rack guard).
+            if (_inventory.Items.Count > 0)
+            {
+                return;
+            }
+
             var startingItems = _config.StartingInventory;
             if (startingItems == null)
             {

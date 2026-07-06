@@ -25,10 +25,21 @@ namespace World.Sites.Data
         [Tooltip("The weighted table fill draws come from; footprint beyond anchors+fill stays connective Empty. Never list corpse-loot — it is the outcome of a Combat beat")]
         [SerializeField] private List<WeightedBeatEntry> _defaultFillTable = new List<WeightedBeatEntry>();
 
+        [Header("Default Boss Anchor (boss-led camp; empty flavor = not boss-led)")]
+        [Tooltip("Story flavor the planner casts the boss from; empty = the Combat anchor stays a plain fight")]
+        [SerializeField] private string _defaultBossStoryFlavor = string.Empty;
+        [Min(0)]
+        [SerializeField] private int _defaultBossCrewMin;
+        [Min(0)]
+        [SerializeField] private int _defaultBossCrewMax;
+
         public string FamilyId => _familyId;
         public IReadOnlyList<ContentBeatEntry> DefaultAnchorBeats => _defaultAnchorBeats;
         public int DefaultFillBudgetMin => _defaultFillBudgetMin;
         public int DefaultFillBudgetMax => _defaultFillBudgetMax;
         public IReadOnlyList<WeightedBeatEntry> DefaultFillTable => _defaultFillTable;
+        public string DefaultBossStoryFlavor => _defaultBossStoryFlavor;
+        public int DefaultBossCrewMin => _defaultBossCrewMin;
+        public int DefaultBossCrewMax => _defaultBossCrewMax;
     }
 }

@@ -89,6 +89,26 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void Build_CarriesAffectedCellPositions_ForTheSweep()
+        {
+            // D3: the animated ghost sweeps across the whole footprint, so the plan maps every affected
+            // cell to world space (not just struck units) and marks the sweep origin + line/ring.
+            var cells = new List<HexCoordinates> { new HexCoordinates(1, 0), new HexCoordinates(2, 0) };
+            var outcome = new AbilityOutcome(cells, new List<UnitOutcome>());
+
+            var linePlan = GhostPlaybackPlanBuilder.Build(outcome, Caster(), HexDirection.E, _config, HexToWorld);
+
+            Assert.AreEqual(2, linePlan.AffectedCellPositions.Count);
+            Assert.AreEqual(HexToWorld(new HexCoordinates(1, 0)), linePlan.AffectedCellPositions[0]);
+            Assert.AreEqual(HexToWorld(new HexCoordinates(2, 0)), linePlan.AffectedCellPositions[1]);
+            Assert.AreEqual(HexToWorld(new HexCoordinates(0, 0)), linePlan.SweepOrigin);
+            Assert.IsTrue(linePlan.IsLine);
+
+            var ringPlan = GhostPlaybackPlanBuilder.Build(outcome, Caster(), null, _config, HexToWorld);
+            Assert.IsFalse(ringPlan.IsLine, "a ring outcome (no line direction) pops together, not swept");
+        }
+
+        [Test]
         public void Build_AgainstADifferentBoard_YieldsADifferentPlan()
         {
             var firstOutcome = new AbilityOutcome(

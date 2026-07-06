@@ -49,6 +49,21 @@ namespace Narrative.Director.Core
     /// prerequisite fact is only written when its cause resolves, so eligibility against the live store
     /// keeps it out until then, and the run-scoped story ledger keeps the cause from re-placing. A
     /// thinner window while a beat is held is accepted — correctness over density (D3).
+    ///
+    /// The spine is a reserved lane (D7, P3-1): stories flagged <see cref="StoryTemplateData.IsSpine"/>
+    /// never enter the quest or ambient channels — before the slot loop the lane draws one beat from the
+    /// eligible spine pool (same gates as everyone: tier band, preconditions incl. the casting query, not
+    /// already placed, thread not retired) and reserves a seeded slot for it, throttled by the per-run
+    /// reveal cap (<see cref="RunPacingSettings.MaxSpineRevealsPerRun"/>; at most one per window). The
+    /// pool is gated, not ordered — "never too early" comes from each beat's own preconditions and soft
+    /// floor (e.g. <c>world.run_count &gt;= N</c>), not an authored sequence. Reserve-don't-compete: the
+    /// lane bypasses the quest rarity/spacing gate and the live-thread ceiling (its cap already bounds
+    /// the load), while the allocator still ticks for the reserved slot so spacing counters and site
+    /// blocks stay deterministic. Reveals count via the run ledger (a placed spine beat is revealed), so
+    /// the cap and never-re-reveal survive save/continue for free. Across runs the cursor is the
+    /// <c>world.&lt;storyId&gt;.spine_seen</c> meta fact (D20/P3-3, written by <c>SpineSeenRecorder</c>):
+    /// a beat the player has SEEN never re-enters the pool in any later run, while a
+    /// placed-but-never-visited beat returns after death — seen, not placed, is the cross-run rule.
     /// </summary>
     public sealed class RunWindowPlanner : IRunWindowPlanner
     {
@@ -70,6 +85,7 @@ namespace Narrative.Director.Core
         private readonly IThreadMaintenance _maintenance;
         private readonly ISiteCatalog _siteCatalog;
         private readonly IGameLogger _logger;
+        private readonly HashSet<string> _spineStoryIds = new HashSet<string>();
         private readonly HashSet<string> _warnedNpcFlavors =
             new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
 
@@ -103,6 +119,16 @@ namespace Narrative.Director.Core
             _maintenance = maintenance;
             _siteCatalog = siteCatalog ?? new SiteCatalog(null);
             _logger = logger;
+
+            // Spine ids resolve the reveal cap from the run ledger (a placed spine beat is a spent
+            // reveal), so the cap needs no state of its own and survives save/continue with the ledger.
+            for (int i = 0; i < _stories.Count; i++)
+            {
+                if (_stories[i] != null && _stories[i].IsSpine)
+                {
+                    _spineStoryIds.Add(_stories[i].StoryId);
+                }
+            }
         }
 
         /// <summary>An eligible story paired with the actor pinned for it (the recast actor for an
@@ -132,16 +158,39 @@ namespace Narrative.Director.Core
             // eligibility is computed, so this window already plans against the current thread state.
             _maintenance.Tick(windowIndex, facts);
 
+            // Run-escalation altitude (D19): the tier BiomeStretchDirector published for this window.
+            // Read once and used as an eligibility input for both stories (register shift) and the
+            // ambient/site monster draw (tougher pool) so both gate off the exact same number.
+            int currentTier = (int)facts.GetInt(WorldFacts.RunEscalationTier);
+
             // Stories tagged with an NPC fill flavor (e.g. townsfolk) are ambient colour: they fill
             // site Npc slots by flavor and must never satisfy the rare quest slot. Quest-channel
             // stories additionally pass the run-scoped continuity gates (FR9): never re-place a beat
             // already placed/resolved this run, never place a beat of a retired thread.
-            var eligible = BuildEligible(facts);
+            var eligible = BuildEligible(facts, currentTier);
             var questEligible = new List<EligibleStory>();
             var ambientEligible = new List<EligibleStory>();
+            var spineEligible = new List<EligibleStory>();
             for (int i = 0; i < eligible.Count; i++)
             {
                 var entry = eligible[i];
+                // Spine beats live in the reserved lane only (D7): routing them into the quest or
+                // ambient channels would leak reveals past the per-run cap. They share the quest
+                // channel's continuity gates — a revealed beat or a retired thread's beat never returns.
+                if (entry.Story.IsSpine)
+                {
+                    // The cross-run cursor (D20/P3-3): a beat the player has seen in ANY run is gone
+                    // for good — the spine_seen meta fact outlives death, unlike the run ledger.
+                    if (!_storyLedger.IsPlacedOrResolved(entry.Story.StoryId) &&
+                        (string.IsNullOrEmpty(entry.Story.ThreadId) || !_threadLedger.IsRetired(entry.Story.ThreadId)) &&
+                        !facts.GetBool(WorldFacts.SpineSeen, entry.Story.StoryId))
+                    {
+                        spineEligible.Add(entry);
+                    }
+
+                    continue;
+                }
+
                 if (IsAmbientColour(entry.Story))
                 {
                     ambientEligible.Add(entry);
@@ -159,14 +208,42 @@ namespace Narrative.Director.Core
 
             var usedStoryIds = new HashSet<string>();
 
+            // Reserved spine lane (D7): draw at most one eligible reveal-beat for this window while the
+            // per-run cap allows. The pick and the reserved slot are seeded (spineEligible inherits
+            // BuildEligible's ordinal sort, so ties are stable); an inactive lane draws nothing, keeping
+            // spine-free windows draw-identical to a spine-free build.
+            EligibleStory? spinePick = null;
+            int spineSlot = -1;
+            if (spineEligible.Count > 0 && CountSpineRevealsThisRun() < _settings.MaxSpineRevealsPerRun)
+            {
+                spinePick = spineEligible[_random.NextInt(spineEligible.Count)];
+                spineSlot = _random.NextInt(_settings.WindowSize);
+            }
+
             for (int slot = 0; slot < _settings.WindowSize; slot++)
             {
+                bool isSpineSlot = spinePick != null && slot == spineSlot;
+
                 // The allocator gets the live availability so a quest slot that cannot be filled (story
                 // pool exhausted this window, or only new-thread openers left at the concurrency cap)
                 // degrades into the ambient draw instead of a dead platform, and the spacing counter
                 // keeps running. Availability and the pick share one predicate so a granted quest slot
-                // can always be filled.
-                var allocation = _allocator.AllocateSlot(HasPlaceable(questEligible, usedStoryIds));
+                // can always be filled. The spine's reserved slot still ticks the allocator (spacing
+                // counters and pending site blocks advance per platform, deterministically) but never
+                // requests a quest; its allocation is overridden by the spine beat below.
+                var allocation = _allocator.AllocateSlot(
+                    !isSpineSlot && HasPlaceable(questEligible, usedStoryIds), currentTier);
+                if (isSpineSlot)
+                {
+                    // Reserve-don't-compete: placed via the standard path (ledger + thread open) but
+                    // outside the quest gate and the live-thread ceiling — the reveal cap already
+                    // bounds the extra load. The discarded allocation's site/flavor carry through so
+                    // a site block keeps its geometry.
+                    Place(spinePick.Value, platforms, usedStoryIds, windowIndex,
+                        recordRunState: true, allocation.Flavor, allocation.Site);
+                    continue;
+                }
+
                 switch (allocation.Kind)
                 {
                     case WorldSlotKind.Quest:
@@ -187,6 +264,10 @@ namespace Narrative.Director.Core
 
                     case WorldSlotKind.Npc:
                         PlaceAmbientNpc(allocation, ambientEligible, platforms, usedStoryIds, windowIndex);
+                        break;
+
+                    case WorldSlotKind.Camp:
+                        PlaceCampBoss(allocation, ambientEligible, platforms, usedStoryIds);
                         break;
 
                     case WorldSlotKind.Combat:
@@ -251,15 +332,73 @@ namespace Narrative.Director.Core
                 recordRunState: false, allocation.Flavor, allocation.Site);
         }
 
-        private bool IsAmbientColour(StoryTemplateData story)
+        /// <summary>
+        /// Places a boss-led camp anchor (bandit-camp brief): a seeded pick among the eligible
+        /// ambient-colour stories carrying the slot's boss flavor — the authored pool decides the
+        /// quest-or-not ratio (a hostile-boss story vs. a job-bearing one). Boss stories repeat per camp
+        /// like any ambient colour (never the run ledger). With no boss story the camp degrades to a
+        /// plain crew fight (today's behaviour), or Empty when there is no crew either.
+        /// </summary>
+        private void PlaceCampBoss(SlotAllocation allocation, List<EligibleStory> ambientEligible,
+            List<PlannedPlatform> platforms, HashSet<string> usedStoryIds)
         {
-            var flavors = _siteCatalog.NpcFillFlavors;
-            if (flavors.Count == 0)
+            var candidates = new List<EligibleStory>();
+            var unused = new List<EligibleStory>();
+            for (int i = 0; i < ambientEligible.Count; i++)
             {
-                return false;
+                if (!HasTag(ambientEligible[i].Story.StoryTags, allocation.Flavor))
+                {
+                    continue;
+                }
+
+                candidates.Add(ambientEligible[i]);
+                if (!usedStoryIds.Contains(ambientEligible[i].Story.StoryId))
+                {
+                    unused.Add(ambientEligible[i]);
+                }
             }
 
-            foreach (var flavor in flavors)
+            var pool = unused.Count > 0 ? unused : candidates;
+            if (pool.Count == 0)
+            {
+                if (_warnedNpcFlavors.Add(allocation.Flavor))
+                {
+                    _logger?.Warning(LogCategory.Narrative,
+                        $"[RunWindowPlanner] No eligible story carries the camp boss flavor " +
+                        $"'{allocation.Flavor}' - the camp degrades to a plain fight.");
+                }
+
+                platforms.Add(allocation.CrewEnemyIds.Count > 0
+                    ? PlannedPlatform.AmbientCombat(allocation.CrewEnemyIds[0], null, allocation.Site)
+                    : PlannedPlatform.EmptyFiller(allocation.Site));
+                return;
+            }
+
+            var entry = pool[_random.NextInt(pool.Count)];
+            var actor = entry.PinnedActor;
+            if (actor == null)
+            {
+                actor = _actorFactory.Create(MatchArchetype(entry.Story));
+                _liveActors.Register(actor);
+            }
+
+            platforms.Add(PlannedPlatform.CampEncounter(entry.Story, actor, allocation.CrewEnemyIds,
+                allocation.Flavor, allocation.Site));
+            usedStoryIds.Add(entry.Story.StoryId);
+        }
+
+        private bool IsAmbientColour(StoryTemplateData story)
+        {
+            foreach (var flavor in _siteCatalog.NpcFillFlavors)
+            {
+                if (HasTag(story.StoryTags, flavor))
+                {
+                    return true;
+                }
+            }
+
+            // Boss stories are ambient colour too: repeatable per camp, never a quest-slot candidate.
+            foreach (var flavor in _siteCatalog.BossStoryFlavors)
             {
                 if (HasTag(story.StoryTags, flavor))
                 {
@@ -319,6 +458,28 @@ namespace Narrative.Director.Core
             return _threadLedger.LiveCount < _settings.MaxLiveThreads;
         }
 
+        /// <summary>
+        /// Reveals spent this run = spine beats in the run ledger (placed is revealed, D7). Derived
+        /// rather than stored: the ledger already rides the run save, so the cap holds across a
+        /// continue with no extra state. Deliberately run-scoped (PO decision, P3-3): beats seen in
+        /// past runs never spend a fresh run's cap — the cross-run "never again" rule is the
+        /// <c>spine_seen</c> meta-fact filter in the channel split, not this counter.
+        /// </summary>
+        private int CountSpineRevealsThisRun()
+        {
+            int count = 0;
+            var entries = _storyLedger.Entries;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (_spineStoryIds.Contains(entries[i].StoryId))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
         private bool HasPlaceable(IReadOnlyList<EligibleStory> eligible, HashSet<string> usedStoryIds)
         {
             for (int i = 0; i < eligible.Count; i++)
@@ -332,7 +493,7 @@ namespace Narrative.Director.Core
             return false;
         }
 
-        private List<EligibleStory> BuildEligible(IFactStore facts)
+        private List<EligibleStory> BuildEligible(IFactStore facts, int currentTier)
         {
             // Actor-less context for world-only stories: only world/global preconditions resolve.
             var emptyContext = new ContextBag();
@@ -341,6 +502,14 @@ namespace Narrative.Director.Core
             {
                 var story = _stories[i];
                 if (story == null)
+                {
+                    continue;
+                }
+
+                // Run-escalation gate (D19): a story registers only at the altitudes in its band. Applied
+                // to every story (quest and ambient colour alike) before the channel split; the unbanded
+                // default is eligible at all tiers, so today's content is unaffected.
+                if (!story.TierBand.Contains(currentTier))
                 {
                     continue;
                 }

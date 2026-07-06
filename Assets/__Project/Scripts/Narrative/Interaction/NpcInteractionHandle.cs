@@ -23,8 +23,18 @@ namespace Narrative.Interaction
         public INpcOverheadView View { get; }
         public bool Consumed { get; set; }
 
+        /// <summary>Camp boss: larger engagement radius; crossing it auto-engages (talk or fight).</summary>
+        public bool IsBoss { get; }
+
+        /// <summary>
+        /// Set when this handle is a spawned enemy body (a lone monster), not a story-cast NPC:
+        /// crossing its aggro radius engages the whole platform's fight. Null for NPC handles.
+        /// </summary>
+        public EnemyContent Enemy { get; }
+
         public NpcInteractionHandle(string id, Transform positionSource, NpcIntent intent, CastingModel casting,
-            IPlatform platform, NpcContent npc, INpcOverheadView view)
+            IPlatform platform, NpcContent npc, INpcOverheadView view, bool isBoss = false,
+            EnemyContent enemy = null)
         {
             Id = id;
             PositionSource = positionSource;
@@ -33,6 +43,8 @@ namespace Narrative.Interaction
             Platform = platform;
             Npc = npc;
             View = view;
+            IsBoss = isBoss;
+            Enemy = enemy;
         }
     }
 }

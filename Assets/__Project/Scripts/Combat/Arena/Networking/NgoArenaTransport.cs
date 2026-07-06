@@ -13,13 +13,18 @@ namespace Combat.Arena.Networking
     /// connection — no NetworkObjects, no scene sync, no per-unit replication; the lockstep flow
     /// above the seam is byte-identical to the loopback one. The local machine's own messages are
     /// raised directly (host commit → its own collector; broadcasts → its own round loop), remote
-    /// ones travel as reliable-sequenced named messages.
+    /// ones travel as reliable-fragmented-sequenced named messages (fragmented — the draft board
+    /// and a full round bundle exceed the unfragmented MTU; one pipeline = mutual ordering).
     /// </summary>
     public class NgoArenaTransport : IArenaTransport, IDisposable
     {
         private const string CommitMessage = "yash.arena.commit";
         private const string SetupMessage = "yash.arena.setup";
         private const string BundleMessage = "yash.arena.bundle";
+        private const string TastedCatalogMessage = "yash.arena.tasted";
+        private const string DraftStartMessage = "yash.arena.draftstart";
+        private const string DraftPickMessage = "yash.arena.draftpick";
+        private const string DraftAppliedMessage = "yash.arena.draftapplied";
         private const int InitialBufferBytes = 1024;
         private const int MaxBufferBytes = 64 * 1024;
 
@@ -34,6 +39,10 @@ namespace Combat.Arena.Networking
         public event Action<ArenaCommitEnvelope> CommitReceived;
         public event Action<ArenaMatchSetup> MatchSetupReceived;
         public event Action<ArenaRoundBundle> BundleReceived;
+        public event Action<ulong, IReadOnlyList<string>> TastedCatalogReceived;
+        public event Action<ArenaDraftStart> DraftStartReceived;
+        public event Action<ArenaDraftPick> DraftPickRequested;
+        public event Action<ArenaDraftPickApplied> DraftPickApplied;
         public event Action<int> PlayerDeparted;
 
         public NgoArenaTransport(
@@ -94,6 +103,51 @@ namespace Combat.Arena.Networking
             BundleReceived?.Invoke(bundle);
         }
 
+        public void SubmitTastedCatalog(IReadOnlyList<string> partIds)
+        {
+            if (_session.IsHost)
+            {
+                // The host is just another participant: its catalog lands straight in its registry.
+                TastedCatalogReceived?.Invoke(_session.LocalClientId, partIds);
+                return;
+            }
+
+            Send(TastedCatalogMessage, NetworkManager.ServerClientId, ArenaWireCodec.ToWire(partIds));
+        }
+
+        public void SubmitDraftPick(ArenaDraftPick pick)
+        {
+            if (_session.IsHost)
+            {
+                DraftPickRequested?.Invoke(pick);
+                return;
+            }
+
+            Send(DraftPickMessage, NetworkManager.ServerClientId, ArenaWireCodec.ToWire(pick));
+        }
+
+        public void BroadcastDraftStart(ArenaDraftStart start)
+        {
+            var wire = ArenaWireCodec.ToWire(start);
+            foreach (var clientId in RemoteClientIds())
+            {
+                Send(DraftStartMessage, clientId, wire);
+            }
+
+            DraftStartReceived?.Invoke(start);
+        }
+
+        public void BroadcastDraftPick(ArenaDraftPickApplied applied)
+        {
+            var wire = ArenaWireCodec.ToWire(applied);
+            foreach (var clientId in RemoteClientIds())
+            {
+                Send(DraftAppliedMessage, clientId, wire);
+            }
+
+            DraftPickApplied?.Invoke(applied);
+        }
+
         private void RegisterHandlers()
         {
             if (_handlersRegistered || _networkManager.CustomMessagingManager == null)
@@ -102,6 +156,10 @@ namespace Combat.Arena.Networking
             _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(CommitMessage, HandleCommitMessage);
             _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(SetupMessage, HandleSetupMessage);
             _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(BundleMessage, HandleBundleMessage);
+            _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(TastedCatalogMessage, HandleTastedCatalogMessage);
+            _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(DraftStartMessage, HandleDraftStartMessage);
+            _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(DraftPickMessage, HandleDraftPickMessage);
+            _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(DraftAppliedMessage, HandleDraftAppliedMessage);
             _handlersRegistered = true;
         }
 
@@ -113,6 +171,10 @@ namespace Combat.Arena.Networking
             _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(CommitMessage);
             _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(SetupMessage);
             _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(BundleMessage);
+            _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(TastedCatalogMessage);
+            _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(DraftStartMessage);
+            _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(DraftPickMessage);
+            _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(DraftAppliedMessage);
             _handlersRegistered = false;
         }
 
@@ -136,6 +198,30 @@ namespace Combat.Arena.Networking
             BundleReceived?.Invoke(ArenaWireCodec.FromWire(data, ResolvePlayer));
         }
 
+        private void HandleTastedCatalogMessage(ulong senderClientId, FastBufferReader reader)
+        {
+            reader.ReadNetworkSerializable(out TastedCatalogData data);
+            TastedCatalogReceived?.Invoke(senderClientId, ArenaWireCodec.FromWire(data));
+        }
+
+        private void HandleDraftStartMessage(ulong senderClientId, FastBufferReader reader)
+        {
+            reader.ReadNetworkSerializable(out DraftStartData data);
+            DraftStartReceived?.Invoke(ArenaWireCodec.FromWire(data));
+        }
+
+        private void HandleDraftPickMessage(ulong senderClientId, FastBufferReader reader)
+        {
+            reader.ReadNetworkSerializable(out DraftPickData data);
+            DraftPickRequested?.Invoke(ArenaWireCodec.FromWire(data));
+        }
+
+        private void HandleDraftAppliedMessage(ulong senderClientId, FastBufferReader reader)
+        {
+            reader.ReadNetworkSerializable(out DraftPickAppliedData data);
+            DraftPickApplied?.Invoke(ArenaWireCodec.FromWire(data));
+        }
+
         private void HandleClientDisconnected(ulong clientId)
         {
             // Only the host translates departures into the round flow (they ride the next bundle).
@@ -155,8 +241,12 @@ namespace Combat.Arena.Networking
         {
             using var writer = new FastBufferWriter(InitialBufferBytes, Allocator.Temp, MaxBufferBytes);
             writer.WriteNetworkSerializable(in message);
+            // ReliableFragmentedSequenced, not ReliableSequenced: the draft board (and a full
+            // 4-player round bundle) exceeds the unfragmented MTU (~1264 bytes), and one shared
+            // delivery pipeline keeps every message mutually ordered — a fragmented draftstart
+            // can never be overtaken by the small draftapplied that follows it.
             _networkManager.CustomMessagingManager.SendNamedMessage(
-                messageName, clientId, writer, NetworkDelivery.ReliableSequenced);
+                messageName, clientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
         }
 
         private IEnumerable<ulong> RemoteClientIds()

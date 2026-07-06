@@ -29,7 +29,14 @@ namespace Combat.Data
         public int MaxHP { get; set; }
         public List<IAbilityInstance> Abilities { get; set; }
         public AIPersonality AIType { get; set; }
+
+        /// <summary>Modular character recipe for the shared humanoid visual; preferred over <see cref="Prefab"/>.</summary>
+        public CharacterSystem.Data.Definitions.CharacterAssemblyDefinition Assembly { get; set; }
+
         public GameObject Prefab { get; set; }
+
+        /// <summary>Demo role tint over the shared model; alpha 0 = untinted.</summary>
+        public Color DemoTint { get; set; }
 
         /// <summary>
         /// Artifact drop slots rolled on defeat; empty falls back to the

@@ -11,6 +11,22 @@ namespace Platform
 
         public int EnemyId { get; set; }
 
+        /// <summary>
+        /// Latched when this platform's fight is triggered (an enemy's aggro radius crossed, the camp
+        /// boss engaged, or a dialogue combat branch). Landing on a platform NEVER starts combat —
+        /// <see cref="CombatAutoStartRule"/> only auto-enters the fight once engaged, so re-landing on
+        /// a platform whose battle already began resumes it.
+        /// </summary>
+        public bool Engaged { get; set; }
+
+        /// <summary>
+        /// Who caused this fight — decides who leads the opening round (D2). Defaults to
+        /// <see cref="CombatInitiator.Enemy"/> (an ambush/aggro cross, or an NPC that turned hostile),
+        /// flipped to <see cref="CombatInitiator.Player"/> only when the player chose to attack (the
+        /// encounter's Attack card). Read by <c>CombatActiveState</c> when the fight begins.
+        /// </summary>
+        public CombatInitiator Initiator { get; set; } = CombatInitiator.Enemy;
+
         // Enemy lifecycle state
         private bool _hasBeenInstantiated;
         private IPlayer _enemyPlayer;

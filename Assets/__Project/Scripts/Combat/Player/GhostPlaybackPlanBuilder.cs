@@ -40,11 +40,20 @@ namespace Combat.Player
                     unit.IsDisplaced))
                 .ToList();
 
+            // D3: the full affected footprint in world space so the ghost's cell-sweep animation reads
+            // across every cell (not just struck units), matched to the ability's shape.
+            var cellPositions = (outcome.AffectedCells ?? new List<HexCoordinates>())
+                .Select(hexToWorld)
+                .ToList();
+
             return new GhostPlaybackPlan(
                 caster.Id,
                 hexToWorld(caster.Position),
                 lookDirection,
-                markers);
+                markers,
+                cellPositions,
+                hexToWorld(caster.Position),
+                isLine: lineDirection.HasValue);
         }
     }
 }

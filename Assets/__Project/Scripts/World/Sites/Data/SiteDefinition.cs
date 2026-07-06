@@ -45,6 +45,16 @@ namespace World.Sites.Data
         [SerializeField] private bool _overrideFillTable;
         [SerializeField] private List<WeightedBeatEntry> _fillTable = new List<WeightedBeatEntry>();
 
+        [Header("Boss Anchor (boss-led camp; off = inherit the family default)")]
+        [SerializeField] private bool _overrideBossAnchor;
+        [Tooltip("Story flavor the planner casts the boss from (e.g. bandit-boss); empty = not boss-led — the Combat anchor stays a plain fight")]
+        [SerializeField] private string _bossStoryFlavor = string.Empty;
+        [Tooltip("Crew size range rolled per instance; the crew joins the boss's one fight")]
+        [Min(0)]
+        [SerializeField] private int _bossCrewMin;
+        [Min(0)]
+        [SerializeField] private int _bossCrewMax;
+
         public string SiteId => _siteId;
         public string DisplayName => _displayName;
         public SiteFamilyDefinition Family => _family;
@@ -59,5 +69,9 @@ namespace World.Sites.Data
         public int FillBudgetMax => _fillBudgetMax;
         public bool OverrideFillTable => _overrideFillTable;
         public IReadOnlyList<WeightedBeatEntry> FillTable => _fillTable;
+        public bool OverrideBossAnchor => _overrideBossAnchor;
+        public string BossStoryFlavor => _bossStoryFlavor;
+        public int BossCrewMin => _bossCrewMin;
+        public int BossCrewMax => _bossCrewMax;
     }
 }

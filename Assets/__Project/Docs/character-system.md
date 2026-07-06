@@ -112,9 +112,11 @@ Every gameplay install request routes through **`BodyPlanSwapCoordinator`** (pur
 2. `InstantSwap` → plain `SwapPart` (the ~80% path, untouched). `DormantInstall` → `EquipDormant` (state-only). `Incompatible` → rejected, nothing offered/changed.
 3. `FrameChange` with a non-empty shed list → `IBodyPlanConfirmPrompt.Request(summary)` (the modal lists the target frame + shed part names); the request returns `PendingConfirmation` and resolves later via the `InstallResolved(bool)` event. Declining changes nothing. A shed-nothing change skips the prompt (R22). With no prompt bound (demo scenes) the change auto-confirms with a logged warning.
 4. Execution is **build-before-destroy** (R24): a staging GameObject is created inactive under the host; `ModularCharacterFactory.Create(skeleton, activeParts, dormantParts, …)` builds the complete new body there (this overload is all-or-nothing — any equip failure aborts and returns null, live body untouched). On success: reparent the new rig to the host, `ModularCharacterVisual.ReplaceCharacter(...)` (re-points `Character`/`Animator`, binds the frame's `AnimatorController`, re-fires `CharacterAssembled`), destroy the old rig (its sockets/attachments die with it — R9-style), and hand the shed part ids to `IShedPartSink`.
-5. Downstream consumers self-heal through existing seams: `RacePassportBinder` re-binds on the re-fired `CharacterAssembled`; combat reads `visual.Character.EquippedParts` at combat start; `CharacterLocomotionView` re-resolves its cached Animator by reference-comparing against `ModularCharacterVisual.Animator` each call; camera/physics/registry live on the host root and never notice.
+5. Downstream consumers self-heal through existing seams: `RacePassportBinder` re-binds on the re-fired `CharacterAssembled`; combat reads `visual.Character.EquippedParts` at combat start; `CharacterLocomotionView` re-resolves its cached Animator by reference-comparing against `ModularCharacterVisual.Animator` each call; camera/physics/registry live on the host root and never notice. `TastedFormsRecorder` (`CharacterSystem.Integration`, Area-bound, same subscription discipline as the passport binder) rides the same events: every part the hero carries — equipped or dormant, on any install path — is marked `world.<partId>.arena_tasted` (Meta horizon), the passive tasted-forms catalog the Arena draft board reads (`arena-mode.md` §2.9); preview clones never reach the fact store.
 
-The mutation unseal is the (only) gameplay trigger: `IMutationCharacter.RequestSwapPart` returns `Applied | PendingConfirmation | Rejected`, the card presenter commits the unseal only on an applied/confirmed install, and unseal offers are pre-filtered through `CanInstall` so a card that cannot be installed on the current body is never shown (mutation-subsystem.md).
+The mutation unseal is the (only) in-run gameplay trigger: `IMutationCharacter.RequestSwapPart` returns `Applied | PendingConfirmation | Rejected`, the card presenter commits the unseal only on an applied/confirmed install, and unseal offers are pre-filtered through `CanInstall` so a card that cannot be installed on the current body is never shown (mutation-subsystem.md).
+
+**Run-start install (O1, `hub-staging.md`):** `StartingPartApplier` (`CharacterSystem.Integration`, Area-bound beside `HeroBodyRestorer`, same wait-for-`CharacterAssembled` discipline) installs the Hub-chosen starting part on **fresh runs only**, exactly once, via plain `SwapPart` — the Hub offer is pre-filtered to non-frame-changers, so no coordinator hop or shed-confirm is possible. `PartsChanged` then drives the passport (the 1-marker tolerated freak) and the tasted recorder through their existing binders; missing/failing part ids degrade to a bare launch (FR14 tolerance).
 
 ### 2.4 Data definitions (ScriptableObjects, config only)
 
@@ -137,9 +139,19 @@ The mutation unseal is the (only) gameplay trigger: `IMutationCharacter.RequestS
 
 The controller raises `PartsChanged` after every successful swap or dormant install (surfaced through `IModularCharacter`), and `ModularCharacterVisual` raises `CharacterAssembled` after every rig assembly — once from `Start` and again after every body-plan change — the seam cached-reference holders (e.g. the race passport projector, races-passport.md §2.3) re-bind on.
 
+> **Demo role tint (bandit-camp brief, 2026-07-05):** `IDemoRoleTintApplier` / `DemoRoleTintApplier`
+> tints an assembled rig via `MaterialPropertyBlock` (`_BaseColor` + `_Color` over every child
+> renderer), so shared part materials are never mutated — the same placeholder mesh reads green on a
+> villager and maroon on a bandit at once. The colour is authored where the role lives:
+> `NpcArchetype._demoTint` (applied by `NpcContent.SpawnModularVisual`) and
+> `EnemyDefinition._demoTint` (applied by `EnemyVisualSpawner`). **Alpha 0 = untinted** (the default,
+> so unedited assets keep their authored look). This is an explicit demo affordance pending real
+> per-faction art. Shipped tints: villagers/frogfolk green, barn raider + camp crew lighter maroon,
+> camp boss deep maroon.
+
 ### 2.5 Zenject wiring
 
-`CharacterSystemInstaller` (add to the scene's SceneContext) binds `IPartCatalog`, `IAttachmentCatalog` (serialized lists with `Resources.LoadAll` fallback from `Resources/CharacterSystem/Parts` and `.../Attachments`), `IModularCharacterFactory`, the hero's `ModularCharacterVisual` (`FromComponentInHierarchy` — moved here from MutationInstaller; Mutation and the races integration resolve it cross-installer), the `BodyPlanSwapCoordinator`, and the confirm modal (`IBodyPlanConfirmView` from `Resources/Prefabs/UI/BodyPlanConfirmPanel` + `BodyPlanConfirmPresenter` as `IBodyPlanConfirmPrompt`; a missing prefab degrades to auto-confirm with a warning, never a scene crash). The coordinator's prompt and `IShedPartSink` are `[InjectOptional]` — the sink is bound by `InventoryInstaller` (inventory-subsystem.md). Per-character object graphs are factory-constructed, not container-bound — they are transient per-entity state.
+`CharacterSystemInstaller` (add to the scene's SceneContext) binds `IPartCatalog`, `IAttachmentCatalog` (serialized lists with `Resources.LoadAll` fallback from `Resources/CharacterSystem/Parts` and `.../Attachments`), `IModularCharacterFactory`, `IDemoRoleTintApplier` (the demo role tint), the hero's `ModularCharacterVisual` (`FromComponentInHierarchy` — moved here from MutationInstaller; Mutation and the races integration resolve it cross-installer), the `BodyPlanSwapCoordinator`, and the confirm modal (`IBodyPlanConfirmView` from `Resources/Prefabs/UI/BodyPlanConfirmPanel` + `BodyPlanConfirmPresenter` as `IBodyPlanConfirmPrompt`; a missing prefab degrades to auto-confirm with a warning, never a scene crash). The coordinator's prompt and `IShedPartSink` are `[InjectOptional]` — the sink is bound by `InventoryInstaller` (inventory-subsystem.md). Per-character object graphs are factory-constructed, not container-bound — they are transient per-entity state.
 
 ### 2.6 Naming conventions
 
@@ -190,6 +202,10 @@ A rigged FBX replaces the placeholder by: (1) creating a `SkeletonDefinition` po
 **Add a frame-changing part** — data only: author a `PartDefinition` whose `TargetSkeleton` is the frame it pulls in, tick **`GovernsBodyPlan`**, set **`BodyPlanPriority`** (higher wins; ties break by ordinal part id), give it mutation data (traits/rarity/icon) so unseals can offer it, and (optionally) author a blank for its slot (`Mutation/Part Blank`) as the equip trigger. Installing it in play re-forms the body; nothing else to wire.
 
 **Add an attachment / socket / slot** — unchanged (`Character System/Attachment` / `Socket` / `Slot` assets).
+
+**Give a role a demo tint** — data only: set `_demoTint` (alpha 1) on the role's `NpcArchetype`
+(world NPCs) or `EnemyDefinition` (combat enemies). Alpha 0 (the default) means untinted. No code,
+no material edits — the tint rides a `MaterialPropertyBlock` over the shared placeholder materials.
 
 ---
 

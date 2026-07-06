@@ -27,9 +27,15 @@ namespace Narrative.Director.Data
         [Min(1)]
         [SerializeField] private int _defaultEphemeralLifespanWindows = 3;
 
+        [Header("Spine reveal lane (D7)")]
+        [Tooltip("Per-run cap on spine reveal-beats the reserved lane may place (lore-pacing: 1-2 so each registers). 0 disables the lane.")]
+        [Min(0)]
+        [SerializeField] private int _maxSpineRevealsPerRun = 2;
+
         public int WindowSize => _windowSize;
         public int LookAheadWindows => _lookAheadWindows;
         public int MaxLiveThreads => _maxLiveThreads;
         public int DefaultEphemeralLifespanWindows => _defaultEphemeralLifespanWindows;
+        public int MaxSpineRevealsPerRun => _maxSpineRevealsPerRun;
     }
 }

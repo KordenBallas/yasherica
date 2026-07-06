@@ -17,7 +17,8 @@ namespace Narrative.Director.Data
             }
 
             return new RunPacingSettings(config.WindowSize, config.LookAheadWindows,
-                config.MaxLiveThreads, config.DefaultEphemeralLifespanWindows);
+                config.MaxLiveThreads, config.DefaultEphemeralLifespanWindows,
+                config.MaxSpineRevealsPerRun);
         }
     }
 }

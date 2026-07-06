@@ -3040,7 +3040,7 @@ MonoBehaviour:
   edgeJitter: 0.25
   platformThickness: 1
   platformMaterial: {fileID: 2100000, guid: 760dae6e007ee1246a4958fd4cf5a643, type: 2}
-  colorVariation: 1
+  colorVariation: 0
   noiseScale: 0.1
   noiseOctaves: 4
   characterTransform: {fileID: 1009419568}

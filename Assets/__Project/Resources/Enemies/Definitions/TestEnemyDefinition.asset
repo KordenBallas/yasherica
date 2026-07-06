@@ -13,10 +13,12 @@ MonoBehaviour:
   m_Name: TestEnemyDefinition
   m_EditorClassIdentifier: Yasherica::Combat.Data.Definitions.EnemyDefinition
   _enemyId: 0
-  _name: Test Enemy Definition
+  _name: Wild Beast
   _description: 
   _maxHP: 50
+  _assembly: {fileID: 11400000, guid: fc1ee46c28382e64381e6548974aa94f, type: 2}
   _prefab: {fileID: 3589321321802962806, guid: 5559ed53e398fe848bf5e475990f97cb, type: 3}
+  _demoTint: {r: 0.55, g: 0.2, b: 0.25, a: 1}
   _abilities:
   - {fileID: 11400000, guid: 19f7da520e6d4e8c962faf406ece53f0, type: 2}
   _aiProfile: {fileID: 11400000, guid: b6aa4ef5ce17e964d93cefa3749bc7a5, type: 2}

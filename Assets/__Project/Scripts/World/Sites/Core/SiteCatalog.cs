@@ -17,6 +17,7 @@ namespace World.Sites.Core
         // Case-insensitive: flavor tags are authored strings matched across assets (recipes, story
         // tags, enemy tags), so casing must not silently break a match.
         private readonly HashSet<string> _npcFillFlavors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _bossStoryFlavors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public SiteCatalog(IReadOnlyList<SiteDefinitionData> sites)
         {
@@ -33,6 +34,11 @@ namespace World.Sites.Core
                     _byId.Add(site.SiteId, site);
                     (site.TriggerChannel == SiteTriggerChannel.Quest ? _questSites : _ambientSites).Add(site);
                     CollectNpcFillFlavors(site);
+
+                    if (site.HasBossLedAnchor)
+                    {
+                        _bossStoryFlavors.Add(site.BossStoryFlavor);
+                    }
                 }
             }
 
@@ -43,6 +49,7 @@ namespace World.Sites.Core
         public IReadOnlyList<SiteDefinitionData> QuestSites => _questSites;
         public IReadOnlyList<SiteDefinitionData> AmbientSites => _ambientSites;
         public IReadOnlyCollection<string> NpcFillFlavors => _npcFillFlavors;
+        public IReadOnlyCollection<string> BossStoryFlavors => _bossStoryFlavors;
 
         public SiteDefinitionData Get(string siteId)
         {

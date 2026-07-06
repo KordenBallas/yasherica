@@ -17,15 +17,21 @@ namespace Platform
 
         private readonly EnemyCombatIntegrator _enemyIntegrator;
         private readonly IEnemyDataProvider _enemyDataProvider;
+        private readonly EnemyVisualSpawner _enemySpawner;
+        private readonly Narrative.Interaction.INpcInteractionService _interactionService;
         private readonly IGameLogger _logger;
 
         public CombatIdleState(
             EnemyCombatIntegrator enemyIntegrator,
             IEnemyDataProvider enemyDataProvider,
+            EnemyVisualSpawner enemySpawner,
+            Narrative.Interaction.INpcInteractionService interactionService,
             IGameLogger logger)
         {
             _enemyIntegrator = enemyIntegrator;
             _enemyDataProvider = enemyDataProvider;
+            _enemySpawner = enemySpawner;
+            _interactionService = interactionService;
             _logger = logger;
         }
 
@@ -33,18 +39,29 @@ namespace Platform
         {
             _logger.Info(LogCategory.Platform,$"[CombatIdleState] Platform {platform.Id} is now idle (combat)");
 
+            // A camp crew stands behind its boss: when an NPC (the boss) shares the platform, the
+            // enemies carry NO trigger radius of their own — the boss's circle owns the fight.
+            bool bossGated = HasNpcContent(platform);
+
             // Instantiate enemies FIRST TIME ONLY
             // Content-based detection: check if platform has EnemyContent
+            int spawnIndex = 0;
             foreach (var content in platform.Contents)
             {
                 if (content is EnemyContent enemyContent && !enemyContent.HasBeenInstantiated)
                 {
-                    InstantiateEnemy(platform, enemyContent);
+                    InstantiateEnemy(platform, enemyContent, spawnIndex, bindRadius: !bossGated);
+                }
+
+                if (content is EnemyContent)
+                {
+                    spawnIndex++;
                 }
             }
         }
 
-        private void InstantiateEnemy(IPlatform platform, EnemyContent enemyContent)
+        private void InstantiateEnemy(IPlatform platform, EnemyContent enemyContent, int spawnIndex,
+            bool bindRadius)
         {
             // Get enemy data
             var enemyData = _enemyDataProvider.GetEnemyData(enemyContent.EnemyId);
@@ -52,40 +69,38 @@ namespace Platform
             // Create AIPlayer for this enemy
             var enemyPlayer = _enemyIntegrator.CreateEnemyPlayer(enemyContent.EnemyId, enemyData);
 
-            // Load enemy prefab
-            GameObject enemyPrefab = Resources.Load<GameObject>("Prefabs/Enemy");
-            if (enemyPrefab == null)
-            {
-                _logger.Error(LogCategory.Platform,$"[CombatIdleState] Enemy prefab not found at Resources/Prefabs/Enemy");
-                return;
-            }
-
-            // Instantiate enemy above platform center (will fall via gravity to surface)
-            const float spawnHeightOffset = 2f;
-            Vector3 spawnPosition = platform.Visual.Position + Vector3.up * spawnHeightOffset;
-            GameObject enemyGO = Object.Instantiate(enemyPrefab, spawnPosition, Quaternion.identity);
-            enemyGO.name = $"Enemy_{enemyContent.EnemyId}";
-
-            // Get or add combat component
-            var combatComponent = enemyGO.GetComponent<EnemyCombatComponent>();
+            // Spawn the body via the shared spawner (humanoid assembly first, prefab/capsule fallback)
+            var combatComponent = _enemySpawner.Spawn(
+                enemyData, enemyContent.EnemyId, platform.Visual.Position, spawnIndex);
             if (combatComponent == null)
             {
-                combatComponent = enemyGO.AddComponent<EnemyCombatComponent>();
-            }
-
-            // Add Rigidbody for gravity simulation if not present
-            var rb = enemyGO.GetComponent<Rigidbody>();
-            if (rb == null)
-            {
-                rb = enemyGO.AddComponent<Rigidbody>();
-                rb.constraints = RigidbodyConstraints.FreezeRotation;
-                _logger.Info(LogCategory.Platform,$"[CombatIdleState] Added Rigidbody to enemy {enemyContent.EnemyId} for gravity simulation");
+                return;
             }
 
             // Store in content
             enemyContent.InstantiateEnemy(enemyPlayer, combatComponent);
 
+            // A lone monster is approached, not landed on: its aggro radius is the fight's trigger
+            // (name + `!` overhead, platform-scoped — the NPC proximity model).
+            if (bindRadius)
+            {
+                _interactionService?.BindEnemy(enemyContent, platform, enemyData?.Name);
+            }
+
             _logger.Info(LogCategory.Platform,$"[CombatIdleState] Enemy {enemyContent.EnemyId} instantiated on platform {platform.Id}");
+        }
+
+        private static bool HasNpcContent(IPlatform platform)
+        {
+            foreach (var content in platform.Contents)
+            {
+                if (content is NpcContent)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public override void OnExit(IPlatform platform)

@@ -59,7 +59,9 @@ namespace Tests.EditMode
                 new FactKeyInfo(FactNamespace.World, "raider_offer_taken", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
                 new FactKeyInfo(FactNamespace.World, "reads_as_frogfolk", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
                 new FactKeyInfo(FactNamespace.World, "frog_quest_offered", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
-                new FactKeyInfo(FactNamespace.World, "frog_quest_accepted", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false))
+                new FactKeyInfo(FactNamespace.World, "frog_quest_accepted", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
+                // The run-escalation altitude the director gates story/monster eligibility on (D19).
+                new FactKeyInfo(FactNamespace.World, "run_escalation_tier", FactScope.Global, FactValueType.Int, FactValue.FromInt(0))
             });
             _store = new FactStore(registry, _logger);
             var resolver = new SubjectResolver(_logger);
@@ -95,6 +97,14 @@ namespace Tests.EditMode
 
             var preconditions = precondition != null ? new[] { precondition } : Array.Empty<FactPredicate>();
             return new StoryTemplateData(id, slots, preconditions, null, tags, thread, false, weight);
+        }
+
+        // A threadless story carrying a run-tier band (D19 escalation register gate).
+        private static StoryTemplateData StoryBanded(string id, string[] tags, int minTier, int maxTier)
+        {
+            var slots = new List<StorySlot> { new StorySlot("d", SlotKind.Dialogue, new[] { "talk" }, false) };
+            return new StoryTemplateData(id, slots, Array.Empty<FactPredicate>(), null, tags, "", false,
+                weight: 10, tierBand: new RunTierBand(minTier, maxTier));
         }
 
         private static NpcArchetypeData Archetype(string id, params string[] tags) =>
@@ -134,6 +144,34 @@ namespace Tests.EditMode
 
         private static int StoryCount(WindowPlan plan) =>
             plan.Platforms.Count(p => p.Kind == PlannedPlatformKind.Story);
+
+        [Test]
+        public void StoryTierBand_GatesEligibilityByRunTier()
+        {
+            var settings = new RunPacingSettings(windowSize: 4, lookAheadWindows: 1);
+            // A Courts-register story: eligible only at tier 3 and above.
+            var story = StoryBanded("courts", new[] { "bandit" }, minTier: 3, maxTier: 0);
+            var archetypes = new[] { Archetype("a", "bandit") };
+
+            // Tier 1 (backwater): out of band, the story never registers.
+            _store.SetInt(WorldFacts.RunEscalationTier, 1);
+            Assert.AreEqual(0, StoryCount(Planner(settings, new[] { story }, archetypes).PlanWindow(0, _store)));
+
+            // Tier 3 (courts): in band, the story is placed.
+            _store.SetInt(WorldFacts.RunEscalationTier, 3);
+            Assert.AreEqual(1, StoryCount(Planner(settings, new[] { story }, archetypes).PlanWindow(0, _store)));
+        }
+
+        [Test]
+        public void UnbandedStory_IsEligibleAtEveryTier()
+        {
+            var settings = new RunPacingSettings(windowSize: 4, lookAheadWindows: 1);
+            var story = Story("s1", 10, new[] { "bandit" });   // no band authored
+            var archetypes = new[] { Archetype("a", "bandit") };
+
+            _store.SetInt(WorldFacts.RunEscalationTier, 9);
+            Assert.AreEqual(1, StoryCount(Planner(settings, new[] { story }, archetypes).PlanWindow(0, _store)));
+        }
 
         [Test]
         public void PlanIsAlwaysPaddedToWindowSize()
@@ -584,6 +622,118 @@ namespace Tests.EditMode
                 Assert.AreEqual(PlannedPlatformKind.Empty, plan.Platforms[i].Kind);
                 Assert.AreEqual("village", plan.Platforms[i].Site.SiteId, "The empty fill keeps its stamp.");
             }
+        }
+
+        // --- Boss-led camp planning (bandit-camp brief) ---
+
+        private static Sites.SiteDefinitionData CampSite(int crewMin = 2, int crewMax = 4) =>
+            new Sites.SiteDefinitionData("camp", "settlement", 1, 1, triggerWeight: 1,
+                new[] { new Sites.ContentBeat(Sites.ContentBaseKind.Combat, "bandit") },
+                0, 0,
+                Array.Empty<Sites.WeightedBeat>(),
+                "camp-kit",
+                bossStoryFlavor: "bandit-boss", bossCrewMin: crewMin, bossCrewMax: crewMax);
+
+        /// <summary>No quests, ambient sites every slot: the camp anchor lands fast.</summary>
+        private static readonly WorldContentDensitySettings CampEverywhere =
+            new WorldContentDensitySettings(averagePlatformsPerQuest: 100, minPlatformsBetweenQuests: 0,
+                emptyWeight: 1, lootWeight: 0, combatWeight: 0,
+                averagePlatformsPerAmbientSite: 1, minPlatformsBetweenSites: 0, wildQuestWeight: 0);
+
+        private static IBiomeMonsterPoolCatalog BanditPool() =>
+            new BiomeMonsterPoolCatalog(new Dictionary<LevelTheme, IReadOnlyList<int>>
+            {
+                { LevelTheme.Forest, new[] { 9001 } }
+            });
+
+        private static PlannedPlatform FirstCamp(RunWindowPlanner planner, FactStore store)
+        {
+            for (int window = 0; window < 4; window++)
+            {
+                var plan = planner.PlanWindow(window, store);
+                var camp = plan.Platforms.FirstOrDefault(p => p.Kind == PlannedPlatformKind.Camp);
+                if (camp != null)
+                {
+                    return camp;
+                }
+            }
+
+            return null;
+        }
+
+        [Test]
+        public void CampSlot_PlansBossStory_WithCrewIds()
+        {
+            var settings = new RunPacingSettings(windowSize: 8, lookAheadWindows: 1);
+            var catalog = new Sites.SiteCatalog(new[] { CampSite() });
+            var bossStory = Story("boss_hostile", 10, new[] { "bandit-boss" }, combat: true);
+
+            var camp = FirstCamp(Planner(settings, new[] { bossStory },
+                new[] { Archetype("arch_boss", "bandit-boss") },
+                density: CampEverywhere, monsterPools: BanditPool(), siteCatalog: catalog), _store);
+
+            Assert.IsNotNull(camp, "Expected a Camp platform within 4 windows.");
+            Assert.AreEqual("boss_hostile", camp.Story.StoryId);
+            Assert.IsNotNull(camp.Actor);
+            Assert.IsTrue(camp.IsCombat);
+            Assert.AreEqual("camp", camp.Site.SiteId);
+            Assert.GreaterOrEqual(camp.CrewEnemyIds.Count, 2);
+            Assert.LessOrEqual(camp.CrewEnemyIds.Count, 4);
+            foreach (var id in camp.CrewEnemyIds)
+            {
+                Assert.AreEqual(9001, id);
+            }
+        }
+
+        [Test]
+        public void CampSlot_SameSeed_PicksTheSameBossStoryAndCrew()
+        {
+            var settings = new RunPacingSettings(windowSize: 8, lookAheadWindows: 1);
+            var hostile = Story("boss_hostile", 10, new[] { "bandit-boss" }, combat: true);
+            var job = Story("boss_job", 10, new[] { "bandit-boss" });
+            var archetypes = new[] { Archetype("arch_boss", "bandit-boss") };
+
+            var a = FirstCamp(Planner(settings, new[] { hostile, job }, archetypes, seed: 321,
+                density: CampEverywhere, monsterPools: BanditPool(),
+                siteCatalog: new Sites.SiteCatalog(new[] { CampSite() })), _store);
+            var b = FirstCamp(Planner(settings, new[] { hostile, job }, archetypes, seed: 321,
+                density: CampEverywhere, monsterPools: BanditPool(),
+                siteCatalog: new Sites.SiteCatalog(new[] { CampSite() })), _store);
+
+            Assert.IsNotNull(a);
+            Assert.IsNotNull(b);
+            Assert.AreEqual(a.Story.StoryId, b.Story.StoryId, "The quest-or-not pick must be seed-stable.");
+            CollectionAssert.AreEqual(a.CrewEnemyIds, b.CrewEnemyIds);
+        }
+
+        [Test]
+        public void BossStories_NeverSatisfyQuestSlots()
+        {
+            // Only a boss-flavor story exists. With a camp declaring bandit-boss as its boss flavor,
+            // the story is ambient colour: the rare quest slot must never be satisfied by it.
+            var settings = new RunPacingSettings(windowSize: 4, lookAheadWindows: 1);
+            var catalog = new Sites.SiteCatalog(new[] { CampSite() });
+            var bossStory = Story("boss_hostile", 10, new[] { "bandit-boss" }, combat: true);
+
+            var plan = Planner(settings, new[] { bossStory }, new[] { Archetype("arch_boss", "bandit-boss") },
+                siteCatalog: catalog).PlanWindow(0, _store);
+
+            Assert.AreEqual(0, StoryCount(plan), "A boss story must not fill a quest slot.");
+        }
+
+        [Test]
+        public void CampSlot_WithoutBossStory_DegradesToAPlainCrewFight()
+        {
+            var settings = new RunPacingSettings(windowSize: 8, lookAheadWindows: 1);
+            var catalog = new Sites.SiteCatalog(new[] { CampSite() });
+
+            var plan = Planner(settings, Array.Empty<StoryTemplateData>(), Array.Empty<NpcArchetypeData>(),
+                density: CampEverywhere, monsterPools: BanditPool(), siteCatalog: catalog).PlanWindow(0, _store);
+
+            var combat = plan.Platforms.FirstOrDefault(p => p.Kind == PlannedPlatformKind.Combat);
+            Assert.IsNotNull(combat, "With no boss story the camp anchor stays a plain fight.");
+            Assert.AreEqual(9001, combat.EnemyId);
+            Assert.IsFalse(plan.Platforms.Any(p => p.Kind == PlannedPlatformKind.Camp));
         }
 
         [Test]

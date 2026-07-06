@@ -18,6 +18,7 @@ MonoBehaviour:
   - Марен
   _assembly: {fileID: 11400000, guid: fc1ee46c28382e64381e6548974aa94f, type: 2}
   _portrait: {fileID: 0}
+  _demoTint: {r: 0.3, g: 0.65, b: 0.35, a: 1}
   _factionId: free_folk
   _baseDisposition: 0
   _archetypeTags:

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Narrative.Director.Core;
 using Narrative.Facts.Core;
 
 namespace Narrative.Stories.Core
@@ -22,6 +23,13 @@ namespace Narrative.Stories.Core
         public bool IsSpine { get; }
 
         /// <summary>
+        /// Run-escalation eligibility band (D19): the story is only drawn when the current
+        /// <c>run_escalation_tier</c> falls within it. Defaults to <see cref="RunTierBand.Any"/> (every
+        /// tier) so unbanded content keeps registering at all altitudes.
+        /// </summary>
+        public RunTierBand TierBand { get; }
+
+        /// <summary>
         /// Pacing cost/size used by the windowed director to fill a window's narrative budget. A larger
         /// weight consumes more of the per-window budget, so it appears less often alongside other stories.
         /// Not a difficulty or platform-span measure — a single story is always one platform.
@@ -32,7 +40,7 @@ namespace Narrative.Stories.Core
 
         public StoryTemplateData(string storyId, IReadOnlyList<StorySlot> slots, IReadOnlyList<FactPredicate> preconditions,
             IReadOnlyList<FactEffectCore> ownEffects, IReadOnlyList<string> storyTags, string threadId, bool isSpine,
-            int weight = 0)
+            int weight = 0, RunTierBand tierBand = default)
         {
             StoryId = storyId ?? string.Empty;
             Slots = slots ?? System.Array.Empty<StorySlot>();
@@ -42,6 +50,7 @@ namespace Narrative.Stories.Core
             ThreadId = threadId ?? string.Empty;
             IsSpine = isSpine;
             Weight = weight;
+            TierBand = tierBand;
         }
 
         /// <summary>

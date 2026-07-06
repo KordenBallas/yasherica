@@ -60,6 +60,26 @@ namespace Mutation.Core
             return false;
         }
 
+        public int NextInstanceId => _nextInstanceId;
+
+        public void RestoreFrom(IReadOnlyList<BlankInstance> blanks, int nextInstanceId)
+        {
+            _blanks.Clear();
+            _nextInstanceId = nextInstanceId;
+            if (blanks != null)
+            {
+                foreach (var blank in blanks)
+                {
+                    if (blank != null && _blanks.Count < Capacity)
+                    {
+                        _blanks.Add(blank);
+                    }
+                }
+            }
+
+            OnChanged?.Invoke();
+        }
+
         public bool TryGet(int instanceId, out BlankInstance instance)
         {
             foreach (var blank in _blanks)

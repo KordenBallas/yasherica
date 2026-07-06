@@ -17,7 +17,7 @@ MonoBehaviour:
   _family: {fileID: 11400000, guid: 2813f621025d40ad851c678b14884bd0, type: 2}
   _footprintMin: 1
   _footprintMax: 2
-  _triggerWeight: 3
+  _triggerWeight: 6
   _dressingThemeId: camp-kit
   _overrideAnchorBeats: 1
   _anchorBeats:
@@ -31,3 +31,7 @@ MonoBehaviour:
   - _kind: 1
     _flavor: stash
     _weight: 1
+  _overrideBossAnchor: 1
+  _bossStoryFlavor: bandit-boss
+  _bossCrewMin: 2
+  _bossCrewMax: 4

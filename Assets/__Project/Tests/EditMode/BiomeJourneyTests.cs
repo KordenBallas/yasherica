@@ -29,11 +29,25 @@ namespace Tests.EditMode
         private static BiomeJourney Journey(BiomeProgressionSettings settings, ulong seed = 42) =>
             new BiomeJourney(settings, new DeterministicRandom(seed), new FakeLogger());
 
+        private static BiomeJourney Journey(
+            BiomeProgressionSettings settings, ulong seed, LevelTheme? startingTheme,
+            IGameLogger logger = null) =>
+            new BiomeJourney(settings, new DeterministicRandom(seed), logger ?? new FakeLogger(),
+                startingTheme);
+
         /// <summary>The default three-biome authoring: Forest t1, Mountain+Desert sharing t2.</summary>
         private static BiomeProgressionSettings ThreeBiomes() => Settings(
             Entry(LevelTheme.Forest, tier: 1),
             Entry(LevelTheme.Mountain, tier: 2),
             Entry(LevelTheme.Desert, tier: 2));
+
+        /// <summary>The shipped O1 authoring: all three homelands at tier 1 + the tier-2 climb pool.</summary>
+        private static BiomeProgressionSettings FiveEntryHomelands() => Settings(
+            Entry(LevelTheme.Forest, tier: 1),
+            Entry(LevelTheme.Desert, tier: 1),
+            Entry(LevelTheme.Mountain, tier: 1),
+            Entry(LevelTheme.Desert, tier: 2),
+            Entry(LevelTheme.Mountain, tier: 2));
 
         private static string Signature(IBiomeJourney journey, int windows)
         {
@@ -221,6 +235,100 @@ namespace Tests.EditMode
             }
 
             Assert.AreEqual(1, logger.Warnings, "The fallback should warn exactly once.");
+        }
+
+        // ---- O1: the Hub-chosen starting theme (window-0 override) ------------------------------
+
+        [Test]
+        public void StartingTheme_ForcesTheEntryStretch_ForEveryHomeland()
+        {
+            foreach (var homeland in new[] { LevelTheme.Forest, LevelTheme.Desert, LevelTheme.Mountain })
+            {
+                for (ulong seed = 0; seed < 8; seed++)
+                {
+                    var journey = Journey(FiveEntryHomelands(), seed, homeland);
+                    Assert.AreEqual(homeland, journey.ForWindow(0).Theme,
+                        $"Seed {seed}: the entry stretch must be the chosen homeland {homeland}.");
+                    Assert.AreEqual(1, journey.ForWindow(0).EscalationTier,
+                        "The entry stretch must stay on the lowest authored tier.");
+                }
+            }
+        }
+
+        [Test]
+        public void StartingTheme_TierSequenceStillClimbs()
+        {
+            var journey = Journey(FiveEntryHomelands(), seed: 3, LevelTheme.Mountain);
+
+            var tiersByStretch = new List<int>();
+            for (int w = 0; w < 40; w++)
+            {
+                var s = journey.ForWindow(w);
+                if (s.StretchIndex == tiersByStretch.Count)
+                {
+                    tiersByStretch.Add(s.EscalationTier);
+                }
+            }
+
+            Assert.AreEqual(1, tiersByStretch[0]);
+            for (int i = 1; i < tiersByStretch.Count; i++)
+            {
+                Assert.AreEqual(2, tiersByStretch[i], "The climb past the entry stretch is unchanged.");
+            }
+        }
+
+        [Test]
+        public void StartingTheme_NextStretchNeverRepeatsIt()
+        {
+            // Mountain start: the tier-2 pool holds Desert+Mountain, so the boundary exclusion must
+            // force a visible crossing away from the chosen homeland.
+            for (ulong seed = 0; seed < 8; seed++)
+            {
+                var journey = Journey(FiveEntryHomelands(), seed, LevelTheme.Mountain);
+                int w = 0;
+                while (journey.ForWindow(w).StretchIndex == 0) w++;
+                Assert.AreEqual(LevelTheme.Desert, journey.ForWindow(w).Theme,
+                    $"Seed {seed}: stretch 1 must cross away from the overridden entry biome.");
+            }
+        }
+
+        [Test]
+        public void StartingTheme_MissingFromEntryTier_WarnsAndKeepsSeededPick()
+        {
+            var logger = new FakeLogger();
+            var journey = Journey(ThreeBiomes(), seed: 5, LevelTheme.Desert, logger);
+
+            // Desert is authored only at tier 2 here — the entry tier cannot honor the override.
+            Assert.AreEqual(LevelTheme.Forest, journey.ForWindow(0).Theme,
+                "An unhonorable override must fail safe to the seeded pick.");
+            Assert.AreEqual(1, logger.Warnings);
+        }
+
+        [Test]
+        public void StartingTheme_EntryStretchKeepsItsSeededLength()
+        {
+            // Burn-the-draw property: the override replaces WHICH biome the entry stretch is, not
+            // the seeded draws around it — with and without an override, stretch 0 has the same
+            // length. (Later stretches stay deterministic per (seed, override) — the resume
+            // contract — but may legitimately differ from the no-override run: the boundary
+            // exclusion sees a different previous theme.)
+            for (ulong seed = 0; seed < 8; seed++)
+            {
+                var plain = Journey(FiveEntryHomelands(), seed);
+                var overridden = Journey(FiveEntryHomelands(), seed, LevelTheme.Desert);
+
+                Assert.AreEqual(plain.ForWindow(0).WindowCount, overridden.ForWindow(0).WindowCount,
+                    $"Seed {seed}: the entry stretch length must come from the same seeded draw.");
+            }
+        }
+
+        [Test]
+        public void StartingTheme_SameSeedAndOverride_IdenticalJourney()
+        {
+            var a = Journey(FiveEntryHomelands(), seed: 11, LevelTheme.Desert);
+            var b = Journey(FiveEntryHomelands(), seed: 11, LevelTheme.Desert);
+
+            Assert.AreEqual(Signature(a, 40), Signature(b, 40));
         }
 
         [Test]

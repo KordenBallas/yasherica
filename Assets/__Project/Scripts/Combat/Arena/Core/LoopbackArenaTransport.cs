@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Combat.Arena.Core
 {
@@ -9,9 +10,16 @@ namespace Combat.Arena.Core
     /// </summary>
     public class LoopbackArenaTransport : IArenaTransport
     {
+        /// <summary>The one in-process connection id (the NGO host convention).</summary>
+        private const ulong LocalClientId = 0;
+
         public event Action<ArenaCommitEnvelope> CommitReceived;
         public event Action<ArenaMatchSetup> MatchSetupReceived;
         public event Action<ArenaRoundBundle> BundleReceived;
+        public event Action<ulong, IReadOnlyList<string>> TastedCatalogReceived;
+        public event Action<ArenaDraftStart> DraftStartReceived;
+        public event Action<ArenaDraftPick> DraftPickRequested;
+        public event Action<ArenaDraftPickApplied> DraftPickApplied;
         public event Action<int> PlayerDeparted;
 
         /// <summary>In-process departures only happen when a test (or tool) injects one.</summary>
@@ -33,6 +41,26 @@ namespace Combat.Arena.Core
         public void BroadcastBundle(ArenaRoundBundle bundle)
         {
             BundleReceived?.Invoke(bundle);
+        }
+
+        public void SubmitTastedCatalog(IReadOnlyList<string> partIds)
+        {
+            TastedCatalogReceived?.Invoke(LocalClientId, partIds);
+        }
+
+        public void SubmitDraftPick(ArenaDraftPick pick)
+        {
+            DraftPickRequested?.Invoke(pick);
+        }
+
+        public void BroadcastDraftStart(ArenaDraftStart start)
+        {
+            DraftStartReceived?.Invoke(start);
+        }
+
+        public void BroadcastDraftPick(ArenaDraftPickApplied applied)
+        {
+            DraftPickApplied?.Invoke(applied);
         }
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Narrative.Director.Data;
 using Narrative.Facts.Data;
 using UnityEngine;
 
@@ -38,6 +39,11 @@ namespace Narrative.Stories.Data
         [Min(0)]
         [SerializeField] private int _weight = 10;
 
+        [Header("Escalation")]
+        [Tooltip("Run-tier band gating eligibility (D19): the story registers only at these altitudes. " +
+                 "Leave (0,0) for the register-neutral default — eligible at every tier.")]
+        [SerializeField] private RunTierBandAuthoring _tierBand = new RunTierBandAuthoring();
+
         public string StoryId => _storyId;
         public IReadOnlyList<StorySlotDefinition> Slots => _slots;
         public IReadOnlyList<FactPredicateSerial> Preconditions => _preconditions;
@@ -46,5 +52,6 @@ namespace Narrative.Stories.Data
         public string ThreadId => _threadId;
         public bool IsSpine => _isSpine;
         public int Weight => _weight;
+        public RunTierBandAuthoring TierBand => _tierBand ?? new RunTierBandAuthoring();
     }
 }

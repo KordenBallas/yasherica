@@ -156,8 +156,12 @@ of the cauldron, layer `InventoryFocus`): three `BlankAnchor`s and a disabled `B
      hint); a second click on the same card confirms. Clicking another card re-selects, never
      confirms. Selection survives a failed swap, so the retry is the documented second click.
    - **Flip** — the corner FLIP button toggles front/back locally; it never changes selection.
-   - **Ability tooltip** — hovering an ability icon shows its name + description
-     (`AbilityTooltipView`, panel-owned, canvas-clamped).
+   - **Ability preview** — hovering an ability icon opens the **shared ability-preview
+     popover** (`ability-preview-popover.md`): name + description plus a 3D hero on a mock
+     battlefield demonstrating the cast (idle for a passive; text-only before the hero rig
+     assembles). Replaced the old text-only `AbilityTooltipView` (deleted) — this closes
+     `mutation-choice-cards.md` FR5's "one preview mechanism, two surfaces" with the arena
+     draft as the second surface.
    - **Mini-model popover** — hovering the part picture asks `IMutationModelPreview` for a live
      render of the hero wearing the offered part (`ModelPreviewPopoverView`, a RawImage showing the
      rig's RenderTexture). If no assembled hero exists yet the popover simply does not open.
@@ -328,7 +332,8 @@ The trait vocabulary and fusion rules the sockets speak are Inventory content
 ### The mutation card panel (authored prefabs — no editor tool)
 
 The card hand is authored as source-of-truth prefabs under `Resources/Prefabs/UI/`:
-`MutationChoicePanel.prefab` (the panel + the shared ability tooltip + the model popover),
+`MutationChoicePanel.prefab` (the panel + the model popover; the ability preview is the shared
+`AbilityPreviewPopover.prefab` — `ability-preview-popover.md`),
 `MutationCard.prefab` (front/back faces, flip button, selection highlight, confirm hint), and
 `MutationAbilityIcon.prefab` (one ability icon + passive marker). The installer instantiates the
 panel at runtime (no scene wiring); if the panel prefab is missing the unseal choice is disabled

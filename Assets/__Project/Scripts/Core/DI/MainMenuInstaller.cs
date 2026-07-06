@@ -16,6 +16,10 @@ namespace Core.DI
         {
             LoggingInstaller.Install(Container);
 
+            // Save-file stores (P2-2): the menu reads run.json existence for the Continue entry
+            // point and deletes it when Journey starts an explicitly new run.
+            PersistenceInstaller.Install(Container);
+
             Container.Bind<ISceneLoader>().To<SceneLoader>().AsSingle();
             Container.Bind<IMainMenuView>().To<MainMenuView>().FromComponentInHierarchy().AsSingle();
             Container.BindInterfacesTo<MainMenuPresenter>().AsSingle().NonLazy();

@@ -4,7 +4,8 @@
 // Quest slot): run grain to HIS starving kin for iron - the power/Monster side, opposed to the
 // farmer's bounty taken earlier (world.barn_quest_accepted). Separated in time on the shared actor's
 // thread, NOT shown side by side. Same tier, different currency (facts are the stakes, not loot-EV).
-// Accepting sets world.raider_offer_taken and clears actor.$self.looted_barn so the arc closes (D13).
+// Accepting sets world.raider_offer_taken (run) + world.raider_pact_sworn (META - the landmark deed
+// the P3-3 conquest mirror-lore echo reads) and clears actor.$self.looted_barn so the arc closes (D13).
 // Leaving is the presenter's system Leave card (he lingers, may re-offer). NPC-free (R4); systems via
 // tags only. npc_name injected on fresh start.
 
@@ -16,6 +17,7 @@ VAR quest_accepted = false
 Ты снова встречаешь налётчика — мешок всё ещё у него за спиной. «Опять ты. Слушай: моя деревня тоже голодает. Доставь мешок моим родичам, и я заплачу добрым железом.»
 * [Отнести зерно для налётчика.]
     # fact: world.raider_offer_taken Set true
+    # fact: world.raider_pact_sworn Set true
     # fact: actor.$self.looted_barn Set false
     # offer-quest: raider-run
     «Умно. Верность дороже хлеба.» Он отмечает тебе дорогу.

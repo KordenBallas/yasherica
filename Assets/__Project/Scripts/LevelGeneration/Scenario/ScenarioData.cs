@@ -110,7 +110,12 @@ namespace LevelGeneration
         Forest,
         Desert,
         Mountain,
-        Cave
+        Cave,
+
+        /// <summary>The junkyard Hub's own biome (O1 rework): a first-class theme so its platform
+        /// look is authored like any biome's. Never enters the run rotation — it has no
+        /// BiomeProgressionConfig entry (the Cave exclusion convention).</summary>
+        Hub
     }
 }
 

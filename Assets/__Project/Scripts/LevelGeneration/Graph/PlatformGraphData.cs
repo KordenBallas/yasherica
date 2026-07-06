@@ -37,6 +37,13 @@ namespace LevelGeneration
         /// unflavored. Flows into the loot roll context as a bias tag.
         /// </summary>
         public string ContentFlavor { get; set; }
+
+        /// <summary>
+        /// Pins the surface-shape profile independently of the live content (P2-2 restore): a
+        /// consumed platform restores content-free but must regrow the EXACT surface it had, so the
+        /// kind the shape was originally grown with rides here. Null = resolve from content as usual.
+        /// </summary>
+        public Surface.PlatformContentKind? ShapeKindOverride { get; set; }
     }
 
     public class GraphEdge

@@ -52,6 +52,10 @@ namespace Combat.Arena
         public ITurnManager TurnManager => _turnManager;
         public IBattlefield Battlefield => _battlefield;
 
+        // Arena resolves by its own IArenaResolutionOrder (RotatingInitiativeOrder), not the PvE
+        // initiator-leads rule — the D2 opening-initiator concept does not apply here.
+        public CombatInitiator OpeningInitiator => CombatInitiator.Player;
+
         public event System.Action<ICombatState> OnStateChanged;
         public event System.Action<IPlayer> OnTurnStarted;
         public event System.Action<RoundPhase> OnRoundPhaseChanged;
@@ -100,8 +104,10 @@ namespace Combat.Arena
             _isHost = isHost;
         }
 
-        public void Initialize(ICombatState initialState, IReadOnlyList<IPlayer> players)
+        public void Initialize(ICombatState initialState, IReadOnlyList<IPlayer> players,
+            CombatInitiator openingInitiator = CombatInitiator.Enemy)
         {
+            // openingInitiator is ignored: Arena orders by IArenaResolutionOrder, not initiator-leads.
             _gameState = initialState;
 
             if (_battlefield != null && _gameState is CombatState combatState)

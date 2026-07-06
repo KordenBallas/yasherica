@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Yasherica::Narrative.Interaction.Data.NpcInteractionConfig
   _interactionRadius: 3.5
   _aggroRadius: 2.5
+  _bossEngagementRadius: 6

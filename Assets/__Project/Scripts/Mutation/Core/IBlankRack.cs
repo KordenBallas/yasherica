@@ -27,5 +27,13 @@ namespace Mutation.Core
         bool Remove(int instanceId);
 
         bool TryGet(int instanceId, out BlankInstance instance);
+
+        /// <summary>The next instance id this rack would mint — captured by the save layer so a
+        /// restored run keeps minting unique ids.</summary>
+        int NextInstanceId { get; }
+
+        /// <summary>Replaces the rack contents from a save image (P2-2 restore); entries beyond
+        /// <see cref="Capacity"/> are dropped. Fires <see cref="OnChanged"/> once.</summary>
+        void RestoreFrom(IReadOnlyList<BlankInstance> blanks, int nextInstanceId);
     }
 }

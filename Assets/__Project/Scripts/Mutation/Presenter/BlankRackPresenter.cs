@@ -28,6 +28,7 @@ namespace Mutation.Presenter
         private readonly MutationConfig _config;
         private readonly IBlankRackView _view;
         private readonly IGameLogger _logger;
+        private readonly global::Core.Persistence.RunRestoreContext _restoreContext;
 
         public BlankRackPresenter(
             IBlankRack rack,
@@ -37,7 +38,8 @@ namespace Mutation.Presenter
             IArtifactCatalog artifactCatalog,
             MutationConfig config,
             IBlankRackView view,
-            IGameLogger logger)
+            IGameLogger logger,
+            [InjectOptional] global::Core.Persistence.RunRestoreContext restoreContext = null)
         {
             _rack = rack;
             _socketing = socketing;
@@ -47,6 +49,7 @@ namespace Mutation.Presenter
             _config = config;
             _view = view;
             _logger = logger;
+            _restoreContext = restoreContext;
         }
 
         public void Initialize()
@@ -71,6 +74,13 @@ namespace Mutation.Presenter
 
         private void SeedStartingBlanks()
         {
+            // A continued run's rack is savepoint-true even when legitimately empty (all blanks
+            // spent) — re-seeding the dev blanks there would mint resources out of thin air (P2-2).
+            if (_restoreContext != null && _restoreContext.IsRestoring)
+            {
+                return;
+            }
+
             // Dev seed only while the rack is untouched, so a later re-initialize
             // never duplicates blanks.
             if (_rack.Blanks.Count > 0)

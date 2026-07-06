@@ -35,9 +35,11 @@ Source brief: `product-requirements/platform-hex-surface-and-shape.md` (verified
   guarantees at least the **battlefield minimum** of whole cells.
 - **R7** Non-combat platforms can be visibly smaller/narrower per their profile.
 - **R8** **Determinism:** the same run seed produces the same platform shapes, sizes, and tiling.
-- **R9** *(principle, seam only)* Biome features that affect the surface occupy **whole hex cells**
-  and align to the grid. The data seam exists (`PlatformHexSurface.BlockedCells`); feature content
-  itself belongs to the biome-appearance brief.
+- **R9** Biome features that affect the surface occupy **whole hex cells** and align to the grid.
+  The seam is **live** (environment-dressing, 2026-07-06): `PlatformHexSurface.BlockedCells` is
+  ctor-supplied (`WithBlockedCells` copies), `SurfaceHexGrid` excludes blocked cells from
+  `GetCellsInBoundary`/`IsCellInBoundary`, and `PlatformAnchor` never lands on one. Which cells are
+  blocked is decided by the dressing planners — see `environment-dressing.md`.
 
 ### 1.2 Non-functional requirements
 
@@ -84,7 +86,7 @@ dependency arrows are `LevelGeneration → Combat.Battlefield` and `Platform →
 | Type | Responsibility |
 |---|---|
 | `HexMetrics` | Axial↔local conversion (exact port of the legacy grid formulas), corner offsets, edge-aligned neighbor order, cube rounding |
-| `PlatformHexSurface` | Immutable: sorted `Cells`, `HexSize`/`Orientation`, centroid `CenterOffset`, `CenterCell`, stitched walkable `Outline` + `NotchFills` (floor patches paving the sewn notches), `SubdividedOutline`+`RimRing` (index-aligned), empty `BlockedCells` seam (R9) |
+| `PlatformHexSurface` | Immutable: sorted `Cells`, `HexSize`/`Orientation`, centroid `CenterOffset`, `CenterCell`, stitched walkable `Outline` + `NotchFills` (floor patches paving the sewn notches), `SubdividedOutline`+`RimRing` (index-aligned), `BlockedCells` + `IsBlocked` + `WithBlockedCells` (dressing obstacles, R9 — live) |
 | `PlatformSurfaceGenerator` | Seeded weighted blob growth to the profile's cell count (compactness 0–8), hole fill (R3), `guaranteedMinCells` floor (R6) |
 | `HexOutlineExtractor` | Border segments (cell edges with no neighbor) joined via quantized endpoints into one CCW loop |
 | `OutlineStitcher` | Sews shallow between-cell V-notches out of the raw outline (≤ 0.75·hexSize deep; deeper bays keep their shape) and emits the flat fill triangles that pave them |
@@ -255,9 +257,6 @@ verified manually in play mode.
 - **Muted-tiling treatment is geometry-MVP.** Per-cell shallow domes read as soft valleys under a
   lit material; the real muted→crisp render treatment (shader/VFX emphasis on combat entry) is
   tech-art (ROADMAP, render-look bible).
-- **`BlockedCells` is an unused seam.** R9 alignment is guaranteed by construction, but no biome
-  feature content occupies cells yet (separate biome-appearance brief); nothing writes or reads
-  `BlockedCells`.
 - **Hole-fill may overshoot the drawn cell count** by the filled holes (rare at these sizes;
   deterministic; never below the minimum).
 - **Combat-platform scale jumped** (~14–18 u across vs the old 3–6 u blobs — intended by the

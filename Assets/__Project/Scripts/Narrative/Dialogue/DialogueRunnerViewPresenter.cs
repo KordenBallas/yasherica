@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Combat.Core;
 using Core.Logging;
 using Zenject;
 
@@ -26,8 +27,8 @@ namespace Narrative.Dialogue
         private readonly IDialogueView _view;
         private readonly IGameLogger _logger;
 
-        /// <summary>Raised when the runner requests combat (enemy id); for the encounter integration.</summary>
-        public event Action<string> OnCombatTriggered;
+        /// <summary>Raised when the runner requests combat (enemy id + initiator); for the encounter integration.</summary>
+        public event Action<string, CombatInitiator> OnCombatTriggered;
 
         /// <summary>Raised when the runner starts a quest (quest id); for the encounter integration.</summary>
         public event Action<string> OnQuestStarted;
@@ -89,11 +90,11 @@ namespace Narrative.Dialogue
             _view.Hide();
         }
 
-        private void HandleCombatTriggered(string enemyId)
+        private void HandleCombatTriggered(string enemyId, CombatInitiator initiator)
         {
             // Combat runs outside Ink; the view parks until the encounter reports a result.
             _view.HideChoices();
-            OnCombatTriggered?.Invoke(enemyId);
+            OnCombatTriggered?.Invoke(enemyId, initiator);
         }
 
         private void HandleQuestStarted(string questId) => OnQuestStarted?.Invoke(questId);

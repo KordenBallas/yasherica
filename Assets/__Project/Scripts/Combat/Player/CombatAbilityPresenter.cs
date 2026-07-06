@@ -141,6 +141,86 @@ namespace Combat.Player
             _selectedAbility = null;
         }
 
+        /// <summary>
+        /// Enters volley aim (D2, Enter held): highlights the whole queued volley along the unit's
+        /// current facing, so the player sees where the queue will fire before turning/releasing.
+        /// </summary>
+        public void BeginVolleyAim()
+        {
+            ShowQueuedVolleyCells();
+        }
+
+        /// <summary>
+        /// Aim = turn for the whole volley: rotates the unit toward the aimed direction (a free,
+        /// unlimited <see cref="ChangeDirectionAction"/>, no ability selected) and re-highlights the
+        /// queued volley from the new facing — the shipped global-facing model re-points the entire
+        /// queue and its telegraphs at once (D2).
+        /// </summary>
+        public void UpdateVolleyAim(HexDirection? direction)
+        {
+            if (!direction.HasValue)
+            {
+                ShowQueuedVolleyCells();
+                return;
+            }
+
+            var liveUnit = GetLiveUnit();
+            if (liveUnit == null || liveUnit.FacingDirection == direction.Value)
+            {
+                ShowQueuedVolleyCells();
+                return;
+            }
+
+            var result = _combatController.ProcessAction(
+                new ChangeDirectionAction(_playerUnit.Owner, _playerUnit.Id, direction.Value));
+
+            if (!result.Success)
+            {
+                _logger.Warning(LogCategory.Combat,$"[CombatAbilityPresenter] Volley turn failed: {result.ErrorMessage}");
+                return;
+            }
+
+            ShowQueuedVolleyCells();
+        }
+
+        /// <summary>Clears the volley-aim highlight (on execute or right-click cancel).</summary>
+        public void EndVolleyAim()
+        {
+            ClearAllHighlights();
+        }
+
+        /// <summary>
+        /// Highlights every queued ability's affected cells from the unit's live position + facing —
+        /// the whole volley the queue will fire, recomputed on each turn so the read stays honest.
+        /// </summary>
+        private void ShowQueuedVolleyCells()
+        {
+            ClearAllHighlights();
+
+            var liveUnit = GetLiveUnit();
+            if (liveUnit == null) return;
+
+            foreach (var scheduled in liveUnit.AbilityQueue)
+            {
+                var shape = scheduled.Ability.Ability.Shape;
+                var direction = shape.Type == AbilityShapeType.Line
+                    ? liveUnit.FacingDirection
+                    : (HexDirection?)null;
+
+                var cells = _shapeCalculator.GetAffectedCells(
+                    shape,
+                    liveUnit.Position,
+                    direction,
+                    _battlefield.IsCellInBoundary);
+
+                foreach (var cell in cells)
+                {
+                    _cellController.HighlightCell(cell, HighlightType.ValidAbilityTarget);
+                    _highlightedCells.Add(cell);
+                }
+            }
+        }
+
         private void ShowAffectedCells()
         {
             ClearAllHighlights();

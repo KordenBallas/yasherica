@@ -17,5 +17,9 @@ namespace Inventory.Core
         event Action<string> OnPartAdded;
 
         void Add(string partId);
+
+        /// <summary>Replaces the whole stash from a save image (P2-2 restore). Fires
+        /// <see cref="OnPartAdded"/> per part so presenters stay consistent.</summary>
+        void RestoreFrom(IReadOnlyList<string> partIds);
     }
 }

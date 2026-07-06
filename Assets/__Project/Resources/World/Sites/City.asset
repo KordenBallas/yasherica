@@ -18,7 +18,7 @@ MonoBehaviour:
   _footprintMin: 4
   _footprintMax: 5
   _triggerWeight: 20
-  _dressingThemeId: city-kit
+  _dressingThemeId: settlement-kit
   _overrideAnchorBeats: 0
   _anchorBeats: []
   _overrideFillBudget: 1

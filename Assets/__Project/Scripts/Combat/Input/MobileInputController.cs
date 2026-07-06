@@ -38,6 +38,8 @@ namespace Combat.Input
 #pragma warning restore 67
         public event Action<ExecuteQueueCommand> OnExecuteQueueRequested;
         public event Action<ChangeDirectionModeCommand> OnChangeDirectionRequested;
+        public event Action<VolleyAimStartedCommand> OnVolleyAimStarted;
+        public event Action<VolleyAimCancelledCommand> OnVolleyAimCancelled;
 
         private void Awake()
         {

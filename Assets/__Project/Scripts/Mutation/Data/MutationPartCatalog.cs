@@ -117,7 +117,11 @@ namespace Mutation.Data
             foreach (var ability in set.ActiveAbilities)
             {
                 abilities.Add(new MutationAbilityInfo(
-                    ability.Name, ability.Description, ability.Icon, isPassive: false));
+                    ability.Name, ability.Description, ability.Icon, isPassive: false,
+                    isLine: ability.Shape == Combat.Core.AbilityShapeType.Line,
+                    lineLength: ability.LineLength,
+                    ringRadius: ability.RingRadius,
+                    animationTrigger: ability.AnimationTrigger));
             }
 
             foreach (var passive in set.PassiveAbilities)

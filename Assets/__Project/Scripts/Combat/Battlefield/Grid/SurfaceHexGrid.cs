@@ -30,6 +30,13 @@ namespace Combat.Battlefield
             _cellPositions.Clear();
             foreach (var cell in surface.Cells)
             {
+                // Blocked cells (dressing obstacles) are ground/mesh but never combat cells: every
+                // consumer (movement, targeting, spawn placement) routes through this grid.
+                if (surface.IsBlocked(cell))
+                {
+                    continue;
+                }
+
                 var (x, z) = surface.GetCellCenterLocal(cell);
                 _cells.Add(cell);
                 _cellPositions[cell] = new Vector3(x, 0f, z);
@@ -83,7 +90,7 @@ namespace Combat.Battlefield
 
         public bool IsCellInBoundary(HexCoordinates hex)
         {
-            return _surface != null && _surface.Contains(hex);
+            return _surface != null && _surface.Contains(hex) && !_surface.IsBlocked(hex);
         }
 
         public void Clear()

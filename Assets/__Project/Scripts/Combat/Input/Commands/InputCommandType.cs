@@ -13,6 +13,8 @@ namespace Combat.Input.Commands
         AbilityCancelled,
         AbilityConfirmed,
         ExecuteQueue,
-        ChangeDirection
+        ChangeDirection,
+        VolleyAimStarted,
+        VolleyAimCancelled
     }
 }

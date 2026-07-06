@@ -30,5 +30,13 @@ namespace Inventory.Core
         /// Used for crafting results that live above the pot until collected.
         /// </summary>
         ArtifactInstance CreateDetachedInstance(string definitionId);
+
+        /// <summary>The next instance id this model would mint — captured by the save layer so a
+        /// restored run keeps minting unique ids.</summary>
+        int NextInstanceId { get; }
+
+        /// <summary>Replaces the whole container from a save image (P2-2 restore). Fires
+        /// <see cref="OnItemAdded"/> per item so presenters stay consistent.</summary>
+        void RestoreFrom(IReadOnlyList<ArtifactInstance> items, int nextInstanceId);
     }
 }

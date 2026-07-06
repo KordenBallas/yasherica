@@ -18,6 +18,16 @@ MonoBehaviour:
     _selectionWeight: 1
     _stretchMinWindows: 3
     _stretchMaxWindows: 4
+  - _theme: 1
+    _escalationTier: 1
+    _selectionWeight: 1
+    _stretchMinWindows: 3
+    _stretchMaxWindows: 4
+  - _theme: 2
+    _escalationTier: 1
+    _selectionWeight: 1
+    _stretchMinWindows: 3
+    _stretchMaxWindows: 4
   - _theme: 2
     _escalationTier: 2
     _selectionWeight: 1

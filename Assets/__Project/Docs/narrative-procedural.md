@@ -46,6 +46,17 @@
   inspectable run-state, and optional authored spine beats.
 - **R14 — Engine constraints.** SOs are the content surface; services are Zenject-injected; save/load
   for all runtime state.
+- **R15 — Spine reserved lane (D7, P3-1).** Stories flagged `_isSpine` are the curated reveal spine:
+  the planner places them **first, by their own quota** — outside the quest rarity/spacing gate and
+  the live-thread ceiling — throttled by an authored **per-run reveal cap** (≤1 per window), drawn
+  from a **precondition-gated pool** (never an authored order; "never too early" is per-beat via deep
+  preconditions + a soft floor over the meta run counter `world.run_count`), never re-revealing a
+  placed beat, decoupled from win/lose, seeded-deterministic. **The cursor persists across runs**
+  (D20, P3-3): a beat the player has **seen** (its dialogue ran to an outcome, walk-away included)
+  writes the meta fact `world.<storyId>.spine_seen` via `SpineSeenRecorder` and never re-enters the
+  pool in any later run; a placed-but-never-visited beat returns after death (seen, not placed, is
+  the cross-run rule — PO decision 2026-07-06). Mirror-lore echoes and cauldron-memory asides are
+  authored spine beats gated on persisted meta flags (no new mechanism or channel).
 
 ### 1.2 Non-functional requirements
 
@@ -132,8 +143,8 @@ world-content-density settings + biome monster-pool catalog + run-scoped `WorldC
 from `Resources/Narrative/WorldContentDensityConfig` and `Resources/Combat/MonsterPools`), the
 actor-instance factory + encounter orchestrator (§2.5), the thread subsystem (`IThreadCatalog` mapped
 from `ThreadDefinition` assets or auto-loaded from `Resources/Narrative/Threads`, the run-scoped
-`IThreadLedger` + `IStoryRunLedger`, `IThreadMaintenance`, and the `StoryResolutionRelay`
-`IInitializable`), the dialogue session/runner/tag-parser, the
+`IThreadLedger` + `IStoryRunLedger`, `IThreadMaintenance`, and the `StoryResolutionRelay` +
+`SpineSeenRecorder` `IInitializable`s), the dialogue session/runner/tag-parser, the
 `IEncounterCardHandView` + `EncounterCardHandPresenter` (the card-hand UI, §2.7; instantiated from the
 `Resources` prefab), and `INarrativeSaveService` (fed the fact registry + both ledgers so its snapshot
 partitions run/meta facts and captures the thread state). A `NarrativeSliceBootstrap` `IInitializable`
@@ -195,11 +206,45 @@ that happens to carry a combat slot is the tolerated exception. `RunWindowPlanne
      opens once a qualifying actor already exists — a story meant to open for any fresh actor must use
      world/global preconditions.
 
+   Every story additionally carries a **run-tier band** (D19 escalation): it registers only when the
+   current `run_escalation_tier` — the altitude `BiomeStretchDirector` published for the window, read
+   once from the live store — falls within its band. The unbanded default is *every* tier, so as the run
+   climbs the eligible pool **shifts register** (backwater beats age out, courtly/divine beats enter)
+   with no change to density. Applied to quest and ambient-colour stories alike, before the channel split.
+
    Quest-channel candidates then pass the **run-scoped continuity gates** (FR9 — no stale
    re-placement): a story already **placed or resolved** this run (`StoryRunLedger`), or whose thread
    is **retired**, never re-enters a plan — the look-ahead plans against the *current* story/thread
    state, not stale facts. Ambient-colour chatter is exempt (it may repeat; it is not a beat).
-2. **Slot allocation** — for each of the window's `WindowSize` slots, `WorldContentAllocator`
+   **Spine stories (`_isSpine`) are routed into their own pool** — never the quest or ambient
+   channels — after passing the same gates (tier band, preconditions incl. the casting query,
+   not placed/resolved, thread not retired) **plus the cross-run cursor** (P3-3): a beat whose
+   `world.<storyId>.spine_seen` meta fact is true was delivered in some earlier run and never
+   re-enters the pool.
+2. **Spine reserved lane (R15/D7)** — before the slots fill, the lane draws **at most one** beat
+   from the eligible spine pool while the run's reveal count (spine entries in the `StoryRunLedger`
+   — placed = revealed, so the cap survives save/continue with no state of its own) is below
+   `RunPacingSettings.MaxSpineRevealsPerRun`. The pick and the reserved slot index are seeded (the
+   pool inherits the eligibility sort, so ties are stable); an inactive lane draws nothing, keeping
+   spine-free windows draw-identical. The reserved slot still ticks the allocator (spacing counters
+   and site blocks advance per platform) but never requests a quest; the returned allocation's
+   site/flavor carry through onto the spine platform. Placement runs the standard path (ledger
+   record + idempotent thread open) but **bypasses the quest gate and the `MaxLiveThreads` ceiling**
+   (reserve-don't-compete; the cap already bounds the extra load). "Never too early" is enforced
+   per-beat: a heavy reveal authors deep preconditions and a soft floor (`world.run_count >= N`),
+   not a sequence index — the puzzle assembles in whatever order the player's path unlocks. The
+   lane fires on won and lost runs alike (placement is outcome-blind). **Cross-run cursor (P3-3):**
+   within a run revealed = *placed* (the ledger above), but across runs the never-again rule is
+   *seen* — `SpineSeenRecorder` (`Narrative.Runtime.Core`, subscribed to
+   `DialogueRunner.OnDialogueEnded` beside `StoryResolutionRelay`) writes the Meta-horizon fact
+   `world.<storyId>.spine_seen` when a spine beat's dialogue actually ends (any outcome, incl.
+   `leave`; a mid-dialogue quit never fires it, so the encounter re-begins unseen on continue).
+   The fact rides the P2-2 meta flush/bootstrap, so a losing run's reveal sticks and a
+   placed-but-never-visited beat returns to the pool next run. Beats seen in past runs never spend
+   a fresh run's cap (the cap counter stays run-ledger-based). Because the cursor is an ordinary
+   fact, preconditions can read it with a **literal story-id subject** — "must have seen Y" floors
+   and echo sibling-exclusion are authored data.
+3. **Slot allocation** — for each of the window's `WindowSize` slots, `WorldContentAllocator`
    (run-scoped, sharing the director's seeded stream) decides the content kind:
    - **Quest gate first**: the spacing counter must exceed
      `WorldContentDensitySettings.MinPlatformsBetweenQuests` (a **hard invariant carried across
@@ -214,9 +259,11 @@ that happens to carry a combat slot is the tolerated exception. `RunWindowPlanne
      rather than being forfeited.
    - **Ambient weighted draw** otherwise: an integer-weighted pick among Empty
      (`EmptyWeight`) / Loot (`LootWeight`) / Combat (`CombatWeight`). A Combat slot draws its enemy
-     id from the current biome's `IBiomeMonsterPoolCatalog` pool at flat difficulty (an unauthored
-     pool downgrades the slot to Empty, warned once).
-3. **Story selection** — only for Quest slots: pick among the placeable stories (advance-over-open
+     id from the current biome's `IBiomeMonsterPoolCatalog` pool, **filtered to creatures whose run-tier
+     band contains the current `run_escalation_tier`** (D19) — higher altitudes field tougher creatures,
+     with stats unchanged: only *which* creatures appear shifts. An unauthored **or fully out-of-band**
+     pool downgrades the slot to Empty, warned once.
+4. **Story selection** — only for Quest slots: pick among the placeable stories (advance-over-open
    preference + seeded tie-break, below) and place it with its actor. Placement records the beat in
    the `StoryRunLedger` and **opens its thread** in the `ThreadLedger` (idempotent) with the kind
    authored on its `ThreadDefinition` — or as an implicit ephemeral default for a bare label.
@@ -235,7 +282,8 @@ biome-pool `EnemyId`) the level generator maps to platforms.
 
 `ILiveActorRegistry`/`LiveActorRegistry` (`Narrative.Actors.Core`, pure C#) is the run-scoped set of
 minted actors in deterministic registration order — the seam recurring-actor casting reads. It is bound
-`AsSingle` for the run; repopulating it on load is part of the deferred window/horizon save-state (§6).
+`AsSingle` for the run; on a continue the save layer repopulates it by replaying `Register` from the
+run save's actor snapshots (P2-2, `save-persistence.md`).
 
 **Streaming & entry (now wired).** `RunStreamingCoordinator` (`LevelGeneration`) drives generation:
 `Begin()` generates window 0; on each `PlatformEvents.OnPlatformExited` from a frontier platform it
@@ -244,7 +292,8 @@ engaging player's fact writes land before the next window is planned). Before ea
 planned, `BiomeStretchDirector.ApplyForWindow` applies the **biome journey**'s stretch for that
 window (see `biome-journey.md`): the active biome now advances along the run in authored, seeded,
 tier-climbing stretches, switching `ICurrentThemeProvider` and publishing `run_escalation_tier` —
-the allocators are unchanged (they already read the theme provider live per allocation). Each planned story platform is
+now **consumed** by both the story eligibility gate and the ambient/site monster draw (D19 escalation,
+above), the tier read once per window from the live store. Each planned story platform is
 realised as an `NpcContent` carrying the minted actor + committed story (its visual spawns from the
 archetype assembly via `IModularCharacterFactory`; `INpcArchetypeCatalog` resolves id → archetype SO).
 An **ambient combat** platform is realised as an `EnemyContent` with the planner's biome-pool
@@ -271,9 +320,8 @@ story** matching the slot's flavor tag (e.g. `townsfolk`), and stories tagged wi
 table via `LootRollContext.Tags`.
 
 Open points this stage: biome is fixed (Forest — biome selection along the run is a separate item).
-The quest-spacing counter is allocator state and is not yet save-captured (rides the window/horizon
-save-state item, §6). An archetype with no `_assembly` runs its dialogue but spawns no visible NPC
-body (logged warning).
+The quest-spacing counter is allocator state and rides the run save (P2-2, `save-persistence.md`).
+An archetype with no `_assembly` runs its dialogue but spawns no visible NPC body (logged warning).
 
 ### 2.7 Encounter card-hand (presentation, MVP)
 
@@ -330,7 +378,7 @@ The single source of truth for one fact key (R13).
 | Field | Type | Meaning | Default / notes |
 |---|---|---|---|
 | `_namespace` | `FactNamespace` | Grouping label: World/Actor/Faction | — |
-| `_scope` | `FactScope` | Subject arity: Global / PerActor / PerFaction / PerLocation / PerThread (A1) | arity comes from here, NOT the namespace |
+| `_scope` | `FactScope` | Subject arity: Global / PerActor / PerFaction / PerLocation / PerThread / PerStory (A1) | arity comes from here, NOT the namespace |
 | `_key` | string | Bare key name, e.g. `barn_raided` | no namespace prefix |
 | `_horizon` | `FactHorizon` | Lifetime horizon (D20): **Run** resets on death; **Meta** persists across runs | default Run — every pre-P2-3 key stays run-scoped |
 | `_valueType` | `FactValueType` | Bool/Int/Float/String | — |
@@ -345,7 +393,8 @@ registry. Every fact key referenced by a fragment/story must be declared here, o
 ### `NpcArchetype`  (asset menu: `Create → Narrative → Actors → Archetype`)
 
 Identity only (R1). `_archetypeId`, `_displayNamePool`, `_assembly` (`CharacterAssemblyDefinition` for
-visuals), `_portrait`, `_factionId` (id only), `_baseDisposition` (personality seed — NOT hostility),
+visuals), `_portrait`, `_demoTint` (demo role colour over the shared model; alpha 0 = untinted — see
+character-system.md), `_factionId` (id only), `_baseDisposition` (personality seed — NOT hostility),
 `_archetypeTags`. References no dialogue/quest/enemy/story.
 
 ### `DialogueDefinition`  (asset menu: `Create → Narrative → Dialogue → Dialogue`)
@@ -366,13 +415,21 @@ Summary: `_questId`, `_displayName`, `_summary`, `_objectives`, `_questTags`, `_
 `_storyId`, `_slots` (`_slotId`, `_kind` Dialogue/Quest/Combat, `_requiredTags`, `_optional`),
 `_preconditions` (`FactPredicateSerial[]`), `_ownEffects` (optional story-level writes), `_storyTags`,
 `_threadId` (the id of the thread this story is a beat of — matches a `ThreadDefinition` asset, or
-runs as an implicit ephemeral thread when none is authored; empty = a threadless one-shot), `_isSpine`,
-`_weight` (pacing cost — how much of a window's narrative budget
-this story consumes; a story is still one platform, NOT a difficulty or span measure). References no other
+runs as an implicit ephemeral thread when none is authored; empty = a threadless one-shot), `_isSpine`
+(the story is a **spine reveal-beat**: it never enters the quest/ambient channels and places only
+through the reserved lane, §2.6 step 2 / R15), `_weight` (pacing cost — how much of a window's narrative budget
+this story consumes; a story is still one platform, NOT a difficulty or span measure), `_tierBand`
+(`RunTierBandAuthoring` — the D19 run-tier band `{_minTier, _maxTier}` that gates eligibility;
+`_maxTier ≤ 0` = open upward; default `(0,0)` = every tier). References no other
 template (R7). The effect footprint is **derived** by `CastingFactory` over the library (W3-2), not
 authored here.
 
-`EnemyDefinition` (Combat) gains `_enemyTags` so an enemy matches a story combat slot by tag (W2-6).
+`EnemyDefinition` (Combat) gains `_enemyTags` so an enemy matches a story combat slot by tag (W2-6),
+plus `_assembly` (`CharacterAssemblyDefinition` — the shared humanoid visual, preferred over
+`_prefab`; the legacy capsule is a logged last resort) and `_demoTint` (demo role colour; alpha 0 =
+untinted) — bandit-camp brief, see character-system.md. It also carries `_tierBand`
+(`RunTierBandAuthoring` — the D19 run-tier band where the creature belongs in the climb; default every
+tier), read by the monster-pool draw so tougher creatures appear higher up.
 
 ### `ThreadDefinition`  (asset menu: `Create → Narrative → Threads → Thread`)
 
@@ -401,9 +458,11 @@ The windowed director's window mechanics (consumed as the Core `RunPacingSetting
 `RunPacingConfigMapper`, never directly). `_windowSize` (platforms per planning window),
 `_lookAheadWindows`, `_maxLiveThreads` (the D14 ceiling on simultaneously-live threads, ephemeral +
 arc together; at the cap no new thread opens), `_defaultEphemeralLifespanWindows` (expiry lifespan
-for thread labels with no `ThreadDefinition` asset). The former narrative/combat budget fields were
+for thread labels with no `ThreadDefinition` asset), `_maxSpineRevealsPerRun` (the D7 per-run cap on
+spine reveal-beats the reserved lane may place — the lore-pacing "1–2 so each registers"; `0`
+disables the lane). The former narrative/combat budget fields were
 superseded by `WorldContentDensityConfig` (below). No asset is currently authored — the mapper's
-defaults (`4` / `1` / `3` / `3`) run.
+defaults (`4` / `1` / `3` / `3` / `2`) run.
 
 ### `WorldContentDensityConfig`  (asset menu: `Create → Narrative → Director → World Content Density Config`)
 
@@ -431,6 +490,11 @@ authored pool per theme wins, duplicates are warned and ignored).
 | `_theme` | `LevelTheme` | the biome this pool belongs to (Forest/Desert/Mountain/Cave) |
 | `_enemies` | `List<EnemyDefinition>` | the enemies an ambient combat platform in this biome may spawn |
 
+The catalog draw is **tier-filtered** (D19): a creature enters the ambient or site combat pool only
+when the current `run_escalation_tier` is within its `EnemyDefinition._tierBand`, so the same biome
+fields tougher creatures higher in the run. A pool with no in-band creature at the current tier
+downgrades the combat slot to Empty (warned once). Stats never scale by tier — only the eligible set does.
+
 Pooled enemies must resolve in the combat `IEnemyDataProvider`; `AreaInstaller` auto-loads
 `Resources/Enemies/Definitions` **and** `Resources/Narrative/Enemies` (deduped by enemy id) so both
 authoring locations work.
@@ -453,7 +517,13 @@ A designer assembles the vertical slice (or new narrative content) entirely from
 1. On the `FactKeyDefinition`, set `_horizon` to **Meta**. That's it — the save boundary partitions
    the store by horizon (`RunNarrativeSnapshot.Facts` vs `.MetaFacts`), so save/load (P2-2) persists
    each side separately. Leave `_horizon` at **Run** (the default) for anything that should reset on
-   death. No shipped demo fact is meta yet; the cross-run store + its consumers ride P2-2/P3-3.
+   death. Shipped meta facts: `world.barn_bounty_honored` (`MetaFact_BarnBountyHonored.asset`, the
+   P2-2 demo proof) and `world.run_count` (`MetaFact_RunCount.asset` — runs started, 1-based;
+   written once per fresh boot by `RunCounterService`, a continue never counts; the spine soft-floor
+   input); since P3-3 also `world.<storyId>.spine_seen` (`MetaFact_SpineSeen.asset`, PerStory —
+   the cross-run spine cursor, written only by `SpineSeenRecorder`) and `world.raider_pact_sworn`
+   (`MetaFact_RaiderPactSworn.asset` — the demo landmark deed the conquest mirror-lore echo reads;
+   set by `RaiderMotive.ink` alongside the run-scoped `raider_offer_taken`).
 
 ### Add a thread (kind / premise / lifespan — R8/D13)
 1. Pick a thread id and put it in the `_threadId` field of every story that forms the thread's beats.
@@ -493,6 +563,74 @@ A designer assembles the vertical slice (or new narrative content) entirely from
 2. Add the archetype, dialogue, quest, enemy, and story to the `NarrativeSliceInstaller` lists in the
    scene; assign the `FactKeyRegistry`.
 
+### Band content to a run-tier register (D19 escalation)
+Registers are a **documented tier-range convention** over the 1-based `run_escalation_tier`, not a
+distinct type — the engine gates purely on the numeric band. A working convention:
+**Backwater = tiers 1–2 · Courts = 3–4 · Divine/Apex = 5+** (final ranges are the escalation-design call).
+1. On a **story**, set `_tierBand._minTier` (opens the beat upward) and, sparingly, `_tierBand._maxTier`
+   (to age a low-register beat out high up; `≤ 0` = no ceiling). Leave `(0,0)` for a register-neutral
+   story eligible everywhere.
+2. On an **enemy** (`EnemyDefinition`), set `_tierBand` to the altitudes where that creature belongs.
+   Build higher-tier creatures as genuinely tougher bodies (more/bigger parts, nastier kits) — no
+   per-tier stat multiplier exists; difficulty is *which* creatures appear.
+3. No code change; the same run seed climbs and shifts the pool the same way. Unbanded content stays
+   eligible at every tier.
+
+### Author a spine reveal-beat (D7 reserved lane)
+A reveal-beat is an ordinary story that rides the reserved lane instead of the quest channel —
+authoring one is asset-only:
+1. Author the story as usual (`Create → Narrative → Stories → Story Template` + its dialogue) and
+   set `_isSpine` to **true**. It now never competes for quest slots; the lane places it.
+2. Give it `_preconditions` — the facts that make it eligible (a mastery milestone is a plain
+   precondition fact: reached biome X, completed a questline, a passport tier…). **Do not author an
+   order**: each beat gates itself; the puzzle assembles in whatever order the player's path unlocks.
+3. For a **heavy** reveal add a **soft floor** so it can't land too early: a `Gte` precondition over
+   the meta run counter — namespace World, key `run_count`, op `Gte`, int value N ("not before run
+   N"; the counter is 1-based, incremented once per fresh run start, never on a continue).
+4. Optionally band it (`_tierBand`, D19) or put it on a thread (`_threadId`, e.g. a spine arc).
+5. For a beat that must wait for an earlier reveal, add a **"must have seen Y" floor** (P3-3): a
+   precondition over the cursor — namespace World, **subject token = the prerequisite's story id**
+   (a literal, e.g. `story_spine_cauldron_hint`), key `spine_seen`, op `Eq`, bool `true`. The
+   reveal then deepens across runs in order without an authored sequence.
+6. Tune the per-run cap on `RunPacingConfig._maxSpineRevealsPerRun` (default 2; `0` disables the
+   lane; at most one reveal per window regardless). No code change anywhere.
+A beat the player has **seen** never returns in any run (the `spine_seen` cursor is written
+automatically when its dialogue ends — nothing to author); a placed-but-never-entered beat returns
+next run.
+Shipped placeholder examples (real reveal lines are authored with the spine content):
+`DemoSpine_CauldronHint` (floor `run_count >= 2`), `DemoSpine_MirrorGlimpse` (floor
+`run_count >= 3`), and the P3-3 set below, under `Resources/Narrative/Stories/`, with their
+dialogues under `Resources/Narrative/Dialogue/` + ink JSON under `Resources/Stories/Slice/`.
+
+### Author a mirror-lore echo (meta-gated variant pair + sibling exclusion — P3-3)
+An echo is an ordinary spine reveal-beat whose gate is a **persisted key choice**, so the tyrant's
+lore reflects the player's cross-run history — a bounded authored table, never generated:
+1. Persist the key choice: author its fact key with `_horizon` **Meta** (see above) and write it
+   in-fiction (an Ink `fact:` tag, a quest effect). Demo: `world.raider_pact_sworn` (the raider
+   fork's power side) and the reused `world.barn_bounty_honored` (the bounty kept = alliance lean).
+2. Author one spine story per variant (`_isSpine`, recipe above), each precondition-gated on its
+   meta flag: a conquest history unlocks the conquest line, an alliance history the alliance line.
+3. For **mutually exclusive** variants ("one echo, ever"), cross-gate each on the sibling's cursor:
+   precondition `spine_seen` with the **sibling's story id as the literal subject**, `Eq false`.
+   Seeing either variant then spends the reveal for both (its own cursor entry excludes it; the
+   sibling gate excludes the other).
+4. Keep the set small and curated (a handful of variants keyed to meta facts); do not write a line
+   per raw choice. All data — no code.
+Shipped demo pair: `DemoSpine_TyrantEcho_Conquest` (gated `raider_pact_sworn == true`) /
+`DemoSpine_TyrantEcho_Alliance` (gated `barn_bounty_honored == true`), cross-excluded, both with
+floor `run_count >= 3`.
+
+### Author a cauldron-memory aside (P3-3)
+The voice's "past hosts / the tyrant" asides are spine reveal-beats too — scheduled by the lane
+(capped, rush-proof), **not** the real-time tempter-bark channel (P1-10):
+1. Author a spine story + dialogue as above; write the line in the cauldron-voice register
+   (`design/narrative/cauldron-voice.md` — smug gourmand-tempter; it reveals the antagonist/cycle,
+   **never what the cauldron is**).
+2. Gate it on meta facts + a soft floor, and chain depth with "must have seen Y" cursor floors so
+   the memory deepens across runs.
+Shipped demo: `DemoSpine_CauldronMemory` (floor `run_count >= 4` **and**
+`spine_seen(story_spine_cauldron_hint) == true` — it cannot land before the hint was delivered).
+
 ### Tune world fullness (density)
 1. Open `Resources/Narrative/WorldContentDensityConfig.asset` (or `Create → Narrative → Director →
    World Content Density Config` and place it at that path for auto-load).
@@ -502,17 +640,27 @@ A designer assembles the vertical slice (or new narrative content) entirely from
 
 ### Add an ambient monster / a biome monster pool
 1. Author the enemy as an `EnemyDefinition` under `Resources/Enemies/Definitions` (or
-   `Resources/Narrative/Enemies`) — id, HP, abilities, AI profile, loot slots.
+   `Resources/Narrative/Enemies`) — id, HP, abilities, AI profile, loot slots, and an `_assembly`
+   (the shared humanoid visual; optionally a `_demoTint`).
 2. Add it to the biome's `BiomeMonsterPoolDefinition` `_enemies` list. New biome pool:
    `Create → Combat → Enemies → Biome Monster Pool` under `Resources/Combat/MonsterPools/`, set
    `_theme`. One pool per theme (duplicates are ignored with a warning).
 
+### Author a boss-led camp (boss + crew)
+Owned by **world-sites.md** (§3 boss-anchor fields + §4 recipe): a `SiteDefinition` with
+`_bossStoryFlavor` turns its Combat anchor into a boss NPC (cast from a story carrying that flavor)
+fronting a director-rolled crew. The shipped Camp uses `bandit-boss` with crew 2–4.
+
 ### Ready-made Demo content
 
 A `Demo*` asset set ships under `Resources/Narrative/` (`Facts/`, `Actors/`, `Dialogue/`, `Enemies/`,
-`Stories/`, `Threads/`) — eleven `FactKeyDefinition`s (incl. `Fact_ThreadRetired`) +
-`DemoFactKeyRegistry`, and the two thread declarations (`DemoThread_BarnRaid` ephemeral,
-`DemoThread_FrogMarsh` arc). When the
+`Stories/`, `Threads/`) — the demo `FactKeyDefinition`s (incl. `Fact_ThreadRetired` and the meta
+set `MetaFact_BarnBountyHonored` / `MetaFact_RunCount` / `MetaFact_SpineSeen` /
+`MetaFact_RaiderPactSworn`) + `DemoFactKeyRegistry`, the two thread
+declarations (`DemoThread_BarnRaid` ephemeral, `DemoThread_FrogMarsh` arc), and the placeholder
+spine reveal-beats (`DemoSpine_CauldronHint` / `DemoSpine_MirrorGlimpse`, D7; the P3-3 mirror-lore
+echo pair `DemoSpine_TyrantEcho_Conquest` / `DemoSpine_TyrantEcho_Alliance` and the deepening
+`DemoSpine_CauldronMemory`). When the
 `NarrativeSliceInstaller` inspector lists are left empty it **auto-loads** these from those Resources
 paths (`ResolveAssetsFromResources`), so the slice works without per-scene wiring; assigning assets in
 the inspector overrides the fallback.
@@ -618,7 +766,7 @@ slots are optional but a slot-dependent tag firing against an empty slot fails c
 ## 5. Tests
 
 Edit-mode suites in `Assets/__Project/Tests/EditMode/` (pure-C# tests, runnable without the editor;
-full project suite 1234/1234 green via the clone-project batch runner, 2026-07-05):
+full project suite 1355/1355 green via the clone-project batch runner, 2026-07-06):
 
 - `FactStoreTests` — store ops + B4 presence/default + namespace isolation + stable snapshot + validation.
 - `FactVocabularyTests`, `TypedFactsTests` — conversion, Core registry, typed accessors, drift check (D3).
@@ -673,6 +821,32 @@ full project suite 1234/1234 green via the clone-project batch runner, 2026-07-0
   `ConflictedThread_StoriesExcluded_IndicatorWritten_NoClosureBeat`,
   `EphemeralThread_ExpiresThroughPlannerTicks_ArcDoesNot`, and
   `SameSeedAndSameResolutions_IdenticalThreadLifecycle` (FR12 deterministic replay).
+- `RunWindowPlannerSpineTests` — the D7/P3-1 reserved-lane acceptance suite:
+  `SpineBeat_PlacesEvenWhenTheQuestGateDenies` (reserve-don't-compete — a window the quest gate
+  denies still yields its reveal), `RevealCap_IsEnforcedAcrossWindows` / `CapZero_DisablesTheLane` /
+  `AtMostOneRevealPerWindow_EvenWhenTheCapAllowsTwo` / `ABeatIsNeverRevealedTwice`,
+  `RestoredLedger_SpendsTheCap_AndBlocksRePlacement` (the cap derives from the run ledger, so a
+  continue keeps it), `SoftFloor_HoldsAHeavyRevealUntilTheRunCount` (FR5 "never too early" per-beat),
+  `SpineStories_NeverFillQuestSlots` (the lane is the only entry path),
+  `SameSeed_ProducesIdenticalPlans_IncludingTheSpineSlot` and
+  `AnInactiveLane_DrawsNothing_KeepingPlansIdenticalToASpineFreePool` (D21 determinism, no stray
+  draws), `TierBand_GatesTheSpinePool`, `ARetiredThreadsSpineBeat_NeverPlaces`, and
+  `TheLane_BypassesTheLiveThreadCeiling` (the owner-approved D14 exception).
+- `RunCounterServiceTests` — `world.run_count` advances exactly once per fresh boot on top of the
+  loaded memory and never on a continue.
+- `RunWindowPlannerSpineCursorTests` — the D20/P3-3 meta-consumer acceptance suite:
+  `SeenBeat_IsNeverRePlaced_InALaterRun` / `PlacedButNeverSeen_ReturnsToThePool_NextRun` (the
+  seen-not-placed PO decision, executable), `SeenBeats_FromPastRuns_DoNotSpendTheNewRunsCap`,
+  `EchoVariant_GatesOnItsMetaFlag`, `SiblingSeen_ExcludesTheOtherEchoVariant` (one echo, ever),
+  `MustHaveSeen_HoldsADeeperBeatUntilItsPredecessor` (the deepening chain),
+  `SameSeedAndSameMeta_ProduceIdenticalPlans` (D21), and
+  `EmptyMetaStore_NoEchoes_AndTheRunStillPlans` (graceful degrade — bit-identical to an echo-free
+  pool).
+- `SpineSeenRecorderTests` — the cursor's single writer: engaged end writes the seen fact, `Leave`
+  still counts as seen, non-spine and story-less encounters write nothing.
+- `SpineCursorPersistenceTests` — the cursor across the file boundary: flushed on the defeat path
+  and restored into the next run's store with its per-story subject intact (run facts stay behind);
+  a corrupt memory quarantines and the cursor degrades to empty.
 - `StoryResolutionRelayTests` — encounter outcome → ledgers: engaged end advances the thread,
   `Leave` resolves the story but not the thread (the errand still lapses), story-less castings are
   ignored, the post-combat resume advances exactly once.
@@ -700,32 +874,33 @@ verified by entering the slice scene; the Ink→JSON compile and `.asset` wiring
 - **Reactive-rule cascade layer (R11).** Cascades are expressed as explicit authored effects; a central
   reaction layer is deferred.
 - **OR/boolean precondition composition.** Preconditions are AND-only.
-- **Save/load file IO (R14).** The serializable boundary (`INarrativeSaveService`, snapshot DTOs, PRNG
-  state, the run/meta fact partition + thread/story ledgers) exists and is tested; the file
-  writer/reader, the full run-state aggregate (quests/castings/sessions assembly), and the **cross-run
-  meta-fact store** (what actually carries `FactHorizon.Meta` facts between runs) are deferred
-  (P2-2). Suspended dialogues are non-savepoints (W3-1 option a).
-- **Live-actor registry is not yet save-captured.** `ILiveActorRegistry` (recurring-actor casting,
-  D11) holds the run's minted actors in memory; `RunNarrativeSnapshot` does not yet persist/repopulate
-  it, so a mid-run save would lose recurring-actor continuity. Folds into the window/horizon save-state
-  item (ROADMAP).
-- **Quest-spacing counter is not yet save-captured.** `WorldContentAllocator` carries
-  `platformsSinceQuest` across windows in memory only; a mid-run save/reload would reset quest spacing.
-  Folds into the same window/horizon save-state item (ROADMAP).
-- **Site allocator state is not yet save-captured.** `SiteAwareSlotAllocator` (world-sites) adds a
-  pending block queue, a site-spacing counter, and a site instance counter — all run-scoped, in
-  memory only; a mid-run save/reload would drop a half-drained site block. Folds into the same
-  window/horizon save-state item (ROADMAP).
-- **Biome journey save-state.** The biome now advances along the run (`biome-journey.md` — the
-  fixed-Forest hardcode is gone), but the journey's own `DeterministicRandom` state is not yet
-  captured by the save boundary; folds into the same window/horizon save-state item (ROADMAP).
-- **Remaining director gaps (design handoff `narrative-director-requirements.md`).** With D13/D14
-  (first-class threads, closure pressure, concurrency cap) and the D20 run/meta **boundary** shipped
-  (P2-3), the director still owes: D7 spine reserved lane + per-run reveal cap (P3-1), D19 escalation
-  tier gating (P3-2), and the D20 cross-run **consumers** (mirror-lore echoes, cauldron memory, spine
-  cursor — read side of the meta horizon, P3-3 after P2-2). A player-facing thread readout / saga
-  view (surfacing `ThreadLedger` state + the `thread_retired` indicators) sits with the quest-log UI
-  item (P1-11).
+- **Save/load file IO (R14) — CLOSED by P2-2** (`save-persistence.md`). The file writer/reader, the
+  whole-run aggregate (`RunStateService` composes this boundary's snapshot with actors/quests, the
+  world window record, hero body, and player stuff), and the cross-run meta store (`meta.json`
+  carrying the `FactHorizon.Meta` partition) all shipped. The live-actor registry, the quest-spacing
+  counter, the site-allocator state (pending block queue + counters), and the current window index
+  are captured/restored; the biome journey needs **no** persisted state — it is seeded and
+  `ForWindow` is idempotent, so the restore replays `ApplyForWindow(0..k)` and reconstructs it
+  exactly. Suspended dialogues remain non-savepoints (W3-1 option a); serializing an in-progress
+  Ink session (option b — the still-unpopulated `Sessions` DTO field) is the one deferred piece
+  (ROADMAP).
+- **Remaining director gaps (design handoff `narrative-director-requirements.md`) — all closed.**
+  With D13/D14 (first-class threads, closure pressure, concurrency cap) and the D20 run/meta
+  **boundary** shipped (P2-3), **D19 escalation tier gating shipped** (P3-2, 2026-07-06: a run-tier
+  band on stories + creatures shifts the eligible pool as the run climbs, pool-shift only — no stat
+  multiplier, no density change, §2.6), **D7 spine reserved lane + per-run reveal cap shipped**
+  (P3-1, 2026-07-06 — §2.6 step 2 / R15), and the **D20 cross-run consumers shipped** (P3-3,
+  2026-07-06: the `spine_seen` cursor + mirror-lore echoes + cauldron memory, §2.6 step 2 / R15 /
+  §4 recipes; the placed-vs-seen fork is resolved — within-run revealed = **placed**, cross-run
+  never-again = **seen**), the director's design handoff is fully consumed. A player-facing thread
+  readout / saga view (surfacing `ThreadLedger` state + the `thread_retired` indicators) sits with
+  the quest-log UI item (P1-11).
+- **Echo sibling exclusion binds on *seen*, not placed (within-run race).** With a reveal cap ≥ 2,
+  both variants of a cross-excluded echo pair can be *placed* in the same run before either is
+  entered (the sibling gate reads the `spine_seen` cursor, which is written at dialogue end) — the
+  player could then see both. Accepted for the demo; the production spine likely runs cap 1
+  (`lore-pacing.md` tunes 1 vs 2), and authoring different soft floors on the pair avoids it
+  entirely. (ROADMAP note under P3-3 follow-ups.)
 - **Ambient/character dialogue channel.** The legacy dual-Ink bark channel is intentionally dropped;
   if needed, it belongs in a separate non-narrative system.
 - **Whole-dialogue skip/abort.** The view's continue and skip inputs both advance one gated line

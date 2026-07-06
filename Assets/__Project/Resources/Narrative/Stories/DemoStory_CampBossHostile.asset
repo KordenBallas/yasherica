@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d1bb015d9fd76844a52bb325925df3e, type: 3}
+  m_Name: DemoStory_CampBossHostile
+  m_EditorClassIdentifier: Yasherica::Narrative.Stories.Data.StoryTemplate
+  _storyId: story_camp_boss_hostile
+  _slots:
+  - _slotId: dialogue
+    _kind: 0
+    _requiredTags:
+    - bandit-boss-threat
+    _optional: 0
+  - _slotId: combat
+    _kind: 2
+    _requiredTags:
+    - bandit-boss
+    _optional: 0
+  _preconditions: []
+  _ownEffects: []
+  _storyTags:
+  - bandit-boss
+  _threadId:
+  _isSpine: 0
+  _weight: 10

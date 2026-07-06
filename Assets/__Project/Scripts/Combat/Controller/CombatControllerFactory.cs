@@ -3,6 +3,7 @@ using Combat.Config;
 using Combat.Core;
 using Combat.Core.StatusEffects;
 using Combat.Execution;
+using Combat.Integration;
 using Combat.TurnManagement;
 using Core.Logging;
 using Zenject;
@@ -25,6 +26,7 @@ namespace Combat.Controller
         private readonly BattlefieldFactory _battlefieldFactory;
         private readonly HexDirectionConfig _hexConfig;
         private readonly IGameLogger _logger;
+        private readonly ICombatOutcomeRelay _outcomeRelay;
 
         [Inject]
         public CombatControllerFactory(
@@ -37,7 +39,8 @@ namespace Combat.Controller
             EnemyIntentResolver intentResolver,
             BattlefieldFactory battlefieldFactory,
             HexDirectionConfig hexConfig,
-            IGameLogger logger)
+            IGameLogger logger,
+            [InjectOptional] ICombatOutcomeRelay outcomeRelay = null)
         {
             _actionValidator = actionValidator;
             _actionExecutor = actionExecutor;
@@ -49,11 +52,12 @@ namespace Combat.Controller
             _battlefieldFactory = battlefieldFactory;
             _hexConfig = hexConfig;
             _logger = logger;
+            _outcomeRelay = outcomeRelay;
         }
 
         public ICombatController Create()
         {
-            return new CombatController(
+            var controller = new CombatController(
                 _actionValidator,
                 _actionExecutor,
                 _turnManager,
@@ -64,6 +68,15 @@ namespace Combat.Controller
                 _battlefieldFactory,
                 _hexConfig,
                 _logger);
+
+            if (_outcomeRelay != null)
+            {
+                // Controllers are per-fight; the relay is how scene-scoped listeners (the P2-2
+                // death hook) hear every fight's outcome.
+                controller.OnGameEnded += (winner, phase) => _outcomeRelay.Notify(phase);
+            }
+
+            return controller;
         }
     }
 }

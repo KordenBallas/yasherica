@@ -33,10 +33,18 @@ namespace Combat.Controller
         private ICombatState _gameState;
         private IBattlefield _battlefield;
         private int _resolvedIntentCount;
+        private CombatInitiator _openingInitiator = CombatInitiator.Enemy;
+
+        // Per-round bookkeeping for the initiator-leads ordering (D2): a round runs its two acting
+        // phases (player Act, enemy Resolve) in the order the round's lead dictates, then ends once
+        // both have happened. These track which of the two has already occurred this round.
+        private bool _playerActedThisRound;
+        private bool _enemiesResolvedThisRound;
 
         public ICombatState CombatState => _gameState;
         public ITurnManager TurnManager => _turnManager;
         public IBattlefield Battlefield => _battlefield;
+        public CombatInitiator OpeningInitiator => _openingInitiator;
 
         public event System.Action<ICombatState> OnStateChanged;
         public event System.Action<IPlayer> OnTurnStarted;
@@ -70,8 +78,10 @@ namespace Combat.Controller
             _logger = logger;
         }
 
-        public void Initialize(ICombatState initialState, IReadOnlyList<IPlayer> players)
+        public void Initialize(ICombatState initialState, IReadOnlyList<IPlayer> players,
+            CombatInitiator openingInitiator = CombatInitiator.Enemy)
         {
+            _openingInitiator = openingInitiator;
             _gameState = initialState;
 
             // Inject battlefield if it already exists
@@ -177,8 +187,9 @@ namespace Combat.Controller
         }
         
         /// <summary>
-        /// Plan phase: every enemy commits and reveals its intent, then the player's Act
-        /// phase opens. One OnTurnStarted per round keeps the existing UI consumers working.
+        /// Plan phase: every enemy commits and reveals its intent, then the round's lead acts first —
+        /// the player's Act phase for a player-led round, or the enemy Resolve phase for an enemy-led
+        /// opening round (D2). The other acting phase follows; the round ends once both have happened.
         /// </summary>
         private void StartRound()
         {
@@ -186,12 +197,32 @@ namespace Combat.Controller
                 return;
 
             _resolvedIntentCount = 0;
+            _playerActedThisRound = false;
+            _enemiesResolvedThisRound = false;
             SetRoundPhase(RoundPhase.EnemyPlan);
 
             var intents = _intentPlanner.Plan(_gameState);
             _gameState = (_gameState as CombatState).WithEnemyIntents(intents);
             OnEnemyPlansRevealed?.Invoke(intents);
 
+            if (RoundLeadPolicy.EnemyLeadsThisRound(_gameState.TurnNumber, _openingInitiator))
+            {
+                // Enemy-initiated opening round: committed intents resolve before the player acts.
+                SetRoundPhase(RoundPhase.EnemyResolve);
+                OnStateChanged?.Invoke(_gameState);
+            }
+            else
+            {
+                BeginPlayerAct();
+            }
+        }
+
+        /// <summary>
+        /// Opens the player's Act phase. One OnTurnStarted per round keeps the existing UI consumers
+        /// working; shared by the round-start path (player-led) and the post-Resolve path (enemy-led).
+        /// </summary>
+        private void BeginPlayerAct()
+        {
             SetRoundPhase(RoundPhase.PlayerAct);
             OnTurnStarted?.Invoke(_turnManager.CurrentPlayer);
             OnStateChanged?.Invoke(_gameState);
@@ -206,7 +237,7 @@ namespace Combat.Controller
 
             if (_resolvedIntentCount >= _gameState.EnemyIntents.Count)
             {
-                EndRound();
+                FinishEnemyResolvePhase();
                 return false;
             }
 
@@ -224,11 +255,26 @@ namespace Combat.Controller
 
             if (_resolvedIntentCount >= _gameState.EnemyIntents.Count)
             {
-                EndRound();
+                FinishEnemyResolvePhase();
                 return false;
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// The enemy Resolve phase has fired every committed intent. If the player has not yet acted
+        /// this round (an enemy-led opening round), open the player's Act phase; otherwise the round is
+        /// complete. This is the second half of the initiator-leads ordering (D2).
+        /// </summary>
+        private void FinishEnemyResolvePhase()
+        {
+            _enemiesResolvedThisRound = true;
+
+            if (!_playerActedThisRound)
+                BeginPlayerAct();
+            else
+                EndRound();
         }
 
         /// <summary>
@@ -265,9 +311,21 @@ namespace Combat.Controller
 
             if (activeUnits.Count == 0)
             {
-                _logger.Info(LogCategory.Combat,"[CombatController] All player units have acted - entering Resolve phase");
-                SetRoundPhase(RoundPhase.EnemyResolve);
-                OnStateChanged?.Invoke(_gameState);
+                _playerActedThisRound = true;
+
+                if (!_enemiesResolvedThisRound)
+                {
+                    _logger.Info(LogCategory.Combat,"[CombatController] All player units have acted - entering Resolve phase");
+                    SetRoundPhase(RoundPhase.EnemyResolve);
+                    OnStateChanged?.Invoke(_gameState);
+                }
+                else
+                {
+                    // Enemy-led opening round: enemies already resolved, so the player closing their
+                    // Act ends the round (D2).
+                    _logger.Info(LogCategory.Combat,"[CombatController] Player acted after enemy-led resolve - ending round");
+                    EndRound();
+                }
             }
         }
 

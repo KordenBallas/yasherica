@@ -73,8 +73,9 @@ namespace Combat.Integration
                 null  // Battlefield will be injected later if needed
             );
             
-            // Initialize game controller
-            _gameController.Initialize(initialState, players);
+            // Initialize game controller. This legacy standalone combat harness has always played
+            // player-first, so it leads with the player (D2) rather than the enemy default.
+            _gameController.Initialize(initialState, players, Combat.Core.CombatInitiator.Player);
             
             // Initialize views
             _gameStateView.Initialize(_gameController, _humanPlayer.Id);

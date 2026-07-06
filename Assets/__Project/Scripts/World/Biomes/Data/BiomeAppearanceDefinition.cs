@@ -2,15 +2,17 @@ using System.Collections.Generic;
 using LevelGeneration;
 using LevelGeneration.Route;
 using UnityEngine;
+using World.Dressing.Data;
 
 namespace World.Biomes.Data
 {
     /// <summary>
     /// ScriptableObject mapping one level theme (biome) to its landscape character (the
     /// world-backdrop-and-elevation brief): routed-path corridor and curve dials, feature-arc and
-    /// routing-landmark dials, elevation tier set, and backdrop silhouette/sky character.
-    /// Contains ONLY configuration data — NO logic. The biome-visual-styles pass (P1-2) extends
-    /// this same asset with feature-pool/palette/ground fields later.
+    /// routing-landmark dials, elevation tier set, backdrop silhouette/sky character, and the
+    /// biome's dressing binding (environment-dressing: whole-kit feature reference + tone key +
+    /// placement density — the kit says which meshes, this seam owns density and seeding).
+    /// Contains ONLY configuration data — NO logic.
     /// </summary>
     [CreateAssetMenu(fileName = "BiomeAppearanceDefinition", menuName = "World/Biome Appearance")]
     public class BiomeAppearanceDefinition : ScriptableObject
@@ -88,6 +90,24 @@ namespace World.Biomes.Data
         [Tooltip("Haze color the far ridge layers fade toward")]
         [SerializeField] private Color _hazeTint = new Color(0.75f, 0.79f, 0.79f);
 
+        [Header("Dressing (environment-dressing: kit binding + tone + density)")]
+        [Tooltip("The biome's feature kit, bound whole-kit (swap = repoint this one field). Empty = base layer only")]
+        [SerializeField] private BiomeFeatureKitDefinition _featureKit;
+        [Tooltip("Muted biome key the bind-time tone treatment lerps kit materials toward")]
+        [SerializeField] private Color _toneTint = new Color(0.55f, 0.57f, 0.52f);
+        [Tooltip("How far kit materials are pulled toward the tone tint (0 = native, 1 = flat key)")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _toneStrength = 0.45f;
+        [Tooltip("Blocking obstacles per 100 surface cells — sparse and deliberate")]
+        [Min(0f)]
+        [SerializeField] private float _blockersPer100Cells = 4f;
+        [Tooltip("Decorative clusters (copse / outcrop / tuft patch) per 100 surface cells")]
+        [Min(0f)]
+        [SerializeField] private float _decorClustersPer100Cells = 10f;
+        [Tooltip("Protected movement-lane half-width, in cell (hex-size) units")]
+        [Min(0f)]
+        [SerializeField] private float _laneHalfWidthCells = 1.1f;
+
         public LevelTheme Theme => _theme;
         public float CorridorHalfWidth => _corridorHalfWidth;
         public float BaselineWavelength => _baselineWavelength;
@@ -111,5 +131,11 @@ namespace World.Biomes.Data
         public Color SkyTopTint => _skyTopTint;
         public Color SkyHorizonTint => _skyHorizonTint;
         public Color HazeTint => _hazeTint;
+        public BiomeFeatureKitDefinition FeatureKit => _featureKit;
+        public Color ToneTint => _toneTint;
+        public float ToneStrength => _toneStrength;
+        public float BlockersPer100Cells => _blockersPer100Cells;
+        public float DecorClustersPer100Cells => _decorClustersPer100Cells;
+        public float LaneHalfWidthCells => _laneHalfWidthCells;
     }
 }

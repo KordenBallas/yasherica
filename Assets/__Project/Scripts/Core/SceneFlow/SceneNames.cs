@@ -7,6 +7,7 @@ namespace Core.SceneFlow
     public static class SceneNames
     {
         public const string MainMenu = "MainMenu";
+        public const string Hub = "Hub";
         public const string Area = "Area";
         public const string Arena = "Arena";
     }

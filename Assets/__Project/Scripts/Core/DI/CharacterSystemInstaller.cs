@@ -53,6 +53,10 @@ namespace Core.DI
         private void InstallFactory()
         {
             Container.Bind<IModularCharacterFactory>().To<ModularCharacterFactory>().AsSingle();
+
+            // Demo role tint (green villager / maroon bandit) over the assembled rig — a placeholder
+            // readability affordance until real per-faction art lands.
+            Container.Bind<IDemoRoleTintApplier>().To<DemoRoleTintApplier>().AsSingle();
         }
 
         private void InstallBodyPlan()

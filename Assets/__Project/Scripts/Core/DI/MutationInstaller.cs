@@ -120,6 +120,13 @@ namespace Core.DI
                 .WithGameObjectName("MutationPreviewRig")
                 .AsSingle();
 
+            // The shared ability-preview popover (one mechanism, two surfaces): this scene's
+            // hero source is the live modular hero; the module itself is scene-agnostic.
+            Container.Bind<UI.AbilityPreview.IAbilityPreviewHeroSource>()
+                .To<MutationAbilityPreviewHeroSource>()
+                .AsSingle();
+            AbilityPreviewInstaller.Install(Container);
+
             // The choice panel is instantiated from a prefab (mirrors InventoryInstaller's HUD view),
             // so it needs no scene authoring. If the prefab is missing the feature stays off and the
             // rest of the scene runs normally - never crash the SceneContext over an unbuilt panel.

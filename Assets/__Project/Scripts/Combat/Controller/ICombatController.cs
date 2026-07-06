@@ -26,9 +26,18 @@ namespace Combat.Controller
         Battlefield.IBattlefield Battlefield { get; }
         
         /// <summary>
-        /// Initializes the game with initial state and players.
+        /// Who leads the opening round (D2): the initiator of the fight acts first. The strip read-out
+        /// and the round ordering both read this. Defaults to <see cref="CombatInitiator.Enemy"/>.
         /// </summary>
-        void Initialize(ICombatState initialState, System.Collections.Generic.IReadOnlyList<IPlayer> players);
+        CombatInitiator OpeningInitiator { get; }
+
+        /// <summary>
+        /// Initializes the game with initial state and players. <paramref name="openingInitiator"/> decides
+        /// who leads the opening round (D2); it defaults to the enemy, so existing callers keep today's
+        /// behaviour only for player-led fights that pass <see cref="CombatInitiator.Player"/>.
+        /// </summary>
+        void Initialize(ICombatState initialState, System.Collections.Generic.IReadOnlyList<IPlayer> players,
+            CombatInitiator openingInitiator = CombatInitiator.Enemy);
 
         /// <summary>
         /// Adds a unit to the combat state.

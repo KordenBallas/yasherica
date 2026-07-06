@@ -23,6 +23,7 @@ namespace Combat.Input
         private Func<bool> _isPlayerTurnCheck;
 
         private bool _isAbilityModeActive;
+        private bool _isVolleyAimActive;
         private bool _isDisposed;
 
         public AbilityInputHandler(
@@ -53,6 +54,7 @@ namespace Combat.Input
             _getCurrentPosition = null;
             _isPlayerTurnCheck = null;
             _isAbilityModeActive = false;
+            _isVolleyAimActive = false;
         }
 
         private void SubscribeToEvents()
@@ -63,6 +65,8 @@ namespace Combat.Input
             _inputController.OnMovementDirectionChanged += HandleMouseMoved;
             _inputController.OnMovementCancelled += HandleMovementCancelled;
             _inputController.OnExecuteQueueRequested += HandleExecuteQueue;
+            _inputController.OnVolleyAimStarted += HandleVolleyAimStarted;
+            _inputController.OnVolleyAimCancelled += HandleVolleyAimCancelled;
         }
 
         private void UnsubscribeFromEvents()
@@ -73,6 +77,8 @@ namespace Combat.Input
             _inputController.OnMovementDirectionChanged -= HandleMouseMoved;
             _inputController.OnMovementCancelled -= HandleMovementCancelled;
             _inputController.OnExecuteQueueRequested -= HandleExecuteQueue;
+            _inputController.OnVolleyAimStarted -= HandleVolleyAimStarted;
+            _inputController.OnVolleyAimCancelled -= HandleVolleyAimCancelled;
         }
 
         private void HandleAbilitySelected(AbilitySelectedCommand command)
@@ -87,13 +93,36 @@ namespace Combat.Input
         private void HandleMouseMoved(MovementDirectionChangedCommand command)
         {
             if (!CanProcessInput()) return;
-            if (!_isAbilityModeActive) return;
+            if (!_isAbilityModeActive && !_isVolleyAimActive) return;
 
             HexDirection? direction = command.WorldDirection.HasValue
                 ? DirectionToHexConverter.GetHexDirection(command.WorldDirection.Value, _hexConfig)
                 : (HexDirection?)null;
 
-            _presenter?.UpdateAimDirection(direction);
+            if (_isVolleyAimActive)
+                _presenter?.UpdateVolleyAim(direction); // turn the whole queued volley toward the cursor (D2)
+            else
+                _presenter?.UpdateAimDirection(direction);
+        }
+
+        private void HandleVolleyAimStarted(VolleyAimStartedCommand command)
+        {
+            if (!CanProcessInput()) return;
+            // An ability aim in progress takes precedence — don't start a volley aim on top of it.
+            if (_isAbilityModeActive) return;
+
+            _logger.Info(LogCategory.Combat,"[AbilityInputHandler] Volley aim started");
+            _isVolleyAimActive = true;
+            _presenter?.BeginVolleyAim();
+        }
+
+        private void HandleVolleyAimCancelled(VolleyAimCancelledCommand command)
+        {
+            if (!_isVolleyAimActive) return;
+
+            _logger.Info(LogCategory.Combat,"[AbilityInputHandler] Volley aim cancelled");
+            _presenter?.EndVolleyAim();
+            _isVolleyAimActive = false;
         }
 
         private void HandleAbilityConfirmed(AbilityConfirmedCommand command)
@@ -130,6 +159,13 @@ namespace Combat.Input
             if (!CanProcessInput()) return;
 
             _logger.Info(LogCategory.Combat,"[AbilityInputHandler] Execute queue requested");
+            // The volley aim (Enter release) fires the queue; clear its highlight first.
+            if (_isVolleyAimActive)
+            {
+                _presenter?.EndVolleyAim();
+                _isVolleyAimActive = false;
+            }
+
             _presenter?.ExecuteQueue();
         }
 

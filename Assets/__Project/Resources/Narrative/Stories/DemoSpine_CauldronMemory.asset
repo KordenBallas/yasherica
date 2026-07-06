@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d1bb015d9fd76844a52bb325925df3e, type: 3}
+  m_Name: DemoSpine_CauldronMemory
+  m_EditorClassIdentifier: Yasherica::Narrative.Stories.Data.StoryTemplate
+  _storyId: story_spine_cauldron_memory
+  _slots:
+  - _slotId: dialogue
+    _kind: 0
+    _requiredTags:
+    - spine-cauldron-memory
+    _optional: 0
+  _preconditions:
+  - _namespace: 0
+    _subjectToken:
+    _key: run_count
+    _op: 3
+    _value:
+      _valueType: 1
+      _boolValue: 0
+      _intValue: 4
+      _floatValue: 0
+      _stringValue:
+  - _namespace: 0
+    _subjectToken: story_spine_cauldron_hint
+    _key: spine_seen
+    _op: 0
+    _value:
+      _valueType: 0
+      _boolValue: 1
+      _intValue: 0
+      _floatValue: 0
+      _stringValue:
+  _ownEffects: []
+  _storyTags:
+  - spine
+  _threadId:
+  _isSpine: 1
+  _weight: 10
+  _tierBand:
+    _minTier: 0
+    _maxTier: 0

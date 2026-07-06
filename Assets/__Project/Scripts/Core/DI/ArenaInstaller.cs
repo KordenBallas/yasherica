@@ -35,6 +35,9 @@ namespace Core.DI
         private const string PlatformShapeConfigResourcePath = "LevelGeneration/PlatformShapeConfig";
         private const string HeroDefinitionResourcePath = "Heroes/TestHeroDefinition";
         private const string MatchConfigResourcePath = "Arena/ArenaMatchConfig";
+        private const string DraftConfigResourcePath = "Arena/ArenaDraftConfig";
+        private const string DraftPanelResourcePath = "Prefabs/UI/ArenaDraftPanel";
+        private const string PartInfoPopoverResourcePath = "Prefabs/UI/ArenaPartInfoPopover";
 
         [Header("Configuration ScriptableObjects (auto-loaded from Resources when empty)")]
         [SerializeField] private CombatMovementConfig _movementConfig;
@@ -43,10 +46,16 @@ namespace Core.DI
         [SerializeField] private LevelGeneration.Data.PlatformShapeConfig _platformShapeConfig;
         [SerializeField] private HeroDefinition _heroDefinition;
         [SerializeField] private ArenaMatchConfig _matchConfig;
+        [SerializeField] private ArenaDraftConfig _draftConfig;
 
         public override void InstallBindings()
         {
             LoggingInstaller.Install(Container);
+
+            // Save-file stores only (no run restore/autosave — those are Area services): the
+            // draft reads the tasted-forms catalog straight from meta.json (P4-5 req 3).
+            PersistenceInstaller.Install(Container);
+            Container.Bind<ArenaTastedCatalogReader>().AsSingle();
 
             InstallConfigurations();
             InstallCombatSubset();
@@ -63,12 +72,20 @@ namespace Core.DI
             _hexDirectionConfig = LoadIfNull(_hexDirectionConfig, HexDirectionConfigResourcePath);
             _heroDefinition = LoadIfNull(_heroDefinition, HeroDefinitionResourcePath);
             _matchConfig = LoadIfNull(_matchConfig, MatchConfigResourcePath);
+            _draftConfig = LoadIfNull(_draftConfig, DraftConfigResourcePath);
 
             Container.BindInstance(_movementConfig).AsSingle();
             Container.BindInstance(_inputConfig).AsSingle();
             Container.BindInstance(_hexDirectionConfig).AsSingle();
             Container.BindInstance(_heroDefinition).AsSingle();
             Container.BindInstance(_matchConfig).AsSingle();
+            Container.BindInstance(_draftConfig).AsSingle();
+
+            // The SO → Core bridge for the draft (settings are what the host/model consume).
+            Container.Bind<ArenaDraftSettings>()
+                .FromMethod(ctx => ArenaDraftConfigMapper.ToSettings(
+                    _draftConfig, _matchConfig.MaxPlayers, ctx.Container.Resolve<Core.Logging.IGameLogger>()))
+                .AsSingle();
 
             if (_platformShapeConfig == null)
             {
@@ -162,11 +179,79 @@ namespace Core.DI
             Container.Bind<ArenaMatchHost>().AsSingle();
             Container.Bind<ArenaAICommitSource>().AsSingle();
 
+            // The parts draft (P4-5): catalog exchange → host-composed board → snake picks →
+            // per-seat loadouts, all above the untouched round loop.
+            Container.Bind<IArenaDraftClock>().To<UnityArenaDraftClock>().AsSingle();
+            Container.Bind<IArenaDraftPartInfoSource>().To<PartCatalogDraftInfoSource>().AsSingle();
+            Container.BindInterfacesAndSelfTo<ArenaTastedCatalogRegistry>().AsSingle().NonLazy();
+            Container.BindInterfacesAndSelfTo<ArenaTastedCatalogSender>().AsSingle().NonLazy();
+            Container.BindInterfacesAndSelfTo<ArenaDraftHost>().AsSingle();
+            Container.BindInterfacesAndSelfTo<ArenaDraftFlow>().AsSingle().NonLazy();
+
+            InstallDraftScreen();
+
             Container.Bind<ArenaCombatController>().AsSingle();
             Container.Bind<ICombatController>().To<ArenaCombatController>().FromResolve();
 
             Container.Bind<ArenaPlatformBuilder>().AsSingle();
             Container.Bind<ArenaHeroSpawner>().AsSingle();
+
+            // Drafted parts → combat abilities: the same part→combat mapping PvE uses
+            // (IPartCatalog comes from CharacterSystemInstaller on this SceneContext).
+            Container.Bind<Combat.Integration.IPartAbilityResolver>()
+                .To<Combat.Integration.PartAbilityResolver>()
+                .AsSingle();
+        }
+
+        private void InstallDraftScreen()
+        {
+            // The 3D board/hero stage + the shared ability-preview popover. The hero source is
+            // the draft's own (base assembly + drafted parts) — NEVER the scene's
+            // ModularCharacterVisual, which is ambiguous once several heroes spawn.
+            Container.Bind<IArenaDraftStage>()
+                .To<ArenaDraftStageRig>()
+                .FromNewComponentOnNewGameObject()
+                .WithGameObjectName("ArenaDraftStageRig")
+                .AsSingle();
+            Container.Bind<UI.AbilityPreview.IAbilityPreviewHeroSource>()
+                .To<ArenaDraftHeroSource>()
+                .AsSingle();
+            AbilityPreviewInstaller.Install(Container);
+
+            // Panel + part-info popover from prefabs (mirrors MutationInstaller's guard: a
+            // missing prefab disables the screen, never crashes the scene — the presenter
+            // then runs the draft headless off the host's auto-picks).
+            var panelPrefab = Resources.Load<GameObject>(DraftPanelResourcePath);
+            if (panelPrefab != null)
+            {
+                Container.Bind<IArenaDraftView>()
+                    .To<ArenaDraftView>()
+                    .FromComponentInNewPrefab(panelPrefab)
+                    .AsSingle();
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "[ArenaInstaller] No draft panel prefab at " +
+                    $"Resources/{DraftPanelResourcePath}. The draft runs headless this run.");
+            }
+
+            var popoverPrefab = Resources.Load<GameObject>(PartInfoPopoverResourcePath);
+            if (popoverPrefab != null)
+            {
+                Container.Bind<IArenaPartInfoPopover>()
+                    .To<ArenaPartInfoPopoverView>()
+                    .FromComponentInNewPrefab(popoverPrefab)
+                    .AsSingle();
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "[ArenaInstaller] No part-info popover prefab at " +
+                    $"Resources/{PartInfoPopoverResourcePath}. Part info is disabled this run.");
+            }
+
+            Container.BindInterfacesAndSelfTo<ArenaDraftPresenter>().AsSingle().NonLazy();
         }
 
         private void InstallNetworkingBindings()

@@ -36,6 +36,7 @@ namespace Tests.EditMode
             public IReadOnlyCollection<string> CompletedQuests => Completed;
             public IReadOnlyCollection<string> FailedQuests => Failed;
             public IReadOnlyCollection<string> EncounteredNpcs => Array.Empty<string>();
+            public IReadOnlyDictionary<string, string> Choices => new Dictionary<string, string>();
         }
 
         private sealed class FakeLibrary : IFragmentLibrary

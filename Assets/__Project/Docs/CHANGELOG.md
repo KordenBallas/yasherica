@@ -9,6 +9,515 @@ Every functional change appends an entry **in the same change as the code** (CLA
 ## [Unreleased]
 
 ### Added
+- **Environment Dressing — kit contract, biome feature kits & site/camp dressing (Track E:
+  E1+E2+E3; E4 backdrop deferred)** [environment-dressing · platform-generation · world-landscape ·
+  world-sites] (briefs `product-requirements/dressing-kit-binding-and-swap.md`,
+  `biome-decoration-kits-demo.md`, `site-camp-dressing-kits-demo.md`; builds the
+  `biome-visual-styles.md` P1-2 placement model; new system doc `environment-dressing.md`):
+  the world's decoration layer behind one **swappable dressing-kit contract**.
+  - **E1 — the contract (R1–R6):** data-only kit SOs (`DressingKitDefinition` base +
+    `BiomeFeatureKitDefinition` + `SiteDressingKitDefinition`; a backdrop kind is one more
+    subclass later), **whole-kit binding** (`BiomeAppearanceDefinition._featureKit`;
+    `SiteStamp.DressingThemeId` → kit — the world-sites seam is now live), **demo quarantine**
+    (`Resources/World/Dressing/Demo/`; a living guard test asserts no pack asset is referenced
+    outside it), **bind-time tone treatment** (`ToneMaterialCache`: every kit material rebuilt on
+    URP Lit, albedo lerped to the biome's muted `_toneTint` — pack Standard materials never render
+    raw/magenta), and the **fail-safe base layer** (no/unknown/broken kit → `Empty` plan, warn
+    once, never a generation failure). Wiring: `AreaInstaller.InstallDressingBindings()` →
+    `IEnvironmentDressingPlanner` + `IEnvironmentDressingSpawner` threaded through
+    `AreaGenerator` as optional ctor seams (the `landmarkSpawner` pattern).
+  - **E2 — biome features (R7–R11):** the `PlatformHexSurface.BlockedCells` seam went **live**
+    (ctor-supplied + `WithBlockedCells`; `SurfaceHexGrid` + `PlatformAnchor` exclude blocked
+    cells — movement, targeting, spawns, and landings honour obstacles by construction). Pure
+    `BiomeFeaturePlanner`: sparse whole-cell **blockers** (per-100-cells density, spacing ≥ 2,
+    battlefield-minimum cap, lane + center protection, connectivity BFS) + **homogeneous
+    decorative clusters** (copse/outcrop/tuft patch, 2–5 members, several per cell, no cell
+    consumption) with rim/rear (+Z) bias. Demo kits authored: **Desert** (Low Poly Desert
+    Environment rocks/cacti + dry tufts, sand ground) and **Forest** (RPG Poly Pack trees/bushes/
+    rocks/tufts/flowers, grass ground); Mountain/Cave stay base-layer by data.
+  - **E3 — site & camp dressing (R12–R16):** pure `SiteDressingPlanner` reads the persisted
+    `SiteStamp` — settlement structures placed rear-third on a **block-shared skyline band**
+    with shared scale (instance-seeded), fronts to the camera; **gate** on the anchor platform's
+    approach edge; **camp** = focal fire (owner-picked `rpgpp_lt_hanger_wood_02` + stones + log)
+    on one blocked rear-center cell with a facing **prop ring**; site ground overlay wins over
+    biome ground. Demo kits: **Settlement** (`settlement-kit` — buildings 01–05, banner+fence
+    gate, crates/barrels/well/wagon, street ground; Village + City re-keyed to share it) and
+    **Camp** (`camp-kit` — awnings/sacks/barrels/crates, packed-dirt ground). Site dressing
+    replaces biome features on site platforms; all placements platform-local (no gap-crossing
+    possible). Determinism rides `biome-features:{nodeId}` / `site-dressing:{instanceId}(:{index})`
+    seed streams — restore replays identical dressing, **no save-format change**.
+  - **Tests:** 29 new edit-mode tests green headless (`BiomeFeaturePlannerTests`,
+    `SiteDressingPlannerTests`, `EnvironmentDressingPlannerTests`,
+    `PlatformHexSurfaceBlockedCellsTests`) + in-editor `DressingKitMapperTests` and the
+    `DemoPackQuarantineTests` clean-swap guard; hexsurface (32) + combat (55) regressions green.
+  - **Fixed (same pass, playtest): platform ground now actually reads as the biome.** Two defects
+    kept the platform texture unchanged: the legacy per-platform **debug color variation**
+    (`colorVariation`, on in `Area.unity`) created a material instance and overwrote its color
+    with a rainbow HSV tint — stomping the kit ground; and a planner collapsed a **featureless
+    platform's plan to `Empty`**, losing the ground with it. Now a dressed ground suppresses the
+    debug tint (and the Area scene ships with `colorVariation: 0`), and a bound kit always yields
+    a kit-carrying plan — biome sand/grass and site street/dirt grounds apply to every platform,
+    features or not (tests updated: 30 dressing tests green).
+- **The Hub — staging scene, start-of-run choices & death return (O1)** [hub · persistence ·
+  biome-journey · character-system · main-menu] (brief
+  `product-requirements/hub-staging-and-launch.md`, consumed with the 2026-07-06 owner revisions:
+  derived tasted-pool offer instead of 3 fixed organs · bare launch always allowed · all three
+  homelands authored at tier 1; new system doc `hub-staging.md`): the **Junkyard Hub** is a real
+  scene for the first time — Journey stages there, the run launches from it, and **death returns
+  to it** (the Hades reform point; no game-over screen). **Reworked the same day (owner change)
+  from a button screen into a walkable world**: the Hub is one regular hex platform in its own
+  biome look, the picks are walk-up F-interactions.
+  - **Hub world:** authored `Scenes/Hub.unity` (SceneContext = new `HubInstaller` +
+    `CharacterSystemInstaller`; camera + light + canvas + the free-walking scene hero) whose
+    world is built at boot — `HubPlatformBuilder` (the `ArenaPlatformBuilder` treatment: shared
+    shape profile, fixed seed from the new **`HubSceneConfig`** SO, mesh + walkable colliders +
+    perimeter walls, ground material = the config's "own biome" look), the **junk-keeper NPC**
+    (placeholder humanoid assembly, slightly left of the platform centre) and one **labelled
+    portal disc per homeland** on the far arc, each with a billboarded overhead name + F prompt
+    (`HubOverheadLabelView`); `HubSceneEntrypoint` assembles it, `HubProximityPresenter` +
+    pure `HubProximity` (nearest in-radius spot) drive the prompts and the F key
+    (`IInteractionInput`, the NPC-interaction input). Presenter pairs:
+    `HubStagingPresenter`/`HubStagingView` (chosen-part readout) and
+    `CauldronVoicePresenter`/`HubVoicePlaqueView`.
+  - **Starting-part offer (R3–R5):** new pure-C# `StartingPartSelector` — a deterministic,
+    variety-greedy (unseen race > unseen slot > flavored > plain) draw of up to 3 cards from the
+    **tasted-forms pool** (`ArenaTastedCatalogReader` reused via `HubStartingPoolSource`;
+    base-skeleton fits only), salted by the upcoming run's index (`world.run_count` + 1);
+    **dealt by talking to the keeper** (F) on the **shared mutation card panel** with
+    race-belonging tints, the mini-model preview and the ability popover — re-openable, the
+    pick can be revised until launch. Picking is optional — **bare launch is always allowed**;
+    the cold start (nothing tasted) is the same state.
+  - **Entry-homeland choice (R6–R7):** walking into a **portal** + F (the prompt is the biome's
+    name) launches into that homeland — independent of the part's race (cross allowed, no soft
+    hint yet); `BiomeJourney` gained an optional starting-theme override that forces **only the
+    window-0 stretch** (burn-the-draw — the entry stretch keeps its seeded length; fail-safe on
+    an unhonorable theme); the climb stays the shipped seeded pool. The portal launch is
+    guarded (one commit per visit).
+  - **Cross-scene carriers (disk, no ProjectContext):** new one-shot `run-setup.json`
+    (`RunSetupSnapshot`/`IRunSetupStore`, consume-on-read at the Area boot) and
+    `hub-arrival.json` (`IHubArrivalStore` death-return marker); new `RunStartConditions`
+    resolves restore-vs-fresh (restore wins, stale setup deleted). `RunSaveSnapshot` gained
+    `StartingBiome` and bumped to **version 2** (v1 dev saves become fresh runs — accepted).
+  - **Run-start install (R8):** new `StartingPartApplier` (Area, mirrors `HeroBodyRestorer`)
+    installs the chosen part once after `CharacterAssembled` on fresh runs; the passport's
+    1-marker "tolerated freak" and the tasted record emerge through the unchanged binders.
+  - **Cauldron voice (R9):** new data-only SO **`HubVoiceLinesConfig`**
+    (`Resources/Hub/HubVoiceLines`, menu `Hub → Cauldron Voice Lines`) + UnityEngine-free
+    `CauldronVoiceLines`/`CauldronVoiceSelector` (stable FNV-1a pick per moment/race/run index;
+    empty pools = quiet) — part-pick per race with a generic fallback, empty-offer, launch, and
+    death-return lines; shaped for later absorption by the P1-10 bark channel.
+  - **Death → Hub (R10):** `RunLifecycleService` extended (optional, null-tolerant
+    `ISceneLoader` + `IHubArrivalStore`): Defeat = meta flush → run consume → arrival mark →
+    load Hub.
+  - Tests: all Hub suites green via the clone-project batch runner (new
+    `StartingPartSelectorTests`, `HubPersistenceTests`, `CauldronVoiceTests`,
+    `HubStagingPresenterTests`, `CauldronVoicePresenterTests`, `StartingPartApplierTests`,
+    `HubProximityTests`; extended `BiomeJourneyTests`, `BiomeProgressionConfigMapperTests`,
+    `RunStateServiceTests`, `RunLifecycleTests`, `MainMenuPresenterTests`).
+
+### Changed
+- **Journey routing & the new-run commit point (O1, revises the P2-2 PO note)** [main-menu ·
+  persistence]: the menu's Journey now loads the **Hub** and no longer deletes the run save —
+  the delete moved to the Hub's **launch**, so backing out of the Hub keeps Continue alive.
+- **Biome progression re-authored + (theme, tier) dedupe (O1)** [biome-journey ·
+  world-biomes]: `BiomeProgressionConfig` is now **five entries** (Forest/Desert/Mountain @
+  tier 1 — the homeland/entry pool — plus Desert/Mountain @ tier 2, the shipped climb pool);
+  `BiomeProgressionConfigMapper` dedupes on the **(theme, tier) pair** (post-normalization)
+  instead of theme alone, making same-theme-at-several-tiers legitimate authoring.
+  `run_escalation_tier` still climbs 1 → 2. Behavior change: **without** a Hub pick (direct
+  editor Area play), window 0 is now a seeded pick over the three tier-1 homelands (was: always
+  Forest).
+- **Arena — parts draft, tasted-forms catalog & draft screen (P4-5 + G4)** [arena ·
+  character-system · mutation · persistence · UI] (briefs
+  `product-requirements/arena-part-draft-and-catalog.md` +
+  `product-requirements/arena-draft-ui.md`; `arena-mode.md` §2.9/§3/§4 · new
+  `ability-preview-popover.md` · `character-system.md` §2.3 · `save-persistence.md` §4): every
+  Arena match now opens with a **snake-order parts draft** off a **shared, host-composed
+  board** — the MVP's identical default hero is retired; each seat assembles the monster it
+  fights with. The round loop, transport contract, resolution order, and win condition are
+  untouched (presentation + a read-only catalog; the Arena budget guard holds).
+  - **Draft model (pure C#, P4-5 reqs 5–10):** `ArenaDraftModel` + `ArenaSnakeOrder` +
+    `ArenaDraftBoardComposer` (`Combat.Arena.Core.Draft`) — deterministic board = the authored
+    **common floor** in full (duplicates are copies; viability per seat, req 6) + a seeded
+    sample (`LootSeed.Derive(seed, "arena-draft-board")`) of the participants' **catalog
+    union** (single-copy — real denial, req 9); snake order with the double pick at the turn;
+    the full pick-legality matrix; deterministic auto-pick (lowest loadout-slot order, then
+    entry id).
+  - **Tasted-forms catalog (P4-5 reqs 1–4):** new Meta fact `world.<partId>.arena_tasted`
+    (`MetaFact_ArenaTasted`, new `FactScope.PerPart`, `WorldFacts.ArenaTasted`) written by the
+    new `TastedFormsRecorder` (Area; every carried part — equipped or dormant, any install
+    path — idempotent, passive, no currency/grind) riding the existing meta flush; read in the
+    Arena scene by `ArenaTastedCatalogReader` straight off `meta.json` (`PersistenceInstaller`
+    now installed there; no fact-store bootstrap), frame-changers + unknown ids dropped
+    (base-plan-only draft). Read-only for Arena — never feeds back into Journey.
+  - **Networking (mirrors setup/commit/bundle):** four named messages —
+    `yash.arena.tasted` (catalog → host on session start, `ArenaTastedCatalogSender` /
+    `ArenaTastedCatalogRegistry`), `yash.arena.draftstart` (the composed board + slot loadout +
+    timer), `yash.arena.draftpick` (request → host), `yash.arena.draftapplied` (canonical pick +
+    piggybacked departures) — wire structs (+ `SerializeStringArray`), codec round-trips, the
+    local-raise loopback trick preserved. **Lockstep by construction:** the host
+    (`ArenaDraftHost`) validates requests against its own model; every replica
+    (`ArenaDraftFlow`, the host's own included) advances only on applied broadcasts.
+  - **Never hangs (G4 req 13):** host-only pick deadlines over the new `IArenaDraftClock` seam —
+    humans get the generous soft timer (auto-pick on expiry), offline AI dummies a short pacing
+    delay, departed seats fill immediately; mid-draft drops are seeded into `ArenaMatchHost`
+    (new `SeedDeparted`) so round 1's bundle kills their deterministically-spawned units on
+    every client.
+  - **Draft screen (G4):** `ArenaDraftPresenter` (pure C#) over `ArenaDraftView`
+    (`Resources/Prefabs/UI/ArenaDraftPanel`) + a procedural 3D stage (`ArenaDraftStageRig`: one
+    far-offset camera → RenderTexture; slot-grouped pedestal grid of bind-pose part models with
+    icon fallback; the local monster assembling live per pick) — whose-pick banner with an
+    unmistakable "YOUR PICK" state, snake-order line, cosmetic countdown, dual local readout
+    (3D + name/parts text), per-opponent name + parts readouts (no opponent 3D — owner call),
+    remote-pick flights, click a part model (board or hero) → `ArenaPartInfoPopover` with
+    ability rows and a Draft button only when legal (illegal shows its reason, req 7), and the
+    "your monster" beat (Continue or auto after `_beatSeconds`). Missing prefabs degrade to a
+    headless draft — never a crash.
+  - **Drafted body → combat:** `ArenaHeroSpawner` now takes per-seat loadouts — abilities via
+    the PvE `IPartAbilityResolver` path (actives → instances, passives → permanent effects),
+    visuals via `SwapPart` on the modular rig; `HeroDefinition` keeps MaxHP + the loud
+    fallback. `ArenaSceneEntrypoint.StartMatch` split into `BeginDraft` → (confirmed result) →
+    `BeginCombat`; combat input stays disabled through the draft.
+  - **Shared ability-preview popover** (new module `UI.AbilityPreview` + doc
+    `ability-preview-popover.md`; closes `mutation-choice-cards.md` FR5's "one preview
+    mechanism, two surfaces"): hover an ability icon → name + description **plus a 3D hero on
+    a mock ground demonstrating the cast** — the D3 `AbilityAreaSweep` over the ability's
+    shape (`AbilityPreviewShape`, pure hex math), the animator trigger when the controller has
+    it, idle for a passive, text-only degrade when no hero exists. Per-scene hero seam
+    `IAbilityPreviewHeroSource` (Mutation = live hero; Arena = base assembly + drafted parts —
+    deliberately never the scene's ambiguous `ModularCharacterVisual`). New
+    `AbilityPreviewConfig` SO + `AbilityPreviewPopover.prefab`; new `LogCategory.UI`.
+  - **New SO + assets:** `ArenaDraftConfig` (slot loadout · floor stock · catalog sample size ·
+    pick/AI/beat pacing · base assembly; mapper validates + warns) at
+    `Resources/Arena/ArenaDraftConfig`; draft panel + part-info popover prefabs.
+  - Tests: new `ArenaDraftModelTests` (14), `ArenaDraftBoardComposerTests` (10),
+    `ArenaDraftWireCodecTests` (6), `ArenaDraftFlowTests` (8), `TastedFormsCatalogTests` (6),
+    `AbilityPreviewShapeTests` (7 cases). **1407/1407 EditMode green** (clone batch-mode,
+    2026-07-06).
+
+### Changed
+- **Mutation — ability tooltip → shared ability-preview popover** [mutation · UI]: the card
+  hand's ability-icon hover now opens the shared popover (description + the hero casting) via
+  the new fields on `MutationAbilityInfo`/`MutationAbilityIconViewData` (shape + animator
+  trigger threaded from `AbilityDefinition`); `MutationChoicePanel.prefab`'s tooltip subtree
+  removed.
+
+### Fixed
+- **Arena named messages overflowed the unfragmented MTU** [arena]: `yash.arena.draftstart`
+  (the composed board, ~1.7 KB) threw `OverflowException` on a real network session —
+  `NgoArenaTransport` now sends every named message **ReliableFragmentedSequenced** instead of
+  `ReliableSequenced`. Also pre-empts the same latent overflow on a full 4-player round bundle;
+  one shared delivery pipeline keeps all lockstep messages mutually ordered (a fragmented
+  draft-start can never be overtaken by the small applied-pick that follows it).
+- **8 `.meta` files from the P0-3 races session failed Unity's YAML parse on a clean import**
+  [character-system · debt] (`Race_{Ibex,Fox,Lizard}.asset.meta`, `Scripts/Editor/World.meta`,
+  `Scripts/World/Races{,/Core,/Data,/Integration}.meta`): missing trailing newline — surfaced
+  by this change's clean-clone batch test run ("Parser Failure at line 8"); a clean checkout
+  would have minted fresh GUIDs for the race assets. One byte appended to each; a repo-wide
+  hygiene sweep for the ~900 other (tolerated) newline-less metas is filed on the ROADMAP.
+
+### Removed
+- **`AbilityTooltipView`** [mutation]: the text-only, mutation-local tooltip is deleted —
+  superseded by the shared ability-preview popover (the "generalise into a shared tooltip"
+  backlog item ships with it).
+- **Director — D20 meta-scoped consumers (P3-3)** [narrative-procedural · persistence] (brief
+  `product-requirements/director-meta-consumers.md`; `narrative-procedural.md` R15 + §2.6 step 2 +
+  §4 recipes; `save-persistence.md` §4): the world now **remembers across runs, in the fiction** —
+  the persisted meta horizon (P2-2) gets its three reading consumers on P3-1's verified lane. **PO
+  decision recorded (2026-07-06): the cross-run cursor counts a reveal as *seen*, not placed** —
+  within a run placed = spent (P3-1 unchanged), but a placed-and-never-entered beat returns to the
+  pool after death; only a delivered reveal is gone for good.
+  - **Spine cursor** — new Meta fact `world.<storyId>.spine_seen` (`MetaFact_SpineSeen`, Bool, new
+    scope `FactScope.PerStory` + `WorldFacts.SpineSeen`; mirrors the `thread_retired`
+    subject-parameterized pattern). Written only by the new **`SpineSeenRecorder`**
+    (`Narrative.Runtime.Core`, bound beside `StoryResolutionRelay`) when a spine beat's dialogue
+    ends (any outcome incl. `leave`; a mid-dialogue quit never fires, so the encounter re-begins
+    unseen). `RunWindowPlanner`'s spine channel-split additionally excludes seen beats — a pure
+    pool filter before the seeded pick (D21 intact); the per-run cap stays run-ledger-based, so
+    past-run reveals never spend a fresh run's cap. Rides the existing meta flush/bootstrap —
+    zero new persistence plumbing; a losing run's reveal sticks (defeat flushes meta first).
+  - **Authored cursor gates (data-only):** because the cursor is an ordinary fact, preconditions
+    read it with a **literal story-id subject** — "must have seen Y" floors and echo
+    sibling-exclusion need no code (recipes in `narrative-procedural.md` §4).
+  - **Mirror-lore echoes (demo):** new Meta deed flag `world.raider_pact_sworn`
+    (`MetaFact_RaiderPactSworn`; set by `RaiderMotive.ink` beside the run-scoped
+    `raider_offer_taken`) + the cross-excluded spine pair `DemoSpine_TyrantEcho_Conquest`
+    (gated `raider_pact_sworn`) / `DemoSpine_TyrantEcho_Alliance` (gated the shipped
+    `barn_bounty_honored`), both floor `run_count ≥ 3` — a conquest history yields different
+    tyrant lore than an alliance one, from a bounded authored table (never generated).
+  - **Cauldron memory (demo):** `DemoSpine_CauldronMemory` (floor `run_count ≥ 4` **and**
+    `spine_seen(story_spine_cauldron_hint)`) — the voice's past-hosts aside deepens across runs on
+    the lane's schedule, gourmand-tempter register, never states what the cauldron is (Tier-0
+    mystery intact); **not** the P1-10 bark channel.
+  - Graceful degrade for free: an empty/absent meta store means the gated beats are simply
+    ineligible (registry defaults) and plans stay bit-identical to an echo-free pool; a corrupt
+    memory quarantines (P2-2).
+  - Tests: new `RunWindowPlannerSpineCursorTests` (8), `SpineSeenRecorderTests` (4),
+    `SpineCursorPersistenceTests` (2). **1355/1355 EditMode green** (clone batch-mode, 2026-07-06).
+  - Known limitation filed: echo sibling exclusion binds on *seen*, so with cap ≥ 2 both variants
+    of a pair can place in one run before either is entered (`narrative-procedural.md` §6);
+    production spine likely runs cap 1, or author distinct floors on the pair.
+- **Director — spine reserved lane + per-run reveal cap (D7 / P3-1)** [narrative-procedural ·
+  persistence] (brief `product-requirements/director-spine-reveal-lane.md`;
+  `narrative-procedural.md` R15 + §2.6 step 2 + recipe): the curated reveal spine now delivers at
+  the lore-pacing tempo — spine beats place **first by their own quota**, ≤1–2 per run, never too
+  early, on won and lost runs alike, as a **gated pool, not a linear queue**.
+  - `RunWindowPlanner`: `_isSpine` stories (authored since R13, consumed for the first time) are
+    routed out of the quest/ambient channels into a spine pool (same gates: tier band, preconditions
+    incl. the casting query, not placed/resolved, thread not retired); a pre-slot-loop lane places
+    at most **one** eligible beat per window into a seeded slot while the per-run cap allows,
+    bypassing the quest rarity/spacing gate and the `MaxLiveThreads` ceiling (owner-approved
+    reserve-don't-compete exception — the cap bounds the load). The reserved slot still ticks the
+    allocator (spacing/site-block state advances uniformly); an inactive lane draws nothing, so
+    spine-free windows stay draw-identical (D21).
+  - **Zero new run-state:** "revealed" = placed in the `StoryRunLedger` (already rides `run.json`),
+    so the cap and never-re-reveal survive save/continue for free; cross-run persistence of the
+    revealed set (the spine cursor) stays **P3-3**.
+  - `RunPacingConfig`/`RunPacingSettings` gain `_maxSpineRevealsPerRun` (default **2**, `0` = lane
+    off).
+  - **Run counter (soft-floor input):** new meta fact `world.run_count` (`MetaFact_RunCount`, Int,
+    Horizon = Meta, in `DemoFactKeyRegistry` + `WorldFacts.RunCount`) written once per **fresh**
+    boot by the new `RunCounterService` (`Core.Persistence`, order −90, after `MetaMemoryBootstrap`;
+    a continue never counts). A "not before run N" floor is an ordinary `Gte` precondition — no new
+    subsystem (FR7).
+  - **Placeholder demo beats** (real reveal lines come with the spine content):
+    `DemoSpine_CauldronHint` (floor `run_count ≥ 2`) and `DemoSpine_MirrorGlimpse` (floor
+    `run_count ≥ 3`) + dialogues/ink under `Resources/Narrative/…` + `Resources/Stories/Slice/`.
+  - Tests: new `RunWindowPlannerSpineTests` (13: reserved placement despite a denying quest gate,
+    cap 0/1/2 across windows, ≤1 per window, never-twice, restored-ledger cap, soft floor, quest-slot
+    exclusion, same-seed identity, inactive-lane draw purity, tier-band/retired-thread gates, ceiling
+    bypass) + `RunCounterServiceTests` (2). **1341/1341 EditMode green** (clone batch-mode,
+    2026-07-06). Follow-up filed: P3-3 decides placed-vs-*seen* for the cross-run cursor.
+- **Run escalation — tier gating (D19 / P3-2)** [narrative-procedural · combat] (brief
+  `product-requirements/run-escalation.md`; `narrative-procedural.md` §2.6 + SO Reference): the run's
+  published altitude (`run_escalation_tier`) is now **consumed** so a run *feels* like it climbs — the
+  eligible content pool shifts by tier without inflating stats or density.
+  - New shared **`RunTierBand`** value type (`Narrative.Director.Core`, `{MinTier, MaxTier}`, `MaxTier ≤
+    0` = open upward, default `(0,0)` = every tier) + its authoring struct **`RunTierBandAuthoring`**
+    (`Narrative.Director.Data`, `ToCore()`), following the `FactPredicateSerial` pattern.
+  - `StoryTemplate` and `EnemyDefinition` gain a `_tierBand` field (mapped to Core via
+    `StoryTemplateMapper` / `BiomeMonsterPoolMapper` → `MonsterPoolEntry.Band`). Unbanded content
+    (missing field / older assets) defaults to open — **no asset migration**.
+  - `RunWindowPlanner` reads `run_escalation_tier` once per window and gates **every** story's
+    eligibility by its band (register shift, quest + ambient colour alike). `IBiomeMonsterPoolCatalog`
+    gains tier-aware `GetPool(theme, tier)` / `GetPool(theme, flavor, tier)` overloads; the tier is
+    threaded through `IWorldSlotAllocator.AllocateSlot(questAvailable, currentTier)` so the ambient
+    (`WorldContentAllocator`) **and** site/camp (`SiteAwareSlotAllocator`) combat draws pull only
+    in-band creatures — a fully out-of-band pool downgrades the slot to Empty.
+  - **Pool-shift only:** no per-tier stat multiplier and no density modulation (both deliberately cut
+    per the brief); the three registers (Backwater / Courts / Divine-Apex) are a documented tier-range
+    convention over the 1-based tier, not a new type. Deterministic (band is a predicate before the
+    existing seeded draw; no new RNG or run-state).
+  - Tests: new `RunTierBandTests`; tier coverage added to `BiomeMonsterPoolCatalogTests`,
+    `WorldContentAllocatorTests`, and `RunWindowPlannerTests`; existing allocator/restore/site suites
+    updated for the new signature. **1325/1325 EditMode green** (clone batch-mode).
+
+### Changed
+- **Doc reconcile — retired `narrative-generation.md`, refreshed `loot-subsystem.md` (P6-1)** [docs]
+  (CLAUDE.md §8; no code change): brought two stale docs back in line with the shipped streaming
+  director.
+  - `narrative-generation.md` → **tombstone**: the §1–§3 as-implemented description of the deleted
+    legacy pipeline (`LevelNarrativeGenerator`/`StoryDefinition`/`NpcDefinition`/`RewardResolver`/
+    `CompositeDialoguePresenter`/`NarrativeInstaller`/`ScenarioGenerator`/`PlatformGraphGenerator`) is
+    replaced by a RETIRED banner pointing at `narrative-procedural.md` (as-implemented) +
+    `narrative-director-requirements.md` (forward). The §4 planned-design (P1–P4) is **preserved as the
+    P3-8 "residue"** with per-item status (P2/P3 superseded by density budgets + D19/passport facts; P4
+    soft cooldowns + optional P1 compat-scoring = the live residue).
+  - `loot-subsystem.md` → **refreshed to as-implemented**: loot-platform *presence* is decided by the
+    density allocator (not a per-biome chance); quest rewards are a **fixed** `QuestRewardGranter` grant
+    of `QuestRewardCore` (no roll); the deleted `RewardResolver`/`RewardDefinition`/`StoryDefinition`
+    reward channel is called out as gone. Flagged the dead-no-callers `LootRollService.ShouldPlaceLootOnPlatform`
+    / `RollQuestRewards` and `BiomeLootDefinition._platformLootChance` for the **P6-4** cleanup; the
+    seed/`WeightedPicker`/biome-table Core and pickup runtime confirmed current.
+  - `Docs/README.md` index updated (narrative-generation marked retired); ROADMAP Narrative-Generation
+    and Loot sections reconciled (P6-1 checked off, moot legacy limitations struck, P3-8 residue statuses recorded).
+
+### Fixed
+- **Bandit camp D1 — first-playtest fixes (capsules · enemy radii · camp frequency)** [combat +
+  npc-interaction + world-sites] (PO playtest 2026-07-05; docs updated in place):
+  (1) **Capsules still spawning** — the legacy `ContentSpawner` prefab path double-spawned a capsule
+  (and an NPC placeholder) over the real humanoid bodies on every platform entry; its Enemy/Npc
+  cases are retired (same pattern as the earlier Loot retirement). `EnemyVisualSpawner` additionally
+  falls back to the **default humanoid assembly** (`PlaceholderAssembly_A`) for any enemy without an
+  authored one, and applies a shared **demo enemy red** when no tint is authored — **capsules and
+  untinted (blue) enemies no longer exist**.
+  (2) **Combat started by landing; enemies had no radius** — landing now NEVER starts a fight for
+  any content (PO decision, extends brief req 10 beyond camps): `CombatAutoStartRule` re-enters
+  combat only for an engaged platform (`EnemyContent.Engaged`, latched by every engagement path —
+  enemy radius / boss circle / dialogue combat — so a re-landing resumes a begun battle). Lone
+  ambient monsters now register **hostile proximity handles** of their own
+  (`INpcInteractionService.BindEnemy` from `CombatIdleState`): name + `!` overhead, global aggro
+  radius, platform-scoped; crossing one engages the whole platform's fight and consumes the sibling
+  handles. Camp crews behind a boss are never bound — the boss's circle owns the trigger
+  (`npc-proximity-interaction.md` R2/R13).
+  (3) **Camps effectively unreachable** — ambient sites rolled ~1 per 14 platforms and the Camp
+  competed 3 : 3 : 3 with Ruin/Lair (≈1 camp per 42 platforms). Tuned for the demo:
+  `WorldContentDensityConfig` `_averagePlatformsPerAmbientSite` 14→8, `_minPlatformsBetweenSites`
+  6→4, and `Camp._triggerWeight` 3→6 (≈1 camp per ~16 platforms; ruins/lairs stay rarer).
+  `TestEnemyDefinition` renamed to **Wild Beast** + given the enemy red tint.
+  Updated `CombatAutoStartRuleTests` to the Engaged semantics — full suite 1290/1290 green via the
+  clone-project batch runner.
+
+### Added
+- **Combat ability animation + animated ghost + move arrow + enemy readiness cue — D3 of Track D
+  "Bandit Camp & Combat Legibility II"** (verified brief `product-requirements/combat-ability-animation.md`;
+  docs: `combat-round-and-telegraph.md` R15–R18):
+  - **Placeholder cell-sweep animation.** A code-authored motion that spans an ability's whole affected
+    area — each struck cell flashes/pops, swept outward along the caster's line for a **Line** and
+    together for a **Ring** (`AbilityCellFlash` + `AbilityAreaSweep`, shape-driven; `_animationTrigger`
+    stays the real-clip seam). Played **translucent** as the ghost preview (now *moving* — extended
+    `GhostPlaybackPlan`/`Builder`/`View` with the affected-cell positions) and **opaque** on live
+    execution.
+  - **Live playback for player + enemy.** The shared executor (`AbilityExecutor.ExecuteAbilityAtCells`)
+    emits a read-only `AbilityFiredCue` via an `[InjectOptional] IAbilityFiredSink` (mirrors
+    `ICombatOutcomeRelay`); `LiveAbilityAnimationView` plays the sweep. Player-queue and enemy-resolve
+    both flow through it, so an **enemy action now animates within its paced beat** (visibly not
+    instant). No change to outcomes, cells, damage, or timing.
+  - **Enemy move-direction arrow.** A **short** board `LineRenderer` pointer from the hex centre toward
+    the shared edge in the move direction (half the centre-to-centre distance) replaces the overhead `»`
+    glyph (`EnemyIntentTelegraphView`, driven by the pure `EnemyIntentTelegraphPresenter`).
+  - **Enemy readiness cue.** An enemy holding a committed intent reads as "armed": its plan icons go
+    **restless** (jitter/pulse in `UnitOverheadIconsView`) **and** it holds a placeholder **wind-up pose**
+    (a transform lean/scale/bob on the visual root — the rig has no attack state). The telegraph shows
+    during the **plan** phase and **clears when the round enters `EnemyResolve`** (the enemy acts/moves);
+    the pose is applied as an additive offset (never an absolute position), so it never pins or fights the
+    enemy's movement. Enemies only, uniform.
+  - PvE (Area) only for the wired views (matching D2); the animated-ghost + no-move-glyph changes live in
+    the shared views. New edit-mode suites `AbilityFiredCueTests`, `EnemyIntentTelegraphPresenterTests`,
+    plus extended `GhostPlaybackPlanTests` / updated `UnitPlanIconsPresenterTests` — full suite
+    1310/1310 green via the clone-project batch runner.
+- **Combat initiative + turn-order strip + aim/fire input — D2 of Track D "Bandit Camp & Combat
+  Legibility II"** (verified brief `product-requirements/combat-initiative-and-turn-queue.md`; docs:
+  `combat-round-and-telegraph.md` R4/R4a/R4b, `ability-subsystem.md` R8):
+  - **Initiative — the initiator leads the opening round.** A new `CombatInitiator` (`Player`/`Enemy`)
+    is captured at the three engagement sites (defaulting to `Enemy`): the encounter's Attack card
+    (system **or** a `card: attack` Ink choice, via a one-shot player-combat latch on `DialogueRunner`)
+    reads `Player`; a plain `start-combat:` tag (an NPC turning hostile) and an ambush/aggro cross read
+    `Enemy`. It rides `EnemyContent.Initiator` → `CombatActiveState` → `ICombatController.Initialize`,
+    and `CombatController.StartRound` reorders the opening round so an enemy-initiated fight resolves
+    committed enemy intents **before** the player's Act phase (`RoundLeadPolicy.EnemyLeadsThisRound`,
+    round 1 only). Deterministic: same seed + same initiator → same order.
+  - **Turn-order strip** — a code-built screen-space overlay (top-right `HorizontalLayoutGroup`,
+    no new prefab) listing the round's actors in order, leader-first per the initiative, with the
+    current / already-acted side marked and dead units dropped (`TurnOrderStripView` +
+    `TurnOrderStripPresenter`, created per-fight in `CombatActiveState`). **PvE (Area) only** — the
+    Arena keeps its own `IArenaResolutionOrder` (Track G).
+  - **Aim & fire input** — **Enter** is now hold-to-aim / release-to-execute: holding Enter turns the
+    hero toward the mouse cursor (re-pointing the whole queued volley via the shipped global-facing
+    model), releasing fires the queue along the final facing, and **right-click while holding aborts**
+    (`PCInputController` hold/release + `OnVolleyAimStarted`/`OnVolleyAimCancelled`,
+    `CombatAbilityPresenter.BeginVolleyAim`/`UpdateVolleyAim`/`EndVolleyAim`).
+  - No change to what any ability does, the plan/commit model, or determinism. New edit-mode suites
+    `RoundLeadPolicyTests`, `TurnOrderStripPresenterTests`, plus initiator assertions in
+    `DialogueRunnerTests` / `EncounterCardHandPresenterTests` — full suite 1301/1301 green via the
+    clone-project batch runner.
+- **Humanoid bandit camp — D1 of Track D "Bandit Camp & Combat Legibility II"** (verified brief
+  `product-requirements/bandit-camp-humanoids.md` reqs 1–12; docs updated: `world-sites.md`,
+  `npc-proximity-interaction.md`, `character-system.md`, `narrative-procedural.md`):
+  - **Humanoid enemies (reqs 1–2)** [combat + character-system]: `EnemyDefinition` gains
+    `_assembly` (`CharacterAssemblyDefinition`) — enemies now spawn as the **shared modular
+    humanoid** through the new `EnemyVisualSpawner` (single spawn path replacing the duplicated
+    `InstantiateEnemy` bodies of `CombatIdleState`/`CombatActiveState`; assembly-first, authored
+    prefab fallback, legacy capsule as logged last resort; deterministic ring offsets so a crew
+    doesn't stack). Combat reuses the same GameObject, so the look is identical in world and
+    battle. `DemoEnemy_BanditBrute` + `TestEnemyDefinition` now carry assemblies (the brute also
+    gained the test ability + AI profile so it can act).
+  - **Demo role tints (reqs 3–4)** [character-system]: new `IDemoRoleTintApplier` /
+    `DemoRoleTintApplier` (`MaterialPropertyBlock` `_BaseColor`+`_Color`; alpha 0 = untinted) +
+    `_demoTint` fields on `NpcArchetype` and `EnemyDefinition`. Villagers/frogfolk read green,
+    barn raider + camp crew lighter maroon, camp boss deep maroon (`DemoEnemy_BanditBoss` id 9002 +
+    `DemoArch_BanditBoss` are new).
+  - **Boss-led camp in the director (reqs 5–6, 12)** [world-sites + narrative]: `SiteDefinition` /
+    `SiteFamilyDefinition` gain the boss-anchor block (`_bossStoryFlavor`, `_bossCrewMin/Max`);
+    `SiteAwareSlotAllocator.AllocateCampAnchor` converts a boss-led site's Combat anchor into
+    `WorldSlotKind.Camp` with seeded `CrewEnemyIds`; `RunWindowPlanner.PlaceCampBoss` fills it with
+    a seeded pick among boss-flavor **ambient-colour** stories (the authored pool IS the
+    quest-or-not ratio; never a quest-slot candidate; no boss story → plain crew fight).
+    `PlannedPlatformKind.Camp` realises as boss `NpcContent(isCampBoss)` + crew `EnemyContent`s on
+    one platform; `WindowNodeSnapshot.CrewEnemyIds` rides the run save (old saves stay valid;
+    missing boss story on restore degrades to a plain fight). `Camp.asset`: `bandit-boss`, crew 2–4.
+  - **Boss engagement (reqs 7–9)** [npc-interaction]: `NpcInteractionConfig._bossEngagementRadius`
+    (default 6) — a camp boss (`NpcContent.IsCampBoss`) uses it for **both** intents and
+    **auto-engages on cross**: hostile boss starts the camp fight, job-bearing boss opens his
+    dialogue with no F press. **All** NPC engagement is now **platform-scoped** (PO decision
+    2026-07-05): `NpcProximityPresenter` tracks the player's platform via `PlatformEvents` and
+    off-platform NPCs are ineligible. Dev overlay draws boss rings in a third colour.
+  - **No aggro on landing (reqs 10–11)** [platform]: new pure `CombatAutoStartRule` — a platform
+    with enemies auto-fights on activation only when no un-engaged NPC gates it;
+    `NpcEncounterStarter` latches `NpcContent.EncounterStarted` on talk/aggro. The crew joins the
+    boss's **one** fight (`CombatActiveState` already sweeps every `EnemyContent` on the platform).
+  - **Demo content**: `DemoStory_CampBossHostile` (required combat ⇒ `!` boss),
+    `DemoStory_CampBossJob` (+ `DemoDlg_CampBossJob`/`DemoDlg_CampBossThreat` ink pairs +
+    `DemoQst_CampJob` — an explicit placeholder until the P3-17 shady-offer content).
+  - **Tests**: `ProximityEvaluatorTests` (boss radius / auto-talk / platform scope),
+    `CombatAutoStartRuleTests`, `DemoRoleTintApplierTests`, camp cases in
+    `SiteAwareSlotAllocatorTests` / `RunWindowPlannerTests` / `WorldRestoreTests` — full suite
+    1289/1289 green via the clone-project batch runner.
+
+### Fixed
+- **Persistence — first-playtest fixes (P2-2 follow-up)** (`save-persistence.md` updated in place):
+  three bugs found by the owner's first save/continue playtest.
+  (1) **Stale save on quit** — progress made on the current platform after entering it (a finished
+  conversation, its facts and quest stages) was lost, because the only savepoint was platform
+  entry: new `QuitSavepointHook` + `AutosaveService.SaveGraceful()` take a **graceful-exit
+  savepoint** on `Application.quitting` (player quit AND editor play-mode stop), skipped while any
+  dialogue is open so a mid-conversation quit still resumes at the platform's clean start (FR7).
+  (2) **Artifacts duplicating on every load** — `InventoryPresenter.SeedStartingInventory()` added
+  the dev starting set on every Area boot with no guard: now skipped on a continue boot (and when
+  the inventory is already non-empty), mirroring the blank-rack guard.
+  (3) **Current-window content vanishing on load** — the world capture marked "all windows but the
+  last" consumed, but the next window is planned when the player leaves the FIRST platform of the
+  current one, so the window the hero stood in was wrongly stripped (his NPC and the neighbouring
+  platform's NPC disappeared): consumption is now **per node, marked when its platform is exited**
+  (sticky) — the standing platform re-begins (FR7), unvisited neighbours keep their content, and
+  left-behind platforms still never respawn (FR8).
+  Also added a one-line run-seed diagnostic on seed creation (`[LootInstaller] Run seed …
+  fresh/restored`) — platform geometry is a pure function of that seed — plus a capture-side test
+  asserting `RunSaveSnapshot.RunSeed` rides the save. New/extended tests:
+  `GracefulQuitSave_WritesOnlyWhenNoDialogueIsOpen`, the RunSeed assertion in
+  `RunStateServiceTests`; full suite green via the clone-project batch runner.
+
+### Added
+- **Persistence — Save / Continue a run + cross-run memory (P2-2, closes narrative R14)** (verified
+  brief `product-requirements/save-continue-run.md` FR1–FR14; new system doc `save-persistence.md`):
+  a run now **survives the session boundary** and the world **remembers across deaths**. New
+  `Core.Persistence`: `JsonSaveFile` (versioned, temp-file + atomic swap, parse-or-discard —
+  a corrupt/stale `run.json` is deleted, a corrupt `meta.json` is **quarantined** to `.corrupt`;
+  FR13/FR14), `RunSaveStore`/`MetaMemoryStore` over `persistentDataPath/Saves`, the whole-run
+  `RunSaveSnapshot` (root `RunSeed` + narrative sections + `WorldStateSnapshot`/`HeroBodySnapshot`
+  /`PlayerStuffSnapshot`), the explicit `RunStateService` aggregator (capture normalizes a
+  mid-staging cauldron session to plain items without touching live play; restore replays
+  facts → actors → quests (recorder bridge repopulates progression) → stuff → re-socketing →
+  staged hero body), `RunRestoreContext` (the lazy "is this boot a continue?" decision — the file
+  on disk is the cross-scene carrier; **no ProjectContext, no statics**), `RunRestoreCoordinator`
+  (execution order −200, before `MetaMemoryBootstrap` at −100 so the always-on memory wins),
+  `AutosaveService` (savepoint = **platform entry**, post-planning state; W3-1 suspended dialogues
+  skip the boundary) and `RunLifecycleService` (**Defeat → meta flush → run-save delete** — death
+  consumes the save, no scumming; FR2). **World resume (D5, FR4/FR12)**: `RunStreamingCoordinator`
+  records every realized window at plan time and `BeginRestored` rebuilds them **by id with zero
+  draws** from the shared stream (castings re-resolved via the new `Actor/Quest/CastingSnapshotMapper`s,
+  the context bag rebuilt by the factory's exact recipe; consumed windows restore content-free with
+  their surface shape pinned by `GraphNode.ShapeKindOverride`; loot re-rolls its stateless per-node
+  context; the biome journey needs no state — `ApplyForWindow(0..k)` replays idempotently); the
+  quest-spacing counter and the site-allocator block queue/counters ride
+  `WorldStatePersistenceBridge`; the run seed provider (`LootInstaller`) seeds from the save on a
+  continue. **Hero body**: `HeroBodyRestorer` re-applies the saved frame + equipped/dormant parts
+  through the factory's staged all-or-nothing overload once the rig assembles. **Combat**: per-fight
+  controllers fan outcomes into the new `ICombatOutcomeRelay` (wired by `CombatControllerFactory`).
+  **Menu**: Continue button (`MainMenu.unity` authored directly) shown iff `run.json` exists;
+  Journey = an explicit **new run** (deletes the save; PO decision); model/interface additions:
+  `IInventoryModel`/`IBlankRack` gain `NextInstanceId` + `RestoreFrom`, `IPartInventoryModel.RestoreFrom`,
+  `IRunProgressionRecord.Choices`, `INarrativeSaveService.Restore`, `CastingSnapshot` gains
+  `StoryId`/`ThreadId`, `QuestInstanceSnapshot` gains `RewardsGranted`, new `LogCategory.Persistence`.
+  **Cross-run memory (FR9–11)**: `meta.json` carries the `FactHorizon.Meta` partition, flushed at
+  savepoints + death and loaded into the fact store at every Area boot; proven end-to-end by the
+  demo meta fact **`world.barn_bounty_honored`** (new `MetaFact_BarnBountyHonored` key asset,
+  Horizon = Meta, + an `OnCompleteEffects` entry on `DemoQst_BarnBounty`) — asset-only authoring,
+  recipe in `save-persistence.md` §4. New suites `PersistenceStoreTests`, `RunStateServiceTests`,
+  `WorldRestoreTests`, `RunLifecycleTests` + extended `MainMenuPresenterTests`; full suite
+  **1264/1264 green** via the clone-project batch runner. Deferred per §0 into the ROADMAP:
+  W3-1 option-b mid-dialogue saves, the currency model (+ its save section),
+  `PlatformEvents` → Zenject signals debt.
 - **Narrative — first-class threads + cross-window continuity + run/meta fact boundary (R8 / P2-3)**
   (verified brief `product-requirements/director-threads-and-continuity.md` FR1–FR12;
   `narrative-procedural.md` §2.6/§3/§4): a thread is now a **managed entity**, not a string label.

@@ -189,6 +189,7 @@ namespace Core.DI
                 .AsSingle();
 
             Container.BindInterfacesTo<StoryResolutionRelay>().AsSingle().NonLazy();
+            Container.BindInterfacesTo<SpineSeenRecorder>().AsSingle().NonLazy();
         }
 
         private void InstallPlanner()
@@ -232,9 +233,9 @@ namespace Core.DI
                 .AsSingle();
 
             // Site-aware wrapper (world-sites brief): reserves contiguous site blocks over the untouched
-            // density allocator; with no sites authored it is a pure passthrough.
-            Container.Bind<IWorldSlotAllocator>()
-                .To<SiteAwareSlotAllocator>()
+            // density allocator; with no sites authored it is a pure passthrough. Bound concretely as
+            // well: the persistence bridge (P2-2) captures/restores its run-scoped cursors.
+            Container.Bind<SiteAwareSlotAllocator>()
                 .FromMethod(ctx => new SiteAwareSlotAllocator(
                     ctx.Container.Resolve<WorldContentAllocator>(),
                     ctx.Container.Resolve<World.Sites.Core.ISiteCatalog>(),
@@ -245,6 +246,8 @@ namespace Core.DI
                     ctx.Container.Resolve<IRandomSource>(),
                     ctx.Container.Resolve<IGameLogger>()))
                 .AsSingle();
+
+            Container.Bind<IWorldSlotAllocator>().To<SiteAwareSlotAllocator>().FromResolve();
 
             // id -> archetype SO, so the spawn layer can read the visual assembly/portrait.
             Container.Bind<INpcArchetypeCatalog>()

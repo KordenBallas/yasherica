@@ -39,6 +39,18 @@ namespace Platform
         /// <summary>The intent derived from <see cref="Casting"/> at placement (quest-bearer / hostile / plain).</summary>
         public NpcIntent Intent { get; }
 
+        /// <summary>
+        /// True when this NPC is a camp boss fronting a crew of pre-placed enemies: he gets the larger
+        /// engagement radius and gates the platform's combat (no fight until he is engaged).
+        /// </summary>
+        public bool IsCampBoss { get; }
+
+        /// <summary>
+        /// Latched by <see cref="Narrative.Interaction.NpcEncounterStarter"/> once the player engages
+        /// this NPC (talk or aggro). A camp platform holds its fight until the boss's encounter starts.
+        /// </summary>
+        public bool EncounterStarted { get; set; }
+
         /// <summary>The platform that owns this NPC's encounter; set on initialize.</summary>
         public IPlatform OwningPlatform { get; private set; }
 
@@ -50,18 +62,22 @@ namespace Platform
 
         private readonly IModularCharacterFactory _modularFactory;
         private readonly INpcInteractionService _interactionService;
+        private readonly IDemoRoleTintApplier _tintApplier;
 
         public NpcContent(NpcArchetype archetype, NpcInstance actor, StoryTemplateData plannedStory,
             Casting casting, NpcIntent intent, IModularCharacterFactory modularFactory,
-            INpcInteractionService interactionService)
+            INpcInteractionService interactionService, IDemoRoleTintApplier tintApplier = null,
+            bool isCampBoss = false)
         {
             Archetype = archetype;
             Actor = actor;
             PlannedStory = plannedStory;
             Casting = casting;
             Intent = intent;
+            IsCampBoss = isCampBoss;
             _modularFactory = modularFactory;
             _interactionService = interactionService;
+            _tintApplier = tintApplier;
         }
 
         public override void Initialize(IPlatform platform)
@@ -94,6 +110,7 @@ namespace Platform
             NpcVisual = character.gameObject;
             NpcVisual.transform.position = platform.Visual?.Position ?? Vector3.zero;
             NpcVisual.name = $"NPC_{Actor.InstanceId}";
+            _tintApplier?.Apply(NpcVisual, Archetype.DemoTint);
         }
 
         public void DestroyNpcVisual()

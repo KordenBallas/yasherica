@@ -20,16 +20,31 @@ namespace Combat.Player
 
         public IReadOnlyList<GhostUnitMarker> Markers { get; }
 
+        /// <summary>
+        /// World positions of every cell the ability affects (D3) — the translucent cell-sweep animation
+        /// plays across these, so the ghost preview now moves. <see cref="IsLine"/> chooses the sweep vs
+        /// simultaneous ring pop; <see cref="SweepOrigin"/> (the caster's world position) orders the sweep.
+        /// </summary>
+        public IReadOnlyList<Vector3> AffectedCellPositions { get; }
+        public Vector3 SweepOrigin { get; }
+        public bool IsLine { get; }
+
         public GhostPlaybackPlan(
             int casterUnitId,
             Vector3 casterPosition,
             Vector3 casterLookDirection,
-            IReadOnlyList<GhostUnitMarker> markers)
+            IReadOnlyList<GhostUnitMarker> markers,
+            IReadOnlyList<Vector3> affectedCellPositions = null,
+            Vector3 sweepOrigin = default,
+            bool isLine = false)
         {
             CasterUnitId = casterUnitId;
             CasterPosition = casterPosition;
             CasterLookDirection = casterLookDirection;
             Markers = markers ?? new List<GhostUnitMarker>();
+            AffectedCellPositions = affectedCellPositions ?? new List<Vector3>();
+            SweepOrigin = sweepOrigin;
+            IsLine = isLine;
         }
     }
 

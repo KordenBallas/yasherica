@@ -19,5 +19,19 @@ namespace Narrative.Director.Core
         /// (unfiltered + warn) is the caller's.
         /// </summary>
         IReadOnlyList<int> GetPool(LevelTheme theme, string flavor);
+
+        /// <summary>
+        /// The theme's enemy ids whose run-tier band contains <paramref name="tier"/> (D19 escalation):
+        /// as the run climbs, the pool shifts toward tougher, in-band creatures. Unbanded creatures pass
+        /// at every tier. Empty when no in-band creature is authored for the theme.
+        /// </summary>
+        IReadOnlyList<int> GetPool(LevelTheme theme, int tier);
+
+        /// <summary>
+        /// The theme's enemy ids that both carry the flavor and are in-band for <paramref name="tier"/>.
+        /// An empty/null flavor falls back to <see cref="GetPool(LevelTheme, int)"/>; an unmatched flavor
+        /// returns empty — the fallback policy (unfiltered + warn) is the caller's.
+        /// </summary>
+        IReadOnlyList<int> GetPool(LevelTheme theme, string flavor, int tier);
     }
 }

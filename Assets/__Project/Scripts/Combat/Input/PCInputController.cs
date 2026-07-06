@@ -30,6 +30,9 @@ namespace Combat.Input
         // Ability hold state
         private int? _heldAbilityIndex;
 
+        // Volley-aim hold state (Enter): hold to turn toward the cursor, release to execute the queue (D2)
+        private bool _wasVolleyAimActive;
+
         // Shared abort flag — set by right-click while holding any key
         private bool _aimAborted;
 
@@ -46,6 +49,8 @@ namespace Combat.Input
         public event Action<AbilityConfirmedCommand> OnAbilityConfirmed;
         public event Action<ExecuteQueueCommand> OnExecuteQueueRequested;
         public event Action<ChangeDirectionModeCommand> OnChangeDirectionRequested;
+        public event Action<VolleyAimStartedCommand> OnVolleyAimStarted;
+        public event Action<VolleyAimCancelledCommand> OnVolleyAimCancelled;
 
         private void Awake()
         {
@@ -62,8 +67,8 @@ namespace Combat.Input
             // Movement key transitions
             if (isMovementKeyPressed && !_wasMovementModeActive)
             {
-                // Just pressed — enter movement mode only if no ability is held
-                if (!_heldAbilityIndex.HasValue)
+                // Just pressed — enter movement mode only if no ability or volley aim is held
+                if (!_heldAbilityIndex.HasValue && !_wasVolleyAimActive)
                 {
                     _wasMovementModeActive = true;
                     _aimAborted = false;
@@ -81,6 +86,28 @@ namespace Combat.Input
                 OnMovementModeChanged?.Invoke(new MovementModeChangedCommand(false, Time.time));
             }
 
+            // Volley aim (Enter): hold to turn the hero toward the cursor, release to execute the queue (D2)
+            bool isExecuteKeyPressed = IsKeyPressed(_config.executeQueueKey);
+            if (isExecuteKeyPressed && !_wasVolleyAimActive)
+            {
+                // Just pressed — enter volley aim only if nothing else is held
+                if (!_heldAbilityIndex.HasValue && !_wasMovementModeActive)
+                {
+                    _wasVolleyAimActive = true;
+                    _aimAborted = false;
+                    OnVolleyAimStarted?.Invoke(new VolleyAimStartedCommand(Time.time));
+                }
+            }
+            else if (!isExecuteKeyPressed && _wasVolleyAimActive)
+            {
+                // Just released — execute the queued volley along the final facing unless the aim was aborted
+                if (!_aimAborted)
+                    OnExecuteQueueRequested?.Invoke(new ExecuteQueueCommand(true));
+
+                _wasVolleyAimActive = false;
+                _lastDirection = null;
+            }
+
             // Right-click cancellation (checked before direction so abort is set first)
             if (IsKeyPressedThisFrame(_config.cancelKey))
             {
@@ -94,10 +121,15 @@ namespace Combat.Input
                     OnAbilityCancelled?.Invoke(new AbilityCancelledCommand(false));
                     _aimAborted = true;
                 }
+                else if (_wasVolleyAimActive)
+                {
+                    OnVolleyAimCancelled?.Invoke(new VolleyAimCancelledCommand(Time.time));
+                    _aimAborted = true;
+                }
             }
 
-            // Direction updates while movement or ability mode is active
-            if (_wasMovementModeActive || _heldAbilityIndex.HasValue)
+            // Direction updates while movement, ability, or volley-aim mode is active
+            if (_wasMovementModeActive || _heldAbilityIndex.HasValue || _wasVolleyAimActive)
             {
                 var currentDirection = CalculateMovementDirection();
                 if (!DirectionsEqual(currentDirection, _lastDirection))
@@ -109,7 +141,7 @@ namespace Combat.Input
             }
 
             // Ability key press — only when nothing else is held
-            if (!_heldAbilityIndex.HasValue && !_wasMovementModeActive)
+            if (!_heldAbilityIndex.HasValue && !_wasMovementModeActive && !_wasVolleyAimActive)
             {
                 for (int i = 0; i < _config.abilityKeys.Count; i++)
                 {
@@ -135,9 +167,7 @@ namespace Combat.Input
                 }
             }
 
-            // Enter key — execute queue
-            if (IsKeyPressedThisFrame(_config.executeQueueKey))
-                OnExecuteQueueRequested?.Invoke(new ExecuteQueueCommand(true));
+            // Enter is now a hold-to-aim / release-to-execute gesture (handled above), not a single press.
 
             // S key — change direction
             if (IsKeyPressedThisFrame(_config.changeDirectionKey))

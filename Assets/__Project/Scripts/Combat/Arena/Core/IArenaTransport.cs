@@ -69,6 +69,18 @@ namespace Combat.Arena.Core
         /// <summary>Host side: broadcast the assembled round to every client (host included).</summary>
         void BroadcastBundle(ArenaRoundBundle bundle);
 
+        /// <summary>Client side: hand the local tasted-forms catalog to the host (pre-draft).</summary>
+        void SubmitTastedCatalog(IReadOnlyList<string> partIds);
+
+        /// <summary>Client side: request one draft pick from the host authority.</summary>
+        void SubmitDraftPick(ArenaDraftPick pick);
+
+        /// <summary>Host side: open the draft with the composed board on every client (host included).</summary>
+        void BroadcastDraftStart(ArenaDraftStart start);
+
+        /// <summary>Host side: broadcast one canonically applied pick to every client (host included).</summary>
+        void BroadcastDraftPick(ArenaDraftPickApplied applied);
+
         /// <summary>Raised on the host for every arriving commit (its own included).</summary>
         event Action<ArenaCommitEnvelope> CommitReceived;
 
@@ -77,6 +89,18 @@ namespace Combat.Arena.Core
 
         /// <summary>Raised on every client (host included) when a round bundle arrives.</summary>
         event Action<ArenaRoundBundle> BundleReceived;
+
+        /// <summary>Raised on the host for every arriving tasted catalog (its own included).</summary>
+        event Action<ulong, IReadOnlyList<string>> TastedCatalogReceived;
+
+        /// <summary>Raised on every client (host included) when the draft opens.</summary>
+        event Action<ArenaDraftStart> DraftStartReceived;
+
+        /// <summary>Raised on the host for every arriving pick request (its own included).</summary>
+        event Action<ArenaDraftPick> DraftPickRequested;
+
+        /// <summary>Raised on every client (host included) when the host applies a pick.</summary>
+        event Action<ArenaDraftPickApplied> DraftPickApplied;
 
         /// <summary>Raised on the host when a player's connection is gone (never in offline play).</summary>
         event Action<int> PlayerDeparted;

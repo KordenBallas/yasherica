@@ -29,7 +29,9 @@ outcome.
   **icons** beneath — so I read it instantly without reading stats.
 - As a player, I can **flip a card** (a corner button) to see the **part it would replace** and that
   part's abilities — the before→after, only when I want it.
-- As a player, I **hover an ability icon** to read its **name + description** in a tooltip.
+- As a player, I **hover an ability icon** to open a popover with its **name + description** **and a
+  3D model of my hero on a battlefield casting that ability's animation** — I *see* what the skill
+  does, I don't just read it.
 - As a player, I **hover the pictured part** to see a **mini-model of my hero wearing the new part** —
   the grotesque silhouette I'd become.
 - As a player, the card's **glow and colour** tell me its **potency and belonging** at a glance, the
@@ -56,8 +58,13 @@ outcome.
    replaced" (a bare slot), not a false comparison.
 
 ### Depth on hover
-5. **Hovering an ability icon** opens a context tooltip with that ability's **name + description**
-   (both active and passive abilities carry this).
+5. **Hovering an ability icon** opens the **ability-preview popover**: the ability's **name +
+   description** **plus a 3D model of the hero on a battlefield mock playing that ability's cast
+   animation** (the same animation the ability uses in combat — reuse the **D3 code-authored
+   placeholder animations**, `combat-round-and-telegraph.md` R15–R18). A **passive** ability (no cast)
+   shows its name + description with a static/idle hero pose. This **ability-preview popover is a
+   shared grammar** with the Arena draft screen (`arena-draft-ui.md`) — one preview mechanism, two
+   surfaces.
 6. **Hovering the pictured part** (the card centre) opens a context popover with a **mini 3D model of
    the hero wearing the new part** — the silhouette preview of what you'd become.
 
@@ -91,8 +98,9 @@ outcome.
   icons**; picking one **installs** it and dismisses the rest.
 - A **corner control flips** a card to reveal the **replaced part + its abilities** (or a clear
   "nothing replaced" for an empty slot).
-- **Hovering an ability icon** shows its name + description; **hovering the pictured part** shows a
-  **mini-model** of the hero with the new part.
+- **Hovering an ability icon** opens the **ability-preview popover** — name + description **and a 3D
+  hero casting the ability's animation** (idle pose for a passive); **hovering the pictured part**
+  shows a **mini-model** of the hero with the new part.
 - Card **glow = potency, colour = belonging**, visually consistent with quest/encounter cards.
 - **No crafting-trait stats** appear anywhere on the card.
 - **Picking commits** — reagents consumed, other variants gone — and reads as a weighty confirmation.
@@ -100,8 +108,10 @@ outcome.
 ## Out of scope / open points (do not build now)
 - **The socketing / unseal loop itself** — owned by `crafting-mutation-socketed-blanks.md`; this
   brief is only the choice cards it surfaces.
-- **A full live-hero preview in the world** — this brief uses a **mini-model popover** on hover; a
-  full live-model mutation preview stays the separate ROADMAP backlog item.
+- **A full always-on live-hero preview in the actual run world** — the ability-preview popover shows
+  the hero casting on a **battlefield mock**, not the live world scene; an always-on in-world live
+  model stays the separate ROADMAP backlog item (**P5-12**). The popover **reuses the D3 placeholder
+  ability animations**; production VFX/clips stay P5-12.
 - **Quest-card visuals** — a separate brief; they only **share the grammar** with these.
 - **Exact card art, layout polish, and VFX** (flip animation, glow shader, tooltip styling) are the
   render-look / tech-art call; this brief sets the content and behaviour.

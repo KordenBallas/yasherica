@@ -1,4 +1,5 @@
 using System.Linq;
+using Combat.Core;
 using Narrative.Dialogue;
 using Core.Logging;
 using UnityEngine;
@@ -74,7 +75,7 @@ namespace Platform
             _runner.OnDialogueEnded -= HandleDialogueEnded;
         }
 
-        private void HandleCombatTriggered(string enemyId)
+        private void HandleCombatTriggered(string enemyId, CombatInitiator initiator)
         {
             _combatTriggered = true;
 
@@ -85,8 +86,21 @@ namespace Platform
                 return;
             }
 
-            var enemyContent = new EnemyContent { EnemyId = parsedId };
+            var enemyContent = new EnemyContent { EnemyId = parsedId, Engaged = true, Initiator = initiator };
             _platform.AddContent(enemyContent);
+
+            // The whole platform fights as one: a camp boss's crew (pre-placed EnemyContent) joins,
+            // and the latch lets a re-landing resume this battle (CombatAutoStartRule). The whole
+            // platform shares the opening-round initiator (D2) so the read-out is consistent.
+            foreach (var content in _platform.Contents)
+            {
+                if (content is EnemyContent enemy)
+                {
+                    enemy.Engaged = true;
+                    enemy.Initiator = initiator;
+                }
+            }
+
             _npc?.DestroyNpcVisual();
             TransitionToCombat();
         }

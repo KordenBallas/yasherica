@@ -34,6 +34,7 @@ namespace Tests.EditMode
             public ICombatState CombatState { get; set; }
             public ITurnManager TurnManager => null;
             public IBattlefield Battlefield => null;
+            public CombatInitiator OpeningInitiator => CombatInitiator.Enemy;
 
             public event System.Action<ICombatState> OnStateChanged;
             public event System.Action<IPlayer> OnTurnStarted { add { } remove { } }
@@ -41,7 +42,8 @@ namespace Tests.EditMode
             public event System.Action<IReadOnlyList<EnemyIntent>> OnEnemyPlansRevealed;
             public event System.Action<IPlayer, CombatPhase> OnGameEnded { add { } remove { } }
 
-            public void Initialize(ICombatState initialState, IReadOnlyList<IPlayer> players) { }
+            public void Initialize(ICombatState initialState, IReadOnlyList<IPlayer> players,
+                CombatInitiator openingInitiator = CombatInitiator.Enemy) { }
             public void AddUnit(IUnit unit) { }
             public void BeginRounds() { }
             public bool ResolveNextEnemyIntent() => false;
@@ -144,8 +146,10 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void EnemyUnit_ShowsMoveGlyph_ForCommittedMove()
+        public void EnemyUnit_ShowsNoOverheadIcon_ForCommittedMove()
         {
+            // D3: a committed move no longer shows a `»` overhead glyph — its read is the board
+            // direction arrow (EnemyIntentTelegraphView), so the overhead row stays empty.
             var enemy = new Unit(EnemyId, _enemyOwner, new HexCoordinates(2, 0), 30, 30,
                 new List<IAbilityInstance>());
             var intent = new EnemyIntent(
@@ -156,9 +160,7 @@ namespace Tests.EditMode
 
             _controller.RaisePlansRevealed();
 
-            var icons = _view.Icons[EnemyId];
-            Assert.AreEqual(1, icons.Count);
-            Assert.IsTrue(icons[0].IsMoveIntent);
+            Assert.IsEmpty(_view.Icons[EnemyId]);
         }
 
         [Test]

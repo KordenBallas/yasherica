@@ -20,13 +20,20 @@ namespace Narrative.Director.Core
         /// <c>ThreadDefinition</c> — the implicit ephemeral default (FR2).</summary>
         public int DefaultThreadLifespanWindows { get; }
 
+        /// <summary>Per-run cap on spine reveal-beats the reserved lane may place (D7, P3-1). The
+        /// lore-pacing promise is "at most 1–2 reveals per run so each one registers"; 0 disables
+        /// the lane entirely.</summary>
+        public int MaxSpineRevealsPerRun { get; }
+
         public RunPacingSettings(int windowSize, int lookAheadWindows,
-            int maxLiveThreads = 3, int defaultThreadLifespanWindows = 3)
+            int maxLiveThreads = 3, int defaultThreadLifespanWindows = 3,
+            int maxSpineRevealsPerRun = 2)
         {
             WindowSize = windowSize < 1 ? 1 : windowSize;
             LookAheadWindows = lookAheadWindows < 1 ? 1 : lookAheadWindows;
             MaxLiveThreads = maxLiveThreads < 1 ? 1 : maxLiveThreads;
             DefaultThreadLifespanWindows = defaultThreadLifespanWindows < 1 ? 1 : defaultThreadLifespanWindows;
+            MaxSpineRevealsPerRun = maxSpineRevealsPerRun < 0 ? 0 : maxSpineRevealsPerRun;
         }
     }
 }

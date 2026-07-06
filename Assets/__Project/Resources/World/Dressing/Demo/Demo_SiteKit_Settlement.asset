@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 043802d257c69364f958fe25669f10f1, type: 3}
+  m_Name: Demo_SiteKit_Settlement
+  m_EditorClassIdentifier: Yasherica::World.Dressing.Data.SiteDressingKitDefinition
+  _kitId: demo-settlement-dressing
+  _dressingThemeId: settlement-kit
+  _structures:
+  - {fileID: 1640908652775104, guid: cd87e5026d1695148aabe96121c526ef, type: 3}
+  - {fileID: 1275909538635612, guid: 2767c12992d890f44b14f433fe854668, type: 3}
+  - {fileID: 1232766363669618, guid: 2b519101e10d4a74580d4c86ac9e03e6, type: 3}
+  - {fileID: 1185082912798350, guid: 71442e8cd72511e4fabb72f1a2cc82dd, type: 3}
+  - {fileID: 1121113006719782, guid: 386f40ad68cdd3c4fbcb471ef2d93772, type: 3}
+  _props:
+  - {fileID: 6907406269190792576, guid: 6843ae0917d340a40acbc619a1f359e4, type: 3}
+  - {fileID: 3563792095214042153, guid: 762c7ce7ac5a7b84390c6e08365bfa8f, type: 3}
+  - {fileID: 1838849056880800, guid: 08b7d3dcb8d6b9247b1800cd79905e16, type: 3}
+  - {fileID: 1649361158825916, guid: 4500da6a464da55408dd1ff2324163a7, type: 3}
+  - {fileID: 1366878522736558, guid: 87d1d734739f10440b2bdbb449c09a9e, type: 3}
+  _focalProps: []
+  _gateProps:
+  - {fileID: 1998368968366392, guid: e1032c9b5d7d362489670d42997dceb5, type: 3}
+  - {fileID: 1667062371632208, guid: 002f7a569314a244fb643e8ea8d00376, type: 3}
+  - {fileID: 287625791958464770, guid: 8973d278752e1ac44a8f392b039ad7dd, type: 3}
+  - {fileID: 5488617562384943283, guid: f47bee7c446f0a9459129aefd30faa00, type: 3}
+  _groundOverlayMaterial: {fileID: 2100000, guid: 894f5a4d8e36123f3ece1b13889affce, type: 2}

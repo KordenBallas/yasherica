@@ -97,7 +97,7 @@ namespace Tests.EditMode
             var slots = new List<SlotAllocation>(RunLength);
             for (int i = 0; i < RunLength; i++)
             {
-                var slot = allocator.AllocateSlot(questAvailable: true);
+                var slot = allocator.AllocateSlot(questAvailable: true, currentTier: 1);
                 if (slot.Kind == WorldSlotKind.Quest)
                 {
                     var stamp = allocator.TryReserveSettlement(null);

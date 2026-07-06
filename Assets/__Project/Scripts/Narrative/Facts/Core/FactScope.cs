@@ -20,6 +20,12 @@ namespace Narrative.Facts.Core
         PerLocation = 3,
 
         /// <summary>One value per narrative thread; subject is the thread id.</summary>
-        PerThread = 4
+        PerThread = 4,
+
+        /// <summary>One value per story beat; subject is the story id.</summary>
+        PerStory = 5,
+
+        /// <summary>One value per body part; subject is the part id.</summary>
+        PerPart = 6
     }
 }

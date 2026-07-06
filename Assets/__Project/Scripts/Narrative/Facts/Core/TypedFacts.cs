@@ -16,6 +16,29 @@ namespace Narrative.Facts.Core
         /// (<c>BiomeStretchDirector</c>); a seam for D19 — nothing consumes it for difficulty/tone yet.
         /// </summary>
         public static readonly FactKeyRef RunEscalationTier = new FactKeyRef(FactNamespace.World, FactScope.Global, "run_escalation_tier", FactValueType.Int);
+
+        /// <summary>
+        /// Meta-horizon counter of runs started (1 on the first run; a continue is not a new run).
+        /// Written only by <c>RunCounterService</c>; spine soft floors gate on it ("not before run
+        /// N", D7/P3-1).
+        /// </summary>
+        public static readonly FactKeyRef RunCount = new FactKeyRef(FactNamespace.World, FactScope.Global, "run_count", FactValueType.Int);
+
+        /// <summary>
+        /// Meta-horizon cross-run spine cursor (D20/P3-3), subject = story id: true once the player
+        /// has actually SEEN the reveal-beat (its dialogue ran to an outcome, walk-away included) —
+        /// not merely had it placed. Written only by <c>SpineSeenRecorder</c>; the reserved lane
+        /// excludes a seen beat from the spine pool in every later run.
+        /// </summary>
+        public static readonly FactKeyRef SpineSeen = new FactKeyRef(FactNamespace.World, FactScope.PerStory, "spine_seen", FactValueType.Bool);
+
+        /// <summary>
+        /// Meta-horizon tasted-forms catalog (P4-5), subject = part id: true once the hero has
+        /// carried the part in any run (equipped or dormant). Written only by
+        /// <c>TastedFormsRecorder</c>; read only by the Arena draft to widen the shared board.
+        /// Passive unlock — no currency, no achievement gate, never feeds back into Journey.
+        /// </summary>
+        public static readonly FactKeyRef ArenaTasted = new FactKeyRef(FactNamespace.World, FactScope.PerPart, "arena_tasted", FactValueType.Bool);
     }
 
     /// <summary>Curated, compile-safe references to per-actor fact keys.</summary>
@@ -44,6 +67,9 @@ namespace Narrative.Facts.Core
             yield return WorldFacts.BarnRaided;
             yield return WorldFacts.GrainRecovered;
             yield return WorldFacts.RunEscalationTier;
+            yield return WorldFacts.RunCount;
+            yield return WorldFacts.SpineSeen;
+            yield return WorldFacts.ArenaTasted;
             yield return ActorFacts.LootedBarn;
             yield return FactionFacts.ReadsAsTier;
         }

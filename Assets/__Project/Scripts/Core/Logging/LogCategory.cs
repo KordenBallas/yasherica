@@ -21,6 +21,10 @@ namespace Core.Logging
         Dialogue,
         Inventory,
         Loot,
-        Mutation
+        Mutation,
+        Persistence,
+
+        /// <summary>Shared UI infrastructure (popovers, previews) that belongs to no one system.</summary>
+        UI
     }
 }

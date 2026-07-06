@@ -18,7 +18,7 @@ MonoBehaviour:
   _footprintMin: 2
   _footprintMax: 3
   _triggerWeight: 40
-  _dressingThemeId: village-kit
+  _dressingThemeId: settlement-kit
   _overrideAnchorBeats: 0
   _anchorBeats: []
   _overrideFillBudget: 0

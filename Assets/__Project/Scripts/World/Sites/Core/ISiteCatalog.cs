@@ -22,6 +22,12 @@ namespace World.Sites.Core
         /// </summary>
         IReadOnlyCollection<string> NpcFillFlavors { get; }
 
+        /// <summary>
+        /// The union of boss story flavors of the boss-led sites (e.g. "bandit-boss"). Boss stories
+        /// are ambient colour too — repeatable per camp, never a quest-slot candidate.
+        /// </summary>
+        IReadOnlyCollection<string> BossStoryFlavors { get; }
+
         /// <summary>The site with this id, or null when unknown.</summary>
         SiteDefinitionData Get(string siteId);
     }

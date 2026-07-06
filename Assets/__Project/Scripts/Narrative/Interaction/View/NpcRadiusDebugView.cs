@@ -20,6 +20,7 @@ namespace Narrative.Interaction.View
 
         private static readonly Color InteractionColor = new Color(0.3f, 0.8f, 1f, 0.9f);
         private static readonly Color AggroColor = new Color(1f, 0.35f, 0.25f, 0.9f);
+        private static readonly Color BossColor = new Color(0.75f, 0.25f, 0.55f, 0.9f);
 
         private INpcInteractionRegistry _registry;
         private NpcInteractionSettings _settings;
@@ -64,8 +65,10 @@ namespace Narrative.Interaction.View
                 }
 
                 bool hostile = handle.Intent == NpcIntent.Hostile;
-                float radius = hostile ? _settings.AggroRadius : _settings.InteractionRadius;
-                Color color = hostile ? AggroColor : InteractionColor;
+                float radius = handle.IsBoss
+                    ? _settings.BossEngagementRadius
+                    : hostile ? _settings.AggroRadius : _settings.InteractionRadius;
+                Color color = handle.IsBoss ? BossColor : hostile ? AggroColor : InteractionColor;
 
                 var ring = GetRing(handle.Id);
                 DrawCircle(ring, handle.PositionSource.position, radius, color);
