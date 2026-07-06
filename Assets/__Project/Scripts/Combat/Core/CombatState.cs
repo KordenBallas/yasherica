@@ -47,7 +47,11 @@ namespace Combat.Core
         
         public IUnit GetUnitAt(HexCoordinates position)
         {
-            return Units.FirstOrDefault(u => u.Position.Equals(position));
+            // Occupancy reads alive units only (D5): a unit that dies frees its cell the moment
+            // it dies — movement validation, enemy move fizzle, push blocking, and targeting all
+            // stop treating the corpse as a blocker. Dead units stay in Units (win conditions,
+            // HP sync, and the turn strip still see them); they just no longer hold the board.
+            return Units.FirstOrDefault(u => u.IsAlive && u.Position.Equals(position));
         }
         
         public IReadOnlyList<IUnit> GetUnitsByPlayer(IPlayer player)

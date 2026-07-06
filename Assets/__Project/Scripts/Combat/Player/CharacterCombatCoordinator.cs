@@ -1,5 +1,4 @@
 using Character;
-using Combat.Animation;
 using Combat.Battlefield;
 using Combat.Config;
 using Combat.Controller;
@@ -30,12 +29,10 @@ namespace Combat.Player
         private CombatActionPanelPresenter _actionPanelPresenter;
 
         // Other components
-        private CharacterCombatAnimator _animator;
         private HexCellController _cellController;
 
         // Injected dependencies
         [Inject] private IInputController _inputController;
-        [Inject] private ICharacterMovementAnimator _animationStrategy;
         [Inject] private HexDirectionConfig _hexConfig;
         [Inject] private CombatMovementConfig _movementConfig;
         [Inject] private IAbilityShapeCalculator _shapeCalculator;
@@ -123,14 +120,8 @@ namespace Combat.Player
                 _logger.Warning(LogCategory.Combat,"[CharacterCombatCoordinator] No ICombatActionPanelView found - UI will not be available");
             }
 
-            _animator = gameObject.AddComponent<CharacterCombatAnimator>();
-            _animator.Initialize(
-                _animationStrategy,
-                _battlefield,
-                _combatController,
-                _characterUnit.Id,
-                _logger);
-
+            // Board movement animation lives in CombatUnitComponentBase (the shared unit sync
+            // path, D6/D8) — no separate hero-only animator component.
             _logger.Info(LogCategory.Combat,"[CharacterCombatCoordinator] Initialization complete");
         }
 
@@ -153,9 +144,6 @@ namespace Combat.Player
             _inputModeManager?.Dispose();
             _abilityPresenter?.Dispose();
             _actionPanelPresenter?.Dispose();
-
-            if (_animator != null)
-                Destroy(_animator);
         }
     }
 }

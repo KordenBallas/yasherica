@@ -82,6 +82,34 @@ namespace World.Dressing.Data
             return new SiteDressingCatalog(mapped);
         }
 
+        /// <summary>Maps a backdrop kit's entries to the pure scatter pool (index-aligned; a
+        /// broken entry keeps its slot at weight 0 so swapping never shifts a draw).</summary>
+        public static IReadOnlyList<BackdropEntryData> ToBackdropEntries(
+            BackdropKitDefinition kit, IGameLogger logger = null)
+        {
+            if (kit == null)
+            {
+                return System.Array.Empty<BackdropEntryData>();
+            }
+
+            var entries = new List<BackdropEntryData>(kit.Entries.Count);
+            for (int i = 0; i < kit.Entries.Count; i++)
+            {
+                var entry = kit.Entries[i];
+                if (entry == null || entry.Prefab == null)
+                {
+                    logger?.Warning(LogCategory.LevelGeneration,
+                        $"[DressingKitMapper] Backdrop kit '{kit.KitId}' entry {i} has no prefab — kept at weight 0.");
+                    entries.Add(new BackdropEntryData(0, 1f, 1f));
+                    continue;
+                }
+
+                entries.Add(new BackdropEntryData(entry.Weight, entry.ScaleMin, entry.ScaleMax));
+            }
+
+            return entries;
+        }
+
         private static FeaturePoolData ToPool(BiomeFeatureKitDefinition kit, IGameLogger logger)
         {
             var entries = new List<FeatureEntryData>(kit.Features.Count);

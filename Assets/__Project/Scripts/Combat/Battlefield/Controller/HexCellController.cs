@@ -38,8 +38,12 @@ namespace Combat.Battlefield
                 return;
             }
 
-            // Get original color (from current state or default)
-            Color originalColor = cell.StateMachine.CurrentState?.GetColor() ?? Color.white;
+            // The color to restore on clear. Highlighting an already-highlighted cell must thread
+            // the UNDERLYING original through, not capture the current highlight color as
+            // "original" — that chain is how a hover-over-highlight left cells stuck yellow (D8).
+            Color originalColor = cell.StateMachine.CurrentState is HexCellHighlightedState currentHighlight
+                ? currentHighlight.GetOriginalColor()
+                : cell.StateMachine.CurrentState?.GetColor() ?? Color.white;
 
             // Get highlight color based on type
             Color highlightColor = GetColorForHighlightType(type);

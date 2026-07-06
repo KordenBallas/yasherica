@@ -93,6 +93,31 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void Move_OntoACorpseCell_IsValid()
+        {
+            // D5: a dead unit frees its cell the moment it dies — the corpse is not a blocker.
+            var mover = MakeUnit(hasActed: false);
+            var corpse = new Unit(
+                id: 11,
+                owner: _player,
+                position: new HexCoordinates(1, 0),
+                currentHP: 0,
+                maxHP: 50,
+                abilities: new List<IAbilityInstance>());
+            var state = new CombatState(
+                new List<IUnit> { mover, corpse },
+                new List<IPlayer> { _player },
+                currentPlayer: _player,
+                phase: CombatPhase.Combat,
+                roundPhase: RoundPhase.PlayerAct);
+            var action = new MoveAction(_player, 10, new HexCoordinates(1, 0));
+
+            var result = _validator.ValidateDetailed(state, action);
+
+            Assert.IsTrue(result.IsValid, result.FailureReason);
+        }
+
+        [Test]
         public void AnyPlayerAction_BlockedOutsideTheActPhase()
         {
             var state = StateWith(MakeUnit(hasActed: false), RoundPhase.EnemyResolve);

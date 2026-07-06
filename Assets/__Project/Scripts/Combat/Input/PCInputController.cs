@@ -12,6 +12,8 @@ namespace Combat.Input
     /// PC input controller using mouse and keyboard.
     /// Movement: hold M → aim with mouse → release M to confirm (right-click aborts).
     /// Abilities: hold Q/W/E/R/T/Y → aim with mouse → release to confirm (right-click aborts).
+    /// Queue (D7): tap Enter to fire along the current facing; hold Enter past the threshold to
+    /// aim the whole volley at the cursor, release to fire (right-click aborts).
     /// </summary>
     public class PCInputController : MonoBehaviour, IInputController
     {
@@ -30,8 +32,11 @@ namespace Combat.Input
         // Ability hold state
         private int? _heldAbilityIndex;
 
-        // Volley-aim hold state (Enter): hold to turn toward the cursor, release to execute the queue (D2)
+        // Volley fire/aim state (Enter, D7): a short tap fires the queue immediately along the
+        // current facing; holding past the threshold enters aim mode (turn toward the cursor,
+        // release to execute). _volleyPressStartTime tracks the press while it is still a "tap".
         private bool _wasVolleyAimActive;
+        private float? _volleyPressStartTime;
 
         // Shared abort flag — set by right-click while holding any key
         private bool _aimAborted;
@@ -67,8 +72,8 @@ namespace Combat.Input
             // Movement key transitions
             if (isMovementKeyPressed && !_wasMovementModeActive)
             {
-                // Just pressed — enter movement mode only if no ability or volley aim is held
-                if (!_heldAbilityIndex.HasValue && !_wasVolleyAimActive)
+                // Just pressed — enter movement mode only if no ability or volley press is held
+                if (!_heldAbilityIndex.HasValue && !_wasVolleyAimActive && !_volleyPressStartTime.HasValue)
                 {
                     _wasMovementModeActive = true;
                     _aimAborted = false;
@@ -86,25 +91,37 @@ namespace Combat.Input
                 OnMovementModeChanged?.Invoke(new MovementModeChangedCommand(false, Time.time));
             }
 
-            // Volley aim (Enter): hold to turn the hero toward the cursor, release to execute the queue (D2)
+            // Volley fire/aim (Enter, D7): a short tap discharges the queue immediately along the
+            // hero's current facing; holding past the threshold enters aim mode — turn toward the
+            // cursor, release to execute (the shipped D2 gesture). Right-click aborts either stage.
             bool isExecuteKeyPressed = IsKeyPressed(_config.executeQueueKey);
-            if (isExecuteKeyPressed && !_wasVolleyAimActive)
+            if (isExecuteKeyPressed && !_wasVolleyAimActive && !_volleyPressStartTime.HasValue)
             {
-                // Just pressed — enter volley aim only if nothing else is held
+                // Just pressed — start tracking the press only if nothing else is held
                 if (!_heldAbilityIndex.HasValue && !_wasMovementModeActive)
                 {
-                    _wasVolleyAimActive = true;
+                    _volleyPressStartTime = Time.time;
                     _aimAborted = false;
+                }
+            }
+            else if (isExecuteKeyPressed && _volleyPressStartTime.HasValue && !_wasVolleyAimActive)
+            {
+                // Still held — crossing the threshold turns the tap into an aim hold
+                if (!_aimAborted && Time.time - _volleyPressStartTime.Value >= _config.volleyAimHoldThresholdSeconds)
+                {
+                    _wasVolleyAimActive = true;
                     OnVolleyAimStarted?.Invoke(new VolleyAimStartedCommand(Time.time));
                 }
             }
-            else if (!isExecuteKeyPressed && _wasVolleyAimActive)
+            else if (!isExecuteKeyPressed && (_wasVolleyAimActive || _volleyPressStartTime.HasValue))
             {
-                // Just released — execute the queued volley along the final facing unless the aim was aborted
+                // Released — a tap fires along the current facing, an aim hold fires along the
+                // aimed facing; both skip firing if right-click aborted the gesture.
                 if (!_aimAborted)
                     OnExecuteQueueRequested?.Invoke(new ExecuteQueueCommand(true));
 
                 _wasVolleyAimActive = false;
+                _volleyPressStartTime = null;
                 _lastDirection = null;
             }
 
@@ -121,9 +138,11 @@ namespace Combat.Input
                     OnAbilityCancelled?.Invoke(new AbilityCancelledCommand(false));
                     _aimAborted = true;
                 }
-                else if (_wasVolleyAimActive)
+                else if (_wasVolleyAimActive || _volleyPressStartTime.HasValue)
                 {
-                    OnVolleyAimCancelled?.Invoke(new VolleyAimCancelledCommand(Time.time));
+                    // Cancels the aim hold and a not-yet-threshold tap alike (D7).
+                    if (_wasVolleyAimActive)
+                        OnVolleyAimCancelled?.Invoke(new VolleyAimCancelledCommand(Time.time));
                     _aimAborted = true;
                 }
             }
@@ -141,7 +160,7 @@ namespace Combat.Input
             }
 
             // Ability key press — only when nothing else is held
-            if (!_heldAbilityIndex.HasValue && !_wasMovementModeActive && !_wasVolleyAimActive)
+            if (!_heldAbilityIndex.HasValue && !_wasMovementModeActive && !_wasVolleyAimActive && !_volleyPressStartTime.HasValue)
             {
                 for (int i = 0; i < _config.abilityKeys.Count; i++)
                 {
@@ -167,7 +186,7 @@ namespace Combat.Input
                 }
             }
 
-            // Enter is now a hold-to-aim / release-to-execute gesture (handled above), not a single press.
+            // Enter is a tap-to-fire / hold-to-aim gesture (handled above), not a single press (D7).
 
             // S key — change direction
             if (IsKeyPressedThisFrame(_config.changeDirectionKey))
@@ -228,6 +247,8 @@ namespace Combat.Input
             _isEnabled = true;
             _wasMovementModeActive = false;
             _heldAbilityIndex = null;
+            _wasVolleyAimActive = false;
+            _volleyPressStartTime = null;
             _aimAborted = false;
             _lastDirection = null;
             _logger.Info(LogCategory.Combat,$"[PCInputController] Enabled (Movement: {_config.movementModeKey})");
@@ -241,6 +262,8 @@ namespace Combat.Input
             _isEnabled = false;
             _wasMovementModeActive = false;
             _heldAbilityIndex = null;
+            _wasVolleyAimActive = false;
+            _volleyPressStartTime = null;
             _aimAborted = false;
             _lastDirection = null;
             _logger.Info(LogCategory.Combat,"[PCInputController] Disabled");

@@ -39,7 +39,10 @@ Art direction: `design/art/world-backdrop.md`, `design/art/render-look.md` §2.
   tiers, no bridges; gaps stay clean hops regardless of tier difference.
 - **R8 (World backdrop)** A distant, **hazed biome horizon** (two ridge silhouette layers + sky
   gradient band) sits behind the whole field, keyed to the biome, muted and lowest in the focus
-  hierarchy. It reads as infinitely distant and sits behind any future per-Site backdrop.
+  hierarchy. It reads as infinitely distant and sits behind any future per-Site backdrop. The
+  hero-anchored ridge rig here is the *painted-plane* horizon; a nearer, **world-fixed 3D scatter**
+  layer (dunes/hills between the platforms and the ridges) is the environment-dressing **E4**
+  backdrop kit — see `environment-dressing.md` §1.5 (it renders in front of these ridges).
 - **R9 (Per-biome character)** The character of all three axes is authored per biome on the
   **biome appearance config** (`BiomeAppearanceDefinition`); an unauthored biome falls back to sane
   code defaults. Tuning or adding a biome's landscape is data-only.
@@ -157,7 +160,8 @@ One asset per `LevelTheme`, loaded from `Resources/World/Biomes/` (or wired on t
 fields (kits, tints) are read by the view layer directly off the SO. The environment-dressing pass
 (2026-07-06) extended this asset with the biome's **dressing binding** — `_featureKit` (whole-kit),
 `_toneTint`/`_toneStrength` (bind-time tone treatment), `_blockersPer100Cells` /
-`_decorClustersPer100Cells` / `_laneHalfWidthCells` (placement dials) — documented in
+`_decorClustersPer100Cells` / `_laneHalfWidthCells` (placement dials), and (E4) `_backdropKit`
+(whole-kit) + `_backdropScatterPer100Units` (distant-scatter density) — all documented in
 `environment-dressing.md` §3, which owns those fields.
 
 | Field | Type | Meaning | Default |

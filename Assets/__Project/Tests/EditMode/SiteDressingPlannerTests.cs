@@ -175,15 +175,16 @@ namespace Tests.EditMode
             }
 
             var props = plan.Placements.Where(p => p.Role == DressingRole.Prop).ToList();
-            Assert.GreaterOrEqual(props.Count, 4);
+            Assert.GreaterOrEqual(props.Count, 3);
             foreach (var prop in props)
             {
                 float dx = prop.LocalX - fx;
                 float dz = prop.LocalZ - fz;
                 float distance = (float)System.Math.Sqrt(dx * dx + dz * dz);
-                Assert.GreaterOrEqual(distance, surface.HexSize * 0.9f);
-                Assert.LessOrEqual(distance, surface.HexSize * 1.6f,
-                    "Props gather in a ring around the fire.");
+                // Members sit in a ring around the fire; one pulled back from the platform edge
+                // may end up closer than the rolled radius — gathered, never past the silhouette.
+                Assert.LessOrEqual(distance, surface.HexSize * 1.7f,
+                    "Props gather around the fire.");
             }
         }
 
@@ -216,6 +217,28 @@ namespace Tests.EditMode
                 new SiteKitData("camp-kit", 0, 0, 0, 0), LevelTheme.Forest, BattlefieldMin,
                 new DeterministicRandom(1), new DeterministicRandom(2));
             Assert.IsTrue(emptyKitPlan.IsEmpty);
+        }
+
+        [Test]
+        public void SitePlacements_FitWithinTheSilhouette()
+        {
+            // The playtest fix: no site dressing (house, prop ring, gate) hangs past the walkable
+            // outline — site kits have no overhang opt-in, everything sits on the platform.
+            foreach (var kit in new[] { SettlementKit(), CampKit() })
+            {
+                for (ulong seed = 1; seed <= 6; seed++)
+                {
+                    var surface = GenerateSurface(seed);
+                    var plan = Plan(surface, kit, index: 0, platformSeed: seed);
+                    foreach (var placement in plan.Placements)
+                    {
+                        float clearance = PlatformEdgeFit.SignedClearance(
+                            surface.Outline, placement.LocalX, placement.LocalZ);
+                        Assert.GreaterOrEqual(clearance, 0f,
+                            $"Seed {seed}: {placement.Role} placement past the platform silhouette.");
+                    }
+                }
+            }
         }
 
         [Test]

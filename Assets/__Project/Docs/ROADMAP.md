@@ -714,9 +714,10 @@ New work (no system doc yet):
   `_heightDeviation` drunk walk + `PerlinNoiseMap` removed. Parked escalations stay open below.
 - [x] `[content]` **M5 — Landscape around platforms.** ✅ Absorbed into P5-2's backdrop axis and
   shipped with it (`world-landscape.md` §2.3; placeholder silhouettes until P5-4 meshes).
-- [ ] `[content]` **P5-2 follow-ups (landscape read).** (a) Real landmark/backdrop meshes from the
-  decoration asset pipeline (P5-4) into the `BiomeAppearanceDefinition` kit lists (placeholders are
-  procedural today); (b) **parallax / sky animation** polish (backdrop is rigidly hero-anchored);
+- [ ] `[content]` **P5-2 follow-ups (landscape read).** (a) Real landmark/**ridge** meshes from the
+  decoration asset pipeline (P5-4) into the `BiomeAppearanceDefinition._silhouetteKit` (the
+  hero-anchored ridge strips are still procedural — the **E4 backdrop scatter** below is a separate,
+  world-fixed 3D layer in front of them); (b) **parallax / sky animation** polish (backdrop is rigidly hero-anchored);
   (c) **path-following camera yaw** — parked escalation, revisit only if playtest reads the weave as
   "platforms sliding sideways"; (d) **route↔real-backdrop coupling** (thread the path through the
   actual horizon silhouette — causality is faked today); (e) **site-aware tier flattening** — the
@@ -742,13 +743,16 @@ New work (no system doc yet):
   pack prefabs that are nested-prefab variants; their fileIDs were hand-computed
   (source ^ instance). If any kit slot shows `None` in the inspector, re-drag the prefab — the
   spawner warns and skips broken entries at runtime. One-time editor check. *(content)*
-- [ ] `[content]` **Track E · E4 — World backdrop fill (demo) — DEFERRED (owner, 2026-07-06).**
-  *(Verified brief `product-requirements/world-backdrop-fill-demo.md`.)* Real 3D low-poly distant
-  scatter (dunes/mesas behind the desert, hills/treeline behind the forest), heavily hazed,
-  deterministic, cheap (small reused mesh set, low density), non-walkable. The E1 kit contract is
-  shaped for it: one more `DressingKitDefinition` subclass + a binding field on
-  `BiomeAppearanceDefinition`; the distant-scatter placement layer is the code half.
-  *(world + art)*
+- [x] `[content]` **Track E · E4 — World backdrop fill (demo) — SHIPPED (2026-07-06).**
+  *(Brief `product-requirements/world-backdrop-fill-demo.md`; see `environment-dressing.md`
+  §1.5/R20–R22 + CHANGELOG.)* Real 3D low-poly distant scatter (cliffs/mesas + rocks + cactus
+  cluster behind the desert, hills + mountain + tree-clumps behind the forest), heavily hazed
+  (`ToneMaterialCache.GetHazed`), deterministic (per-slot streams, streaming-safe), cheap (low
+  density, colliderless), non-walkable, world-fixed (real parallax) in a depth band in front of the
+  ridge rig. Realized as the contract's **third kit kind** (`BackdropKitDefinition` bound from
+  `BiomeAppearanceDefinition._backdropKit`). Mountain/Cave bind none. Follow-ups: real backdrop
+  meshes (P5-4), parallax/sky-anim, horizon escalation, route↔silhouette coupling — all deferred
+  (`world-backdrop.md` §5).
 - [ ] `[content]` **Dressing — light biome pass under site dressing.** Site platforms currently
   skip biome features entirely (one voice per place, KISS); a sparse decorative-only biome layer
   under the site kit could soften the transition. *(world)*

@@ -38,6 +38,18 @@ namespace World.Dressing.Core
         /// <summary>The camp's fire sits toward the rear-center, off the movement lane.</summary>
         private const float FocalRearFraction = 0.6f;
 
+        // Rough edge footprints for the site roles (the decoration-footprint rule extended here —
+        // playtest showed camp rings and gates spilling past the silhouette): small props and gate
+        // pieces are nudged inward like biome decoration; a structure/focal CELL prefers a centre
+        // clearing the edge by more than a cell's inradius (~1.73 at hex size 2 — every cell centre
+        // clears that much by construction), so wide houses and the fire's prop ring move one ring
+        // inward. When no cell qualifies (small blobs) the margin falls back off — a slightly
+        // overhanging house beats an undressed site, and ring members are edge-fitted regardless.
+        private const float PropFootprint = 0.4f;
+        private const float GateFootprint = 0.5f;
+        private const float StructureEdgeMargin = 2.5f;
+        private const float FocalEdgeMargin = 2.5f;
+
         public PlatformDressingPlan Plan(
             PlatformHexSurface surface,
             SiteStamp site,
@@ -69,7 +81,7 @@ namespace World.Dressing.Core
                 PlanStructures(
                     surface, kit, battlefieldMinCells, protectedSet, frontLineFraction, sharedScale,
                     platformRng, placements, blocked);
-                PlanStructureProps(kit, platformRng, placements);
+                PlanStructureProps(surface, kit, platformRng, placements);
             }
             else if (kit.FocalCount > 0)
             {
@@ -106,18 +118,13 @@ namespace World.Dressing.Core
 
             // Candidates in the shared rear band, swept left-to-right so houses read as fronting
             // one line; the band (not per-cell jitter) is what the whole block shares.
-            var candidates = new List<HexCoordinates>();
-            foreach (var cell in surface.Cells)
+            // A house is wider than its cell: prefer cells clear of the edge; when the blob is too
+            // small to have any, fall back to the plain rear band (the lesser evil).
+            var candidates = CollectStructureCandidates(
+                surface, protectedSet, frontZ, StructureEdgeMargin);
+            if (candidates.Count == 0)
             {
-                if (protectedSet.Contains(cell))
-                {
-                    continue;
-                }
-
-                if (surface.GetCellCenterLocal(cell).Z >= frontZ)
-                {
-                    candidates.Add(cell);
-                }
+                candidates = CollectStructureCandidates(surface, protectedSet, frontZ, 0f);
             }
 
             candidates.Sort((a, b) =>
@@ -169,7 +176,40 @@ namespace World.Dressing.Core
             }
         }
 
+        private static List<HexCoordinates> CollectStructureCandidates(
+            PlatformHexSurface surface,
+            HashSet<HexCoordinates> protectedSet,
+            float frontZ,
+            float edgeMargin)
+        {
+            var candidates = new List<HexCoordinates>();
+            foreach (var cell in surface.Cells)
+            {
+                if (protectedSet.Contains(cell))
+                {
+                    continue;
+                }
+
+                var (cx, cz) = surface.GetCellCenterLocal(cell);
+                if (cz < frontZ)
+                {
+                    continue;
+                }
+
+                if (edgeMargin > 0f
+                    && PlatformEdgeFit.SignedClearance(surface.Outline, cx, cz) < edgeMargin)
+                {
+                    continue;
+                }
+
+                candidates.Add(cell);
+            }
+
+            return candidates;
+        }
+
         private static void PlanStructureProps(
+            PlatformHexSurface surface,
             SiteKitData kit,
             Narrative.Director.Core.IRandomSource platformRng,
             List<DressingPlacement> placements)
@@ -195,10 +235,17 @@ namespace World.Dressing.Core
                 {
                     float offsetX = (NextFloat(platformRng) - 0.5f) * 2.4f;
                     float offsetZ = -(0.8f + NextFloat(platformRng) * 0.8f);
+                    int entryIndex = platformRng.NextInt(kit.PropCount);
+                    float yaw = NextFloat(platformRng) * 360f;
+                    float px = structure.LocalX + offsetX;
+                    float pz = structure.LocalZ + offsetZ;
+                    if (!PlatformEdgeFit.TryFitInside(surface.Outline, px, pz, PropFootprint, out px, out pz))
+                    {
+                        continue;
+                    }
+
                     placements.Add(new DressingPlacement(
-                        DressingRole.Prop, platformRng.NextInt(kit.PropCount),
-                        structure.LocalX + offsetX, structure.LocalZ + offsetZ,
-                        NextFloat(platformRng) * 360f, 1f));
+                        DressingRole.Prop, entryIndex, px, pz, yaw, 1f));
                 }
             }
         }
@@ -251,15 +298,36 @@ namespace World.Dressing.Core
                     * surface.HexSize;
                 float px = fx + radius * (float)Math.Cos(radians);
                 float pz = fz + radius * (float)Math.Sin(radians);
+                int entryIndex = platformRng.NextInt(kit.PropCount);
+                // A ring member near the platform edge is pulled back onto solid ground —
+                // gathered around the fire, never hovering over the gap.
+                if (!PlatformEdgeFit.TryFitInside(surface.Outline, px, pz, PropFootprint, out px, out pz))
+                {
+                    continue;
+                }
+
                 // Face the fire: yaw pointing from the prop back to the focal center.
                 float yaw = (float)(Math.Atan2(fx - px, fz - pz) * 180.0 / Math.PI);
                 placements.Add(new DressingPlacement(
-                    DressingRole.Prop, platformRng.NextInt(kit.PropCount), px, pz, yaw, 1f));
+                    DressingRole.Prop, entryIndex, px, pz, yaw, 1f));
             }
         }
 
         private static bool TryFindFocalCell(
             PlatformHexSurface surface, HashSet<HexCoordinates> protectedSet, out HexCoordinates focal)
+        {
+            // The fire needs room around it (the prop ring gathers at 1-1.5 cells): prefer a cell
+            // clear of the edge; a blob too small to have one keeps its fire anyway (the ring
+            // members are edge-fitted individually).
+            return TryFindFocalCell(surface, protectedSet, FocalEdgeMargin, out focal)
+                || TryFindFocalCell(surface, protectedSet, 0f, out focal);
+        }
+
+        private static bool TryFindFocalCell(
+            PlatformHexSurface surface,
+            HashSet<HexCoordinates> protectedSet,
+            float edgeMargin,
+            out HexCoordinates focal)
         {
             GetZBounds(surface, out float minZ, out float maxZ);
             float targetZ = minZ + (maxZ - minZ) * FocalRearFraction;
@@ -275,6 +343,12 @@ namespace World.Dressing.Core
                 }
 
                 var (x, z) = surface.GetCellCenterLocal(cell);
+                if (edgeMargin > 0f
+                    && PlatformEdgeFit.SignedClearance(surface.Outline, x, z) < edgeMargin)
+                {
+                    continue;
+                }
+
                 float dz = z - targetZ;
                 float sq = x * x + dz * dz;
                 if (sq < bestSq)
@@ -317,9 +391,17 @@ namespace World.Dressing.Core
                 // Two pieces straddle the lane; a single piece sits on its far side.
                 float side = pieces == 2 && i == 0 ? -1f : 1f;
                 float offsetZ = side * (laneHalfWidth + surface.HexSize * 0.5f);
+                int entryIndex = platformRng.NextInt(kit.GateCount);
+                // The straddle offset can leave the silhouette on a narrow approach edge —
+                // pull the piece back onto the platform.
+                if (!PlatformEdgeFit.TryFitInside(
+                        surface.Outline, minX, offsetZ, GateFootprint, out float gx, out float gz))
+                {
+                    continue;
+                }
+
                 placements.Add(new DressingPlacement(
-                    DressingRole.Gate, platformRng.NextInt(kit.GateCount),
-                    minX, offsetZ, GateYawDegrees, 1f));
+                    DressingRole.Gate, entryIndex, gx, gz, GateYawDegrees, 1f));
             }
         }
 

@@ -107,6 +107,12 @@ namespace World.Biomes.Data
         [Tooltip("Protected movement-lane half-width, in cell (hex-size) units")]
         [Min(0f)]
         [SerializeField] private float _laneHalfWidthCells = 1.1f;
+        [Tooltip("The biome's world-backdrop kit (distant scatter horizon), bound whole-kit. " +
+                 "Empty = no scatter (the procedural ridge strips stay the only horizon)")]
+        [SerializeField] private BackdropKitDefinition _backdropKit;
+        [Tooltip("Distant-scatter density: items per 100 forward world units — a horizon, not a crowd")]
+        [Min(0f)]
+        [SerializeField] private float _backdropScatterPer100Units = 4f;
 
         public LevelTheme Theme => _theme;
         public float CorridorHalfWidth => _corridorHalfWidth;
@@ -137,5 +143,7 @@ namespace World.Biomes.Data
         public float BlockersPer100Cells => _blockersPer100Cells;
         public float DecorClustersPer100Cells => _decorClustersPer100Cells;
         public float LaneHalfWidthCells => _laneHalfWidthCells;
+        public BackdropKitDefinition BackdropKit => _backdropKit;
+        public float BackdropScatterPer100Units => _backdropScatterPer100Units;
     }
 }

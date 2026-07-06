@@ -17,12 +17,13 @@ Every functional change appends an entry **in the same change as the code** (CLA
   **and unclaimed** cell. `HubProximityPresenter`/domain unchanged.
 
 ### Added
-- **Environment Dressing — kit contract, biome feature kits & site/camp dressing (Track E:
-  E1+E2+E3; E4 backdrop deferred)** [environment-dressing · platform-generation · world-landscape ·
-  world-sites] (briefs `product-requirements/dressing-kit-binding-and-swap.md`,
-  `biome-decoration-kits-demo.md`, `site-camp-dressing-kits-demo.md`; builds the
-  `biome-visual-styles.md` P1-2 placement model; new system doc `environment-dressing.md`):
-  the world's decoration layer behind one **swappable dressing-kit contract**.
+- **Environment Dressing — the whole Track E (E1 kit contract · E2 biome kits · E3 site/camp kits ·
+  E4 backdrop scatter · E5 footprint/edge-fit)** [environment-dressing · platform-generation ·
+  world-landscape · world-sites] (briefs `dressing-kit-binding-and-swap.md`,
+  `biome-decoration-kits-demo.md`, `site-camp-dressing-kits-demo.md`, `world-backdrop-fill-demo.md`,
+  `decoration-footprint-and-edge-fit.md`; builds the `biome-visual-styles.md` P1-2 placement model;
+  new system doc `environment-dressing.md`): the world's decoration layer behind one **swappable
+  dressing-kit contract**.
   - **E1 — the contract (R1–R6):** data-only kit SOs (`DressingKitDefinition` base +
     `BiomeFeatureKitDefinition` + `SiteDressingKitDefinition`; a backdrop kind is one more
     subclass later), **whole-kit binding** (`BiomeAppearanceDefinition._featureKit`;
@@ -54,10 +55,6 @@ Every functional change appends an entry **in the same change as the code** (CLA
     replaces biome features on site platforms; all placements platform-local (no gap-crossing
     possible). Determinism rides `biome-features:{nodeId}` / `site-dressing:{instanceId}(:{index})`
     seed streams — restore replays identical dressing, **no save-format change**.
-  - **Tests:** 29 new edit-mode tests green headless (`BiomeFeaturePlannerTests`,
-    `SiteDressingPlannerTests`, `EnvironmentDressingPlannerTests`,
-    `PlatformHexSurfaceBlockedCellsTests`) + in-editor `DressingKitMapperTests` and the
-    `DemoPackQuarantineTests` clean-swap guard; hexsurface (32) + combat (55) regressions green.
   - **Decoration footprint & edge-fit (Track E polish, R17–R19)** (brief
     `product-requirements/decoration-footprint-and-edge-fit.md`): wide props no longer spill past
     the platform edge. Every feature entry carries a **rough footprint radius** (kind defaults
@@ -65,10 +62,36 @@ Every functional change appends an entry **in the same change as the code** (CLA
     inward** to fit fully within the silhouette (new pure `PlatformEdgeFit` —
     signed-clearance-to-outline + inward nudge; skip only when genuinely unfittable), blocking
     obstacles skip a cell their footprint doesn't clear. The **rim-framing overhang became
-    opt-in**: only `_mayOverhang`-flagged entries (demo: the desert `Tree_01`) anchor on the rim
+    opt-in**: only `_mayOverhang`-flagged entries (demo: the desert `Tree_01`) anchor near the rim
     and lean past the edge, with tighter member jitter so the base keeps its foothold. Density,
-    clustering, dials, and determinism unchanged; 38 dressing tests green (+6 `PlatformEdgeFitTests`,
-    +2 planner edge-fit tests, mapper footprint-resolution test).
+    clustering, dials, and determinism unchanged.
+  - **E4 — world backdrop fill (R20–R22)** (brief `world-backdrop-fill-demo.md`): the distant
+    hazed horizon behind the field, as the **third kit kind** — `BackdropKitDefinition` bound
+    whole-kit from `BiomeAppearanceDefinition._backdropKit` (the contract's additive backdrop
+    subclass, exactly as E1 foretold). Pure `BackdropScatterPlanner`: the world X axis is sliced
+    into fixed slots, each drawn from a private `backdrop-scatter:{slot}` stream so contiguous
+    streaming windows fill every slot exactly once (same seed → same horizon); low density
+    (`_backdropScatterPer100Units`), a depth band behind the corridor and in front of the ridge
+    rig. `BackdropScatterSpawner` places the silhouettes **world-fixed** (real parallax, unlike
+    the hero-anchored ridges) along the **camera's yawed depth axis** dropped by `depth·tan(pitch)`
+    (the same ortho compensation the ridge rig applies), washed heavily toward the biome haze tint
+    (new `ToneMaterialCache.GetHazed` — the quietest layer), colliders stripped (never walkable).
+    Rides the `AreaGenerator` landmark-scan hook (`IBackdropScatterSpawner.Fill` over the same
+    half-open span). Demo kits: **Desert** (cliffs as mesas + big rocks + cactus cluster),
+    **Forest** (hills + mountain + tree-clumps + crag); Mountain/Cave bind none (ridge rig only).
+  - **Fixed (E5 extended to site kits, playtest): camp rings & gates no longer spill over the
+    edge.** Site placements had no edge-fit — the camp's prop ring and the anchor's gate pieces
+    could hang past the silhouette. Now small props and gate pieces are **nudged inward**
+    (`PlatformEdgeFit`) like biome decoration, and structure/focal **cells are chosen with an
+    edge-clearance margin** (wide houses and the fire's ring move a ring inward), with a fall-back
+    to the plain rear band when a blob is too small. Also tightened the `_mayOverhang` rim anchor
+    to sit near the walkable outline (the rim strip droops below Y = 0, so a mid-rim anchor floated
+    above the slope).
+  - **Tests:** 46 dressing tests green headless (`BiomeFeaturePlannerTests`,
+    `SiteDressingPlannerTests` incl. the silhouette-fit invariant, `EnvironmentDressingPlannerTests`,
+    `PlatformHexSurfaceBlockedCellsTests`, `PlatformEdgeFitTests`, `BackdropScatterPlannerTests`) +
+    in-editor `DressingKitMapperTests` and the `DemoPackQuarantineTests` clean-swap guard;
+    hexsurface (32) + combat (55) regressions green.
   - **Fixed (same pass, playtest): platform ground now actually reads as the biome.** Two defects
     kept the platform texture unchanged: the legacy per-platform **debug color variation**
     (`colorVariation`, on in `Area.unity`) created a material instance and overwrote its color
@@ -76,7 +99,7 @@ Every functional change appends an entry **in the same change as the code** (CLA
     platform's plan to `Empty`**, losing the ground with it. Now a dressed ground suppresses the
     debug tint (and the Area scene ships with `colorVariation: 0`), and a bound kit always yields
     a kit-carrying plan — biome sand/grass and site street/dirt grounds apply to every platform,
-    features or not (tests updated: 30 dressing tests green).
+    features or not.
 - **The Hub — staging scene, start-of-run choices & death return (O1)** [hub · persistence ·
   biome-journey · character-system · main-menu] (brief
   `product-requirements/hub-staging-and-launch.md`, consumed with the 2026-07-06 owner revisions:

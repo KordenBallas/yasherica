@@ -3,6 +3,8 @@
 > Status: **Verified** (discussed with the product owner, ready for the code track) · 2026-07-05
 > Level: product-owner (what & feel). The code track owns the technical "how".
 > **Track F · 3/3.** Depends on the spatial spine (F1, `cauldron-view-spatial-spine.md`).
+> **Reference:** `references/cauldron-view-reference.png` (shared Track F board, annotated in F1) shows the
+> target brew — several artifacts each holding a distinct, stable bubble spot.
 
 ## Goal
 
@@ -44,9 +46,11 @@ or how fusion resolves.
 
 ## Functional requirements
 
-1. **Stable per-artifact placement.** Each artifact holds a **stable spot in the brew for as long as it
-   stays in the pot**. Adding an artifact **takes a new/free spot** without moving the others; removing one
-   **frees its spot** without re-sorting the rest. No global reshuffle on count change.
+1. **Stable per-artifact placement, volume filled bottom-up.** Each artifact holds a **stable spot in the
+   brew for as long as it stays in the pot**. Spots **fill the bowl's volume from the bottom up**, so the
+   stack of bubbles grows with the count (this is what F2's fullness/waterline reads — the topmost bubbles
+   sit just under the rising waterline). Adding an artifact **takes a new/free spot** without moving the
+   others; removing one **frees its spot** without re-sorting the rest. No global reshuffle on count change.
 2. **Rest is still.** With no interaction, bubbles keep their calm idle life (the existing gentle drift is
    fine) but do **not** relocate. "Untouched artifacts stay in place" is the load-bearing acceptance point.
 3. **Event physics — drop-in.** When an artifact enters the brew (dropped from a staging slot, or an
@@ -80,9 +84,9 @@ or how fusion resolves.
 ## Out of scope / open points (do not build now)
 
 - **The three-zone layout and the bubble = submerged rule** — F1 (`cauldron-view-spatial-spine.md`).
-- **The liquid surface, surface-piercing, and fullness = fill-level** — F2
-  (`cauldron-liquid-and-fullness.md`); a bubble's *vertical* break through the waterline is F2's, this
-  brief owns its *in-plane* stable spot and the event reactions.
+- **The liquid surface and fullness = fill-level** — F2 (`cauldron-liquid-and-fullness.md`); bubbles are
+  **fully submerged** (none pierce the surface) and the waterline sits above the topmost bubble. This brief
+  owns the **stable spot within the volume** and the event reactions; F2 owns the surface/waterline itself.
 - **Full continuous physics simulation** of the brew (perpetual jostling) — deliberately **not** wanted;
   the reaction is event-scoped and settles to deterministic rest spots.
 - Exact splash/settle animation curves and bubble idle feel — tech-art, code track.

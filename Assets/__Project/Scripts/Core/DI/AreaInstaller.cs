@@ -315,6 +315,12 @@ namespace Core.DI
             Container.Bind<IEnvironmentDressingSpawner>()
                 .To<World.Dressing.View.EnvironmentDressingSpawner>()
                 .AsSingle();
+
+            // The E4 distant-scatter horizon: reads the biome's backdrop kit live per span; no
+            // kit bound = the ridge strips stay the only horizon (fail-safe).
+            Container.Bind<IBackdropScatterSpawner>()
+                .To<World.Dressing.View.BackdropScatterSpawner>()
+                .AsSingle();
         }
 
         private void InstallRaceBindings()

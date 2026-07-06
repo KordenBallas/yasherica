@@ -41,3 +41,5 @@ MonoBehaviour:
   _blockersPer100Cells: 4
   _decorClustersPer100Cells: 10
   _laneHalfWidthCells: 1.1
+  _backdropKit: {fileID: 11400000, guid: 70fbdf58ae7a677d31dfcc1556a94618, type: 2}
+  _backdropScatterPer100Units: 4

@@ -2,10 +2,10 @@
 
 > The world's decoration layer behind one swappable **dressing-kit contract**: biome feature kits
 > (ground + scattered features on platforms), site dressing kits (settlement skyline / camp props),
-> and — later — backdrop kits, all bound **whole-kit** from the consuming configs so demo store-pack
-> content swaps to production art by repointing one field. Realizes Track E (E1 kit contract, E2
-> biome kits, E3 site/camp kits) of the 2026-07-05 Environment Dressing initiative; E4 (backdrop
-> fill) is deferred, the contract is shaped for it.
+> and backdrop kits (the distant hazed horizon behind the field), all bound **whole-kit** from the
+> consuming configs so demo store-pack content swaps to production art by repointing one field.
+> Realizes the whole 2026-07-05 Environment Dressing initiative: E1 kit contract, E2 biome kits,
+> E3 site/camp kits, E4 backdrop scatter, plus the E5 footprint/edge-fit polish.
 > Status: current as of 2026-07-06.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
@@ -14,6 +14,8 @@
 > Briefs consumed: `product-requirements/dressing-kit-binding-and-swap.md` ·
 > `product-requirements/biome-decoration-kits-demo.md` ·
 > `product-requirements/site-camp-dressing-kits-demo.md` ·
+> `product-requirements/world-backdrop-fill-demo.md` ·
+> `product-requirements/decoration-footprint-and-edge-fit.md` ·
 > `product-requirements/biome-visual-styles.md` (the P1-2 placement model this builds).
 
 ---
@@ -75,9 +77,11 @@ E2 pool; kit contract, tone, density, and determinism unchanged.)*
   already-seeded position); it is skipped only if it genuinely cannot fit. A blocking obstacle
   cannot leave its cell centre, so an unfittable footprint **skips that cell** instead.
 - **R19** The rim-framing overhang is an **opt-in style**: only entries flagged `_mayOverhang`
-  (tall trees/crags) may anchor on the decorative rim and lean past the walkable edge — with a
-  **tighter member jitter** so the base keeps its foothold (a lean, not a launch). Every unflagged
-  prop obeys the footprint margin. Demo: the desert `Tree_01` is flagged; nothing else.
+  (tall trees/crags) may anchor near the walkable edge and lean their canopy past it — with a
+  **tighter member jitter** (0.25 cell) and an anchor kept **close to the outline** (15 % toward the
+  rim ring), so the base stays on solid ground where the top surface is (the rim strip droops below
+  Y = 0; a mid-rim anchor would float above the slope). Every unflagged prop obeys the footprint
+  margin. Demo: the desert `Tree_01` is flagged; nothing else.
 
 ### 1.3 Functional requirements — site dressing (E3)
 
@@ -98,6 +102,31 @@ E2 pool; kit contract, tone, density, and determinism unchanged.)*
 - **R16** Site determinism rides the persisted stamp: block-shared draws derive from
   `site-dressing:{InstanceId}`, per-platform jitter from `site-dressing:{InstanceId}:{Index}` — a
   restored run replays identical dressing with **no save-format change**.
+- **R16a** Site placements honour the platform edge too (the E5 rule extended to site kits after a
+  playtest showed camp rings and gates spilling over): small props and gate pieces are **nudged
+  inward** (`PlatformEdgeFit`) like biome decoration, and a **structure/focal cell is chosen with an
+  edge-clearance margin** (a wide house, and the fire whose ring gathers around it, move a ring
+  inward) — with a fall-back to the plain rear band when a blob is too small to have a clear cell
+  (a slightly overhanging house beats an undressed site).
+
+### 1.5 Functional requirements — world backdrop fill (E4)
+
+*(Brief `product-requirements/world-backdrop-fill-demo.md` — the distant horizon behind the field.)*
+
+- **R20** A **backdrop kit** (the third `DressingKitDefinition` kind) lists the distant-scatter
+  silhouettes (dunes/mesas behind the desert, hills/tree-clumps behind the forest); bound whole-kit
+  from `BiomeAppearanceDefinition._backdropKit`. Same contract as the other kinds — quarantine,
+  fail-safe (no kit = the procedural ridge strips stay the only horizon), swap = repoint one field.
+- **R21** The scatter is **real 3D geometry placed far behind the field**, world-fixed (real
+  parallax as the hero moves, unlike the hero-anchored ridge rig), at **low density**
+  (`_backdropScatterPer100Units`, a horizon not a crowd), **washed heavily toward the biome haze
+  tint** (the quietest, most desaturated layer — `ToneMaterialCache.GetHazed`), **non-walkable**
+  (colliders stripped, gaps stay clean hops), and never occluding gameplay.
+- **R22** **Deterministic + streaming-safe**: the world X axis is sliced into fixed slots, each slot
+  drawn from a private per-slot stream (`backdrop-scatter:{slot}`) so contiguous half-open windows
+  fill every slot exactly once and same seed → same horizon. Placed along the **camera's yawed
+  depth axis** and dropped by `depth·tan(pitch)` (the same ortho compensation the ridge rig applies),
+  so under the tilted isometric camera the silhouettes read between the platforms and the ridges.
 
 ### 1.4 Non-functional requirements
 
@@ -117,23 +146,26 @@ E2 pool; kit contract, tone, density, and determinism unchanged.)*
 Scripts/World/Dressing/
   Core/   — pure C#: FeatureKind, FeatureEntryData, FeaturePoolData, FeatureDensitySettings,
             SiteKitData, DressingRole, DressingPlacement, DressingPlanKind, PlatformDressingPlan,
-            ProtectedCells, BlockedCellGuard, BiomeFeaturePlanner, SiteDressingPlanner,
-            IEnvironmentDressingPlanner/EnvironmentDressingPlanner (the orchestrator seam),
-            IBiomeFeaturePoolCatalog/BiomeFeaturePoolCatalog, ISiteDressingCatalog/SiteDressingCatalog
+            ProtectedCells, BlockedCellGuard, PlatformEdgeFit, BiomeFeaturePlanner,
+            SiteDressingPlanner, IEnvironmentDressingPlanner/EnvironmentDressingPlanner (the
+            orchestrator seam), IBiomeFeaturePoolCatalog/BiomeFeaturePoolCatalog,
+            ISiteDressingCatalog/SiteDressingCatalog,
+            BackdropEntryData, BackdropScatterPlacement, BackdropScatterPlanner (E4)
   Data/   — DressingKitDefinition (abstract base), BiomeFeatureKitDefinition,
-            SiteDressingKitDefinition, DressingKitMapper (SO → Core), DressingKitLibrary (kit lookup
-            for the spawner)
-  View/   — EnvironmentDressingSpawner (thin adapter), ToneMaterialCache
-Scripts/LevelGeneration/View/IEnvironmentDressingSpawner.cs   (the generator-facing seam, next to
-                                                               IRouteLandmarkSpawner)
+            SiteDressingKitDefinition, BackdropKitDefinition (E4), DressingKitMapper (SO → Core),
+            DressingKitLibrary (kit lookup for the spawner)
+  View/   — EnvironmentDressingSpawner (thin adapter), BackdropScatterSpawner (E4), ToneMaterialCache
+Scripts/LevelGeneration/View/IEnvironmentDressingSpawner.cs · IBackdropScatterSpawner.cs
+                                 (the generator-facing seams, next to IRouteLandmarkSpawner)
 Scripts/Core/DI/AreaInstaller.cs — InstallDressingBindings()
 ```
 
 Consuming-seam extensions: `BiomeAppearanceDefinition` gained the dressing binding + dials
 (`_featureKit`, `_toneTint`, `_toneStrength`, `_blockersPer100Cells`, `_decorClustersPer100Cells`,
-`_laneHalfWidthCells` — see `world-landscape.md` §3). `PlatformHexSurface.BlockedCells` went live
-(ctor-supplied + `IsBlocked` + `WithBlockedCells`; `SurfaceHexGrid` and `PlatformAnchor` skip
-blocked cells — see `platform-generation.md`).
+`_laneHalfWidthCells`, plus the E4 `_backdropKit` + `_backdropScatterPer100Units` — see
+`world-landscape.md` §3). `PlatformHexSurface.BlockedCells` went live (ctor-supplied + `IsBlocked` +
+`WithBlockedCells`; `SurfaceHexGrid` and `PlatformAnchor` skip blocked cells — see
+`platform-generation.md`).
 
 ### 2.2 Core domain types
 
@@ -148,6 +180,8 @@ blocked cells — see `platform-generation.md`).
 | `SiteDressingPlanner` | E3 placement model: skyline band + shared scale (instance stream), gate on anchor, camp focal + facing ring. |
 | `EnvironmentDressingPlanner` | The one seam `AreaGenerator` calls: routes site vs wild, owns the seed streams, warns once per unresolved key. |
 | `ProtectedCells` / `BlockedCellGuard` | The never-block invariants shared by both planners (lane ∪ center+neighbors; spacing, connectivity BFS, battlefield-minimum cap). |
+| `PlatformEdgeFit` | Signed clearance from a point to the platform silhouette (`Outline`) + the deterministic inward nudge that fits a footprint (E5 edge-fit; used by both planners). |
+| `BackdropScatterPlanner` | E4 distant-scatter model: fixed X slots, private per-slot stream, low-density weighted draws in a depth band. `BackdropEntryData` / `BackdropScatterPlacement` are its pure records. |
 
 ### 2.3 Runtime flow
 
@@ -170,19 +204,27 @@ blocked cells — see `platform-generation.md`).
    used to overwrite the material color; the Area scene now ships with it off).
 5. Restore replays the same `AppendPlatforms` with persisted node ids + site stamps → identical
    plans (seed streams are per-node / per-instance, order-independent across windows).
+6. **Backdrop scatter (E4)** rides the same landmark-scan hook: after each window `AppendPlatforms`
+   calls `IBackdropScatterSpawner.Fill(scanFromX, cursorX, areaRoot)` over the half-open forward
+   span (alongside the routing landmarks). The spawner resolves the live biome's `_backdropKit`,
+   plans the span through `BackdropScatterPlanner`, and instantiates the silhouettes world-fixed
+   under the area root — hazed, colliderless, dropped for the ortho camera. No kit bound = nothing
+   placed (the ridge rig stays the horizon).
 
 Seed streams (`LootSeed.Derive` off the run seed): `biome-features:{nodeId}` ·
-`site-dressing:{instanceId}` (block-shared draws) · `site-dressing:{instanceId}:{index}`.
+`site-dressing:{instanceId}` (block-shared draws) · `site-dressing:{instanceId}:{index}` ·
+`backdrop-scatter:{slot}` (E4, per fixed X slot).
 
 ### 2.4 DI wiring
 
 `AreaInstaller.InstallDressingBindings()`: loads all kit SOs from `Resources/World/Dressing`
 (recursive — `Demo/` rides in); binds `IBiomeFeaturePoolCatalog` + `ISiteDressingCatalog` (mapped by
 `DressingKitMapper` from the same biome-appearance list `InstallWorldBiomeBindings` resolved),
-`IEnvironmentDressingPlanner`, `DressingKitLibrary`, `ToneMaterialCache`, and
-`IEnvironmentDressingSpawner`. `AreaSceneEntrypoint` threads planner + spawner into the
-`AreaGenerator` ctor (optional params, null = no dressing — the `landmarkSpawner` pattern).
-Duplicate kit ids / theme ids: first wins, warned.
+`IEnvironmentDressingPlanner`, `DressingKitLibrary`, `ToneMaterialCache`,
+`IEnvironmentDressingSpawner`, and `IBackdropScatterSpawner` (E4 — its own `CameraConfig`-derived
+ortho drop). `AreaSceneEntrypoint` threads the planner + both spawners into the `AreaGenerator` ctor
+(optional params, null = no dressing — the `landmarkSpawner` pattern). Duplicate kit ids / theme
+ids: first wins, warned.
 
 **Second consumer — the Hub (O1, `hub-staging.md`):** `HubInstaller.InstallHubBiomeDressing`
 mirrors the same bindings with the two run-scoped providers pre-set (`ICurrentThemeProvider` →
@@ -226,23 +268,40 @@ Loaded from `Resources/World/Dressing/`. Matched by theme id, not by direct refe
 | `_gateProps` | list of GameObject | Threshold pieces (anchor platform only, ≤ 2 placed) | |
 | `_groundOverlayMaterial` | Material | Site ground (street/packed dirt), overrides biome ground | empty = biome ground |
 
+### `BackdropKitDefinition` (asset menu: `Create → World → Dressing → Backdrop Kit`)
+
+The E4 third kit kind. Loaded from `Resources/World/Dressing/`. Bound from
+`BiomeAppearanceDefinition._backdropKit`.
+
+| Field | Type | Meaning | Default / notes |
+|---|---|---|---|
+| `_kitId` | string | Stable id for logs | required |
+| `_entries` | list | The distant-scatter pool; **entry order is the stable index — append, don't reorder** | |
+| `_entries[i]._prefab` | GameObject | The silhouette mesh (dune/mesa/hill/tree-clump/rock formation) | null = slot kept, never drawn (warned) |
+| `_entries[i]._weight` | int ≥ 0 | Draw weight | 1; 0 = never drawn |
+| `_entries[i]._scaleMin/Max` | float | Uniform scale range (backdrop silhouettes scale well up) | 3–6 |
+
 ### `BiomeAppearanceDefinition` — dressing extension (owned by `world-landscape.md`; listed here for the binding)
 
 | New field | Type | Meaning | Default |
 |---|---|---|---|
-| `_featureKit` | BiomeFeatureKitDefinition | **The whole-kit binding** — swap = repoint this field | null = base layer |
+| `_featureKit` | BiomeFeatureKitDefinition | **The whole-kit feature binding** — swap = repoint this field | null = base layer |
 | `_toneTint` | Color | The muted biome key the tone treatment lerps toward | grey-green |
 | `_toneStrength` | float 0–1 | Lerp amount toward the tint | 0.45 |
 | `_blockersPer100Cells` | float | Blocking-obstacle density (floor-not-target, capped by guards) | 4 |
 | `_decorClustersPer100Cells` | float | Decorative-cluster density | 10 |
 | `_laneHalfWidthCells` | float | Protected lane half-width, in hex-size units | 1.1 |
+| `_backdropKit` | BackdropKitDefinition | **The whole-kit backdrop binding** (E4) — swap = repoint this field | null = no scatter (ridge strips only) |
+| `_backdropScatterPer100Units` | float | Distant-scatter density, items per 100 forward world units | 4 |
 
 Authored demo content (the quarantine, `Resources/World/Dressing/Demo/`):
 `Demo_BiomeFeatureKit_Desert` (*Low Poly Desert Environment* rocks/cacti + RPGPP dry tufts, sand
 ground) · `Demo_BiomeFeatureKit_Forest` (*RPG Poly Pack - Lite* trees/bushes/rocks/tufts/flowers,
 grass ground) · `Demo_SiteKit_Settlement` (`settlement-kit`: buildings 01–05, banners+fences gate,
 crates/barrels/well/wagon, street ground) · `Demo_SiteKit_Camp` (`camp-kit`: wood-hanger campfire
-focal + stones + log, awnings/sacks/barrels/crates ring, packed-dirt ground) · four flat muted URP
+focal + stones + log, awnings/sacks/barrels/crates ring, packed-dirt ground) ·
+`Demo_BackdropKit_Desert` (cliffs/cliff-corners as mesas + large rocks + a big-cactus cluster) ·
+`Demo_BackdropKit_Forest` (small hills + mountain + tree-clumps + a crag) · four flat muted URP
 ground materials (`Demo_Ground_*`). Mountain/Cave bind no kit (base layer, by design).
 
 ---
@@ -276,6 +335,16 @@ ground materials (`Demo_Ground_*`). Mountain/Cave bind no kit (base layer, by de
 3. Enter play mode and walk into the site block: anchor platform carries the gate; houses front a
    shared line across the block; a camp's props ring its fire.
 
+### Dress a biome's horizon (bind or author a backdrop kit — E4)
+
+1. `Create → World → Dressing → Backdrop Kit`; set `_kitId` and the scatter entries (silhouette
+   prefab + weight + scale range — scale them well up; these read at 80–160 units of depth). Keep
+   pack prefabs referenced **only from kit assets**, in `Demo/`.
+2. Open the biome's `BiomeAppearanceDefinition` and point `_backdropKit` at the kit; tune
+   `_backdropScatterPer100Units` (keep it low — a horizon, not a crowd).
+3. Enter play mode: past the platforms the biome shows its distant hazed landscape, world-fixed
+   (real parallax as you move), between the islands and the ridge strips.
+
 ### Swap a demo kit for production (the one-field swap)
 
 1. Author the production kit asset (same kind, same role vocabulary; matching entry **count** keeps
@@ -285,10 +354,12 @@ ground materials (`Demo_Ground_*`). Mountain/Cave bind no kit (base layer, by de
    `Resources/World/Dressing/Demo/` afterwards must leave zero dangling references —
    `DemoPackQuarantineTests` proves it.
 
-### Add a new kit kind (e.g. the E4 backdrop kit)
+### Add a new kit kind (the pattern the E4 backdrop kit followed)
 
 1. New subclass of `DressingKitDefinition` (data-only) + a `DressingKitMapper` mapping + a binding
-   field on the consuming config. The binding/swap/tone/fail-safe rules of §1.1 apply unchanged.
+   field on the consuming config + a pure planner and a thin spawner seam. The
+   binding/swap/tone/fail-safe rules of §1.1 apply unchanged (E4 is the worked example — three Core
+   records, one Data SO, one mapper method, one planner, one spawner, one `AreaGenerator` seam).
 
 **Authoring constraints / gotchas:** never reference a pack asset outside a kit (the quarantine
 test fails the build); never reorder `_features`; a null prefab entry is kept at weight 0 and
@@ -303,7 +374,7 @@ the sole way a prop may cross the walkable edge.
 ## 5. Tests
 
 Edit-mode suites in `Assets/__Project/Tests/EditMode/` (pure suites run headless via the bundled
-Roslyn workaround — 29 dressing tests green 2026-07-06, plus the hexsurface/combat regressions):
+Roslyn workaround — 46 dressing tests green 2026-07-06, plus the hexsurface/combat regressions):
 
 - `BiomeFeaturePlannerTests` — same-seed identity; blockers off the protected set; battlefield
   minimum under hostile density; pairwise spacing; connectivity; decor-vs-blocker decoupling; rear
@@ -313,18 +384,24 @@ Roslyn workaround — 29 dressing tests green 2026-07-06, plus the hexsurface/co
   and fully-outside points nudged back in; genuinely-unfittable footprint fails; determinism.
 - `SiteDressingPlannerTests` — same-seed replay; block-shared scale; rear placement + camera-facing
   fronts; structure cells blocked with guards; gate only on the anchor, approach side; camp focal
-  stack + facing ring geometry; wild/empty-kit fail-safes; placements within platform bounds.
+  stack + facing ring geometry; wild/empty-kit fail-safes; placements within platform bounds; **all
+  site placements fit within the silhouette** (R16a).
+- `BackdropScatterPlannerTests` (E4) — same-span identity; contiguous spans equal one big span
+  (streaming-safe); depth-band + slot bounds; density scales the count and zero places nothing;
+  empty/weightless pools place nothing; weight-0 entry never drawn; default density stays a sparse
+  horizon.
 - `EnvironmentDressingPlannerTests` — site-vs-wild routing; missing-catalog fail-safe;
   order-independent per-node replay; instance-shared draws across a block.
 - `PlatformHexSurfaceBlockedCellsTests` — `WithBlockedCells` immutability + filtering; grid
   exclusion; anchor skip.
-- `DressingKitMapperTests` (in-editor) — SO→Core mapping, null-prefab slot keeping, duplicate
-  first-wins, unbound-biome absence.
+- `DressingKitMapperTests` (in-editor) — SO→Core mapping, null-prefab slot keeping, footprint /
+  overhang resolution, duplicate first-wins, unbound-biome absence.
 - `DemoPackQuarantineTests` (in-editor, file IO) — harvests every pack GUID and asserts zero
   references from `__Project` outside the demo quarantine (the R3 living guard).
 
 Verified manually (play mode, user): tone/density feel, skyline read across a block, campfire
-read, "muted but biomes read" — density and tone are data dials on the biome asset.
+read, "muted but biomes read", backdrop horizon height/depth — density and tone are data dials on
+the biome asset; the backdrop depth band + ortho drop are constants in the E4 core/spawner.
 
 ---
 
@@ -338,18 +415,23 @@ read, "muted but biomes read" — density and tone are data dials on the biome a
 - **Skyline alignment tolerates route weave**: platforms of one block share the band in local
   space; the route's few units of Z-weave between neighbors reads fine at demo scale (site-aware
   tier flattening is already a ROADMAP item).
-- **Mountain & Cave feature kits and Ruin/Lair site kits are unauthored** — those surfaces stay on
-  the base layer (the packs don't cover them). Data-only to add.
-- **E4 backdrop kit kind is deferred** — the contract is shaped for it (one more
-  `DressingKitDefinition` subclass + a binding field); the distant-scatter layer itself is Track E4.
+- **Mountain & Cave feature/backdrop kits and Ruin/Lair site kits are unauthored** — those surfaces
+  stay on the base layer (the packs don't cover them). Data-only to add.
+- **Backdrop tuning is hand-set** — entry scales (kit data) and the depth band + ortho drop
+  (constants in `BackdropScatterPlanner` / `BackdropScatterSpawner`) were sized without the packs'
+  real mesh dimensions; expect one play-mode pass on horizon height/scale. **Parallax/sky
+  animation, escalation of the horizon, and route↔silhouette coupling stay deferred** (brief §
+  out-of-scope; `world-backdrop.md` §5).
 - **Variant-prefab references were hand-computed** (nested-prefab fileID = source ^ instance): if
-  any camp/settlement entry shows as `None` in the inspector, re-drag the prefab onto the slot —
-  data-only fix, the spawner warns and skips broken entries at runtime.
+  any camp/settlement/backdrop entry shows as `None` in the inspector, re-drag the prefab onto the
+  slot — data-only fix, the spawner warns and skips broken entries at runtime.
 - **Prop animation** (banner sway, fire light/smoke) — later polish; the demo campfire is unlit
   geometry by owner decision (composed hanger + stones + log).
 - **Footprints are rough authored numbers**, not mesh-derived bounds; deriving them from mesh
-  geometry is a possible later refinement (edge-fit brief, out of scope). **Prop-vs-prop
-  overlap/spacing** is likewise untouched — the edge-fit rule guards only the platform edge.
-- **Site dressing props are not footprint-checked** — they place inward by construction (skyline
-  band, gate at the lane, focal ring); fold them under the footprint rule in a follow-up if a site
-  prop is seen overhanging (edge-fit brief, out of scope).
+  geometry is a possible later refinement (edge-fit brief, out of scope). If a specific prop still
+  overhangs in play mode its real mesh is wider than its footprint — set `_footprintOverride` on
+  that entry. **Prop-vs-prop overlap/spacing** is untouched — the edge-fit rule guards only the
+  platform edge.
+- **Pivot-not-at-base props may look sunk/floating** — every prop sits at platform-top Y = 0; a
+  prefab whose mesh pivot is not at its base reads offset. Fix per-prefab (wrapper/offset) if seen;
+  out of scope here.

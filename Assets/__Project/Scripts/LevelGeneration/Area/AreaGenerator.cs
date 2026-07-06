@@ -36,6 +36,7 @@ namespace LevelGeneration
         private readonly IRouteLandmarkSpawner _landmarkSpawner;
         private readonly IEnvironmentDressingPlanner _dressingPlanner;
         private readonly IEnvironmentDressingSpawner _dressingSpawner;
+        private readonly IBackdropScatterSpawner _backdropScatterSpawner;
 
         private readonly Dictionary<int, IPlatform> _platforms = new();
         private readonly Dictionary<int, PlatformView> _platformViews = new();
@@ -63,7 +64,8 @@ namespace LevelGeneration
             IGameLogger logger = null,
             IRouteLandmarkSpawner landmarkSpawner = null,
             IEnvironmentDressingPlanner dressingPlanner = null,
-            IEnvironmentDressingSpawner dressingSpawner = null)
+            IEnvironmentDressingSpawner dressingSpawner = null,
+            IBackdropScatterSpawner backdropScatterSpawner = null)
         {
             _graph = graph;
             _routeModel = routeModel ?? new RunRouteModel(BiomeLandscapeSettings.CreateDefault(), 0);
@@ -77,6 +79,7 @@ namespace LevelGeneration
             _landmarkSpawner = landmarkSpawner;
             _dressingPlanner = dressingPlanner;
             _dressingSpawner = dressingSpawner;
+            _backdropScatterSpawner = backdropScatterSpawner;
         }
 
         /// <summary>
@@ -154,22 +157,28 @@ namespace LevelGeneration
         }
 
         /// <summary>
-        /// Places the routing landmarks whose arc apex falls in the forward span this window just
-        /// laid out. The scan cursor persists across windows like <see cref="_cursorX"/>, and the
-        /// half-open range guarantees each landmark spawns exactly once while streaming.
+        /// Places the off-platform scenery whose home falls in the forward span this window just
+        /// laid out: the routing landmarks (arc apexes) and the distant backdrop scatter (E4).
+        /// The scan cursor persists across windows like <see cref="_cursorX"/>, and the half-open
+        /// range guarantees each landmark/scatter slot spawns exactly once while streaming.
         /// </summary>
         private void SpawnPendingLandmarks()
         {
-            if (_landmarkSpawner == null || _areaGameObject == null || _cursorX <= _landmarkScanX)
+            if (_areaGameObject == null || _cursorX <= _landmarkScanX)
             {
                 return;
             }
 
-            var specs = _routeModel.GetLandmarksInRange(_landmarkScanX, _cursorX);
-            if (specs.Count > 0)
+            if (_landmarkSpawner != null)
             {
-                _landmarkSpawner.Spawn(specs, _areaGameObject.transform);
+                var specs = _routeModel.GetLandmarksInRange(_landmarkScanX, _cursorX);
+                if (specs.Count > 0)
+                {
+                    _landmarkSpawner.Spawn(specs, _areaGameObject.transform);
+                }
             }
+
+            _backdropScatterSpawner?.Fill(_landmarkScanX, _cursorX, _areaGameObject.transform);
 
             _landmarkScanX = _cursorX;
         }

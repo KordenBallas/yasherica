@@ -25,6 +25,7 @@ namespace Combat.Integration
     {
         private readonly ICharacterRegistry _characterRegistry;
         private readonly CombatEntryAnimator _entryAnimator;
+        private readonly ICharacterMovementAnimator _movementAnimator;
         private readonly CombatMovementConfig _config;
         private readonly HexDirectionConfig _hexDirectionConfig;
         private readonly View.ICombatUnitViewRegistry _unitViewRegistry;
@@ -44,6 +45,7 @@ namespace Combat.Integration
         public CharacterCombatInitializer(
             ICharacterRegistry characterRegistry,
             CombatEntryAnimator entryAnimator,
+            ICharacterMovementAnimator movementAnimator,
             CombatMovementConfig config,
             HexDirectionConfig hexDirectionConfig,
             View.ICombatUnitViewRegistry unitViewRegistry,
@@ -57,6 +59,7 @@ namespace Combat.Integration
         {
             _characterRegistry = characterRegistry;
             _entryAnimator = entryAnimator;
+            _movementAnimator = movementAnimator;
             _config = config;
             _hexDirectionConfig = hexDirectionConfig;
             _unitViewRegistry = unitViewRegistry;
@@ -88,9 +91,11 @@ namespace Combat.Integration
             
             _logger.Info(LogCategory.Combat,$"[CharacterCombatInitializer] Initializing character {character.name} for combat");
             
-            // Find closest battlefield cell
-            HexCoordinates startCell = _entryAnimator.FindClosestCell(character.position, battlefield);
-            
+            // One placement rule for every unit (D6): the closest FREE cell to the unit's own
+            // position — the hero can never land on a cell an already-integrated unit holds.
+            HexCoordinates startCell = SpawnCellResolver.Resolve(
+                character.position, battlefield, combatController.CombatState);
+
             // Animate character to cell
             yield return _entryAnimator.AnimateEntryToCell(character, startCell, battlefield);
             
@@ -150,7 +155,8 @@ namespace Combat.Integration
             // Initialize component with abilities and standing passive modifiers
             int unitId = GenerateUnitId();
             int maxHP = _heroDefinition?.MaxHP ?? 100;
-            combatComponent.InitializeForCombat(unitId, player, startCell, combatController, maxHP, abilityInstances, passiveEffects);
+            combatComponent.InitializeForCombat(unitId, player, startCell, combatController, maxHP, abilityInstances, passiveEffects,
+                _config, _movementAnimator, _hexDirectionConfig);
 
             _logger.Info(LogCategory.Combat,$"[CharacterCombatInitializer] Character initialized: ID={unitId}, Cell={startCell}, MaxHP={maxHP}");
 

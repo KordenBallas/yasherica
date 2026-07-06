@@ -479,8 +479,7 @@ namespace Platform
                         enemyContent.EnemyPlayer,
                         enemyContent.EnemyCombatComponent,  // Pass existing component
                         _controller.Battlefield,
-                        _controller,
-                        platform.Visual.Position);
+                        _controller);
 
                     enemyCount++;
                     _logger.Info(LogCategory.Platform,$"[CombatActiveState] Enemy {enemyContent.EnemyId} integrated into combat");

@@ -29,8 +29,13 @@ namespace World.Dressing.Core
         private const int RimAnchorEvery = 3;
 
         /// <summary>Rim-anchored members jitter tighter, so a leaning prop keeps its foothold on
-        /// the rim strip — a lean, not a launch (decoration-footprint brief FR6).</summary>
-        private const float OverhangJitterCells = 0.4f;
+        /// the platform edge — a lean, not a launch (decoration-footprint brief FR6).</summary>
+        private const float OverhangJitterCells = 0.25f;
+
+        /// <summary>How far from the walkable outline toward the rim ring the overhang anchor
+        /// sits. Kept near the outline: the walkable top is at local Y=0 while the rim droops —
+        /// a mid-rim anchor would float above the slope (and its jitter could leave the rim).</summary>
+        private const float OverhangRimLean = 0.15f;
 
         /// <summary>Bias split between rearness and edge distance when scoring blocker cells.</summary>
         private const float RearScoreWeight = 0.6f;
@@ -272,8 +277,8 @@ namespace World.Dressing.Core
             int index = rearIndices.Count > 0
                 ? rearIndices[rng.NextInt(rearIndices.Count)]
                 : rng.NextInt(outline.Count);
-            x = (outline[index].X + rim[index].X) * 0.5f;
-            z = (outline[index].Z + rim[index].Z) * 0.5f;
+            x = outline[index].X + (rim[index].X - outline[index].X) * OverhangRimLean;
+            z = outline[index].Z + (rim[index].Z - outline[index].Z) * OverhangRimLean;
             return true;
         }
 

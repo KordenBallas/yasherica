@@ -188,6 +188,23 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void CommittedMove_Executes_WhenOnlyACorpseHoldsTheDestination()
+        {
+            // D5: a dead unit frees its cell instantly, so a committed move onto the corpse's
+            // cell resolves instead of fizzling on a blocker that is no longer there.
+            var enemy = Enemy(new HexCoordinates(2, 0));
+            var corpse = Hero(new HexCoordinates(1, 0)).WithHP(0);
+            var move = new MoveAction(_enemyOwner, enemy.Id, new HexCoordinates(1, 0));
+            var intent = new EnemyIntent(enemy.Id, move, null, enemy.Position, null);
+            var state = StateWith(enemy, corpse);
+
+            var resolved = _resolver.Resolve(state, intent);
+
+            Assert.AreEqual(new HexCoordinates(1, 0), resolved.GetUnit(EnemyUnitId).Position,
+                "a corpse does not block a committed move");
+        }
+
+        [Test]
         public void CommittedMove_Executes_WhenDestinationIsFree()
         {
             var enemy = Enemy(new HexCoordinates(2, 0));

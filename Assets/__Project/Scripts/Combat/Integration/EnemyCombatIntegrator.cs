@@ -23,7 +23,8 @@ namespace Combat.Integration
     /// </summary>
     public class EnemyCombatIntegrator
     {
-        private readonly CombatEntryAnimator _entryAnimator;
+        private readonly ICharacterMovementAnimator _movementAnimator;
+        private readonly CombatMovementConfig _movementConfig;
         private readonly IEnemyDataProvider _enemyDataProvider;
         private readonly HexDirectionConfig _hexDirectionConfig;
         private readonly Loot.Core.IRunSeedProvider _runSeedProvider;
@@ -37,7 +38,8 @@ namespace Combat.Integration
         private static int _nextUnitId = 2000;   // Start enemy unit IDs at 2000
 
         public EnemyCombatIntegrator(
-            CombatEntryAnimator entryAnimator,
+            ICharacterMovementAnimator movementAnimator,
+            CombatMovementConfig movementConfig,
             IEnemyDataProvider enemyDataProvider,
             HexDirectionConfig hexDirectionConfig,
             Loot.Core.IRunSeedProvider runSeedProvider,
@@ -45,7 +47,8 @@ namespace Combat.Integration
             DiContainer container,
             IGameLogger logger)
         {
-            _entryAnimator = entryAnimator;
+            _movementAnimator = movementAnimator;
+            _movementConfig = movementConfig;
             _enemyDataProvider = enemyDataProvider;
             _hexDirectionConfig = hexDirectionConfig;
             _runSeedProvider = runSeedProvider;
@@ -118,17 +121,19 @@ namespace Combat.Integration
             IPlayer enemyPlayer,
             EnemyCombatComponent existingComponent,
             IBattlefield battlefield,
-            ICombatController combatController,
-            Vector3 platformCenter)
+            ICombatController combatController)
         {
             _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Starting integration for enemy {enemyId}");
 
             // Get enemy data
             EnemyData enemyData = _enemyDataProvider.GetEnemyData(enemyId);
 
-            // Find closest battlefield cell to platform center
-            HexCoordinates startCell = _entryAnimator.FindClosestCell(platformCenter, battlefield);
-            _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Found closest cell for enemy: {startCell}");
+            // One placement rule for every unit (D6): the closest FREE cell to the enemy's OWN
+            // world position — previously every enemy resolved to the cell nearest the platform
+            // centre, which stacked a boss-and-crew group into a single cell.
+            HexCoordinates startCell = SpawnCellResolver.Resolve(
+                existingComponent.transform.position, battlefield, combatController.CombatState);
+            _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Placed enemy on free cell: {startCell}");
 
             // Reposition existing enemy GameObject to battlefield cell, feet on the surface top
             // (runs before InitializeForCombat, so the offset is derived locally here).
@@ -148,7 +153,8 @@ namespace Combat.Integration
 
             // Initialize component for combat
             int unitId = _nextUnitId++;
-            existingComponent.InitializeForCombat(unitId, enemyPlayer, startCell, combatController, enemyData);
+            existingComponent.InitializeForCombat(unitId, enemyPlayer, startCell, combatController, enemyData,
+                _movementConfig, _movementAnimator, _hexDirectionConfig);
             _logger.Info(LogCategory.Combat,$"[EnemyCombatIntegrator] Initialized EnemyCombatComponent for combat");
 
             // Add internal Unit to combat state (NOT the MonoBehaviour component)

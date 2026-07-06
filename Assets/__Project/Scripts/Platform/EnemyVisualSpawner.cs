@@ -91,8 +91,9 @@ namespace Platform
                 var character = _modularFactory.Create(assembly, null);
                 if (character != null)
                 {
-                    character.gameObject.transform.position = basePosition;
-                    return character.gameObject;
+                    // Host the rig so the enemy root's +Z is the model's face (the placeholder
+                    // art faces -Z) — combat facing/locomotion yaw the root and must read face-first.
+                    return CharacterRigHost.Wrap(character, $"Enemy_{enemyId}", basePosition);
                 }
 
                 _logger?.Warning(LogCategory.Platform,

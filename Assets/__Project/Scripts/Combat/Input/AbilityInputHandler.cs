@@ -127,8 +127,16 @@ namespace Combat.Input
 
         private void HandleAbilityConfirmed(AbilityConfirmedCommand command)
         {
-            if (!CanProcessInput()) return;
             if (!_isAbilityModeActive) return;
+
+            // The turn may have ended while the key was held; the aim highlight must still clear
+            // (D8: highlights always reset when the plan phase closes).
+            if (!CanProcessInput())
+            {
+                _presenter?.CancelAbilitySelection();
+                _isAbilityModeActive = false;
+                return;
+            }
 
             _logger.Info(LogCategory.Combat,"[AbilityInputHandler] Ability confirmed");
             _presenter?.ConfirmAim();
@@ -156,16 +164,17 @@ namespace Combat.Input
 
         private void HandleExecuteQueue(ExecuteQueueCommand command)
         {
-            if (!CanProcessInput()) return;
-
-            _logger.Info(LogCategory.Combat,"[AbilityInputHandler] Execute queue requested");
-            // The volley aim (Enter release) fires the queue; clear its highlight first.
+            // The volley highlight clears unconditionally — even when the turn check no longer
+            // passes, the plan-phase highlight must not outlive the gesture (D8).
             if (_isVolleyAimActive)
             {
                 _presenter?.EndVolleyAim();
                 _isVolleyAimActive = false;
             }
 
+            if (!CanProcessInput()) return;
+
+            _logger.Info(LogCategory.Combat,"[AbilityInputHandler] Execute queue requested");
             _presenter?.ExecuteQueue();
         }
 

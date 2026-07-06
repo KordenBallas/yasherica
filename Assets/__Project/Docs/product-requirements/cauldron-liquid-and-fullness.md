@@ -3,6 +3,10 @@
 > Status: **Verified** (discussed with the product owner, ready for the code track) · 2026-07-05
 > Level: product-owner (what & feel). The code track owns the technical "how".
 > **Track F · 2/3.** Depends on the spatial spine (F1, `cauldron-view-spatial-spine.md`).
+> **Reference:** `references/cauldron-view-reference.png` (shared Track F board, annotated in F1) shows the
+> target brew/surface. Its **fully-submerged bubbles under a translucent surface are now normative** (FR2) —
+> the pot fills with bubbles bottom-up and the waterline rises above them; the image's *backdrop and pot
+> mesh* remain mood-only (P5-5 / F6).
 
 ## Goal
 
@@ -25,16 +29,20 @@ changes no crafting or inventory logic.
   doing the work (stable footprint, no reflow).
 - **Fill level is snapshotted on open** and holds for the session, so it does **not** slide up and down as
   you craft/consume within one open view (that would be distracting).
-- **Bubbles pierce the surface** — an artifact sits **partly above, partly below** the waterline, which is
-  the strongest "it is *in* the liquid" cue.
+- **Bubbles are fully submerged** — every artifact bubble sits **entirely below the waterline**. The bubbles
+  **fill the bowl's volume from the bottom up**, and the **waterline sits above the topmost bubbles**, rising
+  as the pot fills. (The earlier "bubbles pierce the surface / half-submerged" idea is **dropped** — half-out
+  bubbles don't scale past a handful, and one waterline can't hold a full inventory; the volumetric fill does
+  the work and reads as more full = fuller pot.) The "it is *in* the liquid" cue is now the **translucent
+  surface over the bubbles**, not a cut line across them.
 - **Stylised low-poly liquid, not photoreal.** It must not betray the render-look bible (flat low-poly,
   **no outline**, facets are the texture — `design/art/render-look.md` §1). A crisp bright waterline edge,
   not glossy refraction.
 
 ## User stories
 
-- As a player, the brew **looks and behaves like liquid**: a clear surface, a rim waterline, artifacts
-  half-sunk in it — not sprites hovering in a jar.
+- As a player, the brew **looks and behaves like liquid**: a translucent surface, a rim waterline, artifacts
+  **suspended fully inside it** (seen through the liquid) — not sprites hovering in a jar.
 - As a player, I can tell at a glance **how full my pot is** — a nearly-empty inventory sits as a shallow
   pool; a hoard brims near the rim.
 - As a player, the fill level **holds steady while I work** in one open session; it doesn't jitter every
@@ -45,16 +53,18 @@ changes no crafting or inventory logic.
 ## Functional requirements
 
 1. **Believable stylised surface.** The liquid reads as a **low-poly translucent surface** with a
-   **legible waterline** (a crisp bright edge/meniscus where it meets the pot wall and where objects
-   break it), keeping the boil/emissive-glow life it has today. It stays within the flat-low-poly,
-   no-outline treatment — **no glossy/refractive realism**.
-2. **Bubbles pierce the surface.** Each in-brew artifact's bubble sits **partly above and partly below the
-   waterline** (a visible cut line across it), so it reads as **suspended in the liquid**, not floating on
-   top of or above it. The submerged part may be tinted/dimmed by the brew; the emerged part stays clear
-   and clickable.
-3. **Fullness drives the liquid level.** The **height of the liquid** is a function of **how many
-   artifacts are in the inventory** — few = a shallow pool low in the bowl, many = brimming near the rim —
-   between a configurable **minimum** (never bone-dry) and **maximum** (never overflowing) level.
+   **legible waterline** (a crisp bright edge/meniscus where it meets the pot wall), keeping the
+   boil/emissive-glow life it has today. It stays within the flat-low-poly, no-outline treatment —
+   **no glossy/refractive realism**.
+2. **Bubbles are fully submerged, filling the volume.** Each in-brew artifact's bubble sits **entirely below
+   the waterline**, and the bubbles **fill the bowl from the bottom up** (a volume of suspended bubbles, not
+   a single plane). The surface is **translucent enough to read the bubbles through it** — that "seen through
+   the liquid" look, tinted/dimmed by the brew, is the "suspended *in* it" cue. No bubble breaks the surface.
+3. **Fullness drives the liquid level — and the level always covers the bubbles.** The **height of the
+   liquid** is a function of **how many artifacts are in the inventory** — few = a shallow pool with a few
+   bubbles low in the bowl, many = brimming and packed — between a configurable **minimum** (never bone-dry)
+   and **maximum** (never overflowing). The waterline **always sits above the topmost bubble**, so the fill
+   level and the bubble volume are the **same read**: more artifacts → more bubbles → higher line.
 4. **Level snapshots on open.** The fill level is **computed when the view opens** and **held for that
    session**; crafting/consuming/adding artifacts within the same open view does **not** re-slide the
    level. It re-evaluates on the next open.
@@ -74,8 +84,8 @@ changes no crafting or inventory logic.
 
 ## Acceptance criteria
 
-- The brew reads as liquid with a clear surface and rim waterline; artifacts sit **half-submerged**, cut by
-  the waterline, not hovering above it.
+- The brew reads as liquid with a translucent surface and rim waterline; artifacts sit **fully submerged**
+  (read through the liquid), and the waterline sits **above the topmost bubble** — none pierce it.
 - Opening the inventory with few artifacts shows a **low** pool; with many, a **brimming** one; the level
   stays between the configured min and max.
 - The level is **stable for the whole open session** and only re-evaluates on the next open.

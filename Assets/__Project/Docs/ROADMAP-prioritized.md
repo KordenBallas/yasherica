@@ -35,7 +35,7 @@ spine, escalation).
 | Track | Theme | Model | Order | State |
 |---|---|---|---|---|
 | **D** | Bandit camp & combat legibility II (humanoids · initiative/turn-order · ability animation · **D4** camp shady offer · **D5** clear dead units on death · **D6** unit uniformity · **D7** aim-input redesign · **D8** move-anim & highlight-reset bugs) | Opus | active | D1–D3 shipped; D4–D8 spec-ready |
-| **E** | Environment dressing — demo kits (binding/swap · biome decor · site/camp · backdrop fill) | Opus+art | active | **E1–E3 shipped 2026-07-06** (`environment-dressing.md`); **E4 deferred** (owner) — contract ready for the backdrop-kit kind |
+| ~~**E**~~ | Environment dressing — demo kits (binding/swap · biome decor · site/camp · backdrop fill) | Opus+art | **done** | **E1–E5 all shipped 2026-07-06** (`environment-dressing.md`): kit contract · biome kits · site/camp kits · backdrop scatter · footprint/edge-fit |
 | **F** | The Cauldron View (spatial spine · liquid+fullness · stable brew physics · re-homed medallion · stomach backdrop) | Opus+art | active | F1 gates F2/F3; all spec-ready |
 | **G** | Arena / multiplayer polish (seat camera + oriented backdrop · dev console · hex-highlight bug · ~~**G4** parts-draft screen UI~~) | Opus/Sonnet | active | G1–G3 spec-ready (G1+G3 verified together); **G4 + P4-5 shipped 2026-07-06** (draft model + screen + shared ability-preview popover) |
 | **O** | The Hub (staging scene · starting-part + starting-biome choices · cauldron voice · death-return) | Opus | new | **O1 shipped 2026-07-06** (owner-revised: tasted-pool offer, bare launch, tier-1 homelands); follow-ups filed in `ROADMAP.md` |
@@ -229,17 +229,17 @@ that swaps to production by repointing one field. ~90% is populating already-des
 pool · site dressing theme · world backdrop); the one new design decision is the **swap contract** (E1),
 on which the three population briefs depend. Advances/consumes the P5 look-pass items (P1-2 · P5-2 remainder
 · P5-3 · P5-4) and satisfies the **demo half** of P5-4's asset-gen (store packs instead of generated meshes).
-E1 gates E2–E4; the three population briefs then parallelise. **Status 2026-07-06: E1+E2+E3 shipped
-in one pass** (`environment-dressing.md` + CHANGELOG); **E4 deferred by the owner** — the kit
-contract is shaped for it (a backdrop-kit subclass is additive).*
+E1 gates E2–E4; the three population briefs then parallelise. **Status 2026-07-06: the whole track
+shipped** (`environment-dressing.md` + CHANGELOG) — E1+E2+E3 in one pass, then E4 (backdrop scatter,
+the additive third kit kind) and E5 (footprint/edge-fit polish) as follow-ups.*
 
 | ID | Task | Model | Owner | Note / dep |
 |---|---|---|---|---|
 | ~~**E1**~~ | ~~Dressing-kit **binding & swap**~~ ✅ shipped 2026-07-06 (`environment-dressing.md` R1–R6): data-only kit SOs (abstract base + biome-feature + site-dressing kinds) · **whole-kit binding** (`BiomeAppearanceDefinition._featureKit` / `SiteStamp.DressingThemeId` → kit) · demo quarantine `Resources/World/Dressing/Demo/` + `DemoPackQuarantineTests` living guard · bind-time tone treatment (URP-Lit rebuild, muted biome-key lerp — also fixes pack Standard materials under URP) · fail-safe base layer (no kit → `Empty` plan) | Opus | Hybrid | consumed brief `dressing-kit-binding-and-swap.md`; gated E2–E4 |
 | ~~**E2**~~ | ~~Biome **decoration kits (demo)**~~ ✅ shipped 2026-07-06 **with the P1-2 placement model**: `PlatformHexSurface.BlockedCells` live (grid/anchors exclude), clustered homogeneous decoratives (multi-per-cell), sparse whole-cell blockers under battlefield-min/lane/connectivity guards, rim/rear bias; Desert + Forest demo kits + ground materials authored; Mountain/Cave stay base-layer (follow-up in `ROADMAP.md`) | Opus+art | Hybrid | consumed brief `biome-decoration-kits-demo.md`; **shipped P1-2's core** (palette/light residue filed) |
 | ~~**E3**~~ | ~~Site & camp **dressing kits (demo)**~~ ✅ shipped 2026-07-06: Settlement kit (buildings on a **block-shared skyline band**, gate on the anchor's approach edge, street ground; Village + City re-keyed to one `settlement-kit`) + Camp kit (hanger-campfire focal + facing prop ring, packed dirt); per-biome recolour via the tone treatment; follow-ups (Ruin/Lair kits · material matrix · gradient/alignment · prop animation) in `ROADMAP.md` | Opus+art | Hybrid | consumed brief `site-camp-dressing-kits-demo.md`; **shipped P5-3's demo half**; stayed orthogonal to D1 |
-| **E4** | World **backdrop fill (demo)** — build the distant horizon as **real 3D low-poly scatter** (dunes/mesas/hills/tree-clumps) per biome, heavily hazed, non-walkable, deterministic | Opus+art | Hybrid | **DEFERRED** (owner 2026-07-06); brief `world-backdrop-fill-demo.md` stays verified; ← E1 (contract ready — one more kit subclass); finishes the **P5-2 remainder** |
-| ~~**E5**~~ | ~~Decoration **footprint & edge-fit** (polish)~~ ✅ shipped 2026-07-06 (`environment-dressing.md` R17–R19): per-entry rough footprint (kind defaults + override) · deterministic inward nudge (`PlatformEdgeFit`) so grounded props sit fully on the platform · rim-overhang now **opt-in** per entry (`_mayOverhang`, demo: desert Tree_01); density/clustering/determinism unchanged | Opus | Code | consumed brief `decoration-footprint-and-edge-fit.md`; out-of-scope residue (mesh-derived bounds · prop-vs-prop spacing · site-prop footprint) noted in the doc §6 |
+| ~~**E4**~~ | ~~World **backdrop fill (demo)**~~ ✅ shipped 2026-07-06 (`environment-dressing.md` R20–R22): the **third kit kind** (`BackdropKitDefinition`, bound whole-kit from `BiomeAppearanceDefinition._backdropKit` — the additive subclass E1 foretold) · pure `BackdropScatterPlanner` (fixed X slots, per-slot stream, streaming-safe, low density) · world-fixed scatter placed along the camera's yawed depth axis + ortho drop, hazed (`ToneMaterialCache.GetHazed`), colliderless; Desert + Forest demo backdrop kits; Mountain/Cave = ridge rig only | Opus+art | Hybrid | consumed brief `world-backdrop-fill-demo.md`; finishes the **P5-2 remainder**; parallax/sky-anim/escalation stay deferred (`world-backdrop.md` §5) |
+| ~~**E5**~~ | ~~Decoration **footprint & edge-fit** (polish)~~ ✅ shipped 2026-07-06 (`environment-dressing.md` R17–R19, R16a): per-entry rough footprint (kind defaults + override) · deterministic inward nudge (`PlatformEdgeFit`) so grounded props sit fully on the platform · rim-overhang now **opt-in** per entry (`_mayOverhang`, demo: desert Tree_01) · **extended to site kits** (camp rings/gates nudged, house/fire cells edge-margined) after playtest; density/clustering/determinism unchanged | Opus | Code | consumed brief `decoration-footprint-and-edge-fit.md`; out-of-scope residue (mesh-derived bounds · prop-vs-prop spacing · pivot-not-at-base) noted in the doc §6 |
 
 ---
 
@@ -254,7 +254,9 @@ ribbon. Everything here is **presentation over shipped inventory/crafting/socket
 outcome change**. Owner-locked forks: fullness = **liquid level only** (the model is a **fixed size, never
 resized in code**); in-brew behaviour = **stable places + event-physics** (untouched bubbles never move;
 drop-in splashes and settles); artifacts read as in-liquid via **bubbles that pierce the surface**. Look
-mudboard: **Potion Craft** + **Cult of the Lamb**. See `design/decisions.md` (2026-07-05).*
+mudboard: **Potion Craft** + **Cult of the Lamb**. **Target-composition reference (all three briefs at
+once):** `product-requirements/references/cauldron-view-reference.png`, annotated normative-vs-mood in the
+**F1** brief. See `design/decisions.md` (2026-07-05).*
 
 | ID | Task | Model | Owner | Note / dep |
 |---|---|---|---|---|

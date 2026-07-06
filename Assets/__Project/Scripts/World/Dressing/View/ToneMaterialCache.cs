@@ -29,34 +29,60 @@ namespace World.Dressing.View
         /// <summary>Flat low-poly look: no speculars competing with the gameplay layer.</summary>
         private const float TonedSmoothness = 0.1f;
 
+        /// <summary>The backdrop's heavy atmospheric wash toward the biome haze tint — the
+        /// quietest, most desaturated layer (world-backdrop-fill brief FR5). Haze lightens, so no
+        /// value pull-down.</summary>
+        private const float HazeStrength = 0.75f;
+        private static readonly Color DefaultHazeTint = new Color(0.75f, 0.79f, 0.79f);
+
         private readonly IBiomeAppearanceCatalog _appearanceCatalog;
-        private readonly Dictionary<(Material, LevelTheme), Material> _variants =
-            new Dictionary<(Material, LevelTheme), Material>();
+        private readonly Dictionary<(Material, LevelTheme, bool), Material> _variants =
+            new Dictionary<(Material, LevelTheme, bool), Material>();
 
         public ToneMaterialCache(IBiomeAppearanceCatalog appearanceCatalog)
         {
             _appearanceCatalog = appearanceCatalog;
         }
 
-        public Material GetToned(Material source, LevelTheme theme)
+        /// <summary>The standard bind-time tone treatment for on-platform dressing.</summary>
+        public Material GetToned(Material source, LevelTheme theme) => GetVariant(source, theme, hazed: false);
+
+        /// <summary>The heavy haze wash for the distant backdrop scatter (E4).</summary>
+        public Material GetHazed(Material source, LevelTheme theme) => GetVariant(source, theme, hazed: true);
+
+        private Material GetVariant(Material source, LevelTheme theme, bool hazed)
         {
             if (source == null)
             {
                 return null;
             }
 
-            if (_variants.TryGetValue((source, theme), out var cached))
+            if (_variants.TryGetValue((source, theme, hazed), out var cached))
             {
                 return cached;
             }
 
             var appearance = _appearanceCatalog?.Get(theme);
-            Color tint = appearance != null ? appearance.ToneTint : DefaultToneTint;
-            float strength = appearance != null ? appearance.ToneStrength : DefaultToneStrength;
+            Color tint;
+            float strength;
+            float valueMultiplier;
+            if (hazed)
+            {
+                tint = appearance != null ? appearance.HazeTint : DefaultHazeTint;
+                strength = HazeStrength;
+                valueMultiplier = 1f;
+            }
+            else
+            {
+                tint = appearance != null ? appearance.ToneTint : DefaultToneTint;
+                strength = appearance != null ? appearance.ToneStrength : DefaultToneStrength;
+                valueMultiplier = ValueMultiplier;
+            }
+
             Color sourceColor = source.HasProperty("_Color") || source.HasProperty("_BaseColor")
                 ? source.color
                 : Color.white;
-            Color toned = Color.Lerp(sourceColor, tint, strength) * ValueMultiplier;
+            Color toned = Color.Lerp(sourceColor, tint, strength) * valueMultiplier;
             toned.a = sourceColor.a;
 
             var pipelineShader = Shader.Find(PipelineShaderName);
@@ -81,8 +107,8 @@ namespace World.Dressing.View
                 variant = new Material(source) { color = toned };
             }
 
-            variant.name = $"{source.name}_Toned_{theme}";
-            _variants[(source, theme)] = variant;
+            variant.name = $"{source.name}_{(hazed ? "Hazed" : "Toned")}_{theme}";
+            _variants[(source, theme, hazed)] = variant;
             return variant;
         }
     }

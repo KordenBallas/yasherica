@@ -68,9 +68,21 @@ namespace Combat.View
             // Arrows whose enemy is no longer committing a move drop out.
             RemoveArrowsExcept(moving);
 
-            // Poses whose enemy is no longer armed ease back out (removed in Update once at rest).
+            // Poses whose enemy is no longer armed restore IMMEDIATELY: an eased-out pose
+            // overlaps the enemy's resolve movement and its additive offset then fights the
+            // cell-to-cell glide, leaving the model displaced from its cell (D8).
+            var poseRemove = new List<int>();
             foreach (var kv in _poses)
-                kv.Value.Armed = armed.Contains(kv.Key);
+            {
+                if (armed.Contains(kv.Key))
+                    continue;
+
+                RestorePose(kv.Value);
+                poseRemove.Add(kv.Key);
+            }
+
+            foreach (var key in poseRemove)
+                _poses.Remove(key);
         }
 
         public void Clear()
@@ -199,7 +211,9 @@ namespace Combat.View
             var dir = full.normalized;
             float length = full.magnitude * TelegraphStyle.MoveArrowLengthFraction;
             var perp = Vector3.Cross(dir, Vector3.up).normalized;
-            float y = TelegraphStyle.MoveArrowYOffset;
+            // Relative to the cell's own height: platforms sit at different elevation tiers, so an
+            // absolute Y drew the arrow below/inside every raised platform (the "missing arrows").
+            float y = fromWorld.y + TelegraphStyle.MoveArrowYOffset;
 
             var start = new Vector3(fromWorld.x, y, fromWorld.z);
             var tip = start + dir * length;

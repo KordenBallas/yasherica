@@ -20,6 +20,37 @@ This brief establishes the **vertical three-zone spine** and the **bubble = subm
 **layout + a presentation rule** over shipped systems; it does not change crafting, socketing, or what an
 artifact/blank *is*.
 
+## Reference image (shared Track F mood/layout board)
+
+`references/cauldron-view-reference.png` (in this folder) is the product owner's target composition for
+the **whole** cauldron view. It illustrates all three Track F briefs at once — treat it as the shared
+board, not F1-only.
+
+**What it reads as, mapped to this brief's zones:**
+
+- **Top** — two source reagents (a green serpent, a purple lizard) feeding an octagonal medallion-result
+  on beams of light = the **crafting zone**: staged inputs + the forming fusion result, all **bare**.
+- **Centre** — a green brew holding six artifacts, **each inside its own bubble** = the **brew**, the
+  `bubble = submerged` rule in action.
+- **Bottom** — a **horizontal ribbon of six medallions**, each holding a body-part with gems around its
+  rim = the **medallion ribbon** (re-homed rack, FR4); the medallion's own art is F4 /
+  `medallion-socket-ui.md`.
+
+**Normative (build to this):** the vertical three-zone stack, the zones' relative positions, one
+artifact per bubble in the brew, the bare crafting/medallion zones, and the ribbon as a horizontal row
+under the pot.
+
+**NOT normative — mood only, owned elsewhere (do not build from the image):**
+
+- The **cave/organic backdrop** → stomach-interior backdrop, **P5-5** (not this diorama's cave).
+- The **ornate pot mesh** and rune-carved feet → the "prettier cauldron mesh" art item (**F6**); this
+  brief assumes the current mesh.
+- The **liquid surface, glow, and fill level** → **F2** (`cauldron-liquid-and-fullness.md`). The image's
+  **fully-submerged bubbles under a translucent surface are normative** (F2 FR2 — the pot fills with bubbles
+  bottom-up, the waterline rises above them); only the surface *look/shader* is F2's to detail.
+- **Exact artifact icons, medallion art, palette, and the six-count** → illustrative placeholders; real
+  content is authored and variable (not fixed at six).
+
 ## The spatial spine (top → bottom)
 
 One vertical reading of the beast's interior:

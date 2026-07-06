@@ -202,6 +202,9 @@ namespace Combat.Controller
             SetRoundPhase(RoundPhase.EnemyPlan);
 
             var intents = _intentPlanner.Plan(_gameState);
+            // Reveal = orient (D6): every armed enemy turns toward its committed move/ability
+            // at plan time, so all units read uniformly before the player acts.
+            _gameState = EnemyIntentFacingApplier.Apply(_gameState, intents, _hexConfig);
             _gameState = (_gameState as CombatState).WithEnemyIntents(intents);
             OnEnemyPlansRevealed?.Invoke(intents);
 

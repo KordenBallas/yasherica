@@ -107,9 +107,10 @@ namespace Platform
                 return;
             }
 
-            NpcVisual = character.gameObject;
-            NpcVisual.transform.position = platform.Visual?.Position ?? Vector3.zero;
-            NpcVisual.name = $"NPC_{Actor.InstanceId}";
+            // Host the rig so the NPC root's +Z is the model's face (the placeholder art
+            // faces -Z) — anything orienting the NPC root then reads face-first.
+            NpcVisual = CharacterRigHost.Wrap(
+                character, $"NPC_{Actor.InstanceId}", platform.Visual?.Position ?? Vector3.zero);
             _tintApplier?.Apply(NpcVisual, Archetype.DemoTint);
         }
 

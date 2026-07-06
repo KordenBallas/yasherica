@@ -96,19 +96,24 @@ namespace Combat.Input
 
         private void HandleMovementModeChanged(MovementModeChangedCommand command)
         {
-            if (!CanProcessInput()) return;
-
-            _isMovementModeActive = command.IsActive;
-
-            if (!_isMovementModeActive)
+            // Deactivation must ALWAYS clear the hover highlight — the confirmed move itself may
+            // have ended the player's Act phase, so gating the clear behind the turn check left
+            // the hovered cell stuck highlighted for the rest of the fight (D8).
+            if (!command.IsActive)
             {
-                // Clear highlight when movement mode deactivates
+                _isMovementModeActive = false;
                 _currentTargetCell = null;
                 _presenter?.UpdateHighlight(null);
+                OnCommandProcessed?.Invoke(command);
+                _logger.Info(LogCategory.Combat,"[InputCommandHandler] Movement mode changed: False");
+                return;
             }
 
+            if (!CanProcessInput()) return;
+
+            _isMovementModeActive = true;
             OnCommandProcessed?.Invoke(command);
-            _logger.Info(LogCategory.Combat,$"[InputCommandHandler] Movement mode changed: {command.IsActive}");
+            _logger.Info(LogCategory.Combat,"[InputCommandHandler] Movement mode changed: True");
         }
 
         private void HandleMovementDirectionChanged(MovementDirectionChangedCommand command)
@@ -149,9 +154,8 @@ namespace Combat.Input
 
         private void HandleMovementCancelled(MovementCancelledCommand command)
         {
-            if (!CanProcessInput()) return;
-
-            // Clear state and highlights
+            // A cancel only clears state and highlights — it must run even when the turn check
+            // no longer passes (D8: highlights must always reset).
             _isMovementModeActive = false;
             _currentTargetCell = null;
             _presenter?.UpdateHighlight(null);

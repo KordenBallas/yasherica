@@ -31,6 +31,10 @@ namespace Combat.Config
         [Tooltip("Key for executing the ability queue")]
         public KeyCode executeQueueKey = KeyCode.Return;
 
+        [Tooltip("Holding the execute key at least this long enters volley aim mode; a shorter " +
+                 "tap fires the queue immediately along the current facing (D7)")]
+        public float volleyAimHoldThresholdSeconds = 0.25f;
+
         [Header("Ability Hotkeys")]
         [Tooltip("Ability hotkeys (Q/W/E/R/T/Y by default, index 0-5)")]
         public System.Collections.Generic.List<KeyCode> abilityKeys = new System.Collections.Generic.List<KeyCode>

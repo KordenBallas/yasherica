@@ -101,6 +101,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable, I
     private World.Dressing.Core.IEnvironmentDressingPlanner _dressingPlanner;
     [Inject]
     private IEnvironmentDressingSpawner _dressingSpawner;
+    [Inject]
+    private IBackdropScatterSpawner _backdropScatterSpawner;
 
     private IPlayer _localPlayer;
 
@@ -149,7 +151,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable, I
         areaGenerator = new AreaGenerator(
             new PlatformGraphData(), routeModel, _platformFactory, _lootRollService, _currentThemeProvider,
             _platformShapeSettings, _runSeedProvider, config, _logger, landmarkSpawner,
-            _dressingPlanner, _dressingSpawner);
+            _dressingPlanner, _dressingSpawner, _backdropScatterSpawner);
 
         CreateWorldBackdrop(biomeAppearance, landscapeSettings, routeSeed);
 
