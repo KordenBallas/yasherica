@@ -112,7 +112,24 @@ namespace Core.DI
                 .To<CraftingSession>()
                 .AsSingle()
                 .WithArguments(_config.ItemsToCombine);
-            Container.Bind<BubbleLayoutCalculator>().AsSingle();
+
+            // The stable-spot lattice derives from the one authored bowl
+            // silhouette (CauldronView), so layout and geometry never drift apart.
+            Container.Bind<BrewLayoutModel>()
+                .FromMethod(ctx =>
+                {
+                    var geometry = ctx.Container.Resolve<ICauldronGeometry>();
+                    var settings = new BrewLatticeSettings(
+                        _config.BrewBubbleRadius,
+                        _config.BrewSpotSpacingMargin,
+                        _config.EdgePadding,
+                        _config.BrewFloorClearance,
+                        _config.BrewDepthJitter,
+                        _config.BrewOverflowLayers);
+                    return new BrewLayoutModel(
+                        BrewSpotLatticeBuilder.Build(geometry.ProfileSettings, settings));
+                })
+                .AsSingle();
         }
 
         private void InstallViews()
@@ -133,6 +150,16 @@ namespace Core.DI
 
             Container.Bind<IInventoryStageView>()
                 .To<InventoryStageView>()
+                .FromComponentInHierarchy()
+                .AsSingle();
+
+            Container.Bind<ICauldronGeometry>()
+                .To<CauldronView>()
+                .FromComponentInHierarchy()
+                .AsSingle();
+
+            Container.Bind<ILiquidSurfaceView>()
+                .To<LiquidSurfaceView>()
                 .FromComponentInHierarchy()
                 .AsSingle();
 

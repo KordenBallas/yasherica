@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Character;
 using Core.Events;
+using GameInput.Core;
 using Narrative.Interaction.Core;
 using Platform;
 using UnityEngine;
@@ -26,11 +27,13 @@ namespace Narrative.Interaction
         private readonly NpcInteractionSettings _settings;
         private readonly IInteractionInput _input;
         private readonly NpcEncounterStarter _starter;
+        private readonly IPromptCueProvider _cues;
 
         private readonly List<NpcInteractionHandle> _handleScratch = new List<NpcInteractionHandle>();
         private readonly List<NpcProximitySample> _sampleScratch = new List<NpcProximitySample>();
 
         private IPlatform _currentPlatform;
+        private string _promptText;
 
         public NpcProximityPresenter(
             ICharacterRegistry characterRegistry,
@@ -38,7 +41,8 @@ namespace Narrative.Interaction
             ProximityEvaluator evaluator,
             NpcInteractionSettings settings,
             IInteractionInput input,
-            NpcEncounterStarter starter)
+            NpcEncounterStarter starter,
+            IPromptCueProvider cues)
         {
             _characterRegistry = characterRegistry;
             _registry = registry;
@@ -46,12 +50,16 @@ namespace Narrative.Interaction
             _settings = settings;
             _input = input;
             _starter = starter;
+            _cues = cues;
 
+            RefreshPromptText();
+            _cues.CuesChanged += RefreshPromptText;
             PlatformEvents.OnPlatformEntered += HandlePlatformEntered;
         }
 
         public void Dispose()
         {
+            _cues.CuesChanged -= RefreshPromptText;
             PlatformEvents.OnPlatformEntered -= HandlePlatformEntered;
         }
 
@@ -133,8 +141,20 @@ namespace Narrative.Interaction
             {
                 var handle = _handleScratch[i];
                 bool show = !handle.Consumed && handle.Id == nearestId;
+                if (show)
+                {
+                    // The prompt cue follows the active device ("[F] Talk" ↔ "[Y] Talk" ↔ "[Tap] Talk");
+                    // setting it on show keeps even a visible prompt current after a device switch.
+                    handle.View?.SetPromptText(_promptText);
+                }
+
                 handle.View?.ShowPrompt(show);
             }
+        }
+
+        private void RefreshPromptText()
+        {
+            _promptText = $"[{_cues.GetCue(GameAction.Interact)}] Talk";
         }
 
         private static PlanarPoint ToPlanar(Vector3 position) => new PlanarPoint(position.x, position.z);

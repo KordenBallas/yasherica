@@ -21,3 +21,4 @@ MonoBehaviour:
   _propertyTraits:
   - {fileID: 11400000, guid: f0617283946a5bc7d8e9f001a2b3c4d6, type: 2}
   _tier: 0
+  _rewardFamilyId: power

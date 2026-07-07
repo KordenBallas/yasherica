@@ -118,7 +118,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _openButton: {fileID: 203}
   _closeButton: {fileID: 303}
-  _cancelAction: {fileID: 0}
+  _cancelAction: {fileID: -1967631576421560919, guid: 052faaac586de48259a63d0c4782560b,
+    type: 3}
 --- !u!1 &200
 GameObject:
   m_ObjectHideFlags: 0

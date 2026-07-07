@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 53a8b63e764cf134faaa377495c48bcc, type: 3}
+  m_Name: CauldronBarkLines
+  m_EditorClassIdentifier: Yasherica::Narrative.Barks.Data.CauldronBarkLinesConfig
+  _temptationIndulgent:
+  - "Вот это блюдо по нам, сладкий. Не скромничай — бери зубастое."
+  - "Чуешь, как булькает? Это я облизываюсь."
+  _temptationRestrained:
+  - "Можно, конечно, опять выбрать что-нибудь… приличное."
+  - "Бери что хочешь. Скромникам вкус всё равно не положен."
+  _darkOfferIndulgent:
+  - "Зачем мелочиться — сожри его целиком, и дело с концом."
+  - "Вот это разговор. Соглашайся, пока дают тёмное."
+  _darkOfferRestrained:
+  - "Ой, какие мы принципиальные. А пахло ведь вкусно."
+  - "Откажешься — я запомню. Желудок злопамятен."
+  _restraintIndulgent:
+  - "Метка? Серьёзно? Мы могли стать ужасом этих холмов."
+  - "Пф. Целый котёл возможностей — и ты выбираешь вежливость."
+  _restraintRestrained:
+  - "Ну да, ну да. Носи свою примету, притворяйся своим."
+  - "Скромный кусочек. Пресно, но переварю."
+  _socketingTrendIndulgent:
+  - "Тяжёлое и ядовитое, значит… узнаю свой вкус."
+  - "Продолжай в том же духе — из этого выйдет чудовище на зависть."
+  _socketingTrendRestrained:
+  - "Опять то же самое? У тебя выйдет очень предсказуемый орган."
+  - "Вижу, к чему идёт. Не скажу, что в восторге."
+  _darkBelongingIds:
+  - power

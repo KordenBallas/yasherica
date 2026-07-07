@@ -38,8 +38,9 @@ namespace Inventory.Core
 
         /// <summary>
         /// Moves the inventory item with the given instance id into the crafting slots.
-        /// Returns false when the item is unknown, slots are busy with a pending result,
-        /// or a combine is already awaiting resolution.
+        /// A hovering result is auto-collected into the inventory first (Track F
+        /// continuous flow). Returns false when the item is unknown or a combine is
+        /// already awaiting resolution.
         /// </summary>
         bool TrySelect(int instanceId);
 

@@ -14,10 +14,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Yasherica::Narrative.Threads.Data.ThreadDefinition
   _threadId: barn_raid
   _kind: 0
-  _premise: []
+  _premise:
+  - _namespace: 0
+    _subjectToken:
+    _key: raider_offer_taken
+    _op: 0
+    _value:
+      _valueType: 0
+      _boolValue: 0
+      _intValue: 0
+      _floatValue: 0
+      _stringValue:
   _resolutionConditions: []
   _lifespanWindows: 4
-  _description: The barn-raid errand chain (victim + raider + reactions). Ephemeral - if the player
-    ignores it for 4 windows it quietly lapses. Resolution is left empty because the demo payoff is
-    a fork (grain recovered OR the raider's offer) and predicates are AND-only (OR composition is
-    the P3-5 roadmap item).
+  _description: The FARMER side of the barn moral fork (victim + raid + payoff + reactions),
+    Shape B (P1-8). Ephemeral - if the player ignores it for 4 windows it quietly lapses. Premise
+    holds while the raider's competing pact is NOT sworn - committing to the raider
+    (world.raider_offer_taken) contradicts it and the farmer arc retires failed/conflict, the
+    mutual-exclusion mechanism. The opposing thread is raider_pact (premise grain_recovered ==
+    false). Resolution is left empty (the payoff fork is AND-only until P3-5).

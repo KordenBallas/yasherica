@@ -116,18 +116,32 @@ namespace Mutation.Data
                 set.ActiveAbilities.Count + set.PassiveAbilities.Count);
             foreach (var ability in set.ActiveAbilities)
             {
+                // FR8/FR9: the card carries the applied status's glyph (same asset as the
+                // on-unit icon) and its "Applies: ..." line rides the description into the
+                // shared preview popover.
+                var appliedStatus = Combat.Data.StatusEffectPreviewText.GetAppliedStatus(ability, out _);
+                var description = ability.Description;
+                if (Combat.Data.StatusEffectPreviewText.TryDescribeApplied(ability, out var statusLine))
+                    description = string.IsNullOrEmpty(description) ? statusLine : $"{description}\n{statusLine}";
+
                 abilities.Add(new MutationAbilityInfo(
-                    ability.Name, ability.Description, ability.Icon, isPassive: false,
+                    ability.Name, description, ability.Icon, isPassive: false,
                     isLine: ability.Shape == Combat.Core.AbilityShapeType.Line,
                     lineLength: ability.LineLength,
                     ringRadius: ability.RingRadius,
-                    animationTrigger: ability.AnimationTrigger));
+                    animationTrigger: ability.AnimationTrigger,
+                    statusGlyph: appliedStatus != null ? appliedStatus.Glyph : null));
             }
 
             foreach (var passive in set.PassiveAbilities)
             {
+                var description = passive.Description;
+                if (Combat.Data.StatusEffectPreviewText.TryDescribeStanding(passive, out var standingLine))
+                    description = string.IsNullOrEmpty(description) ? standingLine : $"{description}\n{standingLine}";
+
                 abilities.Add(new MutationAbilityInfo(
-                    passive.Name, passive.Description, passive.Icon, isPassive: true));
+                    passive.Name, description, passive.Icon, isPassive: true,
+                    statusGlyph: passive.Modifier != null ? passive.Modifier.Glyph : null));
             }
 
             return abilities;

@@ -19,7 +19,6 @@ namespace Combat.Controller
         private readonly IActionValidator _actionValidator;
         private readonly IActionExecutor _actionExecutor;
         private readonly ITurnManager _turnManager;
-        private readonly IDamageSystem _damageSystem;
         private readonly StatusEffectTriggerProcessor _triggerProcessor;
         private readonly EnemyIntentPlanner _intentPlanner;
         private readonly EnemyIntentResolver _intentResolver;
@@ -33,7 +32,6 @@ namespace Combat.Controller
             IActionValidator actionValidator,
             IActionExecutor actionExecutor,
             ITurnManager turnManager,
-            IDamageSystem damageSystem,
             StatusEffectTriggerProcessor triggerProcessor,
             EnemyIntentPlanner intentPlanner,
             EnemyIntentResolver intentResolver,
@@ -45,7 +43,6 @@ namespace Combat.Controller
             _actionValidator = actionValidator;
             _actionExecutor = actionExecutor;
             _turnManager = turnManager;
-            _damageSystem = damageSystem;
             _triggerProcessor = triggerProcessor;
             _intentPlanner = intentPlanner;
             _intentResolver = intentResolver;
@@ -61,7 +58,6 @@ namespace Combat.Controller
                 _actionValidator,
                 _actionExecutor,
                 _turnManager,
-                _damageSystem,
                 _triggerProcessor,
                 _intentPlanner,
                 _intentResolver,

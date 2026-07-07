@@ -31,6 +31,10 @@ namespace Inventory.Data.Definitions
         [Tooltip("Potency: 0 = raw find, higher = crafted/refined")]
         [SerializeField, Min(0)] private int _tier;
 
+        [Header("Reward Belonging (P1-5)")]
+        [Tooltip("Coarse function family for the quest-reward economy (e.g. 'power' vs 'utility'); must match a RewardFamilyDefinition id. Empty = never rolled by a family-constrained quest reward.")]
+        [SerializeField] private string _rewardFamilyId = string.Empty;
+
         public string Id => _id;
         public string DisplayName => _displayName;
         public string Description => _description;
@@ -39,5 +43,9 @@ namespace Inventory.Data.Definitions
         public IReadOnlyList<TraitDefinition> SubstanceTraits => _substanceTraits;
         public IReadOnlyList<TraitDefinition> PropertyTraits => _propertyTraits;
         public int Tier => _tier;
+
+        /// <summary>Reward-family id (belonging) this artifact rolls under in the quest-reward
+        /// economy; the family also supplies the offer card's belonging colour (P0-3·b).</summary>
+        public string RewardFamilyId => _rewardFamilyId;
     }
 }

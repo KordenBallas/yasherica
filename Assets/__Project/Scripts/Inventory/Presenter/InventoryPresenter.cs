@@ -15,9 +15,10 @@ namespace Inventory.Presenter
 {
     /// <summary>
     /// Orchestrates the cauldron inventory: open/close flow (camera zoom, character
-    /// facing, movement lock, stage overlay, HUD buttons), bubble layout refresh on
-    /// inventory changes, starting-inventory seeding, and the combat guard
-    /// (inventory is unavailable during combat).
+    /// facing, movement lock, stage overlay, HUD buttons), stable-spot bubble
+    /// refresh on inventory changes, the fullness fill-level snapshot on open
+    /// (Track F), starting-inventory seeding, and the combat guard (inventory is
+    /// unavailable during combat).
     /// </summary>
     public class InventoryPresenter : IInitializable, IDisposable
     {
@@ -33,9 +34,14 @@ namespace Inventory.Presenter
         private readonly IArtifactCatalog _artifactCatalog;
         private readonly ICombatActivityTracker _combatActivityTracker;
         private readonly InventoryConfig _config;
-        private readonly BubbleLayoutCalculator _layoutCalculator;
+        private readonly BrewLayoutModel _brewLayout;
+        private readonly ILiquidSurfaceView _liquidView;
         private readonly IGameLogger _logger;
         private readonly global::Core.Persistence.RunRestoreContext _restoreContext;
+
+        // Spreads neighbouring bubbles' idle bob out of phase; spot indices are
+        // sequential, so a non-integer step decorrelates them.
+        private const float BobPhaseStep = 0.9f;
 
         private bool _isOpen;
 
@@ -54,7 +60,8 @@ namespace Inventory.Presenter
             IArtifactCatalog artifactCatalog,
             ICombatActivityTracker combatActivityTracker,
             InventoryConfig config,
-            BubbleLayoutCalculator layoutCalculator,
+            BrewLayoutModel brewLayout,
+            ILiquidSurfaceView liquidView,
             IGameLogger logger,
             [Zenject.InjectOptional] global::Core.Persistence.RunRestoreContext restoreContext = null)
         {
@@ -70,7 +77,8 @@ namespace Inventory.Presenter
             _artifactCatalog = artifactCatalog;
             _combatActivityTracker = combatActivityTracker;
             _config = config;
-            _layoutCalculator = layoutCalculator;
+            _brewLayout = brewLayout;
+            _liquidView = liquidView;
             _logger = logger;
             _restoreContext = restoreContext;
         }
@@ -120,7 +128,11 @@ namespace Inventory.Presenter
             _cameraService.SwitchToBellyCamera(_config.CameraTransitionTime);
             _stageView.SetStageActive(true);
 
+            // The fill level snapshots on open and holds for the session (F2):
+            // it reads the just-synced spot stack so the waterline always sits
+            // above the topmost bubble.
             RefreshBubbles();
+            SnapshotFillLevel();
             _potView.SetPotFocused(true);
             _hudView.SetOpenButtonVisible(false);
             _hudView.SetCloseButtonVisible(true);
@@ -177,28 +189,50 @@ namespace Inventory.Presenter
         private void RefreshBubbles()
         {
             var items = _inventory.Items;
-            var halfExtents = _potView.PotInteriorHalfExtents;
-            var settings = new BubbleLayoutSettings(
-                _config.MinBubbleRadius,
-                _config.MaxBubbleRadius,
-                _config.RadiusFalloff,
-                _config.EdgePadding);
+            var ids = new List<int>(items.Count);
+            for (int i = 0; i < items.Count; i++)
+            {
+                ids.Add(items[i].InstanceId);
+            }
 
-            var placements = _layoutCalculator.Calculate(
-                items.Count,
-                halfExtents.x,
-                halfExtents.y,
-                _potView.PotInteriorHalfDepth,
-                settings);
+            _brewLayout.Sync(ids);
 
             var bubbles = new List<BubbleViewData>(items.Count);
             for (int i = 0; i < items.Count; i++)
             {
+                if (!_brewLayout.TryGetSpot(items[i].InstanceId, out var spot))
+                {
+                    // Lattice exhausted (extreme overfill): the artifact stays in
+                    // the inventory but gets no bubble this session.
+                    _logger.Warning(LogCategory.Inventory,
+                        $"[InventoryPresenter] No free brew spot for instance {items[i].InstanceId}; " +
+                        $"lattice capacity is {_brewLayout.Capacity}.");
+                    continue;
+                }
+
                 ResolveVisual(items[i].DefinitionId, out Sprite icon, out Color tint);
-                bubbles.Add(new BubbleViewData(items[i].InstanceId, icon, tint, placements[i]));
+                var placement = new BubblePlacement(
+                    spot.X, spot.Y, spot.Z, _config.BrewBubbleRadius, spot.Index * BobPhaseStep);
+                bubbles.Add(new BubbleViewData(items[i].InstanceId, icon, tint, placement));
             }
 
             _potView.ShowBubbles(bubbles);
+        }
+
+        private void SnapshotFillLevel()
+        {
+            float highestBubbleTop = _inventory.Items.Count > 0
+                ? _brewLayout.HighestOccupiedY + _config.BrewBubbleRadius
+                : 0f;
+            float fillHeight = LiquidFillCalculator.Calculate(
+                _inventory.Items.Count,
+                highestBubbleTop,
+                new LiquidFillSettings(
+                    _config.LiquidMinFillHeight,
+                    _config.LiquidMaxFillHeight,
+                    _config.ArtifactsAtFullPot,
+                    _config.LiquidFillHeadroom));
+            _liquidView.SetFillHeight(fillHeight);
         }
 
         private void ResolveVisual(string definitionId, out Sprite icon, out Color tint)

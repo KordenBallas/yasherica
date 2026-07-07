@@ -38,9 +38,14 @@ namespace UI.AbilityPreview
 
         public static AbilityPreviewData FromAbility(AbilityDefinition ability)
         {
+            // FR9: the popover names the status the ability applies — same grammar everywhere.
+            var description = ability.Description;
+            if (Combat.Data.StatusEffectPreviewText.TryDescribeApplied(ability, out var statusLine))
+                description = string.IsNullOrEmpty(description) ? statusLine : $"{description}\n{statusLine}";
+
             return new AbilityPreviewData(
                 ability.Name,
-                ability.Description,
+                description,
                 isPassive: false,
                 isLine: ability.Shape == AbilityShapeType.Line,
                 lineLength: ability.LineLength,
@@ -50,9 +55,13 @@ namespace UI.AbilityPreview
 
         public static AbilityPreviewData FromPassive(PassiveAbilityDefinition passive)
         {
+            var description = passive.Description;
+            if (Combat.Data.StatusEffectPreviewText.TryDescribeStanding(passive, out var statusLine))
+                description = string.IsNullOrEmpty(description) ? statusLine : $"{description}\n{statusLine}";
+
             return new AbilityPreviewData(
                 passive.Name,
-                passive.Description,
+                description,
                 isPassive: true,
                 isLine: false,
                 lineLength: 0,

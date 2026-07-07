@@ -16,9 +16,19 @@ namespace Tests.EditMode
 
         private static void Set(object target, string field, object value)
         {
-            target.GetType()
-                .GetField(field, PrivateInstance)
-                .SetValue(target, value);
+            // GetField never returns a base type's private fields, and _kitId lives on the abstract
+            // DressingKitDefinition base since E1 - walk the hierarchy so kit ids keep settable.
+            for (var type = target.GetType(); type != null; type = type.BaseType)
+            {
+                var info = type.GetField(field, PrivateInstance);
+                if (info != null)
+                {
+                    info.SetValue(target, value);
+                    return;
+                }
+            }
+
+            Assert.Fail($"No private field '{field}' on {target.GetType().Name} or its bases.");
         }
 
         private static object MakeEntry(

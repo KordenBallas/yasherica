@@ -23,7 +23,8 @@ MonoBehaviour:
   _contributedSockets: []
   _activeAbilities:
   - {fileID: 11400000, guid: 967f900deb3eb854e9b83b5886c91075, type: 2}
-  _passiveAbilities: []
+  _passiveAbilities:
+  - {fileID: 11400000, guid: c749cc62a0d342e2908241cbcd3d2087, type: 2}
   _traitAffinities:
   - _traitId: chitin
     _weight: 0.7

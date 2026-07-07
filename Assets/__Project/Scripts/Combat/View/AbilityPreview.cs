@@ -1,4 +1,5 @@
 using Combat.Core;
+using Combat.Core.StatusEffects;
 using Combat.Controller;
 using UnityEngine;
 using TMPro;
@@ -88,10 +89,13 @@ namespace Combat.View
                 description += $"\n<color=orange>Status: {effect.Name}</color>\n";
                 description += $"Duration: {statusAbility.EffectDuration} turns\n";
 
-                if (effect is PoisonEffect poison)
-                    description += $"Damage per turn: {poison.DamagePerTurn}\n";
-                else if (effect is RegenerationEffect regen)
-                    description += $"Healing per turn: {regen.HealPerTurn}\n";
+                if (effect is ITriggeredStatusEffect triggered)
+                {
+                    if (triggered.DamagePerTrigger > 0)
+                        description += $"Damage per turn: {triggered.DamagePerTrigger}\n";
+                    if (triggered.HealPerTrigger > 0)
+                        description += $"Healing per turn: {triggered.HealPerTrigger}\n";
+                }
             }
 
             return description;

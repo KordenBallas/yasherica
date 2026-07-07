@@ -1,3 +1,5 @@
+using Combat.Core.StatusEffects;
+
 namespace Combat.Core
 {
     /// <summary>
@@ -75,7 +77,16 @@ namespace Combat.Core
                 effectType: AbilityEffectType.Hybrid)
         {
             Damage = damage;
-            EffectToApply = new PoisonEffect(poisonDamage, duration);
+            EffectToApply = new DataDrivenDamageOverTimeEffect(
+                id: 1002,
+                name: "Poison",
+                duration: duration,
+                stackCount: 1,
+                stackRule: StackRule.Refresh,
+                maxStacks: 0,
+                triggerType: StatusEffectTriggerType.TurnEnd,
+                damagePerTrigger: poisonDamage,
+                damagePerStack: 0);
             EffectDuration = duration;
         }
     }

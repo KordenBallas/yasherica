@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using CharacterProgression.Core;
 using DevTools.Core;
+using GameInput.Core;
 using Narrative.Casting.Core;
 using Narrative.Facts.Core;
 
@@ -9,20 +10,26 @@ namespace DevTools
 {
     /// <summary>
     /// Assembles the developer-overlay sections from the live narrative state: quest statuses (from the
-    /// run progression record, with ids mapped to display names via the fragment library) and the
-    /// director fact store. Pure C# (no UnityEngine) so the section content is unit-testable.
+    /// run progression record, with ids mapped to display names via the fragment library), the director
+    /// fact store, and the input foundation (active source + per-action bindings, Input Foundation R7).
+    /// Pure C# (no UnityEngine) so the section content is unit-testable.
     /// </summary>
     public sealed class DevStatePresenter : IDevStateSource
     {
         private readonly IRunProgressionRecord _progression;
         private readonly IFragmentLibrary _fragments;
         private readonly IFactStore _factStore;
+        private readonly IActiveInputSource _activeSource;
+        private readonly InputBindingCatalog _bindingCatalog;
 
-        public DevStatePresenter(IRunProgressionRecord progression, IFragmentLibrary fragments, IFactStore factStore)
+        public DevStatePresenter(IRunProgressionRecord progression, IFragmentLibrary fragments, IFactStore factStore,
+            IActiveInputSource activeSource, InputBindingCatalog bindingCatalog)
         {
             _progression = progression;
             _fragments = fragments;
             _factStore = factStore;
+            _activeSource = activeSource;
+            _bindingCatalog = bindingCatalog;
         }
 
         public IReadOnlyList<DevPanelSection> BuildSections()
@@ -30,8 +37,27 @@ namespace DevTools
             return new List<DevPanelSection>
             {
                 BuildQuestsSection(),
-                BuildFactsSection()
+                BuildFactsSection(),
+                BuildInputSection()
             };
+        }
+
+        /// <summary>Coverage at a glance (R7): which source is active right now and what every named
+        /// action is bound to on it — deferred gaps are marked instead of silently missing.</summary>
+        private DevPanelSection BuildInputSection()
+        {
+            var source = _activeSource.Current;
+            var rows = new List<string> { $"Active source: {source}" };
+
+            foreach (GameAction action in Enum.GetValues(typeof(GameAction)))
+            {
+                var cue = _bindingCatalog.GetCue(action, source);
+                rows.Add(cue != null
+                    ? $"{action}: {cue}"
+                    : $"{action}: — (deferred gap)");
+            }
+
+            return new DevPanelSection($"Input ({source})", rows);
         }
 
         private DevPanelSection BuildQuestsSection()

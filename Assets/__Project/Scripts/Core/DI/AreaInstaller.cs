@@ -67,9 +67,6 @@ namespace Core.DI
         private List<BiomeAppearanceDefinition> _resolvedBiomeAppearances;
 
         [Header("Data Definitions (Optional - for data-driven system)")]
-        [Tooltip("Status effect definitions for the data-driven system")]
-        [SerializeField] private List<StatusEffectDefinition> _statusEffectDefinitions;
-
         [Tooltip("Ability definitions for the data-driven system")]
         [SerializeField] private List<AbilityDefinition> _abilityDefinitions;
 
@@ -92,6 +89,10 @@ namespace Core.DI
 
             // Scene navigation: the death return rides RunLifecycleService → Hub (O1).
             Container.Bind<Core.SceneFlow.ISceneLoader>().To<Core.SceneFlow.SceneLoader>().AsSingle();
+
+            // Cross-device input foundation: shared actions, active-source tracking, prompt cues,
+            // and the touch overlay.
+            InputInstaller.Install(Container);
 
             InstallGameCoreBindings();
             InstallWorldBiomeBindings();
@@ -448,10 +449,13 @@ namespace Core.DI
                 .To<PlayerRegistry>()
                 .AsSingle();
 
-            // Input Controller (platform-specific)
-            // TODO: Add platform detection logic to bind correct implementation
+            // Combat input: one controller for every device — the shared actions carry keyboard,
+            // gamepad, and touch-overlay bindings simultaneously, so no platform switching is needed.
+            Container.Bind<Combat.Input.IAimDirectionResolver>()
+                .To<Combat.Input.AimDirectionResolver>()
+                .AsSingle();
             Container.Bind<Combat.Input.IInputController>()
-                .To<Combat.Input.PCInputController>()
+                .To<Combat.Input.CombatInputController>()
                 .FromNewComponentOnNewGameObject()
                 .AsSingle();
 
@@ -615,6 +619,8 @@ namespace Core.DI
                 .To<Combat.Execution.AbilityOutcomeCalculator>().AsSingle();
             Container.Bind<Combat.Data.Providers.IAbilityDefinitionCatalog>()
                 .To<Combat.Data.Providers.AbilityDefinitionCatalog>().AsSingle();
+            Container.Bind<Combat.Data.Providers.IStatusEffectDefinitionCatalog>()
+                .To<Combat.Data.Providers.StatusEffectDefinitionCatalog>().AsSingle();
             Container.Bind<Combat.View.ICombatUnitViewRegistry>()
                 .To<Combat.View.CombatUnitViewRegistry>().AsSingle();
 

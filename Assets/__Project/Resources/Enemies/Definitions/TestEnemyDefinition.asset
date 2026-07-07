@@ -21,6 +21,7 @@ MonoBehaviour:
   _demoTint: {r: 0.55, g: 0.2, b: 0.25, a: 1}
   _abilities:
   - {fileID: 11400000, guid: 19f7da520e6d4e8c962faf406ece53f0, type: 2}
+  - {fileID: 11400000, guid: 765406fe89ed46aaaba0852e808fd7d3, type: 2}
   _aiProfile: {fileID: 11400000, guid: b6aa4ef5ce17e964d93cefa3749bc7a5, type: 2}
   _lootSlots:
   - _artifactId: snake

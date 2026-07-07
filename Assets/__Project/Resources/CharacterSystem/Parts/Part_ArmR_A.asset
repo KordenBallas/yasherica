@@ -22,7 +22,8 @@ MonoBehaviour:
   - LowerArm.R
   - Hand.R
   _contributedSockets: []
-  _activeAbilities: []
+  _activeAbilities:
+  - {fileID: 11400000, guid: 2f05a77e734542f59495d58c72501833, type: 2}
   _passiveAbilities: []
   _traitAffinities: []
   _rarity: 0

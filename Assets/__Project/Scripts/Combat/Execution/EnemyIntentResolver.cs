@@ -85,6 +85,17 @@ namespace Combat.Execution
                 return state;
             }
 
+            // A root/slow status can land AFTER the intent was committed (during the player's
+            // Act) — the committed move fizzles if it now exceeds the gated range.
+            int distance = state.CalculateDistance(caster.Position, move.TargetPosition);
+            if (distance > MovementRange.EffectiveFor(caster))
+            {
+                _logger.Info(LogCategory.Combat,
+                    $"[EnemyIntentResolver] Unit {caster.Id} committed a {distance}-cell move but is " +
+                    $"rooted/slowed to {MovementRange.EffectiveFor(caster)} — fizzle");
+                return state;
+            }
+
             var moved = (caster as Unit).WithPosition(move.TargetPosition);
             return (state as CombatState).WithUpdatedUnit(moved);
         }

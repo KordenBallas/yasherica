@@ -105,12 +105,69 @@ are best built together.
 
 ---
 
+## Input / Cross-Device
+
+The shared input spine (verified brief `cross-device-input-foundation.md`, shipped 2026-07-07 —
+see `input-foundation.md` + CHANGELOG). The named-action vocabulary, the merged three-source
+bindings, active-source tracking, device-aware prompt cues, the touch overlay, and the dev-overlay
+Input section are in. What remains is the interaction DESIGN the foundation deliberately did not
+fake, plus deferred conveniences:
+
+- [x] `[arch]` **Cross-device input foundation** — named actions, per-source coverage rule (tested),
+  live active-source prompts, touch overlay, dev overlay section. Moved to CHANGELOG 2026-07-07.
+- [ ] `[design-gate]` **Gamepad interaction brief: cauldron brew (drag-and-drop with a stick).**
+  Focus/navigation model for the pointer-only brew layout — PO design decision before code.
+- [ ] `[design-gate]` **Gamepad interaction brief: inventory hover-inspect.** Non-pointer path for
+  hover-driven inspection.
+- [ ] `[design-gate]` **Gamepad interaction brief: mutation choice cards.** Focus model + initial
+  `EventSystem` selection for card hands (also unlocks d-pad Navigate on encounter cards — bound but
+  inert until a focus pass).
+- [ ] `[design-gate]` **Touch combat brief.** Aim/Fire/MoveMode/ChangeDirection/AbilitySlot1–6 on
+  touch are allowlisted deferred gaps in `InputBindingCatalog` — how you aim and volley with fingers
+  is its own interaction design.
+- [ ] `[content]` **Player-facing rebinding / remap UI** — deferred by the brief; bindings are fixed
+  in `GameActions.inputactions`.
+- [ ] `[content]` **Controller-specific glyph art** — prompt cues are text ("F", "RT", "D-Up");
+  per-platform button art is a later pass.
+- [ ] `[arch]` **Touch overlay hot-plug** — `TouchControlsView` checks for a touchscreen once at
+  startup; a touchscreen connected mid-session waits for the next scene load.
+
+---
+
 ## Cross-cutting
 
 - [ ] `[arch]` **Non-item reward types have no receiving system.** `Currency`, `Experience`,
   `Ability` rewards are rolled by the narrative system and skipped by the loot granter (logged only).
   Planned owners: `Experience` → Character Progression; `Ability` → Ability Subsystem (part-granted);
   `Currency` still open. Wire each receiving system as its owning section lands. *(narrative + loot)*
+
+---
+
+## Architecture & Extensibility Audit (Track W)
+
+A one-off, **read-only** whole-project review — Fable reads the codebase + data systems, measures them
+against `Assets/__Project/CLAUDE.md`, and produces a prioritised findings backlog (it changes no
+code/assets/docs; findings become work only after owner approval). Split into scoped passes, run one
+per session, from the code root. Brief:
+`product-requirements/architecture-and-extensibility-audit.md`; priority view = Track W in
+`ROADMAP-prioritized.md`; reports land in `Docs/audits/`.
+
+- [ ] `[arch]` **W1 — Data-driven / SO extensibility.** Per subsystem, the add-one-instance touch-count
+  (SO-only vs. SO+code); hard-coded content variety; SOs holding logic; undocumented SO types. *(§1/§7)*
+- [ ] `[arch]` **W2 — Architecture, coupling & duplication.** Layering breaks, DI violations,
+  God-objects; **duplication / parallel implementations** (the *same job done twice* in divergent paths —
+  e.g. two scene-specific platform builders; the Hub-as-parallel-world class) incl. copy-paste; dual-path
+  hazards (legacy/streaming, PvE/Arena/draft combat), ranked by blast-radius. *(§2–§6/§13–§14)*
+- [ ] `[debt]` **W3 — Dead, unreachable & orphaned code.** Enumerate no-caller classes/APIs/SO/assets,
+  then clear each against Unity liveness channels (SerializeField/GUID · Zenject by-type ·
+  `Resources.Load`/`CreateAssetMenu` · reflection · Ink-by-name · editor-only · test-only). **Hybrid** —
+  cheap sweep for candidates, careful model to adjudicate (false-positive deletions are the dangerous kind).
+- [ ] `[perf]` **W4 — Performance hypotheses.** A ranked *needs-profiling* shortlist — every item a
+  hypothesis, not a verdict (no profiler in env). *(§12)*
+- [ ] `[debt]` **W5 — Docs ↔ implementation drift.** Each system doc's requirements/SO-ref/recipe vs.
+  live code + assets; roadmap-vs-prioritised known-limitation mismatches. *(§8)*
+- [ ] `[arch]` **W6 — Synthesis & prioritised backlog.** Merge W1–W5, dedupe against existing debt,
+  group into themes + a top-5 "do first", propose ROADMAP rows. *(after W1–W5)*
 
 ---
 
@@ -135,8 +192,10 @@ Order — **Ibex** (Mountain), **Lizard** (Desert), **Fox** (Forest); the hero i
   PerFaction, one key for all races) on assembly + every part swap; the demo `frog_marsh` thread
   gates on `reads_as_tier(fox) ≥ 1` with a literal subject token, replacing the card-set
   `reads_as_frogfolk` bool. See CHANGELOG; `races-passport.md`.)*
-- [ ] `[arch]` **Belonging colour consumer.** `RaceDefinition._belongingColor` is authored but nothing
-  reads it yet — wire it into the quest-offer / mutation card hue grammar (the P1-6 card treatment).
+- [x] `[arch]` **Belonging colour consumer.** *(SHIPPED — P0-3·b (Track H), `quest-subsystem.md` §2.5.
+  `BelongingTintCatalog` merges `RaceDefinition._belongingColor` (Part-Blank rewards) and the new
+  `RewardFamilyDefinition._belongingColor` (artifact rewards) into one id→colour lookup consumed by the
+  quest-offer card's mystery slot + the quest log. ⚠ gameplay-untested. See CHANGELOG.)*
   *(races + narrative view)*
 - [ ] `[arch]` **Reconcile mutation species vs. race tag.** `PartBlankDefinition.SpeciesArchetypeId`
   (what a *blank* reads as) and `PartDefinition.RaceId` (what an equipped part reads as) are separate
@@ -376,8 +435,9 @@ Deferred design (from `narrative-procedural.md` §6):
   (`EncounterCardHandPresenter` + `IEncounterCardHandView`) over the unchanged runner; the tag/effect
   machinery is kept as the card-outcome channel, only presentation + choice selection changed. `DialogueRunner`
   gained `TriggerCombat`/`Leave`/`CombatAvailable`. See CHANGELOG; `narrative-procedural.md` §2.7. The
-  reward tier-glow/belonging color (gated on Crafting), the full Monster verb, several-offers-per-NPC, and
-  deletion of the old UI remain as the separate items below.)*
+  reward tier-glow/belonging colour, the Monster verb, and several-offers-per-NPC **all shipped with
+  Track H 2026-07-07** (⚠ gameplay-untested; `## Quests`); only the deletion of the old UI remains as the
+  separate `[debt]` item below.)*
 - [ ] `[debt]` **Remove the branching-choice dialogue UI.** The card hand has landed (`narrative-procedural.md`
   §2.7) and the old UI is dormant/unbound — this removal is now ready to execute: retire the
   branching-choice presentation: the runner's `OnChoices`/`SelectChoice` path + `StoryChoice`, the
@@ -435,18 +495,16 @@ New work (no system doc yet — author `character-progression.md` when implement
 
 ## Quests
 
-See `quest-subsystem.md` for the implemented quest fragment, lifecycle, and rewards.
+See `quest-subsystem.md` for the implemented quest fragment, lifecycle, and the quest-as-reward economy.
 
-> **Priority — the quest-as-reward economy** (`design/narrative/quest-as-reward.md`,
-> `quest-subsystem.md` §6). Make a quest *offer* feel like a prize. **Gated:** the reward **tier**
-> (card glow + roll-by-tier) needs the artifact trait/tier model — see **`## Crafting`** (prerequisite).
-> Suggested order:
-> - *Can precede the tier model:* (1) cross-dialogue quest continuity (enabler below);
->   (2) competing same-tier offers + mutual-exclusion facts on a thread; (3) the encounter card-hand
->   scaffold (situation bubble + typed card hand) that replaces the branching dialogue UI, incl.
->   several offers per NPC and the attack card.
-> - *Gated on `## Crafting` (tier):* (4) reward rolled by `tier + archetype-bias`; (5) the card's
->   tier glow + belonging color; (6) the cauldron tempter bark.
+> **Track H — the quest-as-reward economy — SHIPPED (code) 2026-07-07** (`quest-subsystem.md`,
+> `encounter-dialogue-ui.md`, `cauldron-barks.md`; briefs in `product-requirements/`). Every item below
+> is code-complete and edit-mode green (1605/1605).
+>
+> ⚠ **AWAITING OWNER GAMEPLAY TEST.** None of Track H has been play-tested — the *behaviour* is
+> implemented and unit-covered, but the *on-screen feel* (offer-card mystery slot + glow/tint, the
+> quest-log panel, the cauldron barks, the attack-verb + fork flow) is **unconfirmed in play mode**.
+> Do a gameplay pass on the barn/frog demo before treating the presentation as done.
 - [x] `[arch]` **M2 — Separate quests from stories.** *(Done — `QuestDefinition` SO (objectives, tags,
   on-complete/on-fail fact effects, rewards) distinct from the story; matched into a story Quest slot by
   tag; `QuestData`/`QuestInstance`/`QuestMapper`. The placeholder `QuestContent` is no longer used by the
@@ -467,20 +525,25 @@ See `quest-subsystem.md` for the implemented quest fragment, lifecycle, and rewa
   (window 1) offers `qst_barn_bounty`, `story_grateful_farmer` (window 2) completes it. Tested by
   `LiveQuestRegistryTests` + a cross-dialogue `DialogueRunnerTests` case. See CHANGELOG; `quest-subsystem.md`
   R8.)*
-- [ ] `[content]` **M2 — Quest log UI.** Surface the active/completed/failed quests and objective
-  progress (ties into the backlog quest-log item + the progression record).
+- [x] `[content]` **M2 — Quest log UI.** *(SHIPPED code, ⚠ gameplay-untested — P1-11, `quest-subsystem.md`
+  R12/§2.7. A read-only **J**-toggled panel projecting the live registry + thread ledger: quests grouped
+  into **sagas** by thread with the lifecycle verdict, each showing state + objectives + giver + reward
+  **tier + belonging only**. Pure `QuestLogModel(+Builder)` + `QuestLogView`/`QuestLogPresenter`; tested
+  by `QuestLogModelBuilderTests`. **Panel art/layout is a flat rich-text placeholder — needs the gameplay
+  pass + a render-look pass.** See CHANGELOG.)*
 
-Quest-as-reward (priority — `design/narrative/quest-as-reward.md`, `quest-subsystem.md` §6):
-- [ ] `[arch]` **Reward = rolled `tier + archetype-bias`, not a literal id.** Replace the fixed
-  `(artifactId, count)` on `QuestRewardCore` / `QuestRewardSerial` with a declared **reward tier +
-  archetype-bias**; on completion `QuestRewardGranter` **rolls** the artifact against loot tables by
-  tier + bias instead of granting a literal id. Keeps the offer-card glow honest and the world
-  non-catalog ("direction + floor, not vending"). Item rewards only. *(quests + loot)*
-- [ ] `[arch]` **Competing / mutually-exclusive same-tier offers, separated in time.** Two offers on a
-  shared-actor thread (director D10–D12) where accepting/declining the first gates a **same-tier** second
-  offer placed a couple platforms later; the choice reads as *whose side / which facts*, not "better
-  loot." The cross-dialogue quest-continuity prerequisite is now **done** (above); this still needs
-  mutual-exclusion facts **and** same-tier offer placement. *(quests + narrative)*
+Quest-as-reward (Track H — SHIPPED code 2026-07-07, ⚠ awaiting owner gameplay test):
+- [x] `[arch]` **Reward = declared `tier + belonging + payload kind`, rolled — not a literal id.**
+  *(SHIPPED — P1-5 + P0-3·b, `quest-subsystem.md` R7/§2.4/§2.5. `QuestRewardCore` is a declaration;
+  `QuestRewardRoller` (Loot.Core) rolls a concrete artifact/blank deterministically under the run seed —
+  belonging a hard filter, tier a nearest-tier bias; `QuestRewardGranter` routes by kind. New
+  `RewardFamilyDefinition` SO + `BelongingTintCatalog`; new `ArtifactDefinition._rewardFamilyId` /
+  `PartBlankDefinition._raceId` fields. `QuestRewardRollerTests` + rewritten `QuestRewardGranterTests`.
+  **Roll tables are uniform-weight nearest-tier — no rarity curve yet.** See CHANGELOG.)* *(quests + loot)*
+- [x] `[arch]` **Competing / mutually-exclusive same-tier offers, separated in time.** *(SHIPPED — P1-8,
+  `quest-subsystem.md` R10. Two offers on **opposed threads**; committing to one writes the fact that
+  fails the other on conflict via the shipped maintenance mechanism. Demo `barn_raid` vs `raider_pact`.
+  `CompetingOffersForkTests`. ⚠ gameplay-untested. See CHANGELOG.)* *(quests + narrative)*
 - [x] `[content]` **Encounter card-hand UI (replaces the dialogue choice UI).** *(Done, MVP — the NPC
   encounter is a situation bubble + a centred **hand of typed cards** composed by `EncounterCardHandPresenter`
   over the `DialogueRunner` offer/choice events; card types **quest-offer** / **attack** (Ink `# card: attack`
@@ -497,28 +560,28 @@ Quest-as-reward (priority — `design/narrative/quest-as-reward.md`, `quest-subs
   `encounter-dialogue-ui.md`; `narrative-procedural.md` §2.7. **Deferred:** per-tier card glow (gated on
   Crafting), several quest cards per NPC, mid-conversation portrait/emotion changes, automatic name
   detection.)* *(quests + narrative)*
-- [ ] `[arch]` **Several quest offers per NPC/storylet (new authoring shape).** A single story/NPC may
-  present **multiple quest-offer cards at once** (several resolution paths to one situation), same tier +
-  "different currency, not more". Today a story carries one Quest slot; let a story/casting carry several
-  offers and the card hand present them. Distinct from the time-separated cross-actor fork above. *(quests + narrative)*
-- [ ] `[content]` **Quest-offer card visual treatment.** *(Verified PO brief:
-  `product-requirements/quest-offer-card.md`.)* Upgrade the encounter card-hand's placeholder per-type
-  tint into the **ornate framed offer card**: the job (title+summary, already shipped) + a **mystery
-  reward slot** that **glows by tier**, is **tinted by belonging colour**, and shows the item as a
-  **hidden silhouette/"?"** (exact item never named). **Inspect** reveals the quest detail (reward
-  stays hidden). Reuses the artifact / mutation-card grammar (glow=tier, colour=belonging). **Now
-  unblocked** by the shipped artifact tier; the honest glow still assumes the "reward rolled by
-  tier+archetype-bias" item above. *(Implementation plan drafted 2026-07-03, deferred by priority:
-  `C:\Users\korde\.claude\plans\quest-offer-zany-swan.md` — declares reward tier + archetype-bias on
-  `QuestDefinition`, reuses the Mutation archetype tints for belonging, hover-popover inspect.)*
-  *(quests + narrative)*
-- [ ] `[arch]` **Attack card — the Monster verb.** A combat card present on **eligible NPCs only** (NPC
-  may also self-initiate) that, on pick: closes the actor's thread (director D13), routes corpse-loot to
-  the **separate** combat/mutation loot channel (`LootRollService` — never balance the fork on it), writes
-  Conquest/path facts, and fires the cauldron tempter bark. `design/narrative/npc-encounter-cards.md` §4. *(quests + narrative + loot)*
-- [ ] `[content]` **Cauldron-voice tempter hook on the dark offer.** A bark slot fired when a
-  power-archetype (Monster-path) offer **or the attack card** is presented, so the temptation rides fiction
-  rather than weighting the loot (`design/narrative/cauldron-voice.md`).
+- [x] `[arch]` **Several quest offers per NPC/storylet (new authoring shape).** *(SHIPPED — P1-9,
+  `quest-subsystem.md` R9. A story carries several Quest slots; the card hand shows them together, each
+  resolved by `offer-quest: <tag>` (choice + branch), same tier / different belonging; picking one mints
+  only that quest. Demo `story_frog_elder_open`. `MultipleOffersTests`. ⚠ gameplay-untested.)* *(quests + narrative)*
+- [x] `[content]` **Quest-offer card visual treatment.** *(SHIPPED — P1-6, brief `quest-offer-card.md`,
+  `encounter-dialogue-ui.md` R10/R11. The quest card gains a **mystery reward slot**: item hidden as `?`,
+  glow by declared tier, chip tinted by belonging colour via `IBelongingTintCatalog`; **hover-inspect**
+  reveals the job detail, reward stays hidden. `EncounterCardView.prefab` extended. ⚠ gameplay-untested —
+  the mystery slot is a placeholder shader treatment; the ornate frame / real glow shader / reveal anim
+  stay a render-look pass.)* *(quests + narrative)*
+- [x] `[arch]` **Attack card — the Monster verb.** *(SHIPPED — P1-7, brief `attack-card-monster-verb.md`,
+  `quest-subsystem.md` R11/§2.6. On a dialogue-routed kill (attack card or self-initiation, one path via
+  `DialogueRunner.OnCombatResolved`): forecloses the actor's thread (`Foreclosed` + indicator), writes
+  `actor.<id>.slain` (planner never recasts a slain actor) + `world.path_conquest`; corpse-loot stays on
+  the separate combat channel. `MonsterVerbConsequences`; `MonsterVerbConsequencesTests`. ⚠ gameplay-
+  untested.)* *(quests + narrative + loot)*
+- [x] `[content]` **Cauldron-voice tempter hook on the dark offer.** *(SHIPPED — P1-10, brief
+  `cauldron-voice-barks.md`, new `cauldron-barks.md`. The live bark channel — slots (temptation · dark
+  offer/attack · restraint · socketing trend) × path lean (`path_conquest` vs `path_restraint`, no
+  meter), deterministic, data-authored `CauldronBarkLinesConfig`. Fired from the mutation/encounter
+  presenters + `ISocketingTrendSource`. `CauldronBarkServiceTests`. ⚠ gameplay-untested; RU placeholder
+  lines; trend trigger has no throttle yet.)*
 
 ---
 
@@ -947,10 +1010,42 @@ Known limitations (from `character-locomotion.md` §6):
   `PartDefinition`** by user decision (single-asset authoring over strict layering); affinity/rarity
   add no *type* dependency on Mutation (id strings + plain enum). A future cleanup could move it to a
   Mutation-layer companion SO keyed by part id.
-- [ ] `[arch]` **Passive modifiers affect only outgoing damage.** `StatModifier` has no stat-target
-  dimension, so max-HP / defence / healing passives are not yet consumed. Extend the modifier model
-  (stat target) and `DamageSystem` / unit-stat resolution to honour them.
+- [x] `[arch]` **Passive modifiers beyond outgoing damage (P3-13).** *(Done 2026-07-07 with
+  Track S · S3 — the modifier model is a flat signed `Magnitude` × `StatTarget`
+  (OutgoingDamage / IncomingDamage), consumed two-sided by `DamageSystem.CalculateFinalDamage`;
+  healing-over-time is the HoT status kind (`Status_Regen` as a passive = permanent regen), not a
+  stat target. See CHANGELOG; `combat-status-effects.md` R10/R26.)*
+- [ ] `[arch]` **Max-HP stat target is not wired.** `StatTarget` covers outgoing/incoming damage
+  only; a passive that raises max HP has no consumption point. (Track S residue.)
 - [ ] _seed remaining items from `ability-subsystem.md` "Known limitations" on next pass._
+
+## Combat Status Effects (Track S — shipped 2026-07-07; residues)
+
+**S1+S2+S3 shipped 2026-07-07** (new system doc `combat-status-effects.md`; consumed brief
+`product-requirements/combat-status-effects.md`); ⚠ **awaiting the owner's gameplay pass** (on-unit
+row / card badge / popover feel). Open residues:
+
+- [ ] `[arch]` **Ghost preview ignores statuses.** `AbilityOutcomeCalculator` predicts damage only —
+  the one-shot/hover ghost does not show "will apply Burn (2)". Extend the outcome model + ghost
+  labels.
+- [ ] `[arch]` **Self-buffs are not expressible.** Ability areas exclude the caster's own cell, so
+  `Ability_WarCry` (Empowered) buffs adjacent units, never the caster. Needs an "includes self"
+  shape/targeting flag on `AbilityDefinition`.
+- [ ] `[feature]` **Cleanse / immunity thin flag (brief FR11).** Expiry is the only removal today;
+  the authored-only-where-needed cleanse ability / immunity refusal flag is not built.
+- [ ] `[content]` **Status glyphs are placeholder art** (code-drawn white shapes at
+  `Resources/Combat/StatusEffects/Glyphs/`). Designer swap = overwrite the PNG bodies; GUIDs stable.
+- [ ] `[art]` **Status VFX / tick animation** — application flash, per-tick cue, expiry puff
+  (render-look / VFX-language pass; ties P5-10).
+- [ ] `[feature]` **AI does not reason about statuses** (avoiding a DoT, valuing a stun) — Track K
+  smarter-AI scope (P2-4).
+- [ ] `[design]` **S4 status interactions / combos** (wet→fire…) — parked by the brief; statuses
+  stay flat.
+- [ ] `[design]` **S5 elemental damage-type system** — parked planning placeholder (owner
+  2026-07-07); "Physical" = the neutral `glyph_untyped` mark, no element/resistance layer.
+- [ ] `[debt]` **TurnStart / OnApply / OnRemove / OnThreshold trigger flags are unexercised** — no
+  starter content uses them; only TurnEnd is the canonical tick. Either consume or prune on a later
+  pass.
 
 ## Combat Experience
 
@@ -1171,6 +1266,34 @@ Deferred implementation follow-ups (2026-07-03 implementation plan):
   **Superseded and removed (2026-07-02):** the Socketed Blanks model replaced feeding with
   operating-table socketing and the feeding UI was deleted — see the migration items in
   `## Crafting & Mutation` and the CHANGELOG `Removed` entry.
+
+**The Cauldron View — Track F (presentation over the shipped inventory; 2026-07-06):**
+- [x] `[arch]` **F1 — spatial spine + bubble = submerged rule + ribbon re-home.** *(Done — brief
+  `cauldron-view-spatial-spine.md`: crafting-top · brew-centre · medallion-ribbon-bottom stack;
+  bubble shown iff in the liquid (staged/result/socketed = bare); the rack moved to the ribbon under
+  the pot. `inventory-subsystem.md` R27–R29.)*
+- [x] `[arch]` **F2 — liquid you can feel + fullness by fill level.** *(Done — brief
+  `cauldron-liquid-and-fullness.md`: translucent surface + cut-away curtain + bright waterline
+  (`LiquidBandMeshBuilder`, `M_PotLiquid`/`M_PotWaterline`); fill height = artifact count
+  (`LiquidFillCalculator`), snapshotted on open, always above the topmost bubble; fixed-size mesh.
+  `inventory-subsystem.md` R30.)*
+- [x] `[arch]` **F3 — stable brew layout + event physics + continuous result flow.** *(Done — brief
+  `cauldron-brew-layout-and-physics.md`: stable bottom-up spots (`BrewSpotLatticeBuilder`/
+  `BrewLayoutModel`), drop-in splash + settle, and the hovering result auto-commits into the brew on
+  the next combine (retires R19's rejection). **FR4 revision 2026-07-07 (implemented):** a removal
+  settles the gap downward **column-scoped** — the lattice forms vertical columns and only the column
+  resting above the removed bubble falls (`SettleColumn`); everything beside and below stays put,
+  replacing the brief's original "a removal never moves the others". `inventory-subsystem.md`
+  R10/R19/R31.)*
+- [x] `[content]` **F5 — stomach-interior backdrop seam (P5-5).** *(Done — screen-space
+  `StomachBackdrop` quad + muted `M_StomachBackdrop`; art is a designer asset swapped by repointing
+  the material/texture. `inventory-subsystem.md` R32.)*
+- [ ] `[content]` **F6 — prettier cauldron mesh (art).** A more attractive pot silhouette/charm,
+  fixed-size (F2 assumes whatever mesh is current) — the one net-new authored asset in the track;
+  the code seam (`CauldronView` geometry + `ICauldronGeometry`) is in place. *(designer art)*
+- [ ] `[content]` **Cauldron View tuning residue.** Play-mode passes on the bowl scale/capacity,
+  splash/settle spring feel (`InventoryConfig` Brew Event Physics), liquid alpha/waterline read, and
+  the stomach backdrop art. *(inventory)*
 - [ ] _seed remaining items from `inventory-subsystem.md` "Known limitations" on next pass._
 
 ---
@@ -1212,10 +1335,18 @@ species tag) with a raw→crafted quality gradient; the **cauldron** fuses artif
   the reused choice panel via `MutationVariantPresenter`, install via `SwapPart` +
   consume-on-pick. See CHANGELOG; `mutation-subsystem.md` §2.6–§2.8.)*
   *(crafting + mutation + inventory)*
-- [ ] `[content]` **Operating-table polish.** The rack is a placeholder look (tinted quads,
-  code-built TMP labels, no blank icons authored); no drag ghost effects, no unseal animation, no
-  tier-glow on bubbles ("tier by glow" PO axis). A confirm step before the auto-unseal commit is a
-  possible later tweak (today the last drop is the commit — user decision). *(mutation + inventory)*
+- [x] `[content]` **Medallion socket UI + confirm-before-unseal (P1-3 / Track F · F4).** *(Done
+  2026-07-06 — brief `product-requirements/medallion-socket-ui.md`: a racked blank renders as a
+  **medallion** (part centred on a species disc, sockets as **rim gems**, **rim = progress ring**
+  closing as sockets fill — `MedallionMeshBuilder`, reworked `BlankEntryView`), moved into the
+  **ribbon under the cauldron** (`InventoryStage.prefab` `MedallionRibbon`), and the commit moved
+  from "the last drop" to a **confirm-before-unseal** click (`IBlankRackView.OnUnsealClicked` →
+  `MutationVariantPresenter`; `SocketingModel.TryUnsocket` now reopens a full blank). See CHANGELOG;
+  `mutation-subsystem.md` §2.3/§2.4.)* *(mutation + inventory)*
+- [ ] `[content]` **Medallion look polish (residue of P1-3 / F4).** Procedural disc/rim meshes +
+  code-built labels; no blank icons authored, no drag ghost, no gem/rim VFX beyond the ready pulse,
+  no tier-glow on the medallion ("tier by glow" PO axis). Exact medallion art / closing-ring VFX are
+  the render-look/tech-art call. *(mutation + inventory)*
 - [x] `[content]` **Separate scarce Blank Rack.** *(Done — `IBlankRack`/`BlankRack`, capped by
   `MutationConfig.BlankRackCapacity` (default 3), its own instance-id space, never mixed into the
   cauldron's artifact inventory; seeded from `MutationConfig.StartingBlanks` (dev seed — blank loot

@@ -14,7 +14,6 @@ namespace Narrative.Interaction.View
         private const float NameFontSize = 2.4f;
         private const float MarkerFontSize = 4f;
         private const float PromptFontSize = 2f;
-        private const string PromptLabel = "[F] Talk";
 
         private static readonly Color QuestColor = new Color(1f, 0.85f, 0.2f);
         private static readonly Color HostileColor = new Color(1f, 0.3f, 0.25f);
@@ -31,7 +30,6 @@ namespace Narrative.Interaction.View
             _promptLabel = CreateLabel("Prompt", new Vector3(0f, -0.6f, 0f), PromptFontSize, Color.white);
 
             _markerLabel.gameObject.SetActive(false);
-            _promptLabel.text = PromptLabel;
             _promptLabel.gameObject.SetActive(false);
 
             _camera = Camera.main;
@@ -90,6 +88,15 @@ namespace Narrative.Interaction.View
             if (_promptLabel != null)
             {
                 _promptLabel.gameObject.SetActive(visible);
+            }
+        }
+
+        public void SetPromptText(string text)
+        {
+            // Called every frame for the prompted NPC; skip identical values so TMP does not re-mesh.
+            if (_promptLabel != null && _promptLabel.text != text)
+            {
+                _promptLabel.text = text ?? string.Empty;
             }
         }
 

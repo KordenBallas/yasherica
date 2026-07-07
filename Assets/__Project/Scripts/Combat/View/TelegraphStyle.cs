@@ -13,6 +13,15 @@ namespace Combat.View
         public const float IconWorldSize = 0.45f;
         public const float MoveGlyphFontSize = 4f;
 
+        // On-unit status row (S2): sits BELOW the plan-icon row so the two reads never collide.
+        public const string StatusIconsRowName = "StatusIcons";
+        public const float StatusIconsHeightAboveUnit = 1.9f;
+        public const float StatusIconSpacing = 0.38f;
+        public const float StatusIconWorldSize = 0.3f;
+        public const float StatusTurnsFontSize = 3f;
+        public const float StatusTurnsOffsetX = 0.14f;
+        public const float StatusTurnsOffsetY = -0.12f;
+
         // Ghost playback
         public const float GhostFadeInSeconds = 0.2f;
         public const float GhostHoldSeconds = 1.0f;

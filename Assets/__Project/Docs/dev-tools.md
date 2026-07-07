@@ -22,6 +22,9 @@
   store's stable order, with a count header; an "(none set)" line when empty.
 - **R4** The overlay is built **only** in the editor and development builds; release builds exclude it.
 - **R5** Sections are generic so a new section is one builder method — no view or wiring changes.
+- **R6** **Input** section (input-foundation R7): the currently **active input source** and each named
+  action's cue on that source (`Interact: F`), with consciously deferred pairs marked
+  `— (deferred gap)`; the section re-reads live, so switching device updates it.
 
 ### 1.2 Non-functional requirements
 
@@ -50,7 +53,7 @@ Scripts/Core/DI/DevToolsInstaller.cs                — non-Mono Installer<T>, s
 |---|---|
 | `DevPanelSection` | A titled block: `Title` + `IReadOnlyList<string> Rows`. Pure data. |
 | `IDevStateSource` | `IReadOnlyList<DevPanelSection> BuildSections()` — the view's only dependency. |
-| `DevStatePresenter` | `IDevStateSource`; reads `IRunProgressionRecord`, `IFragmentLibrary`, `IFactStore` and assembles the Quests + Director-facts sections. |
+| `DevStatePresenter` | `IDevStateSource`; reads `IRunProgressionRecord`, `IFragmentLibrary`, `IFactStore`, `IActiveInputSource`, `InputBindingCatalog` and assembles the Quests + Director-facts + Input sections. |
 | `DevOverlayView` | `MonoBehaviour`; `OnGUI` draws the sections in a boxed scroll area; toggles visibility on an IMGUI `F1` key event. Renders only — no logic. |
 
 ### 2.3 Runtime flow
@@ -96,8 +99,9 @@ No view or installer change is needed — `DevOverlayView` renders whatever sect
 Edit-mode suite in `Assets/__Project/Tests/EditMode/`:
 
 - `DevStatePresenterTests` — quests grouped by status with id→name mapping; id fallback when unmapped;
-  the empty-quests and empty-fact-store messages; facts mirror the snapshot with typed values. Uses
-  fakes for `IRunProgressionRecord`, `IFragmentLibrary`, `IFactStore`.
+  the empty-quests and empty-fact-store messages; facts mirror the snapshot with typed values; the
+  Input section shows the active source, per-action cues, and deferred-gap marks. Uses fakes for
+  `IRunProgressionRecord`, `IFragmentLibrary`, `IFactStore`, `IActiveInputSource`.
 
 `DevOverlayView` (IMGUI rendering + toggle) is verified manually: enter play, press **F1**.
 
@@ -105,7 +109,7 @@ Edit-mode suite in `Assets/__Project/Tests/EditMode/`:
 
 ## 6. Known limitations / open points
 
-- Two sections only (Quests, Director facts). Inventory contents, mutation feed tally, planner
+- Three sections only (Quests, Director facts, Input). Inventory contents, mutation feed tally, planner
   window/horizon + live-actor registry, and live `ActiveQuest` objective progress are open (ROADMAP).
 - Read-only — no on-screen fact editing or quest-state forcing.
 - IMGUI rebuilds the sections every `OnGUI` (allocates per call); acceptable for a dev tool, not tuned.

@@ -21,6 +21,10 @@ namespace Narrative.Runtime.Snapshots
         public List<string> ObjectiveIds = new List<string>();
         public List<int> ObjectiveCounts = new List<int>();
         public bool RewardsGranted;
+
+        // Offer origin for the quest log's saga readout (P1-11); empty on pre-P1-11 saves.
+        public string Giver;
+        public string ThreadId;
     }
 
     /// <summary>Serialized thread lifecycle record (R8 first-class threads).</summary>

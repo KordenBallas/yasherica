@@ -153,8 +153,10 @@ Reveal      — the bundle's intents go out through OnEnemyPlansRevealed → the
               show everyone's committed round.
 Resolve     — phase → EnemyResolve; EnemyRoundController paces ResolveNextEnemyIntent() through
               the ordered intents via EnemyIntentResolver; win check after every intent.
-Round end   — RoundLifecycleProcessor ticks effects/cooldowns/acted-flags once for all units;
-              the ArenaStateHash is computed and logged; the next round opens.
+Round end   — RoundLifecycleProcessor ticks effects/cooldowns/acted-flags once for all units —
+              the ONE deterministic status resolve point (combat-status-effects.md R3); an
+              explicit win check settles a DoT kill here, identically on every peer; then the
+              ArenaStateHash is computed and logged and the next round opens.
 ```
 
 ### 2.6 Determinism

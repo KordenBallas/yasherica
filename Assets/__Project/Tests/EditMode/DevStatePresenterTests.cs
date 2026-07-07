@@ -4,6 +4,7 @@ using System.Linq;
 using CharacterProgression.Core;
 using DevTools;
 using DevTools.Core;
+using GameInput.Core;
 using Narrative.Casting.Core;
 using Narrative.Dialogue.Core;
 using Narrative.Facts.Core;
@@ -15,6 +16,12 @@ namespace Tests.EditMode
     [TestFixture]
     public class DevStatePresenterTests
     {
+        private sealed class FakeActiveSource : IActiveInputSource
+        {
+            public InputSource Current { get; set; } = InputSource.KeyboardMouse;
+            public event Action<InputSource> Changed { add { } remove { } }
+        }
+
         private sealed class FakeProgression : IRunProgressionRecord
         {
             public List<string> Active = new();
@@ -66,12 +73,19 @@ namespace Tests.EditMode
         private static DevPanelSection Section(IReadOnlyList<DevPanelSection> sections, string title) =>
             sections.First(s => s.Title == title);
 
+        private static DevStatePresenter Presenter(
+            IRunProgressionRecord progression = null, IFragmentLibrary library = null,
+            IFactStore store = null, IActiveInputSource activeSource = null) =>
+            new DevStatePresenter(progression ?? new FakeProgression(), library ?? new FakeLibrary(),
+                store ?? new FakeFactStore(), activeSource ?? new FakeActiveSource(),
+                new InputBindingCatalog());
+
         [Test]
         public void QuestsSection_GroupsByStatus_AndMapsNames()
         {
             var progression = new FakeProgression { Active = { "qst_a" }, Completed = { "qst_b" }, Failed = { "qst_c" } };
             var library = new FakeLibrary { Quests = { Quest("qst_a", "Alpha"), Quest("qst_b", "Beta"), Quest("qst_c", "Gamma") } };
-            var presenter = new DevStatePresenter(progression, library, new FakeFactStore());
+            var presenter = Presenter(progression, library);
 
             var quests = Section(presenter.BuildSections(), "Quests").Rows;
 
@@ -85,7 +99,7 @@ namespace Tests.EditMode
         public void QuestsSection_FallsBackToId_WhenLibraryHasNoName()
         {
             var progression = new FakeProgression { Active = { "qst_unmapped" } };
-            var presenter = new DevStatePresenter(progression, new FakeLibrary(), new FakeFactStore());
+            var presenter = Presenter(progression);
 
             var quests = Section(presenter.BuildSections(), "Quests").Rows;
 
@@ -95,7 +109,7 @@ namespace Tests.EditMode
         [Test]
         public void QuestsSection_ReportsEmpty_WhenNothingRecorded()
         {
-            var presenter = new DevStatePresenter(new FakeProgression(), new FakeLibrary(), new FakeFactStore());
+            var presenter = Presenter();
             var quests = Section(presenter.BuildSections(), "Quests").Rows;
             Assert.Contains("(no quests recorded)", quests.ToList());
         }
@@ -111,7 +125,7 @@ namespace Tests.EditMode
                     new KeyValuePair<FactKey, FactValue>(new FactKey(FactNamespace.Faction, "free_blades", "reputation"), FactValue.FromInt(5))
                 }
             };
-            var presenter = new DevStatePresenter(new FakeProgression(), new FakeLibrary(), store);
+            var presenter = Presenter(store: store);
 
             var facts = Section(presenter.BuildSections(), "Director Facts").Rows;
 
@@ -123,9 +137,32 @@ namespace Tests.EditMode
         [Test]
         public void FactsSection_ReportsEmpty_WhenStoreEmpty()
         {
-            var presenter = new DevStatePresenter(new FakeProgression(), new FakeLibrary(), new FakeFactStore());
+            var presenter = Presenter();
             var facts = Section(presenter.BuildSections(), "Director Facts").Rows;
             Assert.Contains("(none set)", facts.ToList());
+        }
+
+        [Test]
+        public void InputSection_ShowsActiveSource_AndPerActionCues()
+        {
+            var presenter = Presenter(activeSource: new FakeActiveSource { Current = InputSource.KeyboardMouse });
+
+            var input = Section(presenter.BuildSections(), "Input (KeyboardMouse)").Rows;
+
+            Assert.Contains("Active source: KeyboardMouse", input.ToList());
+            Assert.Contains("Interact: F", input.ToList());
+            Assert.Contains("Fire: Enter", input.ToList());
+        }
+
+        [Test]
+        public void InputSection_FollowsTheActiveSource_AndMarksDeferredGaps()
+        {
+            var presenter = Presenter(activeSource: new FakeActiveSource { Current = InputSource.Touch });
+
+            var input = Section(presenter.BuildSections(), "Input (Touch)").Rows;
+
+            Assert.Contains("Interact: Tap", input.ToList());
+            Assert.Contains("Fire: — (deferred gap)", input.ToList());
         }
     }
 }

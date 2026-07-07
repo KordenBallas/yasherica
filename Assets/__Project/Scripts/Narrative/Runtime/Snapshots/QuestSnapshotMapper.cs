@@ -32,7 +32,9 @@ namespace Narrative.Runtime.Snapshots
                 {
                     QuestId = quest.Data.QuestId,
                     State = (int)quest.State,
-                    RewardsGranted = quest.RewardsGranted
+                    RewardsGranted = quest.RewardsGranted,
+                    Giver = quest.GiverDisplayName,
+                    ThreadId = quest.ThreadId
                 };
 
                 foreach (var objective in quest.Data.Objectives)
@@ -77,6 +79,7 @@ namespace Narrative.Runtime.Snapshots
             IRunProgressionRecorder recorder)
         {
             var quest = new QuestInstance(data, recorder);
+            quest.SetOrigin(snapshot.Giver, snapshot.ThreadId);
             var state = (QuestState)snapshot.State;
             if (state == QuestState.NotStarted)
             {

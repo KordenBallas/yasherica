@@ -6,9 +6,11 @@ namespace Inventory.View
     /// <summary>
     /// Thin adapter that authors the cauldron geometry: maps its serialized size
     /// tunables to the profile calculator and assigns the generated low-poly
-    /// cross-section mesh. Generated at runtime so tuning stays live in the inspector.
+    /// cross-section mesh. Generated at runtime so tuning stays live in the
+    /// inspector. Exposes the authored dimensions (<see cref="ICauldronGeometry"/>)
+    /// so the brew lattice and the liquid surface derive from the same silhouette.
     /// </summary>
-    public class CauldronView : MonoBehaviour
+    public class CauldronView : MonoBehaviour, ICauldronGeometry
     {
         [Header("Silhouette")]
         [SerializeField, Min(0.05f)] private float _bowlRadius = 0.5f;
@@ -25,11 +27,15 @@ namespace Inventory.View
         [Header("Scene References")]
         [SerializeField] private MeshFilter _meshFilter;
 
+        public CauldronProfileSettings ProfileSettings => new CauldronProfileSettings(
+            _bowlRadius, _bowlDepth, _wallThickness, _rimWidth, _wallSegments);
+
+        /// <summary>Swept wall angle; the liquid curtain fills the remaining wedge.</summary>
+        public float ArcDegrees => _arcDegrees;
+
         private void Awake()
         {
-            var settings = new CauldronProfileSettings(
-                _bowlRadius, _bowlDepth, _wallThickness, _rimWidth, _wallSegments);
-            var profile = CauldronProfileCalculator.Calculate(settings);
+            var profile = CauldronProfileCalculator.Calculate(ProfileSettings);
             _meshFilter.mesh = CauldronMeshBuilder.Build(profile, _radialSegments, _arcDegrees);
         }
     }

@@ -9,7 +9,8 @@ namespace Inventory.Core
     /// presentation can animate the merge first); resolving consumes the inputs and
     /// produces a detached result - every combine yields something (signature recipe
     /// or emergent fusion), there is no fail path. Unstaging during Crafting cancels
-    /// the pending combine.
+    /// the pending combine. Selecting while a result hovers auto-commits the result
+    /// into the inventory first (Track F continuous flow).
     /// </summary>
     public class CraftingSession : ICraftingSession
     {
@@ -48,9 +49,8 @@ namespace Inventory.Core
 
         public bool TrySelect(int instanceId)
         {
-            // The pending result must be collected, and a pending combine resolved
-            // or cancelled, before new selections are accepted.
-            if (State == CraftingState.ResultReady || State == CraftingState.Crafting)
+            // A pending combine must resolve or cancel before new selections.
+            if (State == CraftingState.Crafting)
             {
                 return false;
             }
@@ -58,6 +58,15 @@ namespace Inventory.Core
             if (!_inventory.TryGet(instanceId, out var instance))
             {
                 return false;
+            }
+
+            // Continuous result flow (Track F): starting the next combine
+            // auto-commits the hovering result into the brew instead of
+            // rejecting the selection. The inventory check above ran first so
+            // an invalid pick never silently drops the result.
+            if (State == CraftingState.ResultReady)
+            {
+                TryCollectResult();
             }
 
             _inventory.Remove(instanceId);

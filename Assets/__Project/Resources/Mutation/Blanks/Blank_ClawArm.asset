@@ -18,5 +18,6 @@ MonoBehaviour:
     become; it reads as insectfolk.
   _slot: {fileID: 11400000, guid: ae0f0b6118f59bb43b799c24a0922a7d, type: 2}
   _speciesArchetypeId: insect
+  _raceId: 
   _socketCount: 1
   _icon: {fileID: 0}

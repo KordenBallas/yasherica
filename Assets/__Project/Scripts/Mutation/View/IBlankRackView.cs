@@ -4,9 +4,10 @@ using System.Collections.Generic;
 namespace Mutation.View
 {
     /// <summary>
-    /// Adapter contract for the operating-table rack left of the cauldron: renders
-    /// the racked Part-Blanks with their sockets and reports drops and socket
-    /// clicks. No business logic - the presenter owns the socketing rules.
+    /// Adapter contract for the medallion ribbon under the cauldron: renders
+    /// the racked Part-Blanks as medallions with their rim gems and reports
+    /// drops, socket clicks, and the unseal confirm. No business logic - the
+    /// presenters own the socketing and unseal rules.
     /// </summary>
     public interface IBlankRackView
     {
@@ -16,7 +17,10 @@ namespace Mutation.View
         /// <summary>Raised when a filled socket is clicked (the unsocket gesture).</summary>
         event Action<int /*blankInstanceId*/, int /*artifactInstanceId*/> OnFilledSocketClicked;
 
-        /// <summary>Rebuilds the rack entries.</summary>
+        /// <summary>Raised when a ready medallion is clicked (the unseal confirm, Track F).</summary>
+        event Action<int /*blankInstanceId*/> OnUnsealClicked;
+
+        /// <summary>Rebuilds the ribbon entries.</summary>
         void ShowBlanks(IReadOnlyList<BlankEntryViewData> blanks);
     }
 }

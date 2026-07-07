@@ -45,6 +45,7 @@ namespace Combat.Arena.View
         [Inject] private IInputController _inputController;
         [Inject] private ICombatUnitViewRegistry _unitViewRegistry;
         [Inject] private IAbilityDefinitionCatalog _abilityCatalog;
+        [Inject] private IStatusEffectDefinitionCatalog _statusCatalog;
         [Inject] private IAbilityOutcomeCalculator _outcomeCalculator;
         [Inject] private HexDirectionConfig _hexDirectionConfig;
         [Inject] private ArenaDraftFlow _draftFlow;
@@ -54,6 +55,8 @@ namespace Combat.Arena.View
 
         private UnitOverheadIconsView _planIconsView;
         private UnitPlanIconsPresenter _planIconsPresenter;
+        private UnitStatusIconsView _statusIconsView;
+        private UnitStatusIconsPresenter _statusIconsPresenter;
         private GhostPlaybackView _ghostView;
         private GhostPlaybackPresenter _ghostPresenter;
         private bool _matchStarted;
@@ -80,6 +83,7 @@ namespace Combat.Arena.View
             _aiCommitSource?.Dispose();
             _resolvePacer?.Dispose();
             _planIconsPresenter?.Dispose();
+            _statusIconsPresenter?.Dispose();
             _ghostPresenter?.Dispose();
             _playerRegistry?.UnregisterLocalPlayer();
             _session?.Shutdown();
@@ -229,6 +233,12 @@ namespace Combat.Arena.View
             _planIconsView = planIconsGo.AddComponent<UnitOverheadIconsView>();
             _planIconsView.Initialize(_unitViewRegistry, _abilityCatalog);
             _planIconsPresenter = new UnitPlanIconsPresenter(_controller, _planIconsView);
+
+            // On-unit status row (S2): same presenter pair PvE builds in CombatActiveState.
+            var statusIconsGo = new GameObject("UnitStatusIconsView");
+            _statusIconsView = statusIconsGo.AddComponent<UnitStatusIconsView>();
+            _statusIconsView.Initialize(_unitViewRegistry, _statusCatalog);
+            _statusIconsPresenter = new UnitStatusIconsPresenter(_controller, _statusIconsView);
 
             var ghostGo = new GameObject("GhostPlaybackView");
             _ghostView = ghostGo.AddComponent<GhostPlaybackView>();

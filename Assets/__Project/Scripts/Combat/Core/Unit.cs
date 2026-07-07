@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Combat.Battlefield;
 using Combat.Config;
+using Combat.Core.StatusEffects;
 
 namespace Combat.Core
 {
@@ -32,7 +33,7 @@ namespace Combat.Core
                 if (!IsAlive)
                     return UnitActionState.Dead;
                     
-                if (StatusEffects.Any(e => e is StunEffect))
+                if (StatusEffects.Any(e => e is DataDrivenControlEffect control && control.Kind == ControlKind.Stun))
                     return UnitActionState.Stunned;
                     
                 if (HasActedThisTurn)
@@ -68,7 +69,7 @@ namespace Combat.Core
         
         public bool CanMove()
         {
-            return CanAct && !HasActedThisTurn;
+            return CanAct && !HasActedThisTurn && MovementRange.EffectiveFor(this) > 0;
         }
         
         public IAbilityInstance GetAbility(int abilityId)

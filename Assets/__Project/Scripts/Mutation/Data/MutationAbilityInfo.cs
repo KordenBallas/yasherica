@@ -20,6 +20,13 @@ namespace Mutation.Data
         public int RingRadius { get; }
         public string AnimationTrigger { get; }
 
+        /// <summary>
+        /// Glyph of the status this ability applies (FR8: the same asset shown on the unit
+        /// on the board). Null = no status — the card badge falls back to the neutral
+        /// untyped mark authored on the prefab.
+        /// </summary>
+        public Sprite StatusGlyph { get; }
+
         public MutationAbilityInfo(
             string name,
             string description,
@@ -28,7 +35,8 @@ namespace Mutation.Data
             bool isLine = false,
             int lineLength = 0,
             int ringRadius = 0,
-            string animationTrigger = "")
+            string animationTrigger = "",
+            Sprite statusGlyph = null)
         {
             Name = name;
             Description = description;
@@ -38,6 +46,7 @@ namespace Mutation.Data
             LineLength = lineLength;
             RingRadius = ringRadius;
             AnimationTrigger = animationTrigger;
+            StatusGlyph = statusGlyph;
         }
     }
 }

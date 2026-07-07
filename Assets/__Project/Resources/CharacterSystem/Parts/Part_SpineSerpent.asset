@@ -26,7 +26,8 @@ MonoBehaviour:
   - Tail.4
   - Tail.5
   _contributedSockets: []
-  _activeAbilities: []
+  _activeAbilities:
+  - {fileID: 11400000, guid: 765406fe89ed46aaaba0852e808fd7d3, type: 2}
   _passiveAbilities: []
   _traitAffinities:
   - _traitId: toxic

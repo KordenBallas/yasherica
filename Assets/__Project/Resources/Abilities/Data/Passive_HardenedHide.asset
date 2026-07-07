@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d736ed57b86e1bf4b8334aad7e4885fe, type: 3}
+  m_Name: Passive_HardenedHide
+  m_EditorClassIdentifier: Yasherica::Combat.Data.Definitions.PassiveAbilityDefinition
+  _id: 20
+  _name: Hardened Hide
+  _description: A chitinous shell that soaks 5 damage from every hit, always on.
+  _modifier: {fileID: 11400000, guid: 7113f6cde943462886e710556da2741d, type: 2}
+  _icon: {fileID: 21300000, guid: 54d9bd934129409fab29507fef43d28a, type: 3}

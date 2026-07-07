@@ -190,6 +190,10 @@ namespace Core.DI
 
             Container.BindInterfacesTo<StoryResolutionRelay>().AsSingle().NonLazy();
             Container.BindInterfacesTo<SpineSeenRecorder>().AsSingle().NonLazy();
+
+            // The Monster verb's consequences (P1-7): a talkable NPC dying in a dialogue-routed
+            // fight writes the slain/Conquest facts and forecloses the encounter's thread.
+            Container.BindInterfacesTo<MonsterVerbConsequences>().AsSingle().NonLazy();
         }
 
         private void InstallPlanner()
@@ -283,6 +287,85 @@ namespace Core.DI
             Container.Bind<IEncounterCardHandView>()
                 .To<EncounterCardHandView>()
                 .FromComponentInNewPrefabResource("Prefabs/UI/Encounter/EncounterCardHandView")
+                .AsSingle()
+                .NonLazy();
+
+            // Belonging colour grammar (P0-3·b): race colours + reward-family colours in one lookup
+            // for the offer card / quest log tint. Read straight off the authored SOs.
+            Container.Bind<IBelongingTintCatalog>()
+                .FromMethod(_ => new BelongingTintCatalog(
+                    Resources.LoadAll<World.Races.Data.RaceDefinition>("World/Races"),
+                    Resources.LoadAll<RewardFamilyDefinition>("Rewards")))
+                .AsSingle();
+
+            InstallBarks();
+            InstallQuestLog();
+        }
+
+        /// <summary>
+        /// The read-only quest log / saga readout (P1-11): a toggleable panel projecting the live
+        /// quest registry + thread ledger; mutates nothing. A missing prefab just disables the log.
+        /// </summary>
+        private void InstallQuestLog()
+        {
+            var prefab = Resources.Load<Narrative.QuestLog.View.QuestLogView>("Prefabs/UI/QuestLogPanel");
+            if (prefab == null)
+            {
+                Debug.LogWarning("[NarrativeSliceInstaller] Quest log prefab not found at " +
+                                 "Resources/Prefabs/UI/QuestLogPanel; the log is disabled.");
+                return;
+            }
+
+            Container.Bind<Narrative.QuestLog.View.IQuestLogView>()
+                .To<Narrative.QuestLog.View.QuestLogView>()
+                .FromComponentInNewPrefab(prefab)
+                .AsSingle()
+                .NonLazy();
+            Container.BindInterfacesTo<Narrative.QuestLog.QuestLogPresenter>().AsSingle().NonLazy();
+        }
+
+        /// <summary>
+        /// The cauldron's live bark channel (P1-10): data-authored slot × lean line pools, the
+        /// deterministic selection service, the screen bubble, and the socketing-trend trigger
+        /// (temptation/restraint/dark-offer slots fire from their owning presenters). A missing
+        /// config or prefab degrades to a quiet cauldron, never an error.
+        /// </summary>
+        private void InstallBarks()
+        {
+            var barkConfig = Resources.Load<Narrative.Barks.Data.CauldronBarkLinesConfig>(
+                "Narrative/CauldronBarkLines");
+            Container.Bind<Narrative.Barks.Core.CauldronBarkLines>()
+                .FromInstance(Narrative.Barks.Data.CauldronBarkLinesMapper.ToLines(barkConfig))
+                .AsSingle();
+
+            Container.Bind<Narrative.Barks.Core.ICauldronBarkService>()
+                .To<Narrative.Barks.Core.CauldronBarkService>()
+                .FromMethod(ctx => new Narrative.Barks.Core.CauldronBarkService(
+                    ctx.Container.Resolve<Narrative.Barks.Core.CauldronBarkLines>(),
+                    ctx.Container.Resolve<IFactStore>(),
+                    CreateSeed(ctx.Container)))
+                .AsSingle();
+
+            var barkViewPrefab = Resources.Load<Narrative.Barks.View.CauldronBarkView>(
+                "Prefabs/UI/CauldronBarkView");
+            if (barkViewPrefab != null)
+            {
+                Container.Bind<Narrative.Barks.View.ICauldronBarkView>()
+                    .To<Narrative.Barks.View.CauldronBarkView>()
+                    .FromComponentInNewPrefab(barkViewPrefab)
+                    .AsSingle()
+                    .NonLazy();
+                Container.BindInterfacesTo<Narrative.Barks.CauldronBarkPresenter>().AsSingle().NonLazy();
+            }
+            else
+            {
+                Debug.LogWarning("[NarrativeSliceInstaller] CauldronBarkView prefab not found at " +
+                                 "Resources/Prefabs/UI/CauldronBarkView; barks stay silent.");
+            }
+
+            // The trend seam (ISocketingTrendSource) is bound by the MutationInstaller in the same
+            // scene container (the two installers only ever ship together in the Area scene).
+            Container.BindInterfacesTo<Narrative.Barks.SocketingTrendBarkTrigger>()
                 .AsSingle()
                 .NonLazy();
         }

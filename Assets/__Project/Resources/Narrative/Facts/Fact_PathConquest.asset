@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a1639f41f9faa245be8a645a100f78d, type: 3}
+  m_Name: Fact_PathConquest
+  m_EditorClassIdentifier: Yasherica::Narrative.Facts.Data.FactKeyDefinition
+  _namespace: 0
+  _scope: 0
+  _key: path_conquest
+  _valueType: 1
+  _defaultBool: 0
+  _defaultInt: 0
+  _defaultFloat: 0
+  _defaultString:
+  _description: Count of Monster-verb kills this run (P1-7). Written only by MonsterVerbConsequences when a talkable NPC dies in a dialogue-routed fight; read against path_restraint for the run's path lean (cauldron bark register, passport gating).

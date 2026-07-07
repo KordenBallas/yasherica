@@ -1,25 +1,21 @@
 using System.Linq;
 using Combat.Core.StatusEffects;
-using Combat.Execution;
 
 namespace Combat.Core
 {
     /// <summary>
     /// Round bookkeeping shared by the PvE and Arena round loops: status-effect TurnStart/TurnEnd
-    /// triggers, legacy DOT/HOT effects, duration ticking, cooldown decrement, and the acted-flag
-    /// reset — once per round for ALL units. Extracted verbatim from <c>CombatController</c>
-    /// (behavior-preserving) so the Arena controller ticks the identical cadence.
+    /// triggers, duration ticking, cooldown decrement, and the acted-flag reset — once per round
+    /// for ALL units. The round-end pass is the ONE deterministic status resolve point
+    /// (combat-status-effects FR3): a DoT/HoT ticks, then durations count down, then expired
+    /// effects drop — identically in PvE and Arena.
     /// </summary>
     public class RoundLifecycleProcessor
     {
-        private readonly IDamageSystem _damageSystem;
         private readonly StatusEffectTriggerProcessor _triggerProcessor;
 
-        public RoundLifecycleProcessor(
-            IDamageSystem damageSystem,
-            StatusEffectTriggerProcessor triggerProcessor)
+        public RoundLifecycleProcessor(StatusEffectTriggerProcessor triggerProcessor)
         {
-            _damageSystem = damageSystem;
             _triggerProcessor = triggerProcessor;
         }
 
@@ -60,13 +56,6 @@ namespace Combat.Core
                             newState, currentUnit, StatusEffectTriggerType.TurnStart);
                     }
                 }
-
-                // Also apply legacy DOT/HOT effects for backward compatibility
-                var updatedUnit = newState.GetUnit(unit.Id);
-                if (updatedUnit != null && updatedUnit.IsAlive)
-                {
-                    newState = ApplyLegacyStatusEffects(newState, updatedUnit);
-                }
             }
 
             return newState;
@@ -94,33 +83,6 @@ namespace Combat.Core
                 if (updatedUnit != null)
                 {
                     newState = DecrementStatusEffects(newState, updatedUnit);
-                }
-            }
-
-            return newState;
-        }
-
-        /// <summary>
-        /// Applies legacy hardcoded status effects (PoisonEffect, RegenerationEffect).
-        /// Kept for backward compatibility with existing status effect implementations.
-        /// </summary>
-        private ICombatState ApplyLegacyStatusEffects(ICombatState gameState, IUnit unit)
-        {
-            var newState = gameState;
-
-            foreach (var effect in unit.StatusEffects)
-            {
-                // Skip data-driven effects (they're handled by trigger processor)
-                if (effect is ITriggeredStatusEffect)
-                    continue;
-
-                if (effect is PoisonEffect poison)
-                {
-                    newState = _damageSystem.ApplyDamage(newState, unit, poison.DamagePerTurn);
-                }
-                else if (effect is RegenerationEffect regen)
-                {
-                    newState = _damageSystem.ApplyHealing(newState, unit, regen.HealPerTurn);
                 }
             }
 

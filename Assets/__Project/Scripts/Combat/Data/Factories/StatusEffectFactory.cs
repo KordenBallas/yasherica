@@ -36,7 +36,7 @@ namespace Combat.Data.Factories
                 def.Type,
                 duration,
                 1,
-                def.IsStackable,
+                def.StackRule,
                 def.MaxStacks,
                 def.TriggerType,
                 def.DamagePerTrigger,
@@ -54,7 +54,7 @@ namespace Combat.Data.Factories
                 def.Name,
                 duration,
                 1,
-                def.IsStackable,
+                def.StackRule,
                 def.MaxStacks,
                 def.TriggerType,
                 def.DamagePerTrigger,
@@ -68,7 +68,7 @@ namespace Combat.Data.Factories
                 def.Name,
                 duration,
                 1,
-                def.IsStackable,
+                def.StackRule,
                 def.MaxStacks,
                 def.TriggerType,
                 def.HealPerTrigger,
@@ -81,25 +81,29 @@ namespace Combat.Data.Factories
                 def.Id,
                 def.Name,
                 duration,
-                def.TriggerType);
+                def.ControlKind,
+                def.MovementPenalty,
+                def.TriggerType,
+                stackCount: 1,
+                stackRule: def.StackRule,
+                maxStacks: def.MaxStacks);
         }
 
         private IStatusEffect CreateModifierEffect(StatusEffectDefinition def, int duration, StatusEffectType type)
         {
-            // For debuffs, negate the modifier
-            float modifier = type == StatusEffectType.Debuff
-                ? -System.Math.Abs(def.StatModifier)
-                : System.Math.Abs(def.StatModifier);
-
+            // The magnitude is authored SIGNED (Weakened = -5 outgoing, Hardened = -5 incoming):
+            // Buff/Debuff stays an informational classification, never a sign flip.
             return new DataDrivenModifierEffect(
                 def.Id,
                 def.Name,
                 type,
                 duration,
                 1,
-                def.IsStackable,
-                modifier,
-                def.TriggerType);
+                def.StackRule,
+                def.Magnitude,
+                def.StatTarget,
+                def.TriggerType,
+                def.MaxStacks);
         }
     }
 }

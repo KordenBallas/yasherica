@@ -22,6 +22,20 @@ namespace Tests.EditMode
             public void Error(LogCategory category, string message) { }
         }
 
+        private sealed class FakeRackView : IBlankRackView
+        {
+            public event Action<int, int> OnArtifactDroppedOnBlank;
+            public event Action<int, int> OnFilledSocketClicked;
+            public event Action<int> OnUnsealClicked;
+
+            public void ShowBlanks(IReadOnlyList<BlankEntryViewData> blanks) { }
+
+            public void RaiseUnsealClicked(int blankInstanceId)
+            {
+                OnUnsealClicked?.Invoke(blankInstanceId);
+            }
+        }
+
         private sealed class FakeChoiceView : IMutationChoiceView
         {
             public int ShowChoicesCalls { get; private set; }
@@ -189,6 +203,7 @@ namespace Tests.EditMode
         private FakeArtifactTraitSource _traits;
         private FakePartCatalog _partCatalog;
         private FakeChoiceView _view;
+        private FakeRackView _rackView;
         private FakeMutationCharacter _character;
         private MutationConfig _config;
         private MutationVariantPresenter _presenter;
@@ -209,6 +224,7 @@ namespace Tests.EditMode
                 .Add("pebble", 0);
             _partCatalog = new FakePartCatalog();
             _view = new FakeChoiceView();
+            _rackView = new FakeRackView();
             _character = new FakeMutationCharacter();
             _config = ScriptableObject.CreateInstance<MutationConfig>();
 
@@ -226,6 +242,7 @@ namespace Tests.EditMode
                 _character,
                 _config,
                 _view,
+                _rackView,
                 new SilentLogger());
             _presenter.Initialize();
 
@@ -247,26 +264,45 @@ namespace Tests.EditMode
             _socketing.TrySocket(_skull.InstanceId, stinger.InstanceId);
         }
 
+        /// <summary>Fills the skull and confirms its unseal (the Track F medallion beat).</summary>
+        private void SocketBothAndUnseal()
+        {
+            SocketBoth();
+            _rackView.RaiseUnsealClicked(_skull.InstanceId);
+        }
+
         [Test]
-        public void PartiallyFilledBlank_DoesNotShow()
+        public void FillingTheLastSocket_DoesNotAutoShow_TheConfirmIsTheTrigger()
         {
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
-            var mace = _inventory.Add("mace");
 
-            _socketing.TrySocket(_skull.InstanceId, mace.InstanceId);
+            SocketBoth();
 
             Assert.AreEqual(0, _view.ShowChoicesCalls);
             Assert.IsFalse(_view.Visible);
         }
 
         [Test]
-        public void FillingLastSocket_ShowsVariantCards()
+        public void UnsealClick_OnPartiallyFilledBlank_IsRejected()
+        {
+            _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
+            var mace = _inventory.Add("mace");
+            _socketing.TrySocket(_skull.InstanceId, mace.InstanceId);
+
+            _rackView.RaiseUnsealClicked(_skull.InstanceId);
+
+            Assert.AreEqual(0, _view.ShowChoicesCalls);
+            Assert.IsFalse(_view.Visible);
+        }
+
+        [Test]
+        public void UnsealClick_OnReadyBlank_ShowsVariantCards()
         {
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f), ("toxic", 0.5f));
             _partCatalog.Add("slot.head", "part.head.club", ("heavy", 0.9f));
             _partCatalog.Add("slot.tail", "part.tail.x", ("sharp", 1f)); // other slot - filtered
 
-            SocketBoth();
+            SocketBothAndUnseal();
 
             Assert.AreEqual(1, _view.ShowChoicesCalls);
             Assert.AreEqual(2, _view.LastShown.Count);
@@ -277,7 +313,7 @@ namespace Tests.EditMode
         public void Selection_SwapsConsumesReagentsAndRemovesBlank()
         {
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
-            SocketBoth();
+            SocketBothAndUnseal();
 
             _view.RaiseSelected(0);
 
@@ -296,7 +332,7 @@ namespace Tests.EditMode
         {
             _character.RequestOutcome = SwapRequestOutcome.Rejected;
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
-            SocketBoth();
+            SocketBothAndUnseal();
 
             _view.RaiseSelected(0);
 
@@ -311,7 +347,7 @@ namespace Tests.EditMode
         {
             _character.RequestOutcome = SwapRequestOutcome.PendingConfirmation;
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
-            SocketBoth();
+            SocketBothAndUnseal();
 
             _view.RaiseSelected(0);
 
@@ -333,7 +369,7 @@ namespace Tests.EditMode
         {
             _character.RequestOutcome = SwapRequestOutcome.PendingConfirmation;
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
-            SocketBoth();
+            SocketBothAndUnseal();
 
             _view.RaiseSelected(0);
             _character.ResolvePending(false);
@@ -349,7 +385,7 @@ namespace Tests.EditMode
         {
             _character.RequestOutcome = SwapRequestOutcome.PendingConfirmation;
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
-            SocketBoth();
+            SocketBothAndUnseal();
 
             _view.RaiseSelected(0);
             _view.RaiseSelected(0);
@@ -366,7 +402,7 @@ namespace Tests.EditMode
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
             _partCatalog.Add("slot.head", "part.head.club", ("heavy", 0.9f));
 
-            SocketBoth();
+            SocketBothAndUnseal();
 
             Assert.AreEqual(1, _view.LastShown.Count);
             Assert.AreEqual("part.head.club", _view.LastShown[0].Front.PartName);
@@ -379,7 +415,7 @@ namespace Tests.EditMode
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
             _partCatalog.Add("slot.head", "part.head.club", ("heavy", 0.9f));
 
-            SocketBoth();
+            SocketBothAndUnseal();
 
             Assert.AreEqual(1, _view.LastShown.Count);
             Assert.AreEqual("part.head.club", _view.LastShown[0].Front.PartName);
@@ -395,26 +431,32 @@ namespace Tests.EditMode
 
             _socketing.TrySocket(_skull.InstanceId, a.InstanceId);
             _socketing.TrySocket(_skull.InstanceId, b.InstanceId);
+            _rackView.RaiseUnsealClicked(_skull.InstanceId);
 
             Assert.AreEqual(1, _view.ShowChoicesCalls);
             Assert.AreEqual(1, _view.LastShown.Count);
         }
 
         [Test]
-        public void BlankReadyWhileShowing_QueuesAndOpensAfterPick()
+        public void UnsealClickWhileShowing_IsIgnored_SecondMedallionOpensAfterThePick()
         {
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
             _partCatalog.Add("slot.arm.left", "part.arm.claw", ("sharp", 0.6f));
             _rack.TryAdd("blank.arm", out var arm);
-
-            SocketBoth(); // skull ready -> shows
             var stinger = _inventory.Add("stinger");
-            _socketing.TrySocket(arm.InstanceId, stinger.InstanceId); // arm ready while showing
+            _socketing.TrySocket(arm.InstanceId, stinger.InstanceId); // arm ready too
 
+            SocketBothAndUnseal(); // skull cards up
+
+            // A second confirm behind the open cards is ignored, not queued.
+            _rackView.RaiseUnsealClicked(arm.InstanceId);
             Assert.AreEqual(1, _view.ShowChoicesCalls);
 
             _view.RaiseSelected(0); // resolve the skull
+            Assert.IsFalse(_view.Visible);
 
+            // The other medallion still offers its own confirm afterwards.
+            _rackView.RaiseUnsealClicked(arm.InstanceId);
             Assert.AreEqual(2, _view.ShowChoicesCalls);
             Assert.AreEqual("part.arm.claw", _view.LastShown[0].Front.PartName);
             Assert.IsTrue(_view.Visible);
@@ -431,7 +473,7 @@ namespace Tests.EditMode
                 },
                 ("sharp", 0.7f));
 
-            SocketBoth();
+            SocketBothAndUnseal();
 
             var card = _view.LastShown[0];
             Assert.AreEqual("slot.head", card.SlotId);
@@ -454,7 +496,7 @@ namespace Tests.EditMode
                 new MutationAbilityInfo("Headbutt", "A dull blow.", null, isPassive: false));
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
 
-            SocketBoth();
+            SocketBothAndUnseal();
 
             var card = _view.LastShown[0];
             Assert.IsTrue(card.HasReplacedPart);
@@ -470,7 +512,7 @@ namespace Tests.EditMode
             // path (TryGetEquippedPartId returns false for both).
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
 
-            SocketBoth();
+            SocketBothAndUnseal();
 
             Assert.IsFalse(_view.LastShown[0].HasReplacedPart);
         }
@@ -481,7 +523,7 @@ namespace Tests.EditMode
             _character.Equip("slot.head", "part.head.unknown"); // no card data authored
             _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
 
-            SocketBoth();
+            SocketBothAndUnseal();
 
             Assert.IsFalse(_view.LastShown[0].HasReplacedPart);
         }
@@ -491,7 +533,7 @@ namespace Tests.EditMode
         {
             _partCatalog.AddCardless("slot.head", "part.head.raw", ("sharp", 0.7f));
 
-            SocketBoth();
+            SocketBothAndUnseal();
 
             var card = _view.LastShown[0];
             Assert.AreEqual("part.head.raw", card.Front.PartName);

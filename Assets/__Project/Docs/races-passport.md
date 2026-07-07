@@ -109,7 +109,7 @@ Loaded from `Resources/World/Races/` (or the `AreaInstaller` `_raceDefinitions` 
 | `_raceId` | string | Stable id: the part race-tag value and the `reads_as_tier` fact subject | lowercase, no spaces; empty = asset skipped + warning |
 | `_displayName` | string | UI name (e.g. "Ibex-folk") | empty = falls back to asset name |
 | `_homeBiome` | `LevelTheme` | The biome this race calls home | Ibex=Mountain, Lizard=Desert, Fox=Forest; Cave has no race yet |
-| `_belongingColor` | `Color` | Belonging hue for the quest/mutation card grammar | white; **no consumer yet** (P1-6) |
+| `_belongingColor` | `Color` | Belonging hue for the quest card grammar (a Part-Blank reward's race colour). | white; consumed by Track H via `BelongingTintCatalog` (P0-3·b) |
 
 ### Race tag on `PartDefinition`  (existing asset menu: `Create → Character System → Part`)
 
@@ -187,7 +187,8 @@ Verified manually in play mode: the marsh elder closed → open flip after a fox
 
 ## 6. Known limitations / open points
 
-- **Belonging colour has no consumer** until the quest-offer card treatment (P1-6) picks it up.
+- **Belonging colour is consumed by Track H** (P0-3·b): `BelongingTintCatalog` merges it with the
+  artifact `RewardFamilyDefinition` colours for the quest-offer card + quest log tint (⚠ gameplay-untested).
 - **No un-equip path**: the assembly controller only swaps parts, so tiers move on swap; a future
   remove/un-equip surface must also raise `PartsChanged`.
 - **Exposure / betrayal** (trust flipping to horror on deeper mutation, `heresy_exposed`) is design

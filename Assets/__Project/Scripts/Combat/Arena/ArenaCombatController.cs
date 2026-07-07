@@ -348,6 +348,13 @@ namespace Combat.Arena
         {
             _gameState = _roundLifecycle.ApplyRoundEndEffects(_gameState);
 
+            // The round-end status tick can kill (DoT): settle the outcome now — identically on
+            // every peer — instead of relying on the next frame's Update() poll.
+            OnStateChanged?.Invoke(_gameState);
+            CheckWinConditions();
+            if (_gameState.Phase != CombatPhase.Combat)
+                return;
+
             _turnManager.NextTurn();
             _gameState = (_gameState as CombatState).WithNextTurn();
 

@@ -5,17 +5,23 @@ using UnityEngine;
 namespace Narrative.Quests.Data
 {
     /// <summary>
-    /// Authoring form of a quest item reward: an artifact definition id and a count. Maps to the
-    /// UnityEngine-free <see cref="QuestRewardCore"/>.
+    /// Authoring form of a DECLARED quest reward (P1-5): reward tier + belonging + payload kind —
+    /// never a literal item id. The concrete artifact/blank is rolled on completion by the loot
+    /// layer. Maps to the UnityEngine-free <see cref="QuestRewardCore"/>.
     /// </summary>
     [Serializable]
     public class QuestRewardSerial
     {
-        [Tooltip("Artifact definition id granted to the inventory on quest completion.")]
-        [SerializeField] private string _artifactId = string.Empty;
-        [Min(1)]
-        [SerializeField] private int _count = 1;
+        [Tooltip("What kind of item this reward rolls: a cauldron artifact or a Part-Blank.")]
+        [SerializeField] private QuestRewardPayloadKind _payloadKind = QuestRewardPayloadKind.Artifact;
 
-        public QuestRewardCore ToCore() => new QuestRewardCore(_artifactId, _count);
+        [Tooltip("Declared potency (the tier the offer card glows with). Same scale as artifact tiers.")]
+        [Min(0)]
+        [SerializeField] private int _tier;
+
+        [Tooltip("Belonging: a race id for a Part-Blank reward (e.g. 'fox'), a reward-family id for an artifact reward (e.g. 'power'). Empty = unconstrained.")]
+        [SerializeField] private string _belongingId = string.Empty;
+
+        public QuestRewardCore ToCore() => new QuestRewardCore(_tier, _belongingId, _payloadKind);
     }
 }

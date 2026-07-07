@@ -26,5 +26,6 @@ MonoBehaviour:
   _onCompleteEffects: []
   _onFailEffects: []
   _rewards:
-  - _artifactId: fire
-    _count: 1
+  - _payloadKind: 0
+    _tier: 1
+    _belongingId: power

@@ -4,10 +4,10 @@ using UnityEngine;
 namespace Mutation.View
 {
     /// <summary>
-    /// View DTO for one racked Part-Blank: everything the rack view needs to draw
-    /// an entry (identity, label, species tint, socket layout, and what already
-    /// sits in the sockets), with sprites/tints resolved by the presenter so the
-    /// view stays logic-free.
+    /// View DTO for one racked Part-Blank medallion: everything the ribbon view
+    /// needs to draw an entry (identity, label, species tint, socket layout,
+    /// what already sits in the sockets, and whether the rim is closed), with
+    /// sprites/tints resolved by the presenter so the view stays logic-free.
     /// </summary>
     public sealed class BlankEntryViewData
     {
@@ -18,13 +18,17 @@ namespace Mutation.View
         public int SocketCount { get; }
         public IReadOnlyList<SocketViewData> FilledSockets { get; }
 
+        /// <summary>Rim closed — the organ is complete and offers its unseal confirm.</summary>
+        public bool IsReady { get; }
+
         public BlankEntryViewData(
             int blankInstanceId,
             string displayName,
             Sprite icon,
             Color speciesTint,
             int socketCount,
-            IReadOnlyList<SocketViewData> filledSockets)
+            IReadOnlyList<SocketViewData> filledSockets,
+            bool isReady)
         {
             BlankInstanceId = blankInstanceId;
             DisplayName = displayName;
@@ -32,6 +36,7 @@ namespace Mutation.View
             SpeciesTint = speciesTint;
             SocketCount = socketCount;
             FilledSockets = filledSockets ?? System.Array.Empty<SocketViewData>();
+            IsReady = isReady;
         }
     }
 

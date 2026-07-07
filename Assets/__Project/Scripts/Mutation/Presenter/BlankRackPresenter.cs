@@ -123,10 +123,11 @@ namespace Mutation.Presenter
         {
             if (!_socketing.TryUnsocket(blankInstanceId, artifactInstanceId))
             {
-                // A full blank is committed - the last drop was the point of no return.
+                // Re-slotting stays free until the unseal confirm (Track F), so a
+                // rejection here only means the artifact is not actually socketed.
                 _logger.Info(LogCategory.Mutation,
                     $"[BlankRackPresenter] Unsocketing artifact {artifactInstanceId} from blank " +
-                    $"{blankInstanceId} rejected (committed or not socketed).");
+                    $"{blankInstanceId} rejected (not socketed).");
             }
         }
 
@@ -157,7 +158,8 @@ namespace Mutation.Presenter
                     icon,
                     tint,
                     blank.SocketCount,
-                    BuildFilledSockets(instance.InstanceId)));
+                    BuildFilledSockets(instance.InstanceId),
+                    _socketing.IsReady(instance.InstanceId)));
             }
 
             _view.ShowBlanks(entries);

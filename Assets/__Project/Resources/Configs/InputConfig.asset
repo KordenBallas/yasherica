@@ -12,14 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8542344bdae70574cb169e56cebb061d, type: 3}
   m_Name: InputConfig
   m_EditorClassIdentifier: Assembly-CSharp::Combat.Config.InputConfig
-  targetPlatform: 0
-  controllerType: 0
-  movementModeKey: 9
-  confirmKey: 32
-  cancelKey: 324
-  touchDragSensitivity: 1
-  tapConfirmRadius: 50
-  horizontalAxisName: Horizontal
-  verticalAxisName: Vertical
-  confirmButtonName: Submit
+  volleyAimHoldThresholdSeconds: 0.25
   inputDeadzone: 0.1

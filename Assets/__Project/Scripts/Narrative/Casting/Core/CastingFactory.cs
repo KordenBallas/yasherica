@@ -35,7 +35,7 @@ namespace Narrative.Casting.Core
             }
 
             DialogueData dialogue = null;
-            QuestData quest = null;
+            var quests = new List<QuestData>();
             string enemyId = null;
 
             foreach (var slot in story.Slots)
@@ -52,8 +52,14 @@ namespace Narrative.Casting.Core
 
                         break;
                     case SlotKind.Quest:
-                        quest = PickById(library.FindQuests(slot.RequiredTags));
-                        if (quest == null && !slot.Optional)
+                        // Several quest slots = several resolutions of the one trouble (P1-9),
+                        // gathered in slot order so the hand shows them together.
+                        var quest = PickById(library.FindQuests(slot.RequiredTags));
+                        if (quest != null)
+                        {
+                            quests.Add(quest);
+                        }
+                        else if (!slot.Optional)
                         {
                             _logger?.Warning(LogCategory.Narrative,$"[CastingFactory] Story '{story.StoryId}' quest slot '{slot.SlotId}' has no matching fragment.");
                             return null;
@@ -83,10 +89,10 @@ namespace Narrative.Casting.Core
                 .BindSubject("$self", actor.InstanceId)
                 .BindSubject("$faction", actor.FactionId)
                 .SetVariable("npc_name", actor.ChosenDisplayName)
-                .SetVariable("quest_available", quest != null)
+                .SetVariable("quest_available", quests.Count > 0)
                 .SetVariable("combat_available", !string.IsNullOrEmpty(enemyId));
 
-            return new Casting(actor, dialogue, quest, enemyId, context, story.StoryId, story.ThreadId);
+            return Casting.WithQuests(actor, dialogue, quests, enemyId, context, story.StoryId, story.ThreadId);
         }
 
         public IReadOnlyList<FactKeyShapeCore> DeriveFootprint(StoryTemplateData story, IFragmentLibrary library)

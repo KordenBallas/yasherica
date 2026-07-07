@@ -19,6 +19,9 @@ namespace Mutation.View
         public int RingRadius { get; }
         public string AnimationTrigger { get; }
 
+        /// <summary>Applied-status glyph for the effect badge (null = neutral untyped mark).</summary>
+        public Sprite StatusGlyph { get; }
+
         public MutationAbilityIconViewData(
             string name,
             string description,
@@ -27,7 +30,8 @@ namespace Mutation.View
             bool isLine = false,
             int lineLength = 0,
             int ringRadius = 0,
-            string animationTrigger = "")
+            string animationTrigger = "",
+            Sprite statusGlyph = null)
         {
             Name = name;
             Description = description;
@@ -37,6 +41,7 @@ namespace Mutation.View
             LineLength = lineLength;
             RingRadius = ringRadius;
             AnimationTrigger = animationTrigger;
+            StatusGlyph = statusGlyph;
         }
     }
 }

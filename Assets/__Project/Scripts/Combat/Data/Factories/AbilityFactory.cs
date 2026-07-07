@@ -70,8 +70,10 @@ namespace Combat.Data.Factories
                 return CreateBaseAbility(def);
             }
 
-            var effect = _statusEffectFactory.CreateStatusEffect(def.StatusEffect);
-            int duration = def.DurationOverride >= 0 ? def.DurationOverride : effect.Duration;
+            // Resolve the override BEFORE building the effect so the applied instance actually
+            // carries the authored duration (an ability declares status + magnitude + duration).
+            int duration = def.DurationOverride >= 0 ? def.DurationOverride : def.StatusEffect.Duration;
+            var effect = _statusEffectFactory.CreateStatusEffect(def.StatusEffect, duration);
 
             return new DataDrivenStatusEffectAbility(
                 def.Id, def.Name, def.CooldownDuration, BuildShape(def), effect, duration);
@@ -87,8 +89,9 @@ namespace Combat.Data.Factories
                     def.Id, def.Name, def.CooldownDuration, BuildShape(def), def.Damage, def.PushDistance);
             }
 
-            var effect = _statusEffectFactory.CreateStatusEffect(def.StatusEffect);
-            int duration = def.DurationOverride >= 0 ? def.DurationOverride : effect.Duration;
+            // Same override-first order as CreateStatusEffectAbility (see comment there).
+            int duration = def.DurationOverride >= 0 ? def.DurationOverride : def.StatusEffect.Duration;
+            var effect = _statusEffectFactory.CreateStatusEffect(def.StatusEffect, duration);
 
             return new DataDrivenHybridAbility(
                 def.Id, def.Name, def.CooldownDuration, BuildShape(def), def.Damage, effect, duration,

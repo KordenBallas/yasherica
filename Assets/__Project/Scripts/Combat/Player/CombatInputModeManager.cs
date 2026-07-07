@@ -4,7 +4,7 @@ namespace Combat.Player
 {
     /// <summary>
     /// Tracks the active input mode (movement or ability aiming) to prevent conflicts.
-    /// Mutual exclusion is enforced at the PCInputController level; this class provides
+    /// Mutual exclusion is enforced at the CombatInputController level; this class provides
     /// a shared signal for handlers that need to know the current mode.
     /// </summary>
     public class CombatInputModeManager : IDisposable

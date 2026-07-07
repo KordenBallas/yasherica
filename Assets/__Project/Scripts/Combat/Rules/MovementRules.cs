@@ -26,9 +26,9 @@ namespace Combat.Rules
             if (gameState.GetUnitAt(targetPosition) != null)
                 return false;
             
-            // Check distance
+            // Check distance against the status-gated effective range (root/slow)
             int distance = CalculateDistance(unit.Position, targetPosition);
-            return distance <= MaxMovementRange;
+            return distance <= MovementRange.EffectiveFor(unit, MaxMovementRange);
         }
         
         /// <summary>

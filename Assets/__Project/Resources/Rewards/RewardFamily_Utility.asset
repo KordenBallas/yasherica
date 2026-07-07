@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2863d8a40129ed442be5000abce19a59, type: 3}
+  m_Name: RewardFamily_Utility
+  m_EditorClassIdentifier: Yasherica::Narrative.Quests.Data.RewardFamilyDefinition
+  _familyId: utility
+  _displayName: Utility
+  _belongingColor: {r: 0.25, g: 0.5, b: 0.78, a: 1}

@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7d390b3eaec432ba792277b44858360, type: 3}
+  m_Name: DemoThread_RaiderPact
+  m_EditorClassIdentifier: Yasherica::Narrative.Threads.Data.ThreadDefinition
+  _threadId: raider_pact
+  _kind: 0
+  _premise:
+  - _namespace: 0
+    _subjectToken:
+    _key: grain_recovered
+    _op: 0
+    _value:
+      _valueType: 0
+      _boolValue: 0
+      _intValue: 0
+      _floatValue: 0
+      _stringValue:
+  _resolutionConditions: []
+  _lifespanWindows: 4
+  _description: The RAIDER side of the barn moral fork (his counter-offer arriving platforms after
+    the farmer's bounty, on the shared recurring actor), Shape B (P1-8). Premise holds while the
+    farmer's grain is NOT recovered - honoring the bounty (world.grain_recovered) contradicts it and
+    the pact retires failed/conflict; the mirror of barn_raid's raider_offer_taken premise. The two
+    offers are same-tier, different-currency (facts are the stakes, never loot-EV) and are never
+    shown side by side.

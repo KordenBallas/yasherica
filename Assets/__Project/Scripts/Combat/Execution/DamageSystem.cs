@@ -35,25 +35,30 @@ namespace Combat.Execution
             if (attacker == null || baseDamage <= 0)
                 return baseDamage;
 
-            // Sum the attacker's standing Buff/Debuff modifiers (e.g. part-granted passives).
-            // Debuffs are already stored as negative percentages by the StatusEffectFactory.
-            // NOTE: only outgoing damage is modified here; max-HP / defence stat targets are
-            // not wired yet (StatModifier has no stat-target dimension) - see ROADMAP.
-            float modifier = 0f;
-            foreach (var effect in attacker.StatusEffects)
-            {
-                if ((effect.Type == StatusEffectType.Buff || effect.Type == StatusEffectType.Debuff)
-                    && effect is DataDrivenModifierEffect mod)
-                {
-                    modifier += mod.StatModifier * effect.StackCount;
-                }
-            }
+            // Flat signed modifier model (one model for timed statuses and part passives):
+            // the attacker's OutgoingDamage deltas plus the target's IncomingDamage deltas,
+            // each scaled by stack count. Integer-only on purpose — this path must stay
+            // lockstep-deterministic across peers.
+            int delta = SumModifiers(attacker, StatTarget.OutgoingDamage);
+            if (target != null)
+                delta += SumModifiers(target, StatTarget.IncomingDamage);
 
-            if (modifier == 0f)
+            if (delta == 0)
                 return baseDamage;
 
-            var finalDamage = (int)System.Math.Round(baseDamage * (1f + modifier));
-            return System.Math.Max(0, finalDamage);
+            return System.Math.Max(0, baseDamage + delta);
+        }
+
+        private static int SumModifiers(IUnit unit, StatTarget statTarget)
+        {
+            int sum = 0;
+            foreach (var effect in unit.StatusEffects)
+            {
+                if (effect is DataDrivenModifierEffect mod && mod.Target == statTarget)
+                    sum += mod.Magnitude * effect.StackCount;
+            }
+
+            return sum;
         }
     }
 }

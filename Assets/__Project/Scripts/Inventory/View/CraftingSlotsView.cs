@@ -129,6 +129,9 @@ namespace Inventory.View
             var view = Instantiate(_artifactItemPrefab, anchor);
             view.transform.localPosition = Vector3.zero;
             view.Configure(data.InstanceId, data.Icon, data.Tint, GetDepthSettings());
+            // Bubble = "in the brew" (Track F zone rule): artifacts above the
+            // surface — staged or hovering as the result — are bare.
+            view.SetShellVisible(false);
             return view;
         }
 

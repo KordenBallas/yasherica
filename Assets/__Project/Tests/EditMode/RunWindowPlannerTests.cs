@@ -50,6 +50,8 @@ namespace Tests.EditMode
             {
                 new FactKeyInfo(FactNamespace.World, "pass_cleared", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
                 new FactKeyInfo(FactNamespace.Actor, "looted_barn", FactScope.PerActor, FactValueType.Bool, FactValue.FromBool(false)),
+                // The Monster verb's per-actor kill mark (P1-7): a slain actor is never recast.
+                new FactKeyInfo(FactNamespace.Actor, "slain", FactScope.PerActor, FactValueType.Bool, FactValue.FromBool(false)),
                 // Barn-demo partition facts (window-1 choices that route window-2 selection).
                 new FactKeyInfo(FactNamespace.World, "barn_raided", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
                 new FactKeyInfo(FactNamespace.World, "barn_quest_offered", FactScope.Global, FactValueType.Bool, FactValue.FromBool(false)),
@@ -377,6 +379,28 @@ namespace Tests.EditMode
             var placed = windowNext.Platforms.First(p => p.Kind == PlannedPlatformKind.Story);
             Assert.AreEqual("motive", placed.Story.StoryId);            // eligible by the actor-scoped fact (item 1)
             Assert.AreEqual(raider.InstanceId, placed.Actor.InstanceId); // same instance recast (item 2)
+        }
+
+        [Test]
+        public void SlainActor_IsNeverRecast_HisArcStoriesGoIneligible()
+        {
+            // The Monster verb's price (P1-7): killing the raider forfeits his future arc — the
+            // motive story his looted_barn fact would have opened must never place again.
+            var settings = new RunPacingSettings(windowSize: 1, lookAheadWindows: 1);
+            var barn = Story("barn", 10, new[] { "raider" }, precondition: PassCleared(false));
+            var motive = Story("motive", 10, new[] { "motive" }, precondition: LootedBarn(true));
+            var planner = Planner(settings, new[] { barn, motive }, new[] { Archetype("arch_raider", "raider") });
+
+            var windowN = planner.PlanWindow(0, _store);
+            var raider = windowN.Platforms.First(p => p.Kind == PlannedPlatformKind.Story).Actor;
+
+            _store.Set(new FactKey(FactNamespace.Actor, raider.InstanceId, "looted_barn"), FactValue.FromBool(true));
+            _store.Set(new FactKey(FactNamespace.Actor, raider.InstanceId, "slain"), FactValue.FromBool(true));
+            _store.Set(FactKey.Global(FactNamespace.World, "pass_cleared"), FactValue.FromBool(true));
+
+            var windowNext = planner.PlanWindow(1, _store);
+            Assert.AreEqual(0, StoryCount(windowNext),
+                "a slain actor must not satisfy an actor-scoped casting query");
         }
 
         [Test]

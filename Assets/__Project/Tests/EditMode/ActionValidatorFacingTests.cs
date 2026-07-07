@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Combat.Battlefield;
 using Combat.Config;
 using Combat.Core;
+using Combat.Core.StatusEffects;
 using Combat.Execution;
 using Combat.Player;
 using NUnit.Framework;
@@ -72,7 +73,11 @@ namespace Tests.EditMode
         {
             var stunned = MakeUnit(
                 hasActed: false,
-                effects: new List<IStatusEffect> { new StunEffect(1) });
+                effects: new List<IStatusEffect>
+                {
+                    new DataDrivenControlEffect(
+                        1003, "Stun", 1, ControlKind.Stun, 0, StatusEffectTriggerType.TurnEnd)
+                });
             var state = StateWith(stunned);
             var action = new ChangeDirectionAction(_player, 10, HexDirection.W);
 

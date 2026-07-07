@@ -31,6 +31,11 @@ namespace Mutation.Data.Definitions
         [Tooltip("Blanks seeded into the rack at startup (dev seed until blanks drop as loot)")]
         [SerializeField] private List<PartBlankDefinition> _startingBlanks;
 
+        [Header("Cauldron voice (P1-10)")]
+        [Tooltip("An unseal offer containing a part of this rarity tier or higher counts as a strong/monstrous temptation (fires the temptation bark slot)")]
+        [Min(0)]
+        [SerializeField] private int _temptationRarityTier = 2;
+
         [Header("Card mini-model preview")]
         [SerializeField] private MutationPreviewSettings _preview = new MutationPreviewSettings();
 
@@ -40,6 +45,9 @@ namespace Mutation.Data.Definitions
         public float TierUnlockPerRarityTier => _tierUnlockPerRarityTier;
         public IReadOnlyList<PartBlankDefinition> StartingBlanks =>
             _startingBlanks ?? (IReadOnlyList<PartBlankDefinition>)System.Array.Empty<PartBlankDefinition>();
+
+        /// <summary>Rarity tier at/above which an offered variant reads as a monstrous temptation.</summary>
+        public int TemptationRarityTier => _temptationRarityTier;
         public MutationPreviewSettings Preview => _preview ?? (_preview = new MutationPreviewSettings());
     }
 }

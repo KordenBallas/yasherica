@@ -23,7 +23,7 @@ namespace Combat.Core.StatusEffects
             StatusEffectType type,
             int duration,
             int stackCount,
-            bool isStackable,
+            StackRule stackRule,
             int maxStacks,
             StatusEffectTriggerType triggerType,
             int damagePerTrigger,
@@ -32,7 +32,7 @@ namespace Combat.Core.StatusEffects
             int healPerStack,
             float hpThreshold,
             ThresholdDirection thresholdDirection)
-            : base(id, name, type, duration, stackCount, isStackable)
+            : base(id, name, type, duration, stackCount, stackRule)
         {
             TriggerType = triggerType;
             DamagePerTrigger = damagePerTrigger;
@@ -48,7 +48,7 @@ namespace Combat.Core.StatusEffects
         {
             return new DataDrivenStatusEffect(
                 Id, Name, Type, Duration - 1, StackCount,
-                IsStackable, MaxStacks, TriggerType,
+                StackRule, MaxStacks, TriggerType,
                 DamagePerTrigger, HealPerTrigger,
                 DamagePerStack, HealPerStack,
                 HpThreshold, ThresholdDirection);
@@ -56,7 +56,7 @@ namespace Combat.Core.StatusEffects
 
         public override StatusEffect AddStack()
         {
-            if (!IsStackable)
+            if (StackRule != StackRule.StackToCap)
                 return this;
 
             if (MaxStacks > 0 && StackCount >= MaxStacks)
@@ -64,17 +64,26 @@ namespace Combat.Core.StatusEffects
 
             return new DataDrivenStatusEffect(
                 Id, Name, Type, Duration, StackCount + 1,
-                IsStackable, MaxStacks, TriggerType,
+                StackRule, MaxStacks, TriggerType,
                 DamagePerTrigger + DamagePerStack,
                 HealPerTrigger + HealPerStack,
+                DamagePerStack, HealPerStack,
+                HpThreshold, ThresholdDirection);
+        }
+
+        public override StatusEffect WithDuration(int duration)
+        {
+            return new DataDrivenStatusEffect(
+                Id, Name, Type, duration, StackCount,
+                StackRule, MaxStacks, TriggerType,
+                DamagePerTrigger, HealPerTrigger,
                 DamagePerStack, HealPerStack,
                 HpThreshold, ThresholdDirection);
         }
     }
 
     /// <summary>
-    /// Data-driven damage over time effect.
-    /// Replaces hardcoded PoisonEffect when using ScriptableObject definitions.
+    /// Data-driven damage over time effect (burn, poison, bleed, ...).
     /// </summary>
     public class DataDrivenDamageOverTimeEffect : DataDrivenStatusEffect
     {
@@ -83,13 +92,13 @@ namespace Combat.Core.StatusEffects
             string name,
             int duration,
             int stackCount,
-            bool isStackable,
+            StackRule stackRule,
             int maxStacks,
             StatusEffectTriggerType triggerType,
             int damagePerTrigger,
             int damagePerStack)
             : base(id, name, StatusEffectType.DamageOverTime, duration, stackCount,
-                   isStackable, maxStacks, triggerType,
+                   stackRule, maxStacks, triggerType,
                    damagePerTrigger, 0, damagePerStack, 0, 0f, ThresholdDirection.Below)
         {
         }
@@ -98,13 +107,13 @@ namespace Combat.Core.StatusEffects
         {
             return new DataDrivenDamageOverTimeEffect(
                 Id, Name, Duration - 1, StackCount,
-                IsStackable, MaxStacks, TriggerType,
+                StackRule, MaxStacks, TriggerType,
                 DamagePerTrigger, DamagePerStack);
         }
 
         public override StatusEffect AddStack()
         {
-            if (!IsStackable)
+            if (StackRule != StackRule.StackToCap)
                 return this;
 
             if (MaxStacks > 0 && StackCount >= MaxStacks)
@@ -112,14 +121,21 @@ namespace Combat.Core.StatusEffects
 
             return new DataDrivenDamageOverTimeEffect(
                 Id, Name, Duration, StackCount + 1,
-                IsStackable, MaxStacks, TriggerType,
+                StackRule, MaxStacks, TriggerType,
                 DamagePerTrigger + DamagePerStack, DamagePerStack);
+        }
+
+        public override StatusEffect WithDuration(int duration)
+        {
+            return new DataDrivenDamageOverTimeEffect(
+                Id, Name, duration, StackCount,
+                StackRule, MaxStacks, TriggerType,
+                DamagePerTrigger, DamagePerStack);
         }
     }
 
     /// <summary>
-    /// Data-driven heal over time effect.
-    /// Replaces hardcoded RegenerationEffect when using ScriptableObject definitions.
+    /// Data-driven heal over time effect (regen, ...).
     /// </summary>
     public class DataDrivenHealOverTimeEffect : DataDrivenStatusEffect
     {
@@ -128,13 +144,13 @@ namespace Combat.Core.StatusEffects
             string name,
             int duration,
             int stackCount,
-            bool isStackable,
+            StackRule stackRule,
             int maxStacks,
             StatusEffectTriggerType triggerType,
             int healPerTrigger,
             int healPerStack)
             : base(id, name, StatusEffectType.HealOverTime, duration, stackCount,
-                   isStackable, maxStacks, triggerType,
+                   stackRule, maxStacks, triggerType,
                    0, healPerTrigger, 0, healPerStack, 0f, ThresholdDirection.Below)
         {
         }
@@ -143,13 +159,13 @@ namespace Combat.Core.StatusEffects
         {
             return new DataDrivenHealOverTimeEffect(
                 Id, Name, Duration - 1, StackCount,
-                IsStackable, MaxStacks, TriggerType,
+                StackRule, MaxStacks, TriggerType,
                 HealPerTrigger, HealPerStack);
         }
 
         public override StatusEffect AddStack()
         {
-            if (!IsStackable)
+            if (StackRule != StackRule.StackToCap)
                 return this;
 
             if (MaxStacks > 0 && StackCount >= MaxStacks)
@@ -157,17 +173,29 @@ namespace Combat.Core.StatusEffects
 
             return new DataDrivenHealOverTimeEffect(
                 Id, Name, Duration, StackCount + 1,
-                IsStackable, MaxStacks, TriggerType,
+                StackRule, MaxStacks, TriggerType,
                 HealPerTrigger + HealPerStack, HealPerStack);
+        }
+
+        public override StatusEffect WithDuration(int duration)
+        {
+            return new DataDrivenHealOverTimeEffect(
+                Id, Name, duration, StackCount,
+                StackRule, MaxStacks, TriggerType,
+                HealPerTrigger, HealPerStack);
         }
     }
 
     /// <summary>
-    /// Data-driven control effect (stun, root, etc.).
-    /// Replaces hardcoded StunEffect when using ScriptableObject definitions.
+    /// Data-driven control effect. The kind decides what it restricts:
+    /// Stun gates the whole turn (Unit.ActionState), Root/Slow gate movement
+    /// (MovementRange.EffectiveFor).
     /// </summary>
     public class DataDrivenControlEffect : StatusEffect, ITriggeredStatusEffect
     {
+        public ControlKind Kind { get; }
+        public int MovementPenalty { get; }
+        public int MaxStacks { get; }
         public StatusEffectTriggerType TriggerType { get; }
         public int DamagePerTrigger => 0;
         public int HealPerTrigger => 0;
@@ -178,25 +206,55 @@ namespace Combat.Core.StatusEffects
             int id,
             string name,
             int duration,
-            StatusEffectTriggerType triggerType)
-            : base(id, name, StatusEffectType.Control, duration, 1, false)
+            ControlKind kind,
+            int movementPenalty,
+            StatusEffectTriggerType triggerType,
+            int stackCount = 1,
+            StackRule stackRule = StackRule.Refresh,
+            int maxStacks = 0)
+            : base(id, name, StatusEffectType.Control, duration, stackCount, stackRule)
         {
+            Kind = kind;
+            MovementPenalty = movementPenalty;
+            MaxStacks = maxStacks;
             TriggerType = triggerType;
         }
 
         public override StatusEffect DecrementDuration()
         {
-            return new DataDrivenControlEffect(Id, Name, Duration - 1, TriggerType);
+            return new DataDrivenControlEffect(
+                Id, Name, Duration - 1, Kind, MovementPenalty, TriggerType, StackCount, StackRule, MaxStacks);
+        }
+
+        public override StatusEffect AddStack()
+        {
+            if (StackRule != StackRule.StackToCap)
+                return this;
+
+            if (MaxStacks > 0 && StackCount >= MaxStacks)
+                return this;
+
+            return new DataDrivenControlEffect(
+                Id, Name, Duration, Kind, MovementPenalty, TriggerType, StackCount + 1, StackRule, MaxStacks);
+        }
+
+        public override StatusEffect WithDuration(int duration)
+        {
+            return new DataDrivenControlEffect(
+                Id, Name, duration, Kind, MovementPenalty, TriggerType, StackCount, StackRule, MaxStacks);
         }
     }
 
     /// <summary>
-    /// Data-driven stat modifier effect for buffs and debuffs.
-    /// Modifies unit stats by a percentage while active.
+    /// Data-driven stat modifier effect for buffs and debuffs: one flat signed magnitude
+    /// against one stat target. The same record backs a timed status and a part's
+    /// duration-less passive (the shared modifier model, combat-status-effects FR10).
     /// </summary>
     public class DataDrivenModifierEffect : StatusEffect, ITriggeredStatusEffect
     {
-        public float StatModifier { get; }
+        public int Magnitude { get; }
+        public StatTarget Target { get; }
+        public int MaxStacks { get; }
         public StatusEffectTriggerType TriggerType { get; }
         public int DamagePerTrigger => 0;
         public int HealPerTrigger => 0;
@@ -209,12 +267,16 @@ namespace Combat.Core.StatusEffects
             StatusEffectType type,
             int duration,
             int stackCount,
-            bool isStackable,
-            float statModifier,
-            StatusEffectTriggerType triggerType)
-            : base(id, name, type, duration, stackCount, isStackable)
+            StackRule stackRule,
+            int magnitude,
+            StatTarget target,
+            StatusEffectTriggerType triggerType,
+            int maxStacks = 0)
+            : base(id, name, type, duration, stackCount, stackRule)
         {
-            StatModifier = statModifier;
+            Magnitude = magnitude;
+            Target = target;
+            MaxStacks = maxStacks;
             TriggerType = triggerType;
         }
 
@@ -222,17 +284,27 @@ namespace Combat.Core.StatusEffects
         {
             return new DataDrivenModifierEffect(
                 Id, Name, Type, Duration - 1, StackCount,
-                IsStackable, StatModifier, TriggerType);
+                StackRule, Magnitude, Target, TriggerType, MaxStacks);
         }
 
         public override StatusEffect AddStack()
         {
-            if (!IsStackable)
+            if (StackRule != StackRule.StackToCap)
+                return this;
+
+            if (MaxStacks > 0 && StackCount >= MaxStacks)
                 return this;
 
             return new DataDrivenModifierEffect(
                 Id, Name, Type, Duration, StackCount + 1,
-                IsStackable, StatModifier, TriggerType);
+                StackRule, Magnitude, Target, TriggerType, MaxStacks);
+        }
+
+        public override StatusEffect WithDuration(int duration)
+        {
+            return new DataDrivenModifierEffect(
+                Id, Name, Type, duration, StackCount,
+                StackRule, Magnitude, Target, TriggerType, MaxStacks);
         }
     }
 }

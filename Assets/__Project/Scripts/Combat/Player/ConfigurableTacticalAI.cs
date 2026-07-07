@@ -60,7 +60,7 @@ namespace Combat.Player
                 }
             }
 
-            foreach (var position in gameState.GetValidPositionsInRange(unit.Position, _profile.MovementRange))
+            foreach (var position in gameState.GetValidPositionsInRange(unit.Position, MovementRange.EffectiveFor(unit, _profile.MovementRange)))
             {
                 float score = EvaluatePosition(gameState, unit, position);
                 scoredActions.Add(new ScoredAction(new MoveAction(unit.Owner, unit.Id, position), score));

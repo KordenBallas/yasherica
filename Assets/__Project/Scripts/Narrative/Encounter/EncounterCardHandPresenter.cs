@@ -30,12 +30,18 @@ namespace Narrative.Encounter
         private const string AttackCardLabel = "Attack";
         private const string LeaveCardLabel = "Leave";
         private const string AttackChoiceTag = "card:attack";
+        private const string OfferQuestChoiceTagPrefix = "offer-quest:";
 
         private readonly DialogueRunner _runner;
         private readonly IEncounterCardHandView _view;
+        private readonly Narrative.Barks.Core.ICauldronBarkService _barks;
         private readonly IGameLogger _logger;
 
         private readonly List<HandCard> _hand = new List<HandCard>();
+
+        // One dark-offer bark per encounter (P1-10): the cauldron leans in when the Monster verb or a
+        // dark-currency offer first appears, and does not nag on every re-shown hand.
+        private bool _darkOfferBarked;
 
         // Per-encounter chrome guards (the runner + presenter are singletons reused across encounters):
         // the portrait and the default speaker name are pushed once when the box first appears, then reset
@@ -49,10 +55,11 @@ namespace Narrative.Encounter
         private bool _closingReplyPending;
 
         public EncounterCardHandPresenter(DialogueRunner runner, IEncounterCardHandView view,
-            IGameLogger logger = null)
+            IGameLogger logger = null, Narrative.Barks.Core.ICauldronBarkService barks = null)
         {
             _runner = runner;
             _view = view;
+            _barks = barks;
             _logger = logger;
         }
 
@@ -158,6 +165,7 @@ namespace Narrative.Encounter
             _portraitShown = false;
             _speakerSet = false;
             _closingReplyPending = false;
+            _darkOfferBarked = false;
             _view.SetVisible(false);
         }
 
@@ -229,40 +237,156 @@ namespace Narrative.Encounter
                     var choice = choices[i];
                     var type = IsAttackChoice(choice) ? EncounterCardType.Attack : EncounterCardType.QuestOffer;
                     inkAttackPresent |= type == EncounterCardType.Attack;
-                    AddCard(cards, type, choice.Index, choice.Text);
+                    AddCard(cards, type, choice.Index, choice.Text, ResolveOfferedQuest(choice, type));
                 }
             }
 
             if (_runner.CombatAvailable && !inkAttackPresent)
             {
-                AddCard(cards, EncounterCardType.Attack, -1, AttackCardLabel);
+                AddCard(cards, EncounterCardType.Attack, -1, AttackCardLabel, null);
             }
 
-            AddCard(cards, EncounterCardType.Leave, -1, LeaveCardLabel);
+            AddCard(cards, EncounterCardType.Leave, -1, LeaveCardLabel, null);
 
             _view.ShowCards(cards);
+            MaybeBarkDarkOffer(cards);
+        }
+
+        /// <summary>
+        /// The dark-offer bark slot (P1-7 FR6 / P1-10): fires once per encounter when the hand first
+        /// presents the attack verb or an offer paying in a dark (Monster-lean) belonging. The line
+        /// content and the dark-belonging vocabulary are both data-authored.
+        /// </summary>
+        private void MaybeBarkDarkOffer(List<EncounterCardViewData> cards)
+        {
+            if (_barks == null || _darkOfferBarked)
+            {
+                return;
+            }
+
+            for (int i = 0; i < cards.Count; i++)
+            {
+                bool dark = cards[i].CardType == EncounterCardType.Attack
+                    || (cards[i].HasRewardTelegraph && _barks.IsDarkBelonging(cards[i].BelongingId));
+                if (dark)
+                {
+                    _darkOfferBarked = true;
+                    _barks.Bark(Narrative.Barks.Core.CauldronBarkSlot.DarkOffer);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The quest a choice's card is labelled with. A choice tagged <c>offer-quest: &lt;tag&gt;</c>
+        /// labels with THAT offer (several offers per NPC, P1-9); an untagged choice falls back to the
+        /// casting's single/first offer (legacy single-offer authoring).
+        /// </summary>
+        private Narrative.Quests.Core.QuestData ResolveOfferedQuest(StoryChoice choice, EncounterCardType type)
+        {
+            if (type != EncounterCardType.QuestOffer)
+            {
+                return null;
+            }
+
+            var questTag = FindOfferQuestTag(choice);
+            return questTag != null ? _runner.OfferedQuestByTag(questTag) : _runner.OfferedQuest;
         }
 
         private void AddCard(List<EncounterCardViewData> cards, EncounterCardType type, int inkIndex,
-            string label)
+            string label, Narrative.Quests.Core.QuestData quest)
         {
-            // A quest card is labelled with the job, not just the reply text (R9): pull the offered quest's
-            // title + summary from the casting. The offer-quest tag mints the live instance only once the
-            // card is picked, so we read OfferedQuest (the filled slot), not ActiveQuest.
+            // A quest card is labelled with the job, not just the reply text (R9), and telegraphs its
+            // declared reward (P1-6): tier as glow, belonging as colour, item hidden. The offer-quest tag
+            // mints the live instance only once the card is picked, so we read the offered (not active)
+            // quest here.
             string questTitle = null;
             string questObjective = null;
-            if (type == EncounterCardType.QuestOffer)
+            string questDetail = null;
+            bool hasReward = false;
+            int rewardTier = 0;
+            string belongingId = null;
+            if (quest != null)
             {
-                var quest = _runner.OfferedQuest;
-                if (quest != null)
+                questTitle = quest.DisplayName;
+                questObjective = quest.Summary;
+                questDetail = BuildQuestDetail(quest);
+                if (quest.Rewards.Count > 0)
                 {
-                    questTitle = quest.DisplayName;
-                    questObjective = quest.Summary;
+                    // The card telegraphs the FIRST declared reward; multi-reward quests stay a
+                    // single-slot read (the card face is terse by design).
+                    hasReward = true;
+                    rewardTier = quest.Rewards[0].Tier;
+                    belongingId = quest.Rewards[0].BelongingId;
                 }
             }
 
-            cards.Add(new EncounterCardViewData(_hand.Count, label, type, questTitle, questObjective));
+            cards.Add(new EncounterCardViewData(_hand.Count, label, type, questTitle, questObjective,
+                hasReward, rewardTier, belongingId, questDetail));
             _hand.Add(new HandCard(type, inkIndex));
+        }
+
+        /// <summary>
+        /// The inspect-gesture detail (P1-6 FR5): the job's objectives plus the giver — never the
+        /// reward. Null when the quest adds nothing beyond its summary.
+        /// </summary>
+        private string BuildQuestDetail(Narrative.Quests.Core.QuestData quest)
+        {
+            var builder = new System.Text.StringBuilder();
+            for (int i = 0; i < quest.Objectives.Count; i++)
+            {
+                var description = quest.Objectives[i].Description;
+                if (string.IsNullOrEmpty(description))
+                {
+                    continue;
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.Append('\n');
+                }
+
+                builder.Append("• ").Append(description);
+            }
+
+            var giver = _runner.EncounterDisplayName;
+            if (!string.IsNullOrEmpty(giver))
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append('\n');
+                }
+
+                builder.Append("— ").Append(giver);
+            }
+
+            return builder.Length > 0 ? builder.ToString() : null;
+        }
+
+        /// <summary>The quest tag of a choice's <c>offer-quest:</c> tag, or null when untagged.</summary>
+        private static string FindOfferQuestTag(StoryChoice choice)
+        {
+            if (choice?.Tags == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < choice.Tags.Count; i++)
+            {
+                var tag = choice.Tags[i];
+                if (string.IsNullOrEmpty(tag))
+                {
+                    continue;
+                }
+
+                var trimmed = tag.Trim();
+                if (trimmed.StartsWith(OfferQuestChoiceTagPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return trimmed.Substring(OfferQuestChoiceTagPrefix.Length).Trim();
+                }
+            }
+
+            return null;
         }
 
         private static bool IsAttackChoice(StoryChoice choice)

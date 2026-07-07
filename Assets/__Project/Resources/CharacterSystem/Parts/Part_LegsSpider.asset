@@ -36,7 +36,8 @@ MonoBehaviour:
   - SpiderHip.7
   - SpiderTip.7
   _contributedSockets: []
-  _activeAbilities: []
+  _activeAbilities:
+  - {fileID: 11400000, guid: af0b29f9968047558bf5b7dee64815dc, type: 2}
   _passiveAbilities: []
   _traitAffinities:
   - _traitId: chitin

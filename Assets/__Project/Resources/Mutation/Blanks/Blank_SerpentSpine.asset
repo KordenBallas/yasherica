@@ -18,5 +18,6 @@ MonoBehaviour:
     it will not stand on legs. It reads as lizardfolk.
   _slot: {fileID: 11400000, guid: 0f4fc15c574ccbf418982851d15ae25a, type: 2}
   _speciesArchetypeId: reptile
+  _raceId: lizard
   _socketCount: 2
   _icon: {fileID: 0}

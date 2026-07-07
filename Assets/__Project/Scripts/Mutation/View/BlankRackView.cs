@@ -5,24 +5,26 @@ using UnityEngine;
 namespace Mutation.View
 {
     /// <summary>
-    /// World-space adapter for the operating-table rack left of the cauldron:
-    /// instantiates one blank entry per racked blank at its anchor (from a
-    /// disabled template) and forwards the entries' drop/click events. No logic.
+    /// World-space adapter for the medallion ribbon under the cauldron:
+    /// instantiates one medallion entry per racked blank at its anchor (from a
+    /// disabled template) and forwards the entries' drop/click/unseal events.
+    /// No logic.
     /// </summary>
     public class BlankRackView : MonoBehaviour, IBlankRackView
     {
         [Header("Anchors")]
-        [Tooltip("Where racked blanks appear, top to bottom; the rack capacity should not exceed this")]
+        [Tooltip("Where racked blanks appear along the ribbon; the rack capacity should not exceed this")]
         [SerializeField] private Transform[] _blankAnchors;
 
         [Header("Template")]
-        [Tooltip("Disabled blank-entry template cloned per racked blank")]
+        [Tooltip("Disabled medallion-entry template cloned per racked blank")]
         [SerializeField] private BlankEntryView _entryTemplate;
 
         private readonly List<BlankEntryView> _entries = new List<BlankEntryView>();
 
         public event Action<int, int> OnArtifactDroppedOnBlank;
         public event Action<int, int> OnFilledSocketClicked;
+        public event Action<int> OnUnsealClicked;
 
         public void ShowBlanks(IReadOnlyList<BlankEntryViewData> blanks)
         {
@@ -41,6 +43,7 @@ namespace Mutation.View
                 entry.Configure(blanks[i]);
                 entry.OnArtifactDropped += HandleArtifactDropped;
                 entry.OnFilledSocketClicked += HandleFilledSocketClicked;
+                entry.OnUnsealClicked += HandleUnsealClicked;
                 _entries.Add(entry);
             }
         }
@@ -53,6 +56,7 @@ namespace Mutation.View
                 {
                     entry.OnArtifactDropped -= HandleArtifactDropped;
                     entry.OnFilledSocketClicked -= HandleFilledSocketClicked;
+                    entry.OnUnsealClicked -= HandleUnsealClicked;
                     Destroy(entry.gameObject);
                 }
             }
@@ -68,6 +72,11 @@ namespace Mutation.View
         private void HandleFilledSocketClicked(int blankInstanceId, int artifactInstanceId)
         {
             OnFilledSocketClicked?.Invoke(blankInstanceId, artifactInstanceId);
+        }
+
+        private void HandleUnsealClicked(int blankInstanceId)
+        {
+            OnUnsealClicked?.Invoke(blankInstanceId);
         }
     }
 }

@@ -36,5 +36,6 @@ MonoBehaviour:
       _stringValue:
   _onFailEffects: []
   _rewards:
-  - _artifactId: rock
-    _count: 1
+  - _payloadKind: 1
+    _tier: 1
+    _belongingId: fox

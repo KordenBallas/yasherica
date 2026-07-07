@@ -65,6 +65,10 @@ namespace Core.DI
             PersistenceInstaller.Install(Container);
             Container.Bind<Core.SceneFlow.ISceneLoader>().To<Core.SceneFlow.SceneLoader>().AsSingle();
 
+            // Cross-device input foundation: shared actions, active-source tracking, prompt cues,
+            // and the touch overlay.
+            InputInstaller.Install(Container);
+
             // The scene Hero prefab's components inject the registry (Area/Arena precedent).
             Container.Bind<ICharacterRegistry>()
                 .To<CharacterRegistry>()
@@ -113,10 +117,9 @@ namespace Core.DI
             InstallHubBiomeDressing(sceneConfig);
             Container.Bind<Hub.View.HubPlatformAssembler>().AsSingle();
 
+            // Plain class over the shared Interact action (input foundation) — no GameObject needed.
             Container.Bind<Narrative.Interaction.IInteractionInput>()
                 .To<Narrative.Interaction.View.NpcInteractionInput>()
-                .FromNewComponentOnNewGameObject()
-                .WithGameObjectName("HubInteractionInput")
                 .AsSingle();
             Container.BindInterfacesAndSelfTo<HubProximityPresenter>().AsSingle();
 

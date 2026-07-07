@@ -36,7 +36,7 @@ namespace Combat.Player
         [Inject] private HexDirectionConfig _hexConfig;
         [Inject] private CombatMovementConfig _movementConfig;
         [Inject] private IAbilityShapeCalculator _shapeCalculator;
-        [Inject] private InputConfig _inputConfig;
+        [Inject] private GameInput.Core.IPromptCueProvider _promptCues;
         [Inject(Optional = true)] private ICombatActionPanelView _actionPanelView;
         // Optional: the Arena scene has no CharacterCombatInitializer (heroes are spawned by
         // ArenaHeroSpawner) and passes ability definitions to Initialize explicitly instead.
@@ -110,7 +110,7 @@ namespace Combat.Player
                 _actionPanelPresenter = new CombatActionPanelPresenter(
                     _actionPanelView,
                     _combatController,
-                    _inputConfig);
+                    _promptCues);
 
                 var panelAbilityDefinitions = abilityDefinitions ?? _characterInitializer?.CharacterAbilityDefinitions;
                 _actionPanelPresenter.SetUnit(_characterUnit, panelAbilityDefinitions);

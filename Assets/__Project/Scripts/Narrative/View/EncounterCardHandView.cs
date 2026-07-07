@@ -51,6 +51,9 @@ namespace Narrative.View
 
         [Inject] private INpcArchetypeCatalog _archetypeCatalog;
 
+        // Belonging id -> authored colour (P0-3·b); resolved here so the presenter stays UnityEngine-free.
+        [Inject] private IBelongingTintCatalog _belongingTints;
+
         private Coroutine _revealRoutine;
         private bool _revealing;
         private string _keywordHex;
@@ -145,8 +148,11 @@ namespace Narrative.View
 
             for (int i = 0; i < cards.Count; i++)
             {
+                var tint = cards[i].HasRewardTelegraph && _belongingTints != null
+                    ? _belongingTints.TintFor(cards[i].BelongingId)
+                    : Color.white;
                 var card = Instantiate(_cardPrefab, _cardAnchor);
-                card.Configure(i, cards[i], _keywordHex, HandleCardSelected);
+                card.Configure(i, cards[i], _keywordHex, tint, HandleCardSelected);
                 _cards.Add(card);
             }
         }

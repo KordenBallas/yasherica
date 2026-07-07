@@ -10,6 +10,11 @@ namespace Narrative.Threads.Core
 
         /// <summary>A written fact contradicted the thread's premise — the player made it
         /// impossible. Applies to arc threads too.</summary>
-        Conflict = 2
+        Conflict = 2,
+
+        /// <summary>The player killed the thread's character (the Monster verb, P1-7) — the arc is
+        /// forfeit as the in-fiction price of the corpse loot. A state change + indicator, no
+        /// closure beat, like every retirement.</summary>
+        Foreclosed = 3
     }
 }

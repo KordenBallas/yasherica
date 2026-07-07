@@ -91,16 +91,37 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void TryUnsocket_FullBlank_IsRejected_TheLastDropIsTheCommit()
+        public void TryUnsocket_FullBlank_ReopensIt_TheCommitIsTheUnsealConfirm()
+        {
+            // Track F medallion beat: re-slotting stays free until the player
+            // confirms the unseal, so a ready blank simply reopens.
+            var a = _inventory.Add("a");
+            var b = _inventory.Add("b");
+            _socketing.TrySocket(_skull.InstanceId, a.InstanceId);
+            _socketing.TrySocket(_skull.InstanceId, b.InstanceId);
+            Assert.IsTrue(_socketing.IsReady(_skull.InstanceId));
+
+            Assert.IsTrue(_socketing.TryUnsocket(_skull.InstanceId, a.InstanceId));
+            Assert.AreEqual(1, _socketing.SocketedArtifacts(_skull.InstanceId).Count);
+            Assert.AreEqual(1, _inventory.Items.Count);
+            Assert.IsFalse(_socketing.IsReady(_skull.InstanceId));
+        }
+
+        [Test]
+        public void TrySocket_RefillingAReopenedBlank_RaisesBlankReadyAgain()
         {
             var a = _inventory.Add("a");
             var b = _inventory.Add("b");
             _socketing.TrySocket(_skull.InstanceId, a.InstanceId);
             _socketing.TrySocket(_skull.InstanceId, b.InstanceId);
+            _socketing.TryUnsocket(_skull.InstanceId, a.InstanceId);
 
-            Assert.IsFalse(_socketing.TryUnsocket(_skull.InstanceId, a.InstanceId));
-            Assert.AreEqual(2, _socketing.SocketedArtifacts(_skull.InstanceId).Count);
-            Assert.AreEqual(0, _inventory.Items.Count);
+            int readyBlank = -1;
+            _socketing.OnBlankReady += id => readyBlank = id;
+            _socketing.TrySocket(_skull.InstanceId, a.InstanceId);
+
+            Assert.AreEqual(_skull.InstanceId, readyBlank);
+            Assert.IsTrue(_socketing.IsReady(_skull.InstanceId));
         }
 
         [Test]

@@ -60,6 +60,15 @@ namespace Tests.EditMode
             new AbilityInstance(new DataDrivenDamageAbility(
                 AbilityId, "Test Line", 2, AbilityShapeData.ForLine(2), BaseDamage));
 
+        private const int StatusAbilityId = 101;
+
+        // A hybrid blow that leaves a stacking poison — the status layer under lockstep.
+        private static IAbilityInstance PoisonLineAbility() =>
+            new AbilityInstance(new DataDrivenHybridAbility(
+                StatusAbilityId, "Venom Line", 0, AbilityShapeData.ForLine(2), 5,
+                new DataDrivenDamageOverTimeEffect(2, "Poison", 3, 1, StackRule.StackToCap, 3,
+                    StatusEffectTriggerType.TurnEnd, 4, 4), 3));
+
         /// <summary>
         /// Builds one client's full simulation over the shared transport. localPlayerId owns the
         /// human seat on this machine; the other seat is a NetworkPlayer (like a real joiner).
@@ -76,7 +85,7 @@ namespace Tests.EditMode
                 new ActionValidator(new CombatConfig(2f, HexOrientation.Flat, 3)),
                 new ActionExecutor(abilityExecutor, logger),
                 new TurnManager(logger),
-                new RoundLifecycleProcessor(damage, trigger),
+                new RoundLifecycleProcessor(trigger),
                 new EnemyIntentResolver(abilityExecutor, logger),
                 new ArenaCommitBuilder(shapeCalculator),
                 new RotatingInitiativeOrder(),
@@ -108,9 +117,11 @@ namespace Tests.EditMode
 
             // The identical deterministic board both machines derive from the match setup.
             controller.AddUnit(new Unit(1, players[0], new HexCoordinates(0, 0), MaxHp, MaxHp,
-                new List<IAbilityInstance> { LineAbility() }, facingDirection: HexDirection.E));
+                new List<IAbilityInstance> { LineAbility(), PoisonLineAbility() },
+                facingDirection: HexDirection.E));
             controller.AddUnit(new Unit(2, players[1], new HexCoordinates(4, 0), MaxHp, MaxHp,
-                new List<IAbilityInstance> { LineAbility() }, facingDirection: HexDirection.W));
+                new List<IAbilityInstance> { LineAbility(), PoisonLineAbility() },
+                facingDirection: HexDirection.W));
             controller.ArmWinCondition();
             return sim;
         }
@@ -184,6 +195,59 @@ namespace Tests.EditMode
                 "the volley landed identically on both simulations");
             Assert.AreEqual(host.Controller.LastRoundHash, joiner.Controller.LastRoundHash,
                 "hashes still in lockstep after a damage round");
+        }
+
+        [Test]
+        public void StatusApplication_TickAndExpiry_StayInLockstepAcrossRounds()
+        {
+            var transport = new LoopbackArenaTransport();
+            var host = CreateClient(transport, localPlayerId: 1, isHost: true);
+            var joiner = CreateClient(transport, localPlayerId: 2, isHost: false);
+
+            host.Controller.BeginRounds();
+            joiner.Controller.BeginRounds();
+
+            // Round 1: host arms the poison line (hidden); joiner steps to (3,0).
+            host.Controller.ProcessAction(new ScheduleAbilityAction(host.LocalPlayer, 1, StatusAbilityId));
+            joiner.Controller.ProcessAction(new MoveAction(joiner.LocalPlayer, 2, new HexCoordinates(3, 0)));
+            PumpResolve(host);
+            PumpResolve(joiner);
+
+            // Round 2: the volley fires along (1,0),(2,0); the joiner steps INTO (2,0) first
+            // (round-2 initiative), takes the hit and the poison. The round-end tick then runs
+            // identically on both sims.
+            host.Controller.ProcessAction(new ExecuteAbilityQueueAction(host.LocalPlayer, 1));
+            joiner.Controller.ProcessAction(new MoveAction(joiner.LocalPlayer, 2, new HexCoordinates(2, 0)));
+            PumpResolve(host);
+            PumpResolve(joiner);
+
+            Assert.AreEqual(1, host.Controller.CombatState.GetUnit(2).StatusEffects.Count,
+                "the poison rides the committed blow");
+            Assert.AreEqual(host.Controller.LastRoundHash, joiner.Controller.LastRoundHash,
+                "hashes agree on the round the status landed + first tick");
+
+            // Rounds 3-4: both pass; the poison ticks down to expiry on both sims.
+            for (int round = 0; round < 2; round++)
+            {
+                host.Controller.ProcessAction(new EndUnitTurnAction(host.LocalPlayer, 1));
+                joiner.Controller.ProcessAction(new EndUnitTurnAction(joiner.LocalPlayer, 2));
+                PumpResolve(host);
+                PumpResolve(joiner);
+
+                Assert.AreEqual(host.Controller.LastRoundHash, joiner.Controller.LastRoundHash,
+                    "hashes stay in lockstep through every tick round");
+            }
+
+            // Applied at 5 (hybrid hit) + 4/turn over its 3-round life = 17 total.
+            Assert.AreEqual(MaxHp - 17, host.Controller.CombatState.GetUnit(2).CurrentHP);
+            Assert.AreEqual(
+                host.Controller.CombatState.GetUnit(2).CurrentHP,
+                joiner.Controller.CombatState.GetUnit(2).CurrentHP,
+                "the whole DoT life resolved identically");
+            CollectionAssert.IsEmpty(host.Controller.CombatState.GetUnit(2).StatusEffects,
+                "expired and removed on the host sim");
+            CollectionAssert.IsEmpty(joiner.Controller.CombatState.GetUnit(2).StatusEffects,
+                "expired and removed on the joiner sim");
         }
     }
 }

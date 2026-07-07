@@ -8,7 +8,87 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Added
+- **Cross-Device Input Foundation** [new `input-foundation.md` · npc-proximity-interaction R3 ·
+  dev-tools R6 · inventory R4] (brief `cross-device-input-foundation.md`): the game is now played
+  through a fixed **named-action vocabulary** (Move / Interact / Confirm / Cancel / Navigate / Aim /
+  Fire + CombatMoveMode / CombatChangeDirection / AbilitySlot1–6) with every action bound on
+  **keyboard+mouse, gamepad, and touch simultaneously** — no platform switching. New pure-C# core
+  (`Scripts/GameInput/Core`): `InputBindingCatalog` (declarative action × source table + prompt
+  cues), `InputCoverageValidator` (an unbound pair fails the build unless explicitly allowlisted as
+  a deferred design gap — and a stale allowlist entry fails too), `InputSourceClassifier` (last-used
+  device wins; stick-drift threshold; the touch overlay's **virtual** gamepad counts as Touch), and
+  `PromptCueProvider` (action → cue for the ACTIVE source, `CuesChanged` on device switch).
+  Infrastructure: `GameActionsProvider` loads the single `Resources/Input/GameActions.inputactions`
+  (the project's template asset **moved with its GUID intact** — Hero.prefab's move/dash references
+  keep resolving — extended with combat actions: MoveMode LT, VolleyFire RT, ChangeDirection X,
+  Ability1–6 on d-pad + bumpers, Aim on stick, Interact retuned e→f + gamepad north);
+  `ActiveInputSourceTracker` over `InputSystem.onEvent`; `TouchControlsView` — a procedural
+  on-screen stick (Move) + interact button, shown only when a touchscreen exists; `InputInstaller`
+  installed by Area/Hub/Arena. **Prompts are device-aware everywhere** (npc-proximity R3): the NPC
+  overhead prompt ("[F] Talk" ↔ "[Y] Talk" ↔ "[Tap] Talk"), the Hub keeper/portal prompts, and the
+  combat action-panel keybind labels all read `IPromptCueProvider` and re-render the instant the
+  player switches device. Dev overlay gains an **Input section** (active source + per-action cues,
+  gaps marked). Tests: catalog/coverage/classifier/cue-provider suites + an asset drift guard
+  (`InputActionsAssetConsistencyTests`) + dev-overlay section tests — 27 new/updated green, full
+  1000+-file game compile clean.
+
+- **Combat status effects — the whole Track S (S1 core · S2 legibility · S3/P3-13 one modifier
+  model)** [new `combat-status-effects.md` · ability-subsystem R15/R25/R26 ·
+  combat-round-and-telegraph R6 · arena-mode §2.5] (brief `combat-status-effects.md`): combat gains
+  its persistent condition layer — a **status** is a data-authored condition (new
+  `StatusEffectDefinition` fields + `Resources/Combat/StatusEffects/` catalog) that applies through
+  the existing ability targeting, resolves at the ONE deterministic round-end point (PvE = Arena,
+  owner call: "end of the afflicted unit's turn" ≡ end of round in this phase-based model), and
+  expires visibly. Per-status **stack rules** (`StackRule`: refresh default / stack-to-cap —
+  duration refreshes even at cap / ignore); **control kinds** (`ControlKind`: stun = loses the turn,
+  root = pinned but acts, slow = −penalty·stacks movement) enforced through the new
+  `MovementRange.EffectiveFor` single move-budget source (validator + rules + all AIs + committed
+  moves fizzle under a post-commit root/slow); **S2**: per-unit world-space status row
+  (`UnitStatusIconsView`/`UnitStatusIconsPresenter`, glyph + remaining turns, ×N stacks, both
+  scenes), the mutation card's effect badge (`StatusBadge` on `MutationAbilityIcon.prefab`,
+  `glyph_untyped` neutral mark when no status) and the shared "Applies: …" line in the
+  ability-preview popover (`StatusEffectPreviewText`); **S3/P3-13**: ONE modifier model —
+  `DataDrivenModifierEffect` now a flat signed `Magnitude` × `StatTarget`
+  (OutgoingDamage/IncomingDamage), consumed two-sided in `CalculateFinalDamage` (integer-only,
+  lockstep-safe); a part passive is the same asset at infinite duration (Hardened ships timed AND
+  as `Passive_HardenedHide`). Content: 10 starter statuses (Burn/Poison/Bleed/Stun/Root/Slow/
+  Weakened/Empowered/Hardened/Regen) + 11 placeholder glyphs + 8 demo abilities/passives wired
+  into the demo parts and `TestEnemyDefinition`. **1666/1666 EditMode green via the clone-batch
+  run.** ⚠ Awaiting owner gameplay pass (on-screen feel).
+
+### Changed
+- **`PCInputController` → `CombatInputController` (Combat)** [input-foundation R3]: the combat
+  gesture state machine is preserved tap/hold-identical, but the device seam now polls the shared
+  actions (so every gesture works on gamepad out of the box) and aim direction moved behind
+  `IAimDirectionResolver` — cursor→ground raycast on pointer, left stick in camera space on gamepad,
+  selected by the active source. `InputConfig` slimmed to gesture thresholds only
+  (`volleyAimHoldThresholdSeconds`, `inputDeadzone`) — all dead KeyCode/axis/platform fields removed
+  from the SO and `Resources/Configs/InputConfig.asset`. `NpcInteractionInput` is now a plain class
+  polling the shared Interact action instead of a MonoBehaviour reading `Keyboard.current.fKey`.
+
+### Removed
+- **`JoystickInputController` and `MobileInputController` (Combat)**: the never-bound gamepad
+  controller and the stubbed mobile controller are deleted — their intent is absorbed by the merged
+  binding model (all devices live on one controller) and the touch overlay; the installers' hardcoded
+  "TODO: platform detection" is gone with them.
+
 ### Fixed
+- **Inventory Escape-close was silently dead** [inventory R4]: `InventoryHud.prefab`'s
+  `_cancelAction` was `{fileID: 0}` (never wired), so only the close button worked. Now points at
+  the shared asset's `UI/Cancel` (Escape / right-click / gamepad east), discovered via
+  binary2text on the Library artifact so the sub-asset fileID is exact.
+- **A hybrid ability's status application silently undid its own damage** [ability-subsystem R14]:
+  `AbilityExecutor.ApplyStatusEffect` rebuilt the unit from the caller's pre-damage reference, so
+  a damage+status ability restored the target's HP while attaching the status. Now re-reads the
+  live unit from the state. Caught by the new Arena lockstep status test.
+- **Status-ability duration override never applied** [ability-subsystem]: `AbilityFactory` computed
+  `_durationOverride` into the display field but built `EffectToApply` with the status default —
+  the applied instance now carries the authored duration (status + hybrid arms).
+- **A DoT kill at round end was only caught a frame later** [combat-round-and-telegraph R6 ·
+  arena-mode §2.5]: both `EndRound()`s now run an explicit win check right after the round-end
+  status tick, so a decided fight never opens another round (and Arena settles it identically on
+  every peer).
 - **Hub portals collapsing into one (O1)** [hub]: the three biome portals sat on a narrow 60°
   arc at a small radius and each snapped **independently** to the nearest cell, so two adjacent
   portals landed on the **same** cell (only two portals reachable). Fix: widen the arc
@@ -16,7 +96,123 @@ Every functional change appends an entry **in the same change as the code** (CLA
   **reserves its cell** so `HubSceneEntrypoint` snaps every next spot to the nearest unblocked
   **and unclaimed** cell. `HubProximityPresenter`/domain unchanged.
 
-### Added
+### Removed
+- **Legacy hardcoded status effects** [combat]: `StunEffect` / `PoisonEffect` /
+  `RegenerationEffect` and `RoundLifecycleProcessor.ApplyLegacyStatusEffects` deleted — one
+  data-driven code path (`Unit.ActionState` now reads `DataDrivenControlEffect`;
+  `PoisonStrikeAbility` re-payloaded onto the data-driven DoT). The dead
+  `AreaInstaller._statusEffectDefinitions` inspector field is gone too (superseded by the
+  `StatusEffectDefinitionCatalog` Resources load).
+
+### Changed
+- **Brew gravity settle is now column-scoped (Track F · F3, FR4 revision 2026-07-07)**
+  [inventory-subsystem R10/R31] (brief `cauldron-brew-layout-and-physics.md`, revised section):
+  the first settle implementation re-packed **all** survivors onto the lowest spots, which slid
+  same-row neighbours sideways — exactly the "arbitrary re-sort" the revised brief forbids. Now the
+  lattice rows share one X grid so spots form **vertical columns** (`BrewSpot.Row`/`Column`; the
+  brick offset is gone — the ≥ diameter × margin spacing keeps towers overlap-free), and
+  `BrewLayoutModel` settles **only the removed bubble's column** (`SettleColumn`): the bubbles that
+  were resting above it fall one place each, everything **beside and below stays put** — like
+  pulling a marble from a jar. Insertion (lowest free spot), the fill-level read, the view's
+  spring glide, and determinism are unchanged; `BrewLatticeTests`/`BrewLayoutModelTests` now pin
+  column alignment, per-column row contiguity, and the beside-stays-put acceptance.
+- **Quest-as-Reward economy — the whole Track H (P1-5 rolled reward + P0-3·b belonging · P1-6 offer
+  card · P1-7 Monster verb · P1-8 competing fork · P1-9 several offers · P1-10 cauldron barks · P1-11
+  quest log)** [quest-subsystem · encounter-dialogue-ui · loot-subsystem · mutation-subsystem · new
+  `cauldron-barks.md`] (briefs `quest-reward-rolled.md`, `quest-offer-card.md`,
+  `multiple-and-competing-offers.md`, `attack-card-monster-verb.md`, `cauldron-voice-barks.md`,
+  `quest-log-and-saga.md`): a quest *offer* now lands as a prize, not a wall of obligation — the
+  reward is declared and rolled, the card telegraphs it, and the world remembers the choices.
+  **⚠ Code-complete + edit-mode green (1605/1605 via the clone-batch run) but NOT yet play-tested by
+  the owner** — the on-screen feel (offer-card mystery slot, quest-log panel, cauldron barks) is
+  unconfirmed in play mode; the behaviour is implemented, the presentation awaits a gameplay pass.
+  - **P1-5 + P0-3·b — rolled reward (`quest-subsystem.md` R7, §2.4/§2.5):** `QuestRewardCore` is now
+    a **declaration** — `(tier, belonging, payload kind)`, never an item id. A pure `QuestRewardRoller`
+    (Loot.Core) rolls a concrete artifact or Part-Blank on completion, deterministic under
+    `(runSeed, questId:index)`; **belonging is a hard filter** (an artifact's reward-family, a blank's
+    race — the card's colour can't promise a family the roll won't deliver), **tier is a bias** that
+    degrades to the nearest authored tier. `QuestRewardGranter` routes by kind (artifact → inventory,
+    blank → rack; a full rack forfeits the blank, never bypassing the cap; an empty pool warns + marks
+    paid). New SO `RewardFamilyDefinition` (power/utility, `Resources/Rewards/`) + `BelongingTintCatalog`
+    merging race and family colours; new fields `ArtifactDefinition._rewardFamilyId`,
+    `PartBlankDefinition._raceId`. All 4 demo quests re-authored to declarations.
+  - **P1-6 — offer card (`encounter-dialogue-ui.md` R10/R11):** a quest card that declares a reward now
+    shows a **mystery reward slot** — the item hidden as `?`, the slot **glowing by tier**, a chip
+    **tinted by the belonging colour**; **hover-inspect** swaps the summary for the job detail
+    (objectives + giver) while the reward stays hidden. `EncounterCardView.prefab` gains the reward slot.
+  - **P1-7 — the Monster verb (`quest-subsystem.md` R11, §2.6):** a talkable NPC dying in a
+    dialogue-routed fight (attack card **or** self-initiation, one path via `DialogueRunner.OnCombatResolved`)
+    **forecloses its thread** (`ThreadRetirementReason.Foreclosed` + indicator fact, no beat), writes
+    `actor.<id>.slain` (the planner never recasts a slain actor) and increments `world.path_conquest`.
+    Corpse-loot stays on the separate combat channel.
+  - **P1-8 / P1-9 — the two offer shapes:** Shape A (several Quest slots on one story, resolved by
+    `offer-quest: <tag>` on choice + branch; same tier, different belonging) and Shape B (two offers on
+    opposed threads — committing to one fails the other on fact-conflict via the shipped maintenance).
+    Demo: the frog elder's two-offer hand; the barn `barn_raid` vs new `raider_pact` fork.
+  - **P1-10 — cauldron barks (new `cauldron-barks.md`):** the live reactive voice — slots (temptation ·
+    dark offer/attack · restraint · socketing trend) × path lean (`path_conquest` vs `path_restraint`,
+    **no new meter**), deterministic under the run seed, data-authored in one `CauldronBarkLinesConfig`;
+    fired from the mutation/encounter presenters + the `ISocketingTrendSource` seam.
+  - **P1-11 — quest log (`quest-subsystem.md` R12, §2.7):** a read-only **J**-toggled panel projecting
+    the live registry + thread ledger — quests grouped into **sagas** by thread with the lifecycle
+    verdict (live / completed / failed-by-conflict / foreclosed / expired), each showing state +
+    objectives + giver + reward **tier + belonging only** (the rolled item never named). Quest origin
+    (giver + thread) added to `QuestInstance` + the save snapshot.
+  - New pure-C# Core is UnityEngine-free and edit-mode tested: `QuestRewardRollerTests`,
+    `QuestRewardGranterTests` (rewritten), `MultipleOffersTests`, `CompetingOffersForkTests`,
+    `MonsterVerbConsequencesTests`, `QuestLogModelBuilderTests`, `CauldronBarkServiceTests`, plus a
+    `RunWindowPlannerTests` slain-actor case. Fixed a pre-existing `DressingKitMapperTests` reflection
+    helper (didn't see the base-class `_kitId` since Track E) surfaced by the full run.
+  - **Deferred (unchanged):** P1-12 non-item reward sinks (currency/XP/ability) — no currency model yet.
+- **The Cauldron View — the whole Track F (F1 spatial spine · F2 liquid & fullness · F3 stable brew &
+  event physics · F4 medallion socket UI · F5 stomach backdrop)** [inventory-subsystem ·
+  mutation-subsystem] (briefs `cauldron-view-spatial-spine.md`, `cauldron-liquid-and-fullness.md`,
+  `cauldron-brew-layout-and-physics.md`, `medallion-socket-ui.md`; absorbs **P1-3** medallion UI +
+  **P5-5** stomach backdrop): the pot/inventory look-and-feel carved into one presentation pass over
+  the shipped inventory/crafting/socketing — **no mechanic or outcome change** except the two
+  interaction beats noted below.
+  - **F1 — spatial spine + bubble rule (`inventory-subsystem.md` R27–R29):** the view now reads as a
+    vertical **crafting-top · brew-centre · medallion-ribbon-bottom** stack. One rule — **bubble =
+    suspended in the liquid**: artifacts in the crafting slots and the hovering result render **bare**
+    (`BubbleView.SetShellVisible(false)`), only pot artifacts wear a bubble. The socketing rack moved
+    from **left of the cauldron** to a **horizontal ribbon under it** (`InventoryStage.prefab`
+    `MedallionRibbon`, anchors spread along X), anchored to the frame so it never jumps with the fill
+    level.
+  - **F2 — liquid you can feel + fullness (R30):** `M_PotLiquid` is now translucent; the surface is a
+    full disc at the session's fill height, the pot's open wedge is filled by a **cut-away liquid
+    curtain** shaped to the bowl's inner profile (`LiquidBandMeshBuilder`) so submerged bubbles read
+    *through* the liquid, and a **bright waterline band** (`M_PotWaterline`) marks the meniscus. The
+    **fill level is a function of the artifact count** (`LiquidFillCalculator`, between a configured
+    min/max), **snapshotted on open** and held for the session, and **always sits above the topmost
+    bubble**. The cauldron mesh itself is never resized.
+  - **F3 — stable brew layout + event physics + continuous result flow (R10 rewrite, R19 rewrite,
+    R31):** artifacts hold **stable spots** on a deterministic bottom-up lattice
+    (`BrewSpotLatticeBuilder` → `BrewLayoutModel`) — adding one takes the lowest free spot, so
+    untouched bubbles don't reshuffle. A drop-in **splashes** and nudges neighbours (a damped spring
+    that settles back), a removal gives a small bob. **Continuous result flow:** starting the next
+    combine while a result hovers **auto-commits it into the brew** (`CraftingSession.TrySelect`
+    collects the pending result first) — retires R19's "new selections rejected until the result is
+    collected".
+  - **F4 — medallion socket UI (`mutation-subsystem.md` R4/R6 rewrite, §2.3):** a racked blank now
+    renders as a **medallion** — the part centred on a species-tinted disc, its sockets as **gems
+    around the rim**, the **rim a progress ring** that closes as sockets fill
+    (`MedallionMeshBuilder`, `BlankEntryView` reworked). **Confirm-before-unseal:** the completed
+    medallion pulses and shows "Unseal"; the **click is the commit** (`IBlankRackView.OnUnsealClicked`
+    → `MutationVariantPresenter`), replacing the old auto-open on the last socket. Re-slotting is now
+    free **until** that confirm — `SocketingModel.TryUnsocket` no longer rejects a full blank.
+  - **F5 — stomach backdrop seam:** a screen-space `StomachBackdrop` quad behind the diorama with a
+    new muted `M_StomachBackdrop` material (no scene swap); the art is a designer asset swapped by
+    repointing the material/texture.
+  - **Cauldron enlarged + gravity settling (owner revision, same pass):** the bowl grew (radius
+    0.5→0.68, depth 0.5→0.6; ~7→~18 submerged bubbles) so a full inventory fits without spilling over
+    the rim, with the liquid/steam/crafting anchors and camera tilt re-seated. Removing a lower
+    bubble now settles the gap downward, and the view glides the fallers there via the same spring —
+    replacing the original brief's "a removal never moves the others" (settle scope refined below).
+  - Retired `BubbleLayoutCalculator`/`BubbleLayoutSettings` (phyllotaxis spiral) and its tests,
+    superseded by the stable lattice. New Core types are UnityEngine-free and edit-mode tested
+    (`BrewLatticeTests`, `BrewLayoutModelTests`, `LiquidFillCalculatorTests`; `CraftingSessionTests`
+    and `SocketingModelTests` updated for the two new beats; `MutationVariantPresenterTests` driven by
+    the unseal confirm).
 - **Environment Dressing — the whole Track E (E1 kit contract · E2 biome kits · E3 site/camp kits ·
   E4 backdrop scatter · E5 footprint/edge-fit)** [environment-dressing · platform-generation ·
   world-landscape · world-sites] (briefs `dressing-kit-binding-and-swap.md`,

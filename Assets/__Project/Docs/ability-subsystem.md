@@ -41,7 +41,7 @@ Status: current as of 2026-07-03.
 **Effects**
 
 - R14. An ability applies one of the implemented effect kinds to each unit in the area: damage, healing, a status effect, or damage + status effect (hybrid).
-- R15. Status effect application respects stacking: a stackable effect already present on the target gains a stack; a non-stackable effect already present is not re-applied.
+- R15. Status effect re-application resolves per the status's authored **stack rule** (`combat-status-effects.md` R5): **Refresh** (default — the duration resets), **StackToCap** (gains a stack up to the cap; the duration refreshes even at the cap), or **Ignore** (not re-applied while active).
 - R16. Status effect triggers fire during execution: `OnHit` per damaged target (if still alive), HP-threshold triggers per target whose HP changed, and `OnAttack` once per execution for the caster of a damage ability.
 
 **Cooldowns & queue rules**
@@ -60,8 +60,8 @@ Status: current as of 2026-07-03.
 
 - R23. A body part declares the combat abilities equipping it grants: **active** abilities (usable in combat) and **passive** abilities (standing modifiers). Authored directly on `PartDefinition` (`_activeAbilities`, `_passiveAbilities`).
 - R24. The player unit's combat ability set is composed from its **currently equipped parts** at combat start, deduplicated. Equipped parts are the source of truth, so mutating the body changes the next combat's abilities. `HeroDefinition.Abilities` is a temporary fallback used only when no equipped part grants an active ability.
-- R25. A **passive** ability is never queued or aimed: it references a Buff/Debuff `StatusEffectDefinition` that is applied to the unit as a standing modifier for the **whole combat** (infinite duration), and removed when combat ends.
-- R26. A standing Buff/Debuff modifier affects **outgoing damage**: `IDamageSystem.CalculateFinalDamage` scales an ability's base damage by the attacker's net `StatModifier` (sum over Buff/Debuff effects × stack count). Other stat targets (max-HP, defence) are not wired yet.
+- R25. A **passive** ability is never queued or aimed: it references a `StatusEffectDefinition` (any kind — a stat-modifier, or e.g. a HoT for permanent regen) that is applied to the unit as a standing condition for the **whole combat** (infinite duration), and removed when combat ends. This is the duration-less case of the ONE modifier model (`combat-status-effects.md` R10).
+- R26. A stat-modifier condition carries a **flat signed `Magnitude`** against a **`StatTarget`**: `IDamageSystem.CalculateFinalDamage` = `max(0, base + Σ attacker OutgoingDamage magnitudes + Σ target IncomingDamage magnitudes)` (each × stack count). Integer-only, lockstep-safe; the polarity is authored in the sign, never flipped by the Buff/Debuff classification.
 
 ### 1.2 Non-functional requirements
 
@@ -222,7 +222,7 @@ Subclasses add the effect payload (each has its own `CreateAssetMenu` entry unde
 |---|---|---|---|
 | `DamageAbilityDefinition` | Damage Ability | `_damage` | `DataDrivenDamageAbility` |
 | `HealAbilityDefinition` | Heal Ability | `_healAmount` | `DataDrivenHealAbility` |
-| `StatusEffectAbilityDefinition` | Status Effect Ability | `_statusEffect` (a `StatusEffectDefinition`), `_durationOverride` (−1 = effect's default) | `DataDrivenStatusEffectAbility` |
+| `StatusEffectAbilityDefinition` | Status Effect Ability | `_statusEffect` (a `StatusEffectDefinition` — field reference in `combat-status-effects.md` §3), `_durationOverride` (−1 = effect's default; the override reaches the applied instance) | `DataDrivenStatusEffectAbility` |
 | `HybridAbilityDefinition` | Hybrid Ability | `_damage` + status effect fields | `DataDrivenHybridAbility` |
 | `AbilityDefinition` (base) | Base Ability | — | `Ability` (no effect payload — not useful in play; exists as fallback) |
 
@@ -232,7 +232,7 @@ Subclasses add the effect payload (each has its own `CreateAssetMenu` entry unde
 
 | Asset type | Menu entry | Fields | Applied as |
 |---|---|---|---|
-| `PassiveAbilityDefinition` | Combat → Abilities → Passive Ability | `_id`, `_name`, `_description`, `_modifier` (a Buff/Debuff `StatusEffectDefinition`), `_icon` | The referenced status effect, applied to the unit at combat start with infinite duration (its authored duration is ignored). |
+| `PassiveAbilityDefinition` | Combat → Abilities → Passive Ability | `_id`, `_name`, `_description`, `_modifier` (a `StatusEffectDefinition` of any kind), `_icon` | The referenced status effect, applied to the unit at combat start with infinite duration (its authored duration is ignored) — the duration-less case of the one modifier model. |
 
 ### 3.2 Steps to add a new ability
 
@@ -246,7 +246,7 @@ No script changes, no installer changes (beyond the inspector list), no recompil
 
 ### 3.3 Steps to add a passive ability
 
-1. **Create a Buff/Debuff status effect**: **Create → Combat → Status Effects → Status Effect**; set `Type` to `Buff` or `Debuff` and `Stat Modifier` to the percentage (e.g. `0.2` for +20% outgoing damage; debuffs are negated automatically).
+1. **Create (or reuse) a status effect**: **Create → Combat → Status Effects → Status Effect**; for a stat-modifier set `Type` to `Buff`/`Debuff`, pick the `Stat Target`, and author the **flat signed `Magnitude`** (e.g. `+5` outgoing for Empowered, `-5` incoming for Hardened — the sign is authored, never derived). Any other kind works too (a HoT passive = permanent regen). Full field reference: `combat-status-effects.md` §3.
 2. **Create the passive**: **Create → Combat → Abilities → Passive Ability**; assign the status effect to `Modifier`. (The status effect's authored duration is ignored — passives last the whole combat.)
 
 ### 3.4 Steps to grant abilities via a body part
@@ -296,6 +296,6 @@ These describe current behavior honestly; they are not requirements.
 - **Per-ability aiming is intentionally removed** (PO brief `combat-hero-facing.md`): a turn's volley is single-direction. "Turn as a queued step" (multi-directional volleys) is a deferred escape hatch, to revisit only if playtest shows a turn feels too constrained.
 - **`MaxAbilityQueueSize` (3) and other `CombatConfig` values are hardcoded** in `AreaInstaller.InstallCombatConfigurations` rather than asset-driven.
 - **Friendly fire is by design** (R12): a heal Line pointed at an enemy heals the enemy; a damage Ring hits adjacent allies. There is no ownership filtering anywhere in execution.
-- **Passive standing modifiers affect only outgoing damage** (R26). `StatModifier` has no stat-target dimension, so max-HP, defence, healing, etc. are not yet modified by passives. (ROADMAP)
+- **Stat targets cover outgoing/incoming damage only** (R26); a max-HP target is not wired (regen is modeled as HoT, not a stat). (ROADMAP)
 - **`PartDefinition` references the Combat ability layer** — a deliberate M1 coupling that violates the inward-only layering rule (CLAUDE.md §2); the M2 part-driven-affinity rework kept it on `PartDefinition` by user decision, so it remains tracked in the ROADMAP.
 - **`HeroDefinition.Abilities` is a temporary fallback**: used only when no equipped part grants an active ability (so the demo still runs before part-grants are authored). The long-term source of truth is the equipped parts.

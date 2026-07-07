@@ -18,5 +18,6 @@ MonoBehaviour:
     the head learns to do; the skull itself reads as reptilefolk.
   _slot: {fileID: 11400000, guid: a3a3f4209385bed4491ef0157ca3c0b3, type: 2}
   _speciesArchetypeId: reptile
+  _raceId: ibex
   _socketCount: 2
   _icon: {fileID: 0}

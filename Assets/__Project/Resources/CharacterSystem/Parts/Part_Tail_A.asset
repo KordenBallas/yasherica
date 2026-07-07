@@ -23,8 +23,10 @@ MonoBehaviour:
   - Tail.2
   _contributedSockets:
   - {fileID: 11400000, guid: 321e274d92bd2df4ab100ef1b58c2233, type: 2}
-  _activeAbilities: []
-  _passiveAbilities: []
+  _activeAbilities:
+  - {fileID: 11400000, guid: 366de0b1e0494af58a94df6058370edf, type: 2}
+  _passiveAbilities:
+  - {fileID: 11400000, guid: a17a3ea32eda4a90b677d57947049028, type: 2}
   _traitAffinities: []
   _rarity: 0
   _choiceIcon: {fileID: 0}

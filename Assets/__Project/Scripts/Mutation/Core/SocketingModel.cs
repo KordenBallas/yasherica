@@ -6,9 +6,9 @@ namespace Mutation.Core
 {
     /// <summary>
     /// Pure socketing state over the inventory, the blank rack, and the authored
-    /// blank data (socket counts). Ready (full) blanks lock their sockets: the
-    /// only ways out are ConsumeSockets (variant picked) or ReturnAll (the whole
-    /// table is dismissed, e.g. the inventory screen closes before the pick).
+    /// blank data (socket counts). Arranging stays free even on a ready (full)
+    /// blank — the commit point is the player's unseal confirm (Track F medallion
+    /// beat), which calls ConsumeSockets; ReturnAll dismisses the whole table.
     /// </summary>
     public class SocketingModel : ISocketingModel
     {
@@ -85,12 +85,9 @@ namespace Mutation.Core
                 return false;
             }
 
-            // The last drop is the commit: a full blank cannot be rearranged.
-            if (IsReady(blankInstanceId))
-            {
-                return false;
-            }
-
+            // Re-slotting stays free until the unseal confirm (the commit moved
+            // from "last drop" to the medallion's confirm beat): unsocketing a
+            // ready blank simply reopens it.
             for (int i = 0; i < sockets.Count; i++)
             {
                 if (sockets[i].InstanceId == artifactInstanceId)

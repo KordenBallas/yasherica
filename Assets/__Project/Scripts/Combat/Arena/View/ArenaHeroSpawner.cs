@@ -134,9 +134,9 @@ namespace Combat.Arena.View
                 var coordinator = _container.InstantiateComponent<CharacterCombatCoordinator>(hero);
                 coordinator.Initialize(combatComponent, controller, battlefield, abilityDefinitions);
 
-                if (_inputController is PCInputController pcInput)
+                if (_inputController is CombatInputController combatInput)
                 {
-                    pcInput.SetCharacterTransform(hero.transform);
+                    combatInput.SetCharacterTransform(hero.transform);
                 }
             }
 

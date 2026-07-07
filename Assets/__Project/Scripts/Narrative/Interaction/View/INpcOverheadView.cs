@@ -15,8 +15,12 @@ namespace Narrative.Interaction.View
         /// <summary>Shows the floating intent marker: <c>?</c> for quest-bearer, <c>!</c> for hostile, none for plain.</summary>
         void SetIntentMarker(NpcIntent intent);
 
-        /// <summary>Shows or hides the F interaction prompt.</summary>
+        /// <summary>Shows or hides the interaction prompt.</summary>
         void ShowPrompt(bool visible);
+
+        /// <summary>Sets the prompt text (e.g. "[F] Talk" / "[Y] Talk") — the presenter composes it
+        /// from the active input source's cue, so it re-renders on device switch.</summary>
+        void SetPromptText(string text);
 
         /// <summary>Destroys the view GameObject.</summary>
         void DestroyView();

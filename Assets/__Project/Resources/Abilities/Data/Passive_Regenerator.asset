@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d736ed57b86e1bf4b8334aad7e4885fe, type: 3}
+  m_Name: Passive_Regenerator
+  m_EditorClassIdentifier: Yasherica::Combat.Data.Definitions.PassiveAbilityDefinition
+  _id: 21
+  _name: Regenerator
+  _description: Knitting flesh that recovers 5 HP each round, always on.
+  _modifier: {fileID: 11400000, guid: 9b49b3b6f38944f1bc231e235588fb44, type: 2}
+  _icon: {fileID: 21300000, guid: 678deb38369248f2b24c1dcb87276d9f, type: 3}

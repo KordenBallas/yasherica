@@ -6,7 +6,7 @@
 > auto-engages on cross (talk if he carries a job, fight if not), and **all** engagement is scoped to the
 > player's current platform. Floating `?` / `!` markers and a name label sit above each NPC, and three
 > global radii drive everything with a dev overlay for tuning.
-> Status: current as of 2026-07-05 (bandit-camp brief: boss engagement + platform scoping).
+> Status: current as of 2026-07-07 (input foundation: device-aware prompt cue + shared Interact action).
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6. The product-owner brief is
@@ -26,8 +26,12 @@
   content, ambient monsters included (PO decision 2026-07-05). Combat is entered by engagement only;
   an engaged platform latches `EnemyContent.Engaged` so re-landing resumes the begun battle
   (`CombatAutoStartRule`).
-- **R3** A quest-bearer or plain NPC shows an **F prompt** while the player is inside the interaction
-  radius; pressing **F** opens its conversation (the existing encounter flow, unchanged).
+- **R3** A quest-bearer or plain NPC shows an **interact prompt** while the player is inside the
+  interaction radius; pressing the interact input opens its conversation (the existing encounter flow,
+  unchanged). Since the input foundation (`input-foundation.md`) the prompt's cue follows the **active
+  input source** — "[F] Talk" on keyboard, the gamepad's button on controller, "[Tap] Talk" on touch —
+  and re-renders the instant the device changes; the press itself is the shared `Player/Interact`
+  action (F / gamepad north / the touch overlay's button), polled through `IInteractionInput` as before.
 - **R4** If several eligible NPCs are in range, the prompt targets the **nearest** one.
 - **R5** A hostile NPC starts its **battle immediately** when the player crosses its aggro radius — no
   prompt, no dialogue. Hostile NPCs are not talkable.
@@ -69,7 +73,8 @@ Scripts/Narrative/Interaction/
   Core/   — NpcIntent, NpcIntentResolver, ProximityEvaluator, PlanarPoint, NpcInteractionSettings (pure C#)
   Data/   — NpcInteractionConfig (SO) + NpcInteractionConfigMapper
   (root)  — NpcProximityPresenter (ITickable), NpcEncounterStarter, registry, handle, service, IInteractionInput
-  View/   — NpcOverheadView, NpcInteractionInput, NpcRadiusDebugView (MonoBehaviour adapters)
+  View/   — NpcOverheadView, NpcRadiusDebugView (MonoBehaviour adapters);
+            NpcInteractionInput (plain class over the shared Interact action, input-foundation.md)
 Scripts/Core/DI/NpcInteractionInstaller.cs
 ```
 
@@ -119,8 +124,10 @@ double-spawning over the real humanoid paths) is retired.
 `NpcInteractionInstaller` (installed by `AreaInstaller`) binds: `NpcInteractionSettings` (from
 `Resources/Narrative/NpcInteractionConfig`, code defaults if absent), `NpcIntentResolver`,
 `ProximityEvaluator`, `NpcEncounterStarter`, `INpcInteractionRegistry`, `INpcInteractionService`,
-`IInteractionInput` (a new-GameObject component), and `NpcProximityPresenter` as an `ITickable`. The
-`NpcRadiusDebugView` is bound only under `UNITY_EDITOR || DEVELOPMENT_BUILD`.
+`IInteractionInput` (a plain class reading the shared Interact action from `IGameActions` —
+`InputInstaller` must be installed on the same context, see `input-foundation.md`), and
+`NpcProximityPresenter` as an `ITickable` (it also injects `IPromptCueProvider` for the device-aware
+prompt text). The `NpcRadiusDebugView` is bound only under `UNITY_EDITOR || DEVELOPMENT_BUILD`.
 
 ---
 

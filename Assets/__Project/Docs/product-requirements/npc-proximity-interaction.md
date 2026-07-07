@@ -114,8 +114,9 @@ offer a quest under different facts, it is a quest-bearer (or plain), **not** ho
 - Per-archetype / per-NPC radius overrides — global values only for now.
 - Player-facing art for the radii — the radii are a **debug overlay** only.
 - Any change to what the dialogue or the battle does once it has started.
-- Controller/gamepad prompt glyphs beyond the existing input binding, and marker art polish or
-  animation.
+- ~~Controller/gamepad prompt glyphs beyond the existing input binding~~ — **superseded by
+  `cross-device-input-foundation.md`**: the prompt cue now follows the active input source
+  (see `Docs/input-foundation.md`). Marker art polish/animation stays out of scope.
 - **No-quest-but-talkable-with-optional-fight is not expressible.** Because hostility is derived from
   "no quest available **and** a fight available", an NPC that has no quest yet should remain talkable
   (with an *optional* fight) would be read as hostile and auto-engage. If such a case is ever needed,

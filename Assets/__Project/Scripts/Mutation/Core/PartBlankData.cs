@@ -15,18 +15,24 @@ namespace Mutation.Core
         public string SpeciesArchetypeId { get; }
         public int SocketCount { get; }
 
+        /// <summary>Race tag for the quest-reward economy (empty = kindless), distinct from the
+        /// species archetype until the species-vs-race reconcile (Track J) lands.</summary>
+        public string RaceId { get; }
+
         public PartBlankData(
             string definitionId,
             string displayName,
             string slotId,
             string speciesArchetypeId,
-            int socketCount)
+            int socketCount,
+            string raceId = "")
         {
             DefinitionId = definitionId;
             DisplayName = displayName;
             SlotId = slotId;
             SpeciesArchetypeId = speciesArchetypeId;
             SocketCount = socketCount < 1 ? 1 : socketCount;
+            RaceId = raceId ?? string.Empty;
         }
     }
 }

@@ -10,5 +10,6 @@ namespace Narrative.Threads.Core
 
         public const string RetiredValueExpired = "expired";
         public const string RetiredValueConflict = "conflict";
+        public const string RetiredValueForeclosed = "foreclosed";
     }
 }

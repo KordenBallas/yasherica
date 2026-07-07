@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d26060e1e02ec242a7308855c65a4ef, type: 3}
+  m_Name: Ability_VenomSpit
+  m_EditorClassIdentifier: Yasherica::Combat.Data.Definitions.HybridAbilityDefinition
+  _id: 11
+  _name: Venom Spit
+  _description: A venomous jet that deals 10 damage and leaves a stacking poison.
+  _shape: 0
+  _lineLength: 2
+  _ringRadius: 1
+  _cooldownDuration: 1
+  _effectType: 3
+  _pushDistance: 0
+  _icon: {fileID: 21300000, guid: 18b80813222f4e1fa095eda71df8adbd, type: 3}
+  _animationTrigger:
+  _damage: 10
+  _statusEffect: {fileID: 11400000, guid: 72fefc668f0a4f1692fc384cbc2ccc49, type: 2}
+  _durationOverride: -1

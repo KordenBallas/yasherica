@@ -18,5 +18,6 @@ MonoBehaviour:
     mammalfolk.
   _slot: {fileID: 11400000, guid: 9dccc0ffa92c2d14eb095ff019dd0f9a, type: 2}
   _speciesArchetypeId: mammal
+  _raceId: fox
   _socketCount: 2
   _icon: {fileID: 0}

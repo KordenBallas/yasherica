@@ -104,7 +104,9 @@ This changes **who leads a round**, adds an **order read-out**, and pins the **a
 - **Final HUD design / theming of the order strip** — the top-right horizontal strip is a **demo** placement;
   polished layout, portraits, and styling are a later UI pass.
 - **Rebindable / gamepad aim-and-fire input** — this brief pins the **Enter hold-to-aim / release-to-execute**
-  scheme for the demo; input remapping is out of scope.
+  scheme for the demo; input remapping is out of scope. *(Gamepad aim/fire has since landed via
+  `cross-device-input-foundation.md` — the same gesture on RT + left stick, see `Docs/input-foundation.md`;
+  player-facing remapping stays out of scope.)*
 - **The animation of an action as it resolves** (making an enemy's turn readable-not-instant, the ability
   playing an animation) — owned by the initiative's third brief
   ([Ability Animation & Enemy Action Read](combat-ability-animation.md)).

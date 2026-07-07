@@ -24,6 +24,11 @@ MonoBehaviour:
     _requiredTags:
     - frog-errand
     _optional: 1
+  - _slotId: guard
+    _kind: 1
+    _requiredTags:
+    - frog-guard
+    _optional: 1
   _preconditions:
   - _namespace: 2
     _subjectToken: fox

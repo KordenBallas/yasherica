@@ -116,6 +116,39 @@ namespace Core.DI
                     ctx.Container.ResolveAll<ILootEntryFilter>(),
                     _config.TagBiasMultiplier))
                 .AsSingle();
+
+            // Quest-reward roll (P1-5): the eligible pools are projected once from the authored
+            // artifact/blank catalogs into pure records, so the roller stays UnityEngine-free.
+            Container.Bind<QuestRewardPools>()
+                .FromMethod(ctx => BuildQuestRewardPools(
+                    ctx.Container.Resolve<Inventory.Data.IArtifactCatalog>(),
+                    ctx.Container.Resolve<Mutation.Core.IPartBlankDataSource>()))
+                .AsSingle();
+
+            Container.Bind<IQuestRewardRoller>()
+                .FromMethod(ctx => new QuestRewardRoller(
+                    ctx.Container.Resolve<QuestRewardPools>(),
+                    ctx.Container.Resolve<IRunSeedProvider>()))
+                .AsSingle();
+        }
+
+        private static QuestRewardPools BuildQuestRewardPools(
+            Inventory.Data.IArtifactCatalog artifacts, Mutation.Core.IPartBlankDataSource blanks)
+        {
+            var artifactOptions = new List<RewardArtifactOption>();
+            foreach (var definition in artifacts.All)
+            {
+                artifactOptions.Add(new RewardArtifactOption(
+                    definition.Id, definition.Tier, definition.RewardFamilyId));
+            }
+
+            var blankOptions = new List<RewardBlankOption>();
+            foreach (var blank in blanks.All)
+            {
+                blankOptions.Add(new RewardBlankOption(blank.DefinitionId, blank.RaceId));
+            }
+
+            return new QuestRewardPools(artifactOptions, blankOptions);
         }
 
         private void InstallApplication()

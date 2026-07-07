@@ -19,6 +19,20 @@ namespace Inventory.Core
         // Keeps lathe vertices off the exact rotation axis so no triangle degenerates.
         private const float AxisRadius = 0.0001f;
 
+        /// <summary>
+        /// Inner wall radius at the given height above the bowl bottom, from the
+        /// same sphere-slice formula the profile uses. Heights are clamped into
+        /// the bowl, so rim overshoot samples the mouth radius.
+        /// </summary>
+        public static float InnerRadiusAtHeight(in CauldronProfileSettings settings, float height)
+        {
+            float t = height / settings.BowlDepth;
+            t = t < 0f ? 0f : (t > 1f ? 1f : t);
+            float angle = BottomAngleRadians + (TopAngleRadians - BottomAngleRadians) * t;
+            float radius = settings.BowlRadius * (float)Math.Sin(angle);
+            return Math.Max(AxisRadius, radius - settings.WallThickness);
+        }
+
         public static CauldronProfile Calculate(in CauldronProfileSettings settings)
         {
             int bellyPoints = settings.WallSegments;

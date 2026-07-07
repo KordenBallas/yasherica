@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a1639f41f9faa245be8a645a100f78d, type: 3}
+  m_Name: Fact_PathRestraint
+  m_EditorClassIdentifier: Yasherica::Narrative.Facts.Data.FactKeyDefinition
+  _namespace: 0
+  _scope: 0
+  _key: path_restraint
+  _valueType: 1
+  _defaultBool: 0
+  _defaultInt: 0
+  _defaultFloat: 0
+  _defaultString:
+  _description: Count of restrained choices this run (P1-10) - taking a modest / marker (passport) part. Written by the mutation-side restraint trigger; the friendship counterweight to path_conquest. The lean is only ever a comparison of the two counters - no new meter.

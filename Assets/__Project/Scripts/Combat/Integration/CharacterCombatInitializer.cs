@@ -198,14 +198,14 @@ namespace Combat.Integration
             _logger.Info(LogCategory.Combat,"[CharacterCombatInitializer] CharacterCombatCoordinator initialized and ready");
             
             // Set character transform on input controller for direction calculations
-            if (_inputController is Input.PCInputController pcInput)
+            if (_inputController is Input.CombatInputController combatInput)
             {
-                pcInput.SetCharacterTransform(character);
-                _logger.Info(LogCategory.Combat,"[CharacterCombatInitializer] Character transform set on PCInputController");
+                combatInput.SetCharacterTransform(character);
+                _logger.Info(LogCategory.Combat,"[CharacterCombatInitializer] Character transform set on CombatInputController");
             }
             else
             {
-                _logger.Warning(LogCategory.Combat,$"[CharacterCombatInitializer] Input controller is not PCInputController, type: {_inputController?.GetType().Name ?? "null"}");
+                _logger.Warning(LogCategory.Combat,$"[CharacterCombatInitializer] Input controller is not CombatInputController, type: {_inputController?.GetType().Name ?? "null"}");
             }
             
             // Verify combat setup

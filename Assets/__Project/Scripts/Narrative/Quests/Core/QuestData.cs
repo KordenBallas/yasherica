@@ -19,7 +19,8 @@ namespace Narrative.Quests.Core
         public IReadOnlyList<FactEffectCore> OnCompleteEffects { get; }
         public IReadOnlyList<FactEffectCore> OnFailEffects { get; }
 
-        /// <summary>Item rewards granted on completion (R-rewards). Item-only; no fact write, so not in the footprint.</summary>
+        /// <summary>Declared rewards rolled on completion (P1-5): tier + belonging + payload kind,
+        /// never a literal item id. Item-only; no fact write, so not in the footprint.</summary>
         public IReadOnlyList<QuestRewardCore> Rewards { get; }
 
         private readonly List<FactKeyShapeCore> _footprint;

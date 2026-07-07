@@ -89,7 +89,7 @@ namespace Tests.EditMode
                 new ActionValidator(new CombatConfig(2f, HexOrientation.Flat, 3)),
                 new ActionExecutor(abilityExecutor, logger),
                 new TurnManager(logger),
-                new RoundLifecycleProcessor(damage, trigger),
+                new RoundLifecycleProcessor(trigger),
                 new EnemyIntentResolver(abilityExecutor, logger),
                 builder,
                 new RotatingInitiativeOrder(),
@@ -235,13 +235,39 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void DoTKillAtRoundEnd_DecidesTheMatchImmediately()
+        {
+            // The round-end status tick can kill: the win check must settle the outcome at
+            // EndRound itself (not a frame later), before a new round could open.
+            CreateMatch(dummyCount: 1);
+            AddUnit(1, 0, new HexCoordinates(1, 0));
+            AddUnit(2, 1, new HexCoordinates(3, 0), hp: 5, effects: new List<IStatusEffect>
+            {
+                new DataDrivenDamageOverTimeEffect(1, "Burn", 2, 1, StackRule.Refresh, 0,
+                    StatusEffectTriggerType.TurnEnd, 8, 0)
+            });
+            _controller.ArmWinCondition();
+
+            _controller.BeginRounds();
+            _controller.ProcessAction(new EndUnitTurnAction(Human, 1));
+            PumpResolve();
+
+            Assert.IsFalse(Unit(2).IsAlive, "the tick killed the burning unit");
+            Assert.AreEqual(CombatPhase.Victory, _controller.CombatState.Phase,
+                "the outcome settled at round end, not on a later frame");
+        }
+
+        [Test]
         public void StunnedAtResolve_SkipsTheWholeCommitment()
         {
             // The dummy is stunned; its committed cast must not fire (the resolver skips a stunned
             // caster), so the human takes no damage even though a blow was committed at its cell.
             CreateMatch(dummyCount: 1);
             AddUnit(1, 0, new HexCoordinates(1, 0));
-            AddUnit(2, 1, new HexCoordinates(3, 0), effects: new List<IStatusEffect> { new StunEffect(5) });
+            AddUnit(2, 1, new HexCoordinates(3, 0), effects: new List<IStatusEffect>
+            {
+                new DataDrivenControlEffect(1003, "Stun", 5, ControlKind.Stun, 0, StatusEffectTriggerType.TurnEnd)
+            });
             _controller.ArmWinCondition();
 
             _scripts[2].Enqueue(new ScheduleAbilityAction(_players[1], 2, AbilityId, HexDirection.W));

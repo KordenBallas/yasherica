@@ -102,9 +102,15 @@ namespace Combat.Execution
                     $"Position {action.TargetPosition.Q},{action.TargetPosition.R} is occupied by unit {occupyingUnit.Id}");
             }
 
-            int distance = gameState.CalculateDistance(unit.Position, action.TargetPosition);
-            int maxRange = 3;
+            int maxRange = MovementRange.EffectiveFor(unit);
+            if (maxRange == 0)
+            {
+                return ValidationResult.Failure(
+                    "Unit cannot move",
+                    $"Unit {action.UnitId} is rooted (movement range is 0)");
+            }
 
+            int distance = gameState.CalculateDistance(unit.Position, action.TargetPosition);
             if (distance > maxRange)
             {
                 return ValidationResult.Failure(

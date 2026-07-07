@@ -93,7 +93,7 @@ namespace Tests.EditMode
                 new ActionValidator(new CombatConfig(2f, HexOrientation.Flat, 3)),
                 new ActionExecutor(abilityExecutor, logger),
                 new TurnManager(logger),
-                new RoundLifecycleProcessor(damage, trigger),
+                new RoundLifecycleProcessor(trigger),
                 new EnemyIntentResolver(abilityExecutor, logger),
                 builder,
                 new RotatingInitiativeOrder(),

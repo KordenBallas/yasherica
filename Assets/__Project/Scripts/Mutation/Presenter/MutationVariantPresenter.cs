@@ -6,19 +6,21 @@ using Mutation.Core;
 using Mutation.Data;
 using Mutation.Data.Definitions;
 using Mutation.View;
+using Narrative.Facts.Core;
 using UnityEngine;
 using Zenject;
 
 namespace Mutation.Presenter
 {
     /// <summary>
-    /// Drives the unseal variant choice: when a blank's last socket is filled
-    /// (<see cref="ISocketingModel.OnBlankReady"/>), it scores the authored parts of
-    /// the blank's slot against the socketed reagents and shows the variant cards.
-    /// The player's pick installs the part on the live character, consumes the
-    /// socketed artifacts (commit-on-unseal), and removes the blank from the rack.
-    /// A rejected install (e.g. the rig is not yet assembled) keeps the cards up for
-    /// a retry. Blanks that ripen while a menu is showing queue and open next.
+    /// Drives the unseal variant choice: when the player confirms a complete
+    /// medallion (<see cref="IBlankRackView.OnUnsealClicked"/> — the Track F
+    /// confirm-before-unseal beat, replacing the old auto-open on the last
+    /// socket), it scores the authored parts of the blank's slot against the
+    /// socketed reagents and shows the variant cards. The player's pick installs
+    /// the part on the live character, consumes the socketed artifacts
+    /// (commit-on-unseal), and removes the blank from the rack. A rejected
+    /// install (e.g. the rig is not yet assembled) keeps the cards up for a retry.
     ///
     /// Body plans (P2-1): a frame-changing pick can defer behind the shed-confirm
     /// dialog (PendingConfirmation) — the cards stay up behind the modal and the
@@ -38,13 +40,17 @@ namespace Mutation.Presenter
         private readonly IMutationCharacter _character;
         private readonly MutationConfig _config;
         private readonly IMutationChoiceView _view;
+        private readonly IBlankRackView _rackView;
         private readonly IGameLogger _logger;
+        private readonly Narrative.Barks.Core.ICauldronBarkService _barks;
+        private readonly CharacterSystem.Data.IPartCatalog _partDefinitions;
+        private readonly Narrative.Facts.Core.IFactStore _facts;
 
         private readonly List<MutationOption> _offered = new List<MutationOption>();
-        private readonly Queue<int> _readyBlanks = new Queue<int>();
         private int _shownBlankInstanceId = -1;
         private bool _isShowing;
         private bool _awaitingBodyPlanDecision;
+        private MutationOption _pickedOption;
 
         public MutationVariantPresenter(
             ISocketingModel socketing,
@@ -57,8 +63,15 @@ namespace Mutation.Presenter
             IMutationCharacter character,
             MutationConfig config,
             IMutationChoiceView view,
-            IGameLogger logger)
+            IBlankRackView rackView,
+            IGameLogger logger,
+            Narrative.Barks.Core.ICauldronBarkService barks = null,
+            CharacterSystem.Data.IPartCatalog partDefinitions = null,
+            Narrative.Facts.Core.IFactStore facts = null)
         {
+            _barks = barks;
+            _partDefinitions = partDefinitions;
+            _facts = facts;
             _socketing = socketing;
             _rack = rack;
             _blankData = blankData;
@@ -69,12 +82,13 @@ namespace Mutation.Presenter
             _character = character;
             _config = config;
             _view = view;
+            _rackView = rackView;
             _logger = logger;
         }
 
         public void Initialize()
         {
-            _socketing.OnBlankReady += HandleBlankReady;
+            _rackView.OnUnsealClicked += HandleUnsealClicked;
             _view.OnChoiceSelected += HandleChoiceSelected;
             _character.SwapRequestResolved += HandleSwapRequestResolved;
             _view.SetVisible(false);
@@ -82,27 +96,29 @@ namespace Mutation.Presenter
 
         public void Dispose()
         {
-            _socketing.OnBlankReady -= HandleBlankReady;
+            _rackView.OnUnsealClicked -= HandleUnsealClicked;
             _view.OnChoiceSelected -= HandleChoiceSelected;
             _character.SwapRequestResolved -= HandleSwapRequestResolved;
         }
 
-        private void HandleBlankReady(int blankInstanceId)
+        private void HandleUnsealClicked(int blankInstanceId)
         {
-            _readyBlanks.Enqueue(blankInstanceId);
-            TryShowNext();
-        }
-
-        private void TryShowNext()
-        {
-            while (!_isShowing && _readyBlanks.Count > 0)
+            if (_isShowing)
             {
-                int blankInstanceId = _readyBlanks.Dequeue();
-                if (TryShow(blankInstanceId))
-                {
-                    return;
-                }
+                return;
             }
+
+            // Confirm-before-unseal: the click is the commit gesture, but only a
+            // genuinely complete medallion opens the cards.
+            if (!_socketing.IsReady(blankInstanceId))
+            {
+                _logger.Info(LogCategory.Mutation,
+                    $"[MutationVariantPresenter] Unseal of blank {blankInstanceId} rejected " +
+                    "(not all sockets are filled).");
+                return;
+            }
+
+            TryShow(blankInstanceId);
         }
 
         private bool TryShow(int blankInstanceId)
@@ -145,7 +161,30 @@ namespace Mutation.Presenter
             _view.ShowChoices(viewData);
             _view.SetVisible(true);
             _isShowing = true;
+            BarkTemptationIfMonstrous();
             return true;
+        }
+
+        /// <summary>
+        /// The temptation bark slot (P1-10): the unseal menu surfaced a strong/monstrous option —
+        /// any offered variant at/above the authored temptation rarity — so the cauldron purrs.
+        /// </summary>
+        private void BarkTemptationIfMonstrous()
+        {
+            if (_barks == null)
+            {
+                return;
+            }
+
+            foreach (var option in _offered)
+            {
+                if (_partCatalog.TryGetCardData(option.PartId, out var card)
+                    && card.RarityTier >= _config.TemptationRarityTier)
+                {
+                    _barks.Bark(Narrative.Barks.Core.CauldronBarkSlot.Temptation);
+                    return;
+                }
+            }
         }
 
         private void HandleChoiceSelected(int index)
@@ -164,6 +203,7 @@ namespace Mutation.Presenter
             }
 
             var option = _offered[index];
+            _pickedOption = option;
             switch (_character.RequestSwapPart(option.SlotId, option.PartId))
             {
                 case SwapRequestOutcome.Applied:
@@ -209,12 +249,41 @@ namespace Mutation.Presenter
             _socketing.ConsumeSockets(_shownBlankInstanceId);
             _rack.Remove(_shownBlankInstanceId);
 
+            RecordRestraintIfModest(_pickedOption);
+            _pickedOption = null;
+
             _isShowing = false;
             _shownBlankInstanceId = -1;
             _offered.Clear();
             _view.SetVisible(false);
+        }
 
-            TryShowNext();
+        /// <summary>
+        /// The restraint counterpoint (P1-10): installing a marker (race-tagged) or modest
+        /// (below-temptation-tier) part leans the run toward friendship — the path_restraint counter
+        /// moves and the cauldron sours. The lean is only ever these counters; no new meter.
+        /// </summary>
+        private void RecordRestraintIfModest(MutationOption option)
+        {
+            if (option == null)
+            {
+                return;
+            }
+
+            bool isMarker = _partDefinitions != null
+                && _partDefinitions.TryGet(option.PartId, out var definition)
+                && !string.IsNullOrEmpty(definition.RaceId);
+            bool isModest = _partCatalog.TryGetCardData(option.PartId, out var card)
+                && card.RarityTier < _config.TemptationRarityTier;
+            if (!isMarker && !isModest)
+            {
+                return;
+            }
+
+            _facts?.SetInt(
+                Narrative.Facts.Core.WorldFacts.PathRestraint,
+                _facts.GetInt(Narrative.Facts.Core.WorldFacts.PathRestraint) + 1);
+            _barks?.Bark(Narrative.Barks.Core.CauldronBarkSlot.Restraint);
         }
 
         private IReadOnlyList<ArtifactTraitProfile> CollectSocketedProfiles(int blankInstanceId)
@@ -324,7 +393,8 @@ namespace Mutation.Presenter
                 var ability = card.Abilities[i];
                 abilities[i] = new MutationAbilityIconViewData(
                     ability.Name, ability.Description, ability.Icon, ability.IsPassive,
-                    ability.IsLine, ability.LineLength, ability.RingRadius, ability.AnimationTrigger);
+                    ability.IsLine, ability.LineLength, ability.RingRadius, ability.AnimationTrigger,
+                    ability.StatusGlyph);
             }
 
             return new MutationCardFaceViewData(card.DisplayName, card.Icon, abilities);

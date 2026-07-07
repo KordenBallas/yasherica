@@ -27,13 +27,45 @@ namespace Inventory.Data.Definitions
         [Header("Starting Inventory (dev seed until a loot system exists)")]
         [SerializeField] private List<ArtifactDefinition> _startingInventory;
 
-        [Header("Bubble Layout")]
-        [SerializeField, Min(0.01f)] private float _minBubbleRadius = 0.06f;
-        [SerializeField, Min(0.01f)] private float _maxBubbleRadius = 0.18f;
-        [Tooltip("How quickly bubbles shrink as the item count grows")]
-        [SerializeField, Min(0f)] private float _radiusFalloff = 0.35f;
-        [Tooltip("Clearance between bubbles and the pot interior edge")]
-        [SerializeField, Min(0f)] private float _edgePadding = 0.03f;
+        [Header("Brew Layout (stable spots)")]
+        [Tooltip("Fixed radius of every brew bubble (stable spots need a stable size)")]
+        [SerializeField, Min(0.01f)] private float _brewBubbleRadius = 0.07f;
+        [Tooltip("Extra clearance factor between spot centres (perspective safety)")]
+        [SerializeField, Min(1f)] private float _brewSpotSpacingMargin = 1.15f;
+        [Tooltip("Clearance between bubbles and the bowl's inner wall")]
+        [SerializeField, Min(0f)] private float _edgePadding = 0.02f;
+        [Tooltip("Clearance between the lowest bubbles and the bowl floor")]
+        [SerializeField, Min(0f)] private float _brewFloorClearance = 0.01f;
+        [Tooltip("Max depth offset per spot so the stack reads as a volume")]
+        [SerializeField, Min(0f)] private float _brewDepthJitter = 0.05f;
+        [Tooltip("Extra spot layers above the rim for an overfilled pot")]
+        [SerializeField, Min(0)] private int _brewOverflowLayers = 2;
+
+        [Header("Brew Event Physics (view juice)")]
+        [Tooltip("Height above its spot a dropped-in bubble falls from")]
+        [SerializeField, Min(0f)] private float _bubbleDropInHeight = 0.35f;
+        [Tooltip("Fall time of a dropped-in bubble")]
+        [SerializeField, Min(0f)] private float _bubbleDropInDuration = 0.3f;
+        [Tooltip("Reach of the splash nudge around a drop-in")]
+        [SerializeField, Min(0f)] private float _splashRadius = 0.26f;
+        [Tooltip("Peak velocity kick a splash gives the nearest neighbour")]
+        [SerializeField, Min(0f)] private float _splashImpulse = 0.35f;
+        [Tooltip("Velocity kick neighbours get when a bubble leaves the brew")]
+        [SerializeField, Min(0f)] private float _removalBobImpulse = 0.12f;
+        [Tooltip("Spring stiffness pulling nudged bubbles back to their spots")]
+        [SerializeField, Min(0f)] private float _settleStiffness = 30f;
+        [Tooltip("Spring damping so the settle dies out instead of ringing")]
+        [SerializeField, Min(0f)] private float _settleDamping = 9f;
+
+        [Header("Liquid Fullness")]
+        [Tooltip("Waterline height (bowl-local) of an empty pot — never bone-dry")]
+        [SerializeField, Min(0.01f)] private float _liquidMinFillHeight = 0.18f;
+        [Tooltip("Waterline height (bowl-local) of a brimming pot — never overflowing")]
+        [SerializeField, Min(0.01f)] private float _liquidMaxFillHeight = 0.58f;
+        [Tooltip("Artifact count at which the pot reads as full")]
+        [SerializeField, Min(1)] private int _artifactsAtFullPot = 18;
+        [Tooltip("Clearance kept between the topmost bubble and the waterline")]
+        [SerializeField, Min(0f)] private float _liquidFillHeadroom = 0.05f;
 
         [Header("Bubble Drift")]
         [Tooltip("Peak per-axis displacement of an idle bubble from its base point")]
@@ -83,10 +115,23 @@ namespace Inventory.Data.Definitions
         public float TraitMismatchWeight => _traitMismatchWeight;
         public float TierProximityWeight => _tierProximityWeight;
         public IReadOnlyList<ArtifactDefinition> StartingInventory => _startingInventory;
-        public float MinBubbleRadius => _minBubbleRadius;
-        public float MaxBubbleRadius => _maxBubbleRadius;
-        public float RadiusFalloff => _radiusFalloff;
+        public float BrewBubbleRadius => _brewBubbleRadius;
+        public float BrewSpotSpacingMargin => _brewSpotSpacingMargin;
         public float EdgePadding => _edgePadding;
+        public float BrewFloorClearance => _brewFloorClearance;
+        public float BrewDepthJitter => _brewDepthJitter;
+        public int BrewOverflowLayers => _brewOverflowLayers;
+        public float BubbleDropInHeight => _bubbleDropInHeight;
+        public float BubbleDropInDuration => _bubbleDropInDuration;
+        public float SplashRadius => _splashRadius;
+        public float SplashImpulse => _splashImpulse;
+        public float RemovalBobImpulse => _removalBobImpulse;
+        public float SettleStiffness => _settleStiffness;
+        public float SettleDamping => _settleDamping;
+        public float LiquidMinFillHeight => _liquidMinFillHeight;
+        public float LiquidMaxFillHeight => _liquidMaxFillHeight;
+        public int ArtifactsAtFullPot => _artifactsAtFullPot;
+        public float LiquidFillHeadroom => _liquidFillHeadroom;
         public float BubbleDriftAmplitude => _bubbleDriftAmplitude;
         public float BubbleDriftFrequency => _bubbleDriftFrequency;
         public int ArtifactLayerCount => _artifactLayerCount;

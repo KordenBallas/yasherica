@@ -39,6 +39,21 @@ namespace Narrative.Quests.Core
 
         public void MarkRewardsGranted() => RewardsGranted = true;
 
+        /// <summary>Display name of the NPC who offered this quest (empty until offered; the quest
+        /// log's giver column). Presentation-only — never used for gating.</summary>
+        public string GiverDisplayName { get; private set; } = string.Empty;
+
+        /// <summary>The thread the offering story belonged to (empty for threadless offers); the
+        /// quest log groups sagas by it (P1-11).</summary>
+        public string ThreadId { get; private set; } = string.Empty;
+
+        /// <summary>Records where the offer came from (set at mint and on save restore).</summary>
+        public void SetOrigin(string giverDisplayName, string threadId)
+        {
+            GiverDisplayName = giverDisplayName ?? string.Empty;
+            ThreadId = threadId ?? string.Empty;
+        }
+
         public QuestInstance(QuestData data, IRunProgressionRecorder recorder = null)
         {
             _data = data;

@@ -62,6 +62,14 @@ namespace Narrative.Dialogue
         /// hostile). The initiator decides who leads the opening round.
         /// </summary>
         public event Action<string, CombatInitiator> OnCombatTriggered;
+
+        /// <summary>
+        /// Raised when a dialogue-routed fight reports its result (P1-7), BEFORE Ink resumes — true =
+        /// the player won (the NPC died). The Monster-verb consequence relay folds the kill into
+        /// facts/threads off this event; it fires for both entry points (Attack card and NPC
+        /// self-initiation) so the verb has one consequence path.
+        /// </summary>
+        public event Action<bool> OnCombatResolved;
         public event Action<string> OnQuestStarted;
         public event Action<string> OnQuestCompleted;
         public event Action<string> OnQuestFailed;
@@ -83,14 +91,28 @@ namespace Narrative.Dialogue
         public QuestInstance ActiveQuest => _activeQuest;
 
         /// <summary>
-        /// The quest this casting can offer (its filled quest slot), or null. Read by the encounter UI to
-        /// label the quest card with the job's title + summary BEFORE the player accepts — the offer-quest
-        /// tag (which mints <see cref="ActiveQuest"/>) only fires once the offer choice is taken.
+        /// The quest this casting can offer (its first filled quest slot), or null. Read by the encounter
+        /// UI to label the quest card with the job's title + summary BEFORE the player accepts — the
+        /// offer-quest tag (which mints <see cref="ActiveQuest"/>) only fires once the offer choice is taken.
         /// </summary>
         public QuestData OfferedQuest => _casting?.OptionalQuest;
 
+        /// <summary>Every quest the casting can offer (P1-9: several resolutions of one trouble).</summary>
+        public IReadOnlyList<QuestData> OfferedQuests =>
+            _casting?.Quests ?? (IReadOnlyList<QuestData>)Array.Empty<QuestData>();
+
+        /// <summary>
+        /// Resolves an offered quest by the <c>offer-quest: &lt;tag&gt;</c> vocabulary (P1-9) — the same
+        /// tag an Ink choice carries to label its card and its branch fires to mint the instance. An
+        /// empty tag resolves the single/first offer (legacy single-offer authoring).
+        /// </summary>
+        public QuestData OfferedQuestByTag(string questTag) => _casting?.QuestByTag(questTag);
+
         /// <summary>Archetype id of the encounter's NPC — the UI resolves its portrait from this.</summary>
         public string EncounterArchetypeId => _casting?.Actor?.ArchetypeId;
+
+        /// <summary>Run-stable instance id of the encounter's NPC (the per-actor fact subject).</summary>
+        public string EncounterActorId => _casting?.Actor?.InstanceId;
 
         /// <summary>The encounter NPC's chosen display name — the UI's default speaker label.</summary>
         public string EncounterDisplayName => _casting?.Actor?.ChosenDisplayName;
@@ -117,10 +139,8 @@ namespace Narrative.Dialogue
             _casting = casting;
             // Restore the in-flight instance if this casting carries a quest already offered this run
             // (cross-dialogue continuity); otherwise a fresh offer-quest tag mints and registers it.
-            _activeQuest = casting?.QuestSlotFilled == true && _questRegistry != null
-                && _questRegistry.TryGet(casting.OptionalQuest.QuestId, out var live)
-                ? live
-                : null;
+            // With several offers (P1-9) at most one can have been taken - the first registered wins.
+            _activeQuest = FindRegisteredQuest(casting);
             State = DialogueRunnerState.Running;
             _pendingPlayerCombat = false;
             if (casting?.Actor != null)
@@ -178,6 +198,9 @@ namespace Narrative.Dialogue
             }
 
             _session.SetVariable(CombatWonVariable, won);
+            // Consequences fold in before Ink resumes, so a post-combat branch already sees the
+            // written facts (e.g. a reply gated on the actor being slain).
+            OnCombatResolved?.Invoke(won);
             Resume();
         }
 
@@ -292,7 +315,7 @@ namespace Narrative.Dialogue
                         _applier.Apply(tag.Effect, _store, _casting?.Context, _session.Footprint);
                         break;
                     case DialogueTagKind.OfferQuest:
-                        HandleOfferQuest();
+                        HandleOfferQuest(tag.Argument);
                         break;
                     case DialogueTagKind.AdvanceObjective:
                         HandleAdvanceObjective(tag.Argument);
@@ -314,25 +337,58 @@ namespace Narrative.Dialogue
             return true;
         }
 
-        private void HandleOfferQuest()
+        private void HandleOfferQuest(string questTag)
         {
-            if (_casting == null || !_casting.QuestSlotFilled)
+            var quest = _casting?.QuestByTag(questTag);
+            if (quest == null)
             {
-                _logger?.Warning(LogCategory.Dialogue,"[DialogueRunner] offer-quest with no quest in casting - failing closed.");
+                _logger?.Warning(LogCategory.Dialogue,$"[DialogueRunner] offer-quest '{questTag}' with no matching quest in casting - failing closed.");
                 _session.SetVariable(QuestAcceptedVariable, false);
                 return;
             }
 
             // A restored instance (offered on an earlier platform) is reused as-is — no second Start().
-            if (_activeQuest == null)
+            // With several offers (P1-9) the picked branch decides which quest is minted; the others
+            // stay untaken (they were alternative resolutions, not extra rewards).
+            if (_activeQuest == null || _activeQuest.Data.QuestId != quest.QuestId)
             {
-                _activeQuest = new QuestInstance(_casting.OptionalQuest, _recorder);
-                _activeQuest.Start();
-                _questRegistry?.Register(_activeQuest);
+                if (_questRegistry != null && _questRegistry.TryGet(quest.QuestId, out var live))
+                {
+                    _activeQuest = live;
+                }
+                else
+                {
+                    _activeQuest = new QuestInstance(quest, _recorder);
+                    // The offer's origin (giver + thread) rides the instance for the quest log's
+                    // saga grouping; presentation-only, never gating.
+                    _activeQuest.SetOrigin(_casting?.Actor?.ChosenDisplayName, _casting?.ThreadId);
+                    _activeQuest.Start();
+                    _questRegistry?.Register(_activeQuest);
+                }
             }
 
             _session.SetVariable(QuestAcceptedVariable, true);
-            OnQuestStarted?.Invoke(_casting.OptionalQuest.QuestId);
+            OnQuestStarted?.Invoke(quest.QuestId);
+        }
+
+        /// <summary>The first of the casting's quests already registered this run, or null.</summary>
+        private QuestInstance FindRegisteredQuest(CastingModel casting)
+        {
+            if (casting == null || _questRegistry == null)
+            {
+                return null;
+            }
+
+            var quests = casting.Quests;
+            for (int i = 0; i < quests.Count; i++)
+            {
+                if (_questRegistry.TryGet(quests[i].QuestId, out var live))
+                {
+                    return live;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>Advances an objective of the active quest and applies any objective-completion effects.</summary>

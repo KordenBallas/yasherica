@@ -46,7 +46,10 @@
   only during PlayerAct; free actions (turning) stay legal after the unit has acted.
 - **R6** Round bookkeeping (status-effect TurnStart/TurnEnd triggers, duration ticking, cooldown
   decrement, `HasActedThisTurn` reset) happens **once per round for all units** at round end —
-  the same cadence each unit had under the old round-robin.
+  the same cadence each unit had under the old round-robin. The round-end pass is the ONE
+  deterministic status resolve point (`combat-status-effects.md` R3): tick, then decrement, then
+  expiry — followed by an **explicit win check** before the next round opens, because a DoT tick
+  can decide the fight (`combat-status-effects.md` R4).
 - **R7** **Determinism**: enemy planning is deterministic per run seed. Each enemy's decision
   maker is seeded `LootSeed.Derive(runSeed, "combat-ai:{enemyId}")`; units are planned in
   ascending UnitId order; same seed + same state → identical committed plans. The AI *scoring*
@@ -197,7 +200,9 @@ EnemyResolve (EnemyRoundController coroutine, 0.4–0.5 s pacing)
       EnemyIntentResolver.Resolve(state, intent)   fires as shown; whiff/fizzle rules
       OnStateChanged; CheckWinConditions            combat may end mid-resolve
   intents exhausted → EndRound:
-      round effects for ALL units, cooldown decrement, acted reset, round++ → StartRound
+      round-end status tick for ALL units (DoT/HoT → decrement → expiry)
+      OnStateChanged; CheckWinConditions             a DoT kill settles the fight HERE
+      cooldown decrement, acted reset, round++ → StartRound
 ```
 
 Combat startup: `CombatActiveState` initializes the controller and battlefield, then runs one
@@ -210,7 +215,9 @@ first Plan phase commits intents against the **full** board.
   `CharacterCombatInitializer` / `EnemyCombatIntegrator` (which also attach `UnitFacingRotator`),
   cleared on combat exit.
 - `CombatActiveState.OnEnter` creates per-combat: `UnitOverheadIconsView` (+ pure
-  `UnitPlanIconsPresenter`), `GhostPlaybackView` (+ pure `GhostPlaybackPresenter` +
+  `UnitPlanIconsPresenter`), the S2 **`UnitStatusIconsView`** (+ pure `UnitStatusIconsPresenter`) —
+  the per-unit status glyph + remaining-turns row below the plan icons
+  (`combat-status-effects.md` R7), `GhostPlaybackView` (+ pure `GhostPlaybackPresenter` +
   `AbilityIconHoverController`), the D2 **`TurnOrderStripView`** (+ pure `TurnOrderStripPresenter`),
   and the D3 **`LiveAbilityAnimationView`** + **`EnemyIntentTelegraphView`** (+ pure
   `EnemyIntentTelegraphPresenter`); `OnExit` disposes them all. The strip is a **code-built**

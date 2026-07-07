@@ -585,6 +585,14 @@ namespace Narrative.Director.Core
                     continue;
                 }
 
+                // The Monster verb's price (P1-7): a slain actor is never recast — killing a
+                // character forfeits every future offer/beat their per-actor facts would have
+                // carried, regardless of which thread it rode.
+                if (facts.GetBool(ActorFacts.Slain, actor.InstanceId))
+                {
+                    continue;
+                }
+
                 var context = new ContextBag()
                     .BindSubject("$self", actor.InstanceId)
                     .BindSubject("$faction", actor.FactionId);

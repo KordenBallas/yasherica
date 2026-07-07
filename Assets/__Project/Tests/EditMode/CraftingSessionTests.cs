@@ -319,16 +319,59 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void TrySelect_WhileResultReady_IsRejected()
+        public void TrySelect_WhileResultReady_AutoCommitsTheResultAndStagesThePick()
+        {
+            // Continuous result flow (Track F): the hovering result drops into
+            // the brew on its own when the next combine starts.
+            var fire = _inventory.Add("fire");
+            var water = _inventory.Add("water");
+            var rock = _inventory.Add("rock");
+            SelectAndResolve(fire.InstanceId, water.InstanceId);
+
+            ArtifactInstance collected = null;
+            _session.OnResultCollected += i => collected = i;
+
+            Assert.AreEqual(CraftingState.ResultReady, _session.State);
+            Assert.IsTrue(_session.TrySelect(rock.InstanceId));
+
+            Assert.IsNotNull(collected);
+            Assert.AreEqual("snake", collected.DefinitionId);
+            Assert.IsNull(_session.PendingResult);
+            Assert.AreEqual(CraftingState.Selecting, _session.State);
+            Assert.AreEqual(1, _session.StagedItems.Count);
+            Assert.AreSame(rock, _session.StagedItems[0]);
+            // The committed result is back in the inventory; the pick left it.
+            Assert.AreEqual(1, _inventory.Items.Count);
+            Assert.AreEqual("snake", _inventory.Items[0].DefinitionId);
+        }
+
+        [Test]
+        public void TrySelect_WhileResultReady_UnknownInstance_KeepsTheResultHovering()
+        {
+            var fire = _inventory.Add("fire");
+            var water = _inventory.Add("water");
+            SelectAndResolve(fire.InstanceId, water.InstanceId);
+
+            Assert.IsFalse(_session.TrySelect(999));
+            Assert.AreEqual(CraftingState.ResultReady, _session.State);
+            Assert.IsNotNull(_session.PendingResult);
+            Assert.AreEqual(0, _inventory.Items.Count);
+        }
+
+        [Test]
+        public void TrySelect_AutoCommittedResult_CanCompleteTheNextCombine()
         {
             var fire = _inventory.Add("fire");
             var water = _inventory.Add("water");
             var rock = _inventory.Add("rock");
             SelectAndResolve(fire.InstanceId, water.InstanceId);
 
-            Assert.AreEqual(CraftingState.ResultReady, _session.State);
-            Assert.IsFalse(_session.TrySelect(rock.InstanceId));
-            Assert.AreEqual(1, _inventory.Items.Count);
+            _session.TrySelect(rock.InstanceId);
+            // The auto-committed snake is a pot item again and can be staged
+            // as the second ingredient.
+            int snakeId = _inventory.Items[0].InstanceId;
+            Assert.IsTrue(_session.TrySelect(snakeId));
+            Assert.AreEqual(CraftingState.Crafting, _session.State);
         }
 
         [Test]

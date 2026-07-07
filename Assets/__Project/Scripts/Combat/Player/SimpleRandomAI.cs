@@ -56,7 +56,7 @@ namespace Combat.Player
                 }
             }
 
-            foreach (var position in gameState.GetValidPositionsInRange(unit.Position, 1))
+            foreach (var position in gameState.GetValidPositionsInRange(unit.Position, MovementRange.EffectiveFor(unit, 1)))
             {
                 actions.Add(new MoveAction(unit.Owner, unit.Id, position));
             }

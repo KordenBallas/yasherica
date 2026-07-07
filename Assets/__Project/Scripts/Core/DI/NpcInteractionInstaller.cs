@@ -10,8 +10,8 @@ namespace Core.DI
     /// <summary>
     /// Wires the NPC proximity interaction system: the global radius settings (from the
     /// <c>NpcInteractionConfig</c> SO, with code defaults if unwired), the run-scoped interaction registry
-    /// + binder service, the pure intent/proximity logic, the encounter starter, the F-button input
-    /// adapter, and the per-frame <see cref="NpcProximityPresenter"/>. The dev radius overlay is bound only
+    /// + binder service, the pure intent/proximity logic, the encounter starter, the interact-action
+    /// input adapter, and the per-frame <see cref="NpcProximityPresenter"/>. The dev radius overlay is bound only
     /// in editor/development builds. Installed by <c>AreaInstaller</c>.
     /// </summary>
     public class NpcInteractionInstaller : Installer<NpcInteractionInstaller>
@@ -32,10 +32,10 @@ namespace Core.DI
             Container.Bind<INpcInteractionRegistry>().To<NpcInteractionRegistry>().AsSingle();
             Container.Bind<INpcInteractionService>().To<NpcInteractionService>().AsSingle();
 
+            // Reads the shared Interact action (bound per-source by InputInstaller), so the prompt's
+            // verb works on keyboard, gamepad, and the touch overlay alike.
             Container.Bind<IInteractionInput>()
                 .To<NpcInteractionInput>()
-                .FromNewComponentOnNewGameObject()
-                .WithGameObjectName("NpcInteractionInput")
                 .AsSingle();
 
             Container.BindInterfacesAndSelfTo<NpcProximityPresenter>().AsSingle().NonLazy();

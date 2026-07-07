@@ -160,24 +160,41 @@ namespace Combat.Execution
         private ICombatState ApplyStatusEffect(ICombatState gameState, IUnit target, IStatusEffectAbility ability)
         {
             var effect = ability.EffectToApply;
-            var updatedTarget = target as Unit;
 
-            var existingEffect = target.StatusEffects.FirstOrDefault(e => e.Id == effect.Id);
-            if (existingEffect != null && existingEffect.IsStackable)
+            // Re-read the live unit: a hybrid ability damaged it a line earlier, and rebuilding
+            // from the caller's pre-damage reference would silently restore its HP.
+            var liveTarget = gameState.GetUnit(target.Id);
+            if (liveTarget == null)
+                return gameState;
+            var updatedTarget = liveTarget as Unit;
+
+            var existingEffect = liveTarget.StatusEffects.FirstOrDefault(e => e.Id == effect.Id);
+            if (existingEffect == null)
             {
-                var stackedEffect = (existingEffect as StatusEffect).AddStack();
-                var newEffects = target.StatusEffects
-                    .Select(e => e.Id == effect.Id ? stackedEffect : e)
-                    .ToList();
-                updatedTarget = updatedTarget.WithStatusEffects(newEffects);
-            }
-            else if (existingEffect == null)
-            {
-                var newEffects = target.StatusEffects.Concat(new[] { effect }).ToList();
-                updatedTarget = updatedTarget.WithStatusEffects(newEffects);
+                var newEffects = liveTarget.StatusEffects.Concat(new[] { effect }).ToList();
+                return (gameState as CombatState).WithUpdatedUnit(updatedTarget.WithStatusEffects(newEffects));
             }
 
-            return (gameState as CombatState).WithUpdatedUnit(updatedTarget);
+            // Re-application resolves per the status's authored stack rule (FR5).
+            IStatusEffect resolved;
+            switch (existingEffect.StackRule)
+            {
+                case StackRule.StackToCap:
+                    // Add a stack (capped inside AddStack) and refresh the duration —
+                    // re-application at the cap still resets the clock.
+                    resolved = (existingEffect as StatusEffect).AddStack().WithDuration(effect.Duration);
+                    break;
+                case StackRule.Ignore:
+                    return gameState;
+                default: // Refresh
+                    resolved = (existingEffect as StatusEffect).WithDuration(effect.Duration);
+                    break;
+            }
+
+            var refreshedEffects = liveTarget.StatusEffects
+                .Select(e => e.Id == effect.Id ? resolved : e)
+                .ToList();
+            return (gameState as CombatState).WithUpdatedUnit(updatedTarget.WithStatusEffects(refreshedEffects));
         }
     }
 }

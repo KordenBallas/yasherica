@@ -57,6 +57,10 @@ namespace Core.DI
             PersistenceInstaller.Install(Container);
             Container.Bind<ArenaTastedCatalogReader>().AsSingle();
 
+            // Cross-device input foundation: shared actions, active-source tracking, prompt cues,
+            // and the touch overlay.
+            InputInstaller.Install(Container);
+
             InstallConfigurations();
             InstallCombatSubset();
             InstallArenaBindings();
@@ -115,8 +119,11 @@ namespace Core.DI
 
             Container.Bind<IPlayerRegistry>().To<PlayerRegistry>().AsSingle();
 
+            Container.Bind<Combat.Input.IAimDirectionResolver>()
+                .To<Combat.Input.AimDirectionResolver>()
+                .AsSingle();
             Container.Bind<Combat.Input.IInputController>()
-                .To<Combat.Input.PCInputController>()
+                .To<Combat.Input.CombatInputController>()
                 .FromNewComponentOnNewGameObject()
                 .AsSingle();
 
@@ -147,6 +154,8 @@ namespace Core.DI
             Container.Bind<IAbilityOutcomeCalculator>().To<AbilityOutcomeCalculator>().AsSingle();
             Container.Bind<Combat.Data.Providers.IAbilityDefinitionCatalog>()
                 .To<Combat.Data.Providers.AbilityDefinitionCatalog>().AsSingle();
+            Container.Bind<Combat.Data.Providers.IStatusEffectDefinitionCatalog>()
+                .To<Combat.Data.Providers.StatusEffectDefinitionCatalog>().AsSingle();
             Container.Bind<Combat.View.ICombatUnitViewRegistry>()
                 .To<Combat.View.CombatUnitViewRegistry>().AsSingle();
 

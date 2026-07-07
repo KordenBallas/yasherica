@@ -18,5 +18,6 @@ MonoBehaviour:
     legs have no place. It reads as bugfolk.
   _slot: {fileID: 11400000, guid: 6b82eaa4e4ac48fe966c21730691b209, type: 2}
   _speciesArchetypeId: insect
+  _raceId: 
   _socketCount: 2
   _icon: {fileID: 0}

@@ -42,11 +42,13 @@ platform discovery, enemy defeat, and quest completion.
   ids with probability, quantity range, and a bonus marker for low-probability,
   high-value extras. An enemy with no slots falls back to the biome enemy drop
   table.
-- **R6** Completing a quest grants the quest's **fixed** rewards — each
-  `QuestRewardCore` (artifact id + count) authored on the `Quest` asset — directly to the inventory via
-  `QuestRewardGranter` (the live path; see `quest-subsystem.md`). **No roll.** (The legacy
-  `StoryDefinition` reward-slot / `RewardResolver` / `RewardDefinition` channel was deleted in the
-  Phase-3 cutover.)
+- **R6** Completing a quest grants a **declared, rolled** reward (Track H, P1-5). A `QuestRewardCore`
+  is now a declaration — `(tier, belonging, payload kind)`, never an item id; on completion
+  `QuestRewardGranter` asks `IQuestRewardRoller` (`Scripts/Loot/Core/QuestRewardRoller.cs`) for a
+  concrete artifact or Part-Blank (belonging a hard filter, tier a nearest-tier bias, deterministic
+  under the run seed) and routes it by kind — artifact → inventory, blank → rack. See
+  `quest-subsystem.md` R7/§2.4. (The legacy `StoryDefinition` reward-slot / `RewardResolver` /
+  `RewardDefinition` channel was deleted in the Phase-3 cutover.)
 
 ### Determinism
 - **R7** The *rolled* paths (platform discovery, enemy drops) are procedurally
@@ -101,8 +103,11 @@ platform discovery, enemy defeat, and quest completion.
   install time. `EnemyDefinition` gained `_lootSlots`;
   `EnemyData.LootSlots` carries the mapped slots through `IEnemyDataProvider`.
 - **Application**: `QuestRewardGranter` (scans the run-scoped `ILiveQuestRegistry` for a quest that
-  reached `QuestState.Completed` and not yet paid out, and adds each fixed `QuestRewardCore` item into
-  `IInventoryModel`, idempotent per quest — item rewards only, no roll),
+  reached `QuestState.Completed` and not yet paid out, **rolls** each declared `QuestRewardCore` via
+  `IQuestRewardRoller` and routes it by kind — artifact → `IInventoryModel`, blank → `IBlankRack`,
+  idempotent per quest — item rewards only),
+  `QuestRewardRoller` + `QuestRewardPools` (`Core/`, the P1-5 roll projected from the artifact/blank
+  catalogs),
   `EnemyLootDropper` (rolls and spawns drops at death positions),
   `PlatformLootSpawnCoordinator` (spawns discovery pickups on
   `PlatformEvents.OnPlatformEntered`), `WorldArtifactPresenter` (per pickup:
@@ -150,8 +155,10 @@ and `Resources/Prefabs/Loot/WorldArtifact` when inspector fields are empty.
   (Create → Loot → Biome Loot for new themes).
 - Enemy drops: add slots to the enemy's `EnemyDefinition` Loot section.
 - Animation/visual tuning: edit `Resources/Configs/LootConfig.asset`.
-- Fixed quest rewards: author the reward stacks on the `Quest` asset
-  (`QuestRewardSerial` — artifact id + count); see `quest-subsystem.md`.
+- Declared quest rewards: author `(tier, belonging, payload kind)` on the `Quest` asset
+  (`QuestRewardSerial` — no item id; the world rolls it). Mark artifacts with `_rewardFamilyId` and
+  blanks with `_raceId`; author reward families as `RewardFamilyDefinition` under `Resources/Rewards/`.
+  See `quest-subsystem.md` §3/§4.
 
 ## 3. Tests
 
@@ -162,9 +169,10 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
 - `LootRollServiceTests` — run/context determinism, probability edges, quantity
   ranges, biome fallback, tag bias, filter pipeline, bonus passthrough
   (pure C#, runnable outside Unity).
-- `QuestRewardGranterTests` — a completed quest's fixed `QuestRewardCore` rewards
-  reach the inventory, empty/unknown artifact ids are skipped, and the payout is idempotent per quest
-  (uses ScriptableObject test fixtures, runs in the editor Test Runner).
+- `QuestRewardGranterTests` — a completed quest's **declared** reward is rolled into the inventory
+  (artifact) / rack (blank) of the right family/race, the payout is idempotent, an empty pool grants
+  nothing but marks paid, and a full rack forfeits the blank. `QuestRewardRollerTests` — the roll's
+  belonging filter, nearest-tier bias, determinism, and non-catalog spread (both pure C#, P1-5).
 
 ## 4. Known limitations / open points
 
@@ -173,9 +181,11 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
   rewards. An explicit Ink completion signal is a possible refinement.
 - Only platforms the density allocator marks as `Loot` roll loot; Empty/traversal
   and other content kinds never carry it.
-- Quest rewards are **item-only** (`QuestRewardCore` = artifact id + count); non-item reward *sinks*
-  (Currency, Experience, Ability) have no receiving system yet — deferred (Track H P1-12, pending a
-  currency model).
+- Quest rewards are **item-only** (a declared `QuestRewardCore` rolls to an artifact or Part-Blank);
+  non-item reward *sinks* (Currency, Experience, Ability) have no receiving system yet — deferred
+  (Track H P1-12, pending a currency model).
+- The quest-reward roll uses **uniform weights** within the nearest-tier-in-family subset — no rarity
+  curve yet (Track H tuning follow-up).
 - Inventory capacity feedback (R11) is unreachable while the inventory is
   unlimited; `UnlimitedCapacityPolicy` is the rebinding point.
 - Progression gating fields (R13) are serialized and surfaced in the roll

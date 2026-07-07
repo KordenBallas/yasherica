@@ -74,5 +74,19 @@ namespace Tests.EditMode
         {
             CollectionAssert.IsEmpty(StatusEffectDurations.Tick(null));
         }
+
+        [Test]
+        public void WithDuration_ResetsTheClock_PreservingIdentityAndStacks()
+        {
+            var effect = new StatusEffect(1, "test", StatusEffectType.Buff, 1, stackCount: 2,
+                stackRule: StackRule.StackToCap);
+
+            var refreshed = effect.WithDuration(3);
+
+            Assert.AreEqual(3, refreshed.Duration);
+            Assert.AreEqual(2, refreshed.StackCount);
+            Assert.AreEqual(effect.Id, refreshed.Id);
+            Assert.AreEqual(StackRule.StackToCap, refreshed.StackRule);
+        }
     }
 }

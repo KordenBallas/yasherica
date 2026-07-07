@@ -8,16 +8,16 @@ namespace Mutation.Core
     /// The operating table's socketing state: which artifacts sit in which racked
     /// blank's sockets. Socketing pulls the artifact out of the inventory (the
     /// crafting-staging pattern); unsocketing returns it. Filling the last socket
-    /// raises <see cref="OnBlankReady"/> - the auto-unseal trigger the variant
-    /// presenter consumes. Rearranging is free only while a socket is still open;
-    /// a full blank is committed (commit-on-unseal).
+    /// raises <see cref="OnBlankReady"/> — the medallion's rim-closed signal.
+    /// Rearranging stays free until the player confirms the unseal (Track F);
+    /// the confirm consumes the sockets (commit-on-unseal).
     /// </summary>
     public interface ISocketingModel
     {
         /// <summary>Raised whenever a blank's socket content changes.</summary>
         event Action<int> OnSocketsChanged;
 
-        /// <summary>Raised when the last socket of a blank is filled (unseal trigger).</summary>
+        /// <summary>Raised when the last socket of a blank is filled (the rim closes).</summary>
         event Action<int> OnBlankReady;
 
         /// <summary>Artifacts socketed into the given blank, in socketing order.</summary>
@@ -34,8 +34,8 @@ namespace Mutation.Core
         bool TrySocket(int blankInstanceId, int artifactInstanceId);
 
         /// <summary>
-        /// Returns a socketed artifact to the inventory. Rejected once the blank
-        /// is full (the last drop is the commit).
+        /// Returns a socketed artifact to the inventory. Allowed even on a ready
+        /// blank (it reopens); only the unseal confirm commits.
         /// </summary>
         bool TryUnsocket(int blankInstanceId, int artifactInstanceId);
 

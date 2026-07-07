@@ -86,8 +86,8 @@ namespace Core.DI
             // socket interaction and cauldron fusion speak the same language.
             Container.Bind<IBlankVariantBuilder>().To<BlankVariantBuilder>().AsSingle();
 
-            // The rack view lives on the InventoryStage scene instance, left of the
-            // cauldron; the presenter seeds the starting blanks and drives it.
+            // The ribbon view lives on the InventoryStage scene instance, under the
+            // cauldron (Track F); the presenter seeds the starting blanks and drives it.
             Container.Bind<IBlankRackView>()
                 .To<BlankRackView>()
                 .FromComponentInHierarchy()
@@ -146,7 +146,7 @@ namespace Core.DI
                 .FromComponentInNewPrefab(panelPrefab)
                 .AsSingle();
 
-            // NonLazy so it subscribes to the blank-ready (unseal) signal at startup.
+            // NonLazy so it subscribes to the medallion unseal-confirm at startup.
             Container.BindInterfacesAndSelfTo<MutationVariantPresenter>().AsSingle().NonLazy();
         }
 

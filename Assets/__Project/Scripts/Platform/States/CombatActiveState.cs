@@ -41,6 +41,7 @@ namespace Platform
         private readonly DialogueRunner _dialogueRunner;
         private readonly Combat.View.ICombatUnitViewRegistry _unitViewRegistry;
         private readonly Combat.Data.Providers.IAbilityDefinitionCatalog _abilityCatalog;
+        private readonly Combat.Data.Providers.IStatusEffectDefinitionCatalog _statusCatalog;
         private readonly Combat.Execution.IAbilityOutcomeCalculator _outcomeCalculator;
         private readonly Combat.Execution.IAbilityFiredSink _abilityFiredSink;
         private readonly Combat.Config.HexDirectionConfig _hexDirectionConfig;
@@ -51,6 +52,8 @@ namespace Platform
         private BattlefieldView _battlefieldView;
         private Combat.View.UnitOverheadIconsView _planIconsView;
         private UnitPlanIconsPresenter _planIconsPresenter;
+        private Combat.View.UnitStatusIconsView _statusIconsView;
+        private UnitStatusIconsPresenter _statusIconsPresenter;
         private Combat.View.GhostPlaybackView _ghostView;
         private GhostPlaybackPresenter _ghostPresenter;
         private AbilityIconHoverController _iconHoverController;
@@ -76,6 +79,7 @@ namespace Platform
             DialogueRunner dialogueRunner,
             Combat.View.ICombatUnitViewRegistry unitViewRegistry,
             Combat.Data.Providers.IAbilityDefinitionCatalog abilityCatalog,
+            Combat.Data.Providers.IStatusEffectDefinitionCatalog statusCatalog,
             Combat.Execution.IAbilityOutcomeCalculator outcomeCalculator,
             Combat.Execution.IAbilityFiredSink abilityFiredSink,
             Combat.Config.HexDirectionConfig hexDirectionConfig,
@@ -96,6 +100,7 @@ namespace Platform
             _dialogueRunner = dialogueRunner;
             _unitViewRegistry = unitViewRegistry;
             _abilityCatalog = abilityCatalog;
+            _statusCatalog = statusCatalog;
             _outcomeCalculator = outcomeCalculator;
             _abilityFiredSink = abilityFiredSink;
             _hexDirectionConfig = hexDirectionConfig;
@@ -166,6 +171,12 @@ namespace Platform
                 _planIconsView = planIconsGo.AddComponent<Combat.View.UnitOverheadIconsView>();
                 _planIconsView.Initialize(_unitViewRegistry, _abilityCatalog);
                 _planIconsPresenter = new UnitPlanIconsPresenter(_controller, _planIconsView);
+
+                // On-unit status row (S2): active statuses + remaining turns, below the plan icons.
+                var statusIconsGo = new GameObject("UnitStatusIconsView");
+                _statusIconsView = statusIconsGo.AddComponent<Combat.View.UnitStatusIconsView>();
+                _statusIconsView.Initialize(_unitViewRegistry, _statusCatalog);
+                _statusIconsPresenter = new UnitStatusIconsPresenter(_controller, _statusIconsView);
 
                 // Ghost telegraph: one-shot ghost on queue-submit, hover-to-replay on any
                 // plan icon (player queue or enemy committed intent).
@@ -515,6 +526,14 @@ namespace Platform
             {
                 Object.Destroy(_planIconsView.gameObject);
                 _planIconsView = null;
+            }
+
+            _statusIconsPresenter?.Dispose();
+            _statusIconsPresenter = null;
+            if (_statusIconsView != null)
+            {
+                Object.Destroy(_statusIconsView.gameObject);
+                _statusIconsView = null;
             }
 
             _ghostPresenter?.Dispose();

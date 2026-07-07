@@ -3,18 +3,26 @@
 > The mutation subsystem implements the **Socketed Blanks** model
 > (`product-requirements/crafting-mutation-socketed-blanks.md`): the player **builds the organ**.
 > A **Part-Blank** (a socketed recipe carrying the organ's character slot + a species/passport
-> marker) sits in a scarce **rack** left of the cauldron; the player **drags artifacts into its
-> sockets** on the one open-inventory screen; **filling the last socket unseals** the blank into a
-> small **menu of variant mutations** (authored body parts of the blank's slot, deterministically
-> scored against the socketed reagents' traits); the pick installs via the character system's
-> body-plan-aware install request (an ordinary part = instant swap; a frame-changing part may
-> first confirm-and-shed), consumes the reagents, and spends the blank (commit-on-unseal). The variant scoring
-> runs the socketed profiles through the **same emergent fusion grammar as the cauldron**
-> (`inventory-subsystem.md` R16), so sockets interact — an emergent third property counts.
-> Part-derived ability grants are unchanged: a swapped part changes the character's combat ability
-> set because combat rebuilds that set from the live equipped parts at combat start
-> (ability-subsystem.md §2.6). The earlier feed→tally→digestion→stage-up loop is **deleted**
-> (2026-07-02). Status: current as of 2026-07-02.
+> marker) sits in a scarce **medallion ribbon** under the cauldron; the player **drags artifacts
+> into its sockets** on the one open-inventory screen; **completing the medallion offers an unseal
+> confirm**, and confirming opens a small **menu of variant mutations** (authored body parts of the
+> blank's slot, deterministically scored against the socketed reagents' traits); the pick installs
+> via the character system's body-plan-aware install request (an ordinary part = instant swap; a
+> frame-changing part may first confirm-and-shed), consumes the reagents, and spends the blank
+> (commit-on-unseal). The variant scoring runs the socketed profiles through the **same emergent
+> fusion grammar as the cauldron** (`inventory-subsystem.md` R16), so sockets interact — an emergent
+> third property counts. Part-derived ability grants are unchanged: a swapped part changes the
+> character's combat ability set because combat rebuilds that set from the live equipped parts at
+> combat start (ability-subsystem.md §2.6). The earlier feed→tally→digestion→stage-up loop is
+> **deleted** (2026-07-02).
+>
+> The **medallion socket UI** (Track F · **F4**, brief `product-requirements/medallion-socket-ui.md`,
+> 2026-07-06) reshaped the blank's presentation: a racked blank is now a **medallion** — the part at
+> the centre, its sockets as **gems around the rim**, the **rim a progress ring** that closes as
+> sockets fill — sitting in the ribbon under the cauldron (was: a flat rack left of it). It moved the
+> commit from "the last drop" to a **confirm-before-unseal** beat: the completed medallion offers an
+> **Unseal** click that opens the cards. Re-slotting stays free until that confirm; the model, scoring,
+> and card menu are unchanged. Status: current as of 2026-07-06.
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -30,12 +38,16 @@
 - R2. **The blank fixes type, not ability.** A blank honestly determines the organ (its character
   slot) and the socket count; the *ability* is shaped by the reagents. The blank also carries the
   **species/passport marker** (an archetype id) — the reagents never retag species.
-- R3. **Scarce rack.** Blanks live in a capped rack (`MutationConfig.BlankRackCapacity`), separate
-  from the cauldron's artifact inventory; the cap is the multi-track incubation tension.
+- R3. **Scarce rack.** Blanks live in a capped rack (`MutationConfig.BlankRackCapacity`), rendered
+  as a medallion ribbon under the cauldron (F4), separate from the cauldron's artifact inventory;
+  the cap is the multi-track incubation tension.
 - R4. **Socketing over the inventory.** Socketing pulls the artifact out of the inventory (the
-  crafting-staging pattern); unsocketing returns it. Rearranging is free **only while a socket is
-  still open** — filling the last socket is the commit (auto-unseal; no rearrange after).
-- R5. **Unseal → menu → pick.** Unsealing offers up to `MutationConfig.MaxVariantOptions` variants:
+  crafting-staging pattern); unsocketing returns it. **Re-slotting stays free until the player
+  confirms the unseal** (F4): completing the medallion (all sockets filled) offers the unseal but
+  does **not** lock the sockets — unsocketing a full blank reopens it. The commit is the unseal
+  confirm, not the last drop.
+- R5. **Complete → confirm → menu → pick.** Completing the medallion offers an **Unseal** confirm;
+  confirming offers up to `MutationConfig.MaxVariantOptions` variants:
   non-equipped authored parts of the blank's slot, scored by trait-affinity overlap with the
   socketed reagents' combined (post-grammar) profile × a rarity gate that unlocks with the combined
   tier. Deterministic (same sockets → same menu); **no zero-score filter** — raw-only socketing is
@@ -56,7 +68,8 @@
   `TraitFusionRuleSet` grammar before scoring, so authored rules can add emergent traits the parts'
   affinities respond to.
 - R8. **Trend seam.** Every socket change publishes the combined post-grammar trait trend
-  (`ISocketingTrendSource`) — the hint channel the cauldron voice will speak from (no consumer yet).
+  (`ISocketingTrendSource`) — the hint channel the cauldron voice speaks from (consumed by the Track-H
+  `SocketingTrendBarkTrigger`, see [Cauldron Barks](cauldron-barks.md)).
 - R9. **Data-driven content.** New blanks, archetypes, and variant parts are added as assets only
   (§4); startup validation warns about broken authoring, never crashes.
 - R10. **Incubation persists.** Socket state survives inventory open/close (several blanks ripen in
@@ -80,7 +93,7 @@
 | Data (SO + bridges) | Authoring assets and the SO→Core catalogs; per-part card display data | `Scripts/Mutation/Data/Definitions/`: `PartBlankDefinition.cs`, `ArchetypeDefinition.cs`, `MutationConfig.cs`, `MutationPreviewSettings.cs`; `Scripts/Mutation/Data/`: `PartBlankCatalog.cs` (`IPartBlankCatalog`), `ArchetypeCatalog.cs` (`IArchetypeCatalog`), `MutationPartCatalog.cs` (`IMutationPartCatalog`), `MutationPartCardData.cs`, `MutationAbilityInfo.cs` |
 | Application | Startup authoring validation | `Scripts/Mutation/Application/MutationContentValidator.cs` |
 | Presenter (pure C#) | Rack rendering + socketing gestures; the unseal variant choice | `Scripts/Mutation/Presenter/BlankRackPresenter.cs`, `MutationVariantPresenter.cs` |
-| View (thin MonoBehaviour) | Rack entries/sockets on the inventory stage; the mutation card hand (front/back faces, tooltip, model popover) | `Scripts/Mutation/View/`: `IBlankRackView.cs`/`BlankRackView.cs`, `BlankEntryView.cs`, `SocketView.cs`, `BlankRackViewData.cs`, `IMutationChoiceView.cs`/`MutationChoiceView.cs`, `MutationCardView.cs`, `MutationAbilityIconView.cs`, `PointerHoverRelay.cs`, `AbilityTooltipView.cs`, `ModelPreviewPopoverView.cs`, `IMutationModelPreview.cs`, `MutationChoiceViewData.cs`/`MutationCardFaceViewData.cs`/`MutationAbilityIconViewData.cs` |
+| View (thin MonoBehaviour) | Medallion ribbon entries/sockets on the inventory stage; the mutation card hand (front/back faces, tooltip, model popover) | `Scripts/Mutation/View/`: `IBlankRackView.cs`/`BlankRackView.cs`, `BlankEntryView.cs` (the medallion), `MedallionMeshBuilder.cs`, `SocketView.cs`, `BlankRackViewData.cs`, `IMutationChoiceView.cs`/`MutationChoiceView.cs`, `MutationCardView.cs`, `MutationAbilityIconView.cs`, `PointerHoverRelay.cs`, `ModelPreviewPopoverView.cs`, `IMutationModelPreview.cs`, `MutationChoiceViewData.cs`/`MutationCardFaceViewData.cs`/`MutationAbilityIconViewData.cs` |
 | Infrastructure | Adapters onto the live modular character; the preview rig | `Scripts/Mutation/Infrastructure/ModularCharacterMutationAdapter.cs`, `MutationModelPreviewRig.cs` |
 
 Cross-system reuse: the variant builder and trend evaluator consume the **Inventory** fusion grammar
@@ -96,26 +109,32 @@ Cross-system reuse: the variant builder and trend evaluator consume the **Invent
 | `IPartBlankDataSource` | Core port onto the authored blank pool (implemented by `PartBlankCatalog`). |
 | `BlankInstance` | One racked blank: unique `InstanceId` + `DefinitionId` (its own id space — a blank never enters the artifact inventory). |
 | `IBlankRack` / `BlankRack` | Capped blank container (`TryAdd`/`Remove`/`TryGet`, `OnChanged`). |
-| `ISocketingModel` / `SocketingModel` | Socketing state per blank: `TrySocket` pulls the artifact from `IInventoryModel`; `TryUnsocket` returns it (rejected once full — **the last drop is the commit**); filling the last socket raises `OnBlankReady`; `ConsumeSockets` destroys the reagents on pick; `ReturnAll` is a reset seam (deliberately not wired to inventory close — R10). |
+| `ISocketingModel` / `SocketingModel` | Socketing state per blank: `TrySocket` pulls the artifact from `IInventoryModel`; `TryUnsocket` returns it — **allowed even on a full blank** (it reopens; the commit is the unseal confirm, F4); filling the last socket raises `OnBlankReady` (the rim-closed signal); `ConsumeSockets` destroys the reagents on pick; `ReturnAll` is a reset seam (deliberately not wired to inventory close — R10). |
 | `IBlankVariantBuilder` / `BlankVariantBuilder` | The unseal menu: combined post-grammar target profile → each non-equipped candidate of the blank's slot scores `Σ traitAffinity[t] for t ∈ target` × rarity multiplier `1 + RarityWeight·tier·unlock`, where `unlock = clamp01(targetTier / (rarityTier·TierUnlockPerRarityTier))`. Deterministic: score desc, ordinal part-id tie-break; top `maxOptions`; no zero filter. Options carry the blank's slot + species archetype. |
 | `MutationCandidatePart` | A part in Core terms: slot/part ids, display label, rarity as int tier, trait-affinity map (built by `MutationPartCatalog`). |
 | `MutationOption` | One offered variant (slot id, part id, blank species archetype id for the tint, display name). |
-| `SocketingTrend` / `ISocketingTrendSource` / `SocketingTrendEvaluator` | The cauldron-voice seam: recomputes a blank's post-grammar trait profile on every socket change and raises `OnTrendChanged`. No consumer ships yet (ROADMAP). |
+| `SocketingTrend` / `ISocketingTrendSource` / `SocketingTrendEvaluator` | The cauldron-voice seam: recomputes a blank's post-grammar trait profile on every socket change and raises `OnTrendChanged`. Consumed by the Track-H `SocketingTrendBarkTrigger` ([Cauldron Barks](cauldron-barks.md)). |
 | `IMutationCharacter` | Port onto the live character: `RequestSwapPart(slotId, partId)` → `SwapRequestOutcome` (`Applied` / `PendingConfirmation` / `Rejected`) + `SwapRequestResolved(bool)` event, `CanInstall(partId)`, `TryGetEquippedPartId(slotId)` (active **or dormant** occupant). Implemented by `ModularCharacterMutationAdapter` over the `BodyPlanSwapCoordinator` + `ModularCharacterVisual` (lazy — an unassembled rig rejects the request); see character-system.md §2.3b. |
 
-### 2.3 Operating-table UI (the rack left of the cauldron)
+### 2.3 Medallion ribbon (under the cauldron)
 
 Crafting and the operating table share **one screen** — the open cauldron stage; there is no mode
-switch. World-space rack objects live on `InventoryStage.prefab` under `BlankRackArea` (local X left
-of the cauldron, layer `InventoryFocus`): three `BlankAnchor`s and a disabled `BlankEntryTemplate`
-(icon quad + code-built 3D-TMP name label + a disabled `SocketTemplate` cloned per socket).
+switch. World-space ribbon objects live on `InventoryStage.prefab` under `MedallionRibbon` (a
+horizontal row under the cauldron, the spine's bottom zone — `inventory-subsystem.md` R29, layer
+`InventoryFocus`): three `BlankAnchor`s spread along X and a disabled `BlankEntryTemplate`
+(icon quad + a disabled `SocketTemplate` cloned per socket).
 
 - **`IBlankRackView` / `BlankRackView`** — instantiates one `BlankEntryView` per racked blank at its
-  anchor; forwards drop/click events. **`BlankEntryView`** — icon quad (species tint when no icon is
-  authored), name label, socket row sized to the blank's socket count. **`SocketView`** — a
-  translucent disc (species tint; brighter when filled) showing the socketed artifact's icon;
-  implements `IStageClickable` (click a **filled** socket = unsocket gesture) and
-  `IArtifactDropTarget` (drag release).
+  anchor; forwards drop/socket-click/**unseal** events (`OnUnsealClicked`, F4). **`BlankEntryView`** —
+  a **medallion** (F4): the part icon centred on a species-tinted disc (`MedallionMeshBuilder.BuildDisc`),
+  the sockets placed as **gems evenly around the rim**, and the **rim built as a progress ring**
+  (`MedallionMeshBuilder.BuildRimArc`, one arc segment per socket that lights in the species tint as
+  its socket fills). When complete the medallion **pulses** and shows an **"Unseal"** label + a centre
+  click collider (`IStageClickable` → `OnUnsealClicked`). **`SocketView`** — a translucent disc
+  (species tint; brighter when filled) showing the socketed artifact's icon; implements
+  `IStageClickable` (click a **filled** socket = unsocket gesture) and `IArtifactDropTarget` (drag
+  release). The gem colliders win the raycast over the medallion's centre so a filled-socket click is
+  an unsocket, not an unseal.
 - **`StageDragRouter`** (Inventory view layer; renamed from `StageClickRouter`, same meta GUID):
   press-and-release below `_dragThresholdPixels` = click → `IStageClickable`; pressing a pot bubble
   and moving past the threshold = **drag** — the bubble follows the pointer on its camera-distance
@@ -123,9 +142,11 @@ of the cauldron, layer `InventoryFocus`): three `BlankAnchor`s and a disabled `B
   raycast sees the socket under it); release over an `IArtifactDropTarget` drops the artifact,
   anywhere else snaps the bubble back into the pot.
 - **`BlankRackPresenter`** (pure C#, NonLazy) — seeds `MutationConfig.StartingBlanks` into the rack
-  (only while empty), rebuilds the rack view on every rack/socket change, and routes drops →
-  `TrySocket` / filled-socket clicks → `TryUnsocket`. Rejections (full/committed blank, item not in
-  the inventory — e.g. a dragged *staged* crafting bubble) are logged and no-op.
+  (only while empty), rebuilds the ribbon on every rack/socket change (passing each entry's
+  `IsReady`), and routes drops → `TrySocket` / filled-socket clicks → `TryUnsocket`. Unsocket
+  rejections mean only "not actually socketed" now (a full blank reopens — F4); item-not-in-inventory
+  drops (e.g. a dragged *staged* crafting bubble) are logged and no-op. The unseal confirm is handled
+  by `MutationVariantPresenter` (§2.4), not here.
 
 ### 2.4 Unseal variant choice — the mutation card hand
 
@@ -133,8 +154,11 @@ of the cauldron, layer `InventoryFocus`): three `BlankAnchor`s and a disabled `B
 (`MutationChoicePanel` + `MutationCard` + `MutationAbilityIcon` prefabs), per the verified brief
 `product-requirements/mutation-choice-cards.md`:
 
-1. **Trigger** — `ISocketingModel.OnBlankReady`. Blanks that ripen while a menu is showing queue and
-   open after the pick.
+1. **Trigger** — `IBlankRackView.OnUnsealClicked` (the F4 confirm-before-unseal beat; replaced the
+   old auto-open on `ISocketingModel.OnBlankReady`). The click is guarded by `ISocketingModel.IsReady`
+   (a click on an incomplete or stale medallion is rejected), and ignored while a menu is already
+   showing — a second ready medallion opens on its own confirm after the current pick, so there is no
+   ready-blank queue anymore.
 2. **Build** — socketed profiles (via `IArtifactTraitSource`) → `IBlankVariantBuilder` against
    `IMutationPartCatalog.AllCandidates`, excluding the part equipped in the blank's slot; top
    `MutationConfig.MaxVariantOptions`.
@@ -142,7 +166,11 @@ of the cauldron, layer `InventoryFocus`): three `BlankAnchor`s and a disabled `B
    (name, `ChoiceIcon`, rarity tier, and the granted **abilities** — resolved via the combat
    `IPartAbilityResolver` so the card lists exactly the ability set combat composes):
    - **Front face**: the offered part's picture + its active/passive **ability icons** (no stat
-     blocks; crafting traits stay hidden — hidden input, revealed outcome).
+     blocks; crafting traits stay hidden — hidden input, revealed outcome). Each ability icon
+     carries an **effect badge** (`combat-status-effects.md` R8): the glyph of the status the
+     ability applies — the same asset shown on the unit on the board — or the neutral
+     `glyph_untyped` chevron when it applies none; the "Applies: …" line rides the ability
+     description into the shared preview popover.
    - **Back face** (`HasReplacedPart`): the part currently equipped in the blank's slot + *its*
      abilities, resolved via `IMutationCharacter.TryGetEquippedPartId`. An empty slot **or a
      not-yet-assembled rig** renders the bare-slot back ("nothing replaced").
@@ -226,6 +254,7 @@ Loaded from `Resources/Mutation/Blanks/` (or wired into the `MutationInstaller` 
 | `Description` | string | Flavor / designer note. | `[TextArea]` |
 | `Slot` | `SlotDefinition` | The character slot the unsealed mutation installs into — the blank honestly fixes the organ. | missing → validator warning (can never unseal) |
 | `SpeciesArchetypeId` | string | Passport marker (`ArchetypeDefinition.Id`); also the rack tint and variant-card tint. | unknown/empty → validator warning |
+| `RaceId` | string (`[RaceId]`) | Race this blank belongs to for the **quest-reward economy** (Track H, empty = kindless): the reward roll's race filter + the offer-card belonging colour. Distinct from `SpeciesArchetypeId` until the species-vs-race reconcile (Track J). | empty |
 | `SocketCount` | int | Artifacts to socket; filling the last socket unseals. | `2`; `[Min(1)]` |
 | `Icon` | Sprite | Rack icon (species tint stands in when none). | none |
 
@@ -256,6 +285,7 @@ Single asset loaded from `Resources/Mutation/MutationConfig.asset`.
 | `MaxVariantOptions` | int | How many variants an unsealed blank offers at most. | `3`; `[Min(1)]` |
 | `TierUnlockPerRarityTier` | float | Socketed target tier required per rarity tier before rare variants are favoured. | `1`; `[Min(0)]` |
 | `StartingBlanks` | `PartBlankDefinition[]` | Blanks seeded into the rack at startup (dev seed until blanks drop as loot). | shipped: skull / claw-arm / haunch |
+| `TemptationRarityTier` | int | An unseal offer at/above this rarity tier reads as a monstrous **temptation** (fires the cauldron temptation bark, Track H); below it, installing a modest part fires the **restraint** bark + increments `world.path_restraint`. | `2`; `[Min(0)]` |
 | `Preview` | `MutationPreviewSettings` | Card mini-model preview rig tunables (below). | field-initializer defaults; existing assets need no edit |
 
 #### `MutationPreviewSettings`  (serializable block on `MutationConfig`)
@@ -335,13 +365,15 @@ The card hand is authored as source-of-truth prefabs under `Resources/Prefabs/UI
 `MutationChoicePanel.prefab` (the panel + the model popover; the ability preview is the shared
 `AbilityPreviewPopover.prefab` — `ability-preview-popover.md`),
 `MutationCard.prefab` (front/back faces, flip button, selection highlight, confirm hint), and
-`MutationAbilityIcon.prefab` (one ability icon + passive marker). The installer instantiates the
+`MutationAbilityIcon.prefab` (one ability icon + passive marker + the status-effect badge, whose
+prefab-authored sprite is the neutral `glyph_untyped` mark). The installer instantiates the
 panel at runtime (no scene wiring); if the panel prefab is missing the unseal choice is disabled
 (one startup warning, no crash). The former **Tools → Mutation → Setup Stage-Up Choice UI**
 generator is deleted — rerunning it would have overwritten the authored card. A designer never
 touches these prefabs to add content: a `PartDefinition` with abilities + a `ChoiceIcon` yields a
-complete card automatically. The rack itself is authored into `InventoryStage.prefab`
-(`BlankRackArea`) — no editor tool needed.
+complete card automatically. The medallion ribbon itself is authored into `InventoryStage.prefab`
+(`MedallionRibbon`) — no editor tool needed; the medallion disc/rim meshes are built at runtime
+(`MedallionMeshBuilder`).
 
 ---
 
@@ -354,8 +386,9 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
   capacity / on empty id; remove frees capacity; `TryGet`.
 - `SocketingModelTests` — socketing moves the artifact out of the inventory; unknown blank/artifact
   rejected; filling the last socket raises `OnBlankReady` (incl. a 1-socket blank); a full blank
-  rejects further socketing **and unsocketing** (the last drop is the commit); unsocket returns to
-  the inventory while open; `ConsumeSockets` destroys without returning; `ReturnAll` refunds.
+  rejects further **socketing** but **unsocketing reopens it** (F4 — the commit is the unseal confirm)
+  and refilling re-raises `OnBlankReady`; unsocket returns to the inventory; `ConsumeSockets` destroys
+  without returning; `ReturnAll` refunds.
 - `BlankVariantBuilderTests` — ranks by trait-affinity overlap; filters to the blank's slot;
   excludes equipped; zero-scoring parts still offered; a fusion rule's emergent trait counts toward
   affinity (sockets interact); high-tier sockets unlock rare parts; caps at max options with an
@@ -367,14 +400,15 @@ Edit-mode suites in `Assets/__Project/Tests/EditMode/`:
   name/icon/tier + granted abilities (actives before passives, `IsPassive` flags) resolved through
   the **real** `PartAbilityResolver` (pinning combat parity incl. asset-ref dedupe); no abilities →
   empty list; unknown/empty id → false.
-- `MutationVariantPresenterTests` — a partially filled blank shows nothing; filling the last socket
-  shows the variant cards (slot-filtered); a pick swaps, consumes the reagents, spends the blank,
-  and hides; a failed swap keeps cards + blank + reagents; the equipped part is excluded;
-  trait-less reagents still yield a menu; a blank ripening while a menu shows queues and opens
-  after the pick. Card data: the front face carries the catalog's abilities + tier + slot/part ids;
-  an occupied slot yields the replaced part's back face; an empty slot (or an unassembled rig, or a
-  replaced part without card data) reads as "nothing replaced"; an offered part without card data
-  falls back to the option label.
+- `MutationVariantPresenterTests` — filling the last socket **does not** auto-show (F4); an unseal
+  click on a partially filled blank is rejected; an unseal click on a ready blank shows the variant
+  cards (slot-filtered); a pick swaps, consumes the reagents, spends the blank, and hides; a failed
+  swap keeps cards + blank + reagents; the equipped part is excluded; trait-less reagents still yield
+  a menu; an unseal click while a menu is showing is ignored, and the second ready medallion opens on
+  its own confirm after the pick. Card data: the front face carries the catalog's abilities + tier +
+  slot/part ids; an occupied slot yields the replaced part's back face; an empty slot (or an
+  unassembled rig, or a replaced part without card data) reads as "nothing replaced"; an offered part
+  without card data falls back to the option label.
 
 The fusion grammar the sockets reuse is covered by the Inventory suites
 (`EmergentFusionCalculatorTests`, `TraitFusionRuleSetTests`, `ArtifactTraitProfileTests`).
@@ -385,11 +419,15 @@ The fusion grammar the sockets reuse is covered by the Inventory suites
 
 - **Blank loot.** Blanks only enter the rack via the `MutationConfig.StartingBlanks` dev seed;
   Part-Blank drops (monster remains, finds, relics) are a ROADMAP item.
-- **Placeholder rack look.** Tinted quads + code-built TMP labels; no blank icons authored, no drag
-  ghost/unseal effects, no tier-glow on bubbles ("tier by glow"). A confirm step before the
-  auto-unseal commit is a possible later tweak — today the last drop is the commit (user decision).
-- **Cauldron-voice delivery.** The trend seam (`ISocketingTrendSource`) has no consumer; the bark
-  delivery is a ROADMAP item.
+- **Placeholder medallion look.** The medallion is procedural (disc/rim meshes + code-built labels);
+  no blank icons authored, no drag ghost, no gem/rim VFX beyond the ready pulse, no tier-glow on the
+  medallion ("tier by glow"). Exact medallion art / closing-ring VFX are the render-look/tech-art
+  call. *(The confirm-before-unseal beat and the ribbon placement shipped with F4, 2026-07-06.)*
+- **Cauldron-voice delivery — SHIPPED (Track H, ⚠ gameplay-untested).** The trend seam
+  (`ISocketingTrendSource`) is now consumed by `SocketingTrendBarkTrigger`, and `MutationVariantPresenter`
+  fires the **temptation** bark on a monstrous unseal offer and the **restraint** bark (+ `path_restraint`
+  increment) on a modest/marker install. See [Cauldron Barks](cauldron-barks.md). The socketing-trend
+  trigger has no throttle yet.
 - **A committed blank with no variants is stuck.** If every part of its slot is equipped (or none is
   authored), the ready blank stays committed with no menu; the validator warns at authoring time,
   but there is no runtime escape hatch (`ReturnAll` is not player-facing).

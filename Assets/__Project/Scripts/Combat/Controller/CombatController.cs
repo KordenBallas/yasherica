@@ -56,7 +56,6 @@ namespace Combat.Controller
             IActionValidator actionValidator,
             IActionExecutor actionExecutor,
             ITurnManager turnManager,
-            IDamageSystem damageSystem,
             StatusEffectTriggerProcessor triggerProcessor,
             EnemyIntentPlanner intentPlanner,
             EnemyIntentResolver intentResolver,
@@ -74,7 +73,7 @@ namespace Combat.Controller
             _winConditions = new List<IWinCondition>();
             // Built internally (not injected) so the extraction stays signature-preserving for
             // every existing construction site; Arena binds its own instance in its installer.
-            _roundLifecycle = new RoundLifecycleProcessor(damageSystem, triggerProcessor);
+            _roundLifecycle = new RoundLifecycleProcessor(triggerProcessor);
             _logger = logger;
         }
 
@@ -287,6 +286,13 @@ namespace Combat.Controller
         private void EndRound()
         {
             _gameState = _roundLifecycle.ApplyRoundEndEffects(_gameState);
+
+            // The round-end status tick can kill (DoT): settle the outcome now instead of
+            // letting the next frame's Update() catch it after a new round already started.
+            OnStateChanged?.Invoke(_gameState);
+            CheckWinConditions();
+            if (_gameState.Phase != CombatPhase.Combat)
+                return;
 
             _turnManager.NextTurn();
             _gameState = (_gameState as CombatState).WithNextTurn();

@@ -1,19 +1,32 @@
 namespace Narrative.Quests.Core
 {
     /// <summary>
-    /// An immutable, UnityEngine-free item reward carried by a quest (R-rewards): an artifact
-    /// definition id and how many copies are granted on completion. Item rewards only — the legacy
-    /// multi-type reward machinery (currency/experience/ability) has no receiving system.
+    /// An immutable, UnityEngine-free DECLARED quest reward (P1-5): never a literal item id. A quest
+    /// promises how good (<see cref="Tier"/> — the same scale as the artifact/mutation tier glow),
+    /// what kind of thing (<see cref="PayloadKind"/>), and whose currency (<see cref="BelongingId"/> —
+    /// a race id for a Part-Blank, a reward-family id for an artifact). The concrete item is rolled on
+    /// completion by the loot layer, deterministically under the run seed; the offer card shows tier
+    /// as glow and belonging as colour while the item itself stays hidden.
     /// </summary>
     public sealed class QuestRewardCore
     {
-        public string ArtifactId { get; }
-        public int Count { get; }
+        /// <summary>Declared potency; rides the fiction, never a kill-counter scale.</summary>
+        public int Tier { get; }
 
-        public QuestRewardCore(string artifactId, int count)
+        /// <summary>
+        /// The reward's family: a race id when <see cref="PayloadKind"/> is a Part-Blank, a
+        /// reward-family id (e.g. power vs utility) when it is an artifact. Empty = unconstrained
+        /// (the roll draws from the whole pool; the card tints neutral).
+        /// </summary>
+        public string BelongingId { get; }
+
+        public QuestRewardPayloadKind PayloadKind { get; }
+
+        public QuestRewardCore(int tier, string belongingId, QuestRewardPayloadKind payloadKind)
         {
-            ArtifactId = artifactId ?? string.Empty;
-            Count = count < 1 ? 1 : count;
+            Tier = tier < 0 ? 0 : tier;
+            BelongingId = belongingId ?? string.Empty;
+            PayloadKind = payloadKind;
         }
     }
 }
