@@ -159,6 +159,32 @@ wrong.")
 
 ---
 
+## Consuming the report — triage workflow (not a blocking phase)
+
+The audit **informs** the build queue; it does **not** pause it. Do **not** gate further work on
+"clear every finding first" — a big-bang refactor before feature work is the trap this scoped,
+read-only shape exists to avoid. The owner triages the W6 synthesis into three buckets, using each
+finding's `disposition`:
+
+1. **fix-first (narrow)** — only findings inside the **blast radius of the next 1–2 tracks about to be
+   built** (e.g. before the MP Online-Robustness core, fix a duplication/coupling *on the arena/netcode
+   path*; a P0 in an unrelated subsystem does **not** qualify). Building a new track on a duplicated /
+   dead / tangled path in the same area is building on sand — that, and only that, is fixed up front.
+2. **backlog** — every other P0/P1 → a ROADMAP row, scheduled opportunistically; many will **merge**
+   with existing `[debt]` items (Tracks J/L/N, P6).
+3. **won't-fix** — a valid outcome; findings must not balloon scope.
+
+Two outputs, not one: besides the fix-first shortlist, W1–W3 may surface something that **re-orders the
+Fable lane itself** — apply that before spending premium hours (this is why Track W runs at slot 0 of
+the Fable lane).
+
+**Each approved fix is its own normally-scoped task** (code + tests + docs + CHANGELOG per §0/§8), never
+part of the audit, and on the **cheapest capable model**: dead-code deletions (W3) → Haiku/Sonnet quick
+wins; duplication consolidation (W2) → Opus, opportunistic; **perf hypotheses (W4) are never fixed
+blind — a profiling session precedes any change.**
+
+---
+
 ## Out of scope
 
 - **Applying any fix.** The audit proposes; a separate, normally-scoped task implements an approved

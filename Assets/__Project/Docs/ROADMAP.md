@@ -152,22 +152,86 @@ per session, from the code root. Brief:
 `product-requirements/architecture-and-extensibility-audit.md`; priority view = Track W in
 `ROADMAP-prioritized.md`; reports land in `Docs/audits/`.
 
-- [ ] `[arch]` **W1 — Data-driven / SO extensibility.** Per subsystem, the add-one-instance touch-count
-  (SO-only vs. SO+code); hard-coded content variety; SOs holding logic; undocumented SO types. *(§1/§7)*
-- [ ] `[arch]` **W2 — Architecture, coupling & duplication.** Layering breaks, DI violations,
-  God-objects; **duplication / parallel implementations** (the *same job done twice* in divergent paths —
-  e.g. two scene-specific platform builders; the Hub-as-parallel-world class) incl. copy-paste; dual-path
-  hazards (legacy/streaming, PvE/Arena/draft combat), ranked by blast-radius. *(§2–§6/§13–§14)*
-- [ ] `[debt]` **W3 — Dead, unreachable & orphaned code.** Enumerate no-caller classes/APIs/SO/assets,
-  then clear each against Unity liveness channels (SerializeField/GUID · Zenject by-type ·
-  `Resources.Load`/`CreateAssetMenu` · reflection · Ink-by-name · editor-only · test-only). **Hybrid** —
-  cheap sweep for candidates, careful model to adjudicate (false-positive deletions are the dangerous kind).
-- [ ] `[perf]` **W4 — Performance hypotheses.** A ranked *needs-profiling* shortlist — every item a
-  hypothesis, not a verdict (no profiler in env). *(§12)*
-- [ ] `[debt]` **W5 — Docs ↔ implementation drift.** Each system doc's requirements/SO-ref/recipe vs.
-  live code + assets; roadmap-vs-prioritised known-limitation mismatches. *(§8)*
-- [ ] `[arch]` **W6 — Synthesis & prioritised backlog.** Merge W1–W5, dedupe against existing debt,
-  group into themes + a top-5 "do first", propose ROADMAP rows. *(after W1–W5)*
+- [x] `[arch]` **W1 — Data-driven / SO extensibility.** ✅ done 2026-07-07 (`audits/W1.md`): data path
+  exemplary; the one **P0** gap = biome identity is a `LevelTheme` enum (→ Audit Refactor A2).
+- [x] `[arch]` **W2 — Architecture, coupling & duplication.** ✅ done 2026-07-07 (`audits/W2.md`): DI
+  near-clean, MVP holds; debt = the world-platform seam + the **PvE/Arena combat-controller verbatim
+  copy** (→ A1) + the `PlatformEvents` breadth correction above.
+- [x] `[debt]` **W3 — Dead, unreachable & orphaned code.** ✅ done 2026-07-07 (`audits/W3.md`): ~2 200
+  lines adjudicated dead, with a safe delete order (→ Audit Refactor A4; executes P6-4).
+- [ ] `[perf]` **W4 — Performance hypotheses.** **Pending** — worklist collected in `W6.md` §6 (append
+  as a W6 addendum when run). *(§12)*
+- [ ] `[debt]` **W5 — Docs ↔ implementation drift.** **Pending** — worklist collected in `W6.md` §6
+  (Audit Refactor A8 folds in here). *(§8)*
+- [x] `[arch]` **W6 — Synthesis & prioritised backlog.** ✅ done 2026-07-07 (`audits/W6.md`): 8 refactor
+  themes → filed as **Audit Refactors A1–A8** below; **A1 inserted into the Fable lane before Track X**;
+  verdict "healthier than a violations-list suggests". *(run over the 3 completed passes; W4/W5 addendum pending)*
+
+### Audit Refactors (A1–A8) — the W6 output
+
+Renamed from the report's `R1–R8` to avoid colliding with **Track R** / **Track X**. Only **A1** gates a
+Fable-lane track; the rest are opportunistic and fold into N/L/P6. Priority view + models + sources = the
+**Audit Refactors** section in `ROADMAP-prioritized.md`.
+
+- [ ] `[arch]` **A1 — Combat core reconvergence** — shared round/state engine under the `CombatController`
+  / `ArenaCombatController` verbatim-copy pair. **Fix-first — before Track X & Track K.** Opus (Fable opt.).
+- [ ] `[arch]` **A2 — Biome-as-data** — `BiomeDefinition` SO replaces the `LevelTheme` enum (the one P0
+  extensibility gap); before the Mtn/Desert content wave. Opus.
+- [ ] `[arch]` **A3 — One platform seam** — `PlatformRegistry`→DI, kill `GameObject.Find` in
+  `ContentSpawner`, `ArenaPlatformBuilder`→`PlatformView`; unblocks the `PlatformEvents`→signals row. Opus.
+- [ ] `[debt]` **A4 — Dead-code purge** — execute W3's delete order (executes P6-4); wave-2-D after A2. Sonnet/Haiku.
+- [ ] `[arch]` **A5 — Hero movement single path** — delete the dormant `AICharacterMovementController`
+  (**step 1 immediately**, Haiku), then extract movement logic to pure C# (Opus).
+- [ ] `[arch]` **A6 — Layering enforcement** — incremental `asmdef` split (`noEngineReferences` Core);
+  folds P6-3 (`Core.Hex`). Sonnet/Opus.
+- [ ] `[debt]` **A7 — Small-cleanups tail** — DialogueRunner port, `EventSystem` bootstrap, stray
+  `Scripts/Combat/*.md`, `LoadAll`-override guard, missing `RunPacingConfig` asset; bundle with P6-5. Sonnet/Haiku.
+- [ ] `[debt]` **A8 — Doc patches** — `AIProfileDefinition` doc + ability-kind/bark-slot statements +
+  ink-lockstep note; fold into W5. Haiku.
+
+---
+
+## Arena / Multiplayer — Online Robustness (Track X)
+
+Owner call 2026-07-07: **Arena is a shippable feature for the broad public.** The Arena MVP is done
+(deterministic lockstep core, host-authoritative draft — `arena-mode.md`); this is the **production
+layer it deliberately skipped** (`arena-mode.md` §6). The netcode-correctness core is **Fable**, the
+SDK/plumbing/UX half **Opus/Sonnet**. Priority view + full split = Track X in `ROADMAP-prioritized.md`.
+
+- [ ] `[arch]` **X1 — Reconnect + desync recovery + host migration.** A dropped/diverged peer rejoins
+  and re-syncs; host-drop no longer ends the match. Today a hash-mismatch is only detected, never
+  recovered. **Fable — highest correctness risk.** *(arena-mode.md §6)*
+- [ ] `[arch]` **X2 — Anti-cheat: host-side commit validation** (was P4-2). Re-validate relayed commits
+  against canonical state; folds in P4-3 (seeded-shuffle resolution alt + per-step damage batching). **Fable.**
+- [ ] `[arch]` **X3 — Online services:** relay / NAT-punchthrough / lobby / matchmaking / friend-invites
+  (replace direct `ip:port`). Opus — biggest volume, integration not ambiguity.
+- [ ] `[arch]` **X4 — In-match human turn-timer + AFK handling.** The round has no human timeout today. Opus.
+- [ ] `[debt]` **X5 — Build version handshake + hardened disconnect UX.** Reject mismatched builds at
+  approval (silent desync today). Sonnet.
+- [ ] `[debt]` **X6 — Arena presentation folds here:** G1 seat camera · G2 dev console · G3 hex-highlight
+  bug · P3-16 arena-scale camera · P4-4 `EnemyIntent→CommittedIntent` rename · real part thumbnails ·
+  initial-facing polish. Opus/Sonnet. *(mirrors arena-mode.md §6)*
+
+---
+
+## Net-New / Missing Systems (survey follow-up, 2026-07-07)
+
+Large genre-characteristic systems the plan hadn't scoped, beyond the Q–V pillar survey. Priority view +
+the Fable lane live in `ROADMAP-prioritized.md`.
+
+- [ ] `[arch]` **Difficulty / Ascension («Heat») modifiers (Track Y).** Player-chosen challenge layers
+  gating rewards; the reiterability engine, distinct from within-run escalation (D19) and meta-unlocks.
+  **Fable; needs the economy/meta spine (R) first.**
+- [ ] `[arch]` **Boss / set-piece & run apex (Track Z).** Multi-phase bosses + the run climax (Order's
+  Seat) as real combat-content tech; today only the bandit-camp boss + a `design/roadmap.md` thread.
+- [ ] `[arch]` **Persistent relationship / recurring cast.** Affinity with named NPCs across runs (Hades
+  gift/heart); the Hub recurring cast was deferred. Narrative-meta.
+- [ ] `[content]` **In-run shops / vendors.** A spend loop for the currency R introduces (the
+  `camp-shady-offer` dark-currency has no sink today). Folds under R's economy.
+- [ ] `[perf]` **Runtime telemetry / analytics for balancing.** What builds win / where players die /
+  which content appears — the runtime data the static `/balance-ledger` can't give. Cross-cutting infra.
+- [ ] `[content]` **Post-run summary + meta-goals / prophecies.** A death-recap screen + long replay
+  goals; ties collection (T) + meta (R).
 
 ---
 
@@ -1403,7 +1467,8 @@ See `dev-tools.md` for the implemented overlay.
 - [ ] `[debt]` **Migrate `PlatformEvents` static event bus to Zenject signals.** The autosave (P2-2)
   is the third consumer of the static seam (after the streaming coordinator and the area view);
   signals would make the subscriptions container-scoped and testable without static teardown.
-  *(architecture)*
+  **W2 audit correction (2026-07-07): the seam is broader than "three consumers" — 7 publisher/subscriber
+  files across 6 systems; unblocked by Audit Refactor A3 (platform registry → DI).** *(architecture)*
 - [ ] `[content]` Mutation preview on the live character model before the player confirms a choice.
   *(The **mini-model** popover on hovering a mutation card **shipped** with
   `product-requirements/mutation-choice-cards.md`; this backlog item is the **full live-hero**
