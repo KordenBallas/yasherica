@@ -43,6 +43,7 @@ namespace Combat.Arena.Networking
             {
                 RoundNumber = bundle.RoundNumber,
                 DepartedPlayerIds = bundle.DepartedPlayerIds.ToArray(),
+                AutoPassedPlayerIds = bundle.AutoPassedPlayerIds.ToArray(),
                 Commits = bundle.Commits.Select(ToWire).ToArray()
             };
         }
@@ -52,7 +53,8 @@ namespace Combat.Arena.Networking
             return new ArenaRoundBundle(
                 data.RoundNumber,
                 data.Commits.Select(c => FromWire(c, playerById)).ToList(),
-                data.DepartedPlayerIds.ToList());
+                data.DepartedPlayerIds.ToList(),
+                data.AutoPassedPlayerIds?.ToList());
         }
 
         // ---- match setup ----
@@ -139,6 +141,158 @@ namespace Combat.Arena.Networking
             return new ArenaDraftPickApplied(
                 FromWire(data.Pick),
                 data.DepartedPlayerIds?.ToList() ?? new List<int>());
+        }
+
+        // ---- X1 state snapshot / rejoin / resync / address book ----
+
+        public static StateSnapshotData ToWire(ArenaStateSnapshot snapshot)
+        {
+            return new StateSnapshotData
+            {
+                Version = snapshot.Version,
+                RoundNumber = snapshot.RoundNumber,
+                LastRoundHash = snapshot.LastRoundHash,
+                Units = snapshot.Units.Select(ToWire).ToArray()
+            };
+        }
+
+        public static ArenaStateSnapshot FromWire(StateSnapshotData data)
+        {
+            return new ArenaStateSnapshot(
+                data.Version,
+                data.RoundNumber,
+                data.LastRoundHash,
+                (data.Units ?? Array.Empty<UnitSnapshotData>()).Select(FromWire).ToList());
+        }
+
+        private static UnitSnapshotData ToWire(ArenaUnitSnapshot unit)
+        {
+            return new UnitSnapshotData
+            {
+                UnitId = unit.UnitId,
+                OwnerPlayerId = unit.OwnerPlayerId,
+                Q = unit.Q,
+                R = unit.R,
+                CurrentHP = unit.CurrentHP,
+                MaxHP = unit.MaxHP,
+                Facing = unit.Facing,
+                Abilities = unit.Abilities
+                    .Select(a => new AbilityCooldownData { AbilityId = a.AbilityId, CurrentCooldown = a.CurrentCooldown })
+                    .ToArray(),
+                Statuses = unit.Statuses
+                    .Select(s => new StatusSnapshotData { EffectId = s.EffectId, Duration = s.Duration, StackCount = s.StackCount })
+                    .ToArray()
+            };
+        }
+
+        private static ArenaUnitSnapshot FromWire(UnitSnapshotData data)
+        {
+            return new ArenaUnitSnapshot(
+                data.UnitId,
+                data.OwnerPlayerId,
+                data.Q,
+                data.R,
+                data.CurrentHP,
+                data.MaxHP,
+                data.Facing,
+                (data.Abilities ?? Array.Empty<AbilityCooldownData>())
+                    .Select(a => new ArenaAbilityCooldownSnapshot(a.AbilityId, a.CurrentCooldown))
+                    .ToList(),
+                (data.Statuses ?? Array.Empty<StatusSnapshotData>())
+                    .Select(s => new ArenaStatusSnapshot(s.EffectId, s.Duration, s.StackCount))
+                    .ToList());
+        }
+
+        public static RejoinPackageData ToWire(ArenaRejoinPackage package)
+        {
+            return new RejoinPackageData
+            {
+                TargetPlayerId = package.TargetPlayerId,
+                Setup = ToWire(package.Setup),
+                Loadouts = package.LoadoutByPlayerId
+                    .OrderBy(pair => pair.Key)
+                    .Select(pair => new LoadoutEntryData
+                    {
+                        PlayerId = pair.Key,
+                        SlotIds = pair.Value.Keys.ToArray(),
+                        PartIds = pair.Value.Values.ToArray()
+                    })
+                    .ToArray(),
+                Snapshot = ToWire(package.Snapshot),
+                DepartedPlayerIds = package.DepartedPlayerIds.ToArray(),
+                HasBundle = package.CurrentRoundBundleOrNull != null,
+                Bundle = package.CurrentRoundBundleOrNull != null
+                    ? ToWire(package.CurrentRoundBundleOrNull)
+                    : default
+            };
+        }
+
+        public static ArenaRejoinPackage FromWire(RejoinPackageData data, Func<int, IPlayer> playerById)
+        {
+            var loadouts = new Dictionary<int, IReadOnlyDictionary<string, string>>();
+            foreach (var entry in data.Loadouts ?? Array.Empty<LoadoutEntryData>())
+            {
+                var slots = new Dictionary<string, string>();
+                for (int i = 0; i < (entry.SlotIds?.Length ?? 0); i++)
+                {
+                    slots[entry.SlotIds[i]] = entry.PartIds[i];
+                }
+
+                loadouts[entry.PlayerId] = slots;
+            }
+
+            return new ArenaRejoinPackage(
+                data.TargetPlayerId,
+                FromWire(data.Setup),
+                loadouts,
+                FromWire(data.Snapshot),
+                data.DepartedPlayerIds?.ToList(),
+                data.HasBundle ? FromWire(data.Bundle, playerById) : null);
+        }
+
+        public static ResyncCommandData ToWire(ArenaResyncCommand command)
+        {
+            return new ResyncCommandData
+            {
+                TargetPlayerId = command.TargetPlayerId,
+                Snapshot = ToWire(command.Snapshot)
+            };
+        }
+
+        public static ArenaResyncCommand FromWire(ResyncCommandData data)
+        {
+            return new ArenaResyncCommand(data.TargetPlayerId, FromWire(data.Snapshot));
+        }
+
+        public static ResyncAckData ToWire(ArenaResyncAck ack)
+        {
+            return new ResyncAckData { PlayerId = ack.PlayerId, RoundNumber = ack.RoundNumber };
+        }
+
+        public static ArenaResyncAck FromWire(ResyncAckData data)
+        {
+            return new ArenaResyncAck(data.PlayerId, data.RoundNumber);
+        }
+
+        public static EndpointData ToWire(ArenaEndpoint endpoint)
+        {
+            return new EndpointData { PlayerId = endpoint.PlayerId, Address = endpoint.Address };
+        }
+
+        public static ArenaEndpoint FromWire(EndpointData data)
+        {
+            return new ArenaEndpoint(data.PlayerId, data.Address);
+        }
+
+        public static AddressBookData ToWire(ArenaAddressBook book)
+        {
+            return new AddressBookData { Endpoints = book.Endpoints.Select(ToWire).ToArray() };
+        }
+
+        public static ArenaAddressBook FromWire(AddressBookData data)
+        {
+            return new ArenaAddressBook(
+                (data.Endpoints ?? Array.Empty<EndpointData>()).Select(FromWire).ToList());
         }
 
         // ---- commits / steps ----

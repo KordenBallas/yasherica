@@ -109,6 +109,15 @@ namespace Core.DI
         {
             Container.Bind<ILootEntryFilter>().To<PassThroughLootFilter>().AsSingle();
 
+            // Meta-progression gate (Track R, FR3): locked artifacts vanish from every biome loot
+            // table. Deps resolve lazily at first roll; a scene without the meta bindings (Arena)
+            // gets a no-op filter via the TryResolve.
+            Container.Bind<ILootEntryFilter>()
+                .FromMethod(ctx => new MetaProgression.Integration.MetaGateLootFilter(
+                    ctx.Container.Resolve<Inventory.Data.IArtifactCatalog>(),
+                    ctx.Container.TryResolve<MetaProgression.Core.IMetaVocabulary>()))
+                .AsSingle();
+
             Container.Bind<ILootRollService>()
                 .FromMethod(ctx => new LootRollService(
                     ctx.Container.Resolve<IBiomeLootCatalog>(),
@@ -119,10 +128,12 @@ namespace Core.DI
 
             // Quest-reward roll (P1-5): the eligible pools are projected once from the authored
             // artifact/blank catalogs into pure records, so the roller stays UnityEngine-free.
+            // The projection consults the meta vocabulary (Track R) so gated tokens never roll.
             Container.Bind<QuestRewardPools>()
-                .FromMethod(ctx => BuildQuestRewardPools(
+                .FromMethod(ctx => QuestRewardPoolsBuilder.Build(
                     ctx.Container.Resolve<Inventory.Data.IArtifactCatalog>(),
-                    ctx.Container.Resolve<Mutation.Core.IPartBlankDataSource>()))
+                    ctx.Container.Resolve<Mutation.Core.IPartBlankDataSource>(),
+                    ctx.Container.TryResolve<MetaProgression.Core.IMetaVocabulary>()))
                 .AsSingle();
 
             Container.Bind<IQuestRewardRoller>()
@@ -130,25 +141,6 @@ namespace Core.DI
                     ctx.Container.Resolve<QuestRewardPools>(),
                     ctx.Container.Resolve<IRunSeedProvider>()))
                 .AsSingle();
-        }
-
-        private static QuestRewardPools BuildQuestRewardPools(
-            Inventory.Data.IArtifactCatalog artifacts, Mutation.Core.IPartBlankDataSource blanks)
-        {
-            var artifactOptions = new List<RewardArtifactOption>();
-            foreach (var definition in artifacts.All)
-            {
-                artifactOptions.Add(new RewardArtifactOption(
-                    definition.Id, definition.Tier, definition.RewardFamilyId));
-            }
-
-            var blankOptions = new List<RewardBlankOption>();
-            foreach (var blank in blanks.All)
-            {
-                blankOptions.Add(new RewardBlankOption(blank.DefinitionId, blank.RaceId));
-            }
-
-            return new QuestRewardPools(artifactOptions, blankOptions);
         }
 
         private void InstallApplication()

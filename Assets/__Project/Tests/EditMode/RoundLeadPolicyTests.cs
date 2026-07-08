@@ -35,5 +35,24 @@ namespace Tests.EditMode
         {
             Assert.IsFalse(RoundLeadPolicy.EnemyLeadsThisRound(3, CombatInitiator.Player));
         }
+
+        [Test]
+        public void EnemiesAlwaysLead_LeadsEveryRound_WhateverTheInitiator()
+        {
+            // The Heat "they strike first" pact (Track Y).
+            Assert.IsTrue(RoundLeadPolicy.EnemyLeadsThisRound(1, CombatInitiator.Player, enemiesAlwaysLead: true));
+            Assert.IsTrue(RoundLeadPolicy.EnemyLeadsThisRound(2, CombatInitiator.Player, enemiesAlwaysLead: true));
+            Assert.IsTrue(RoundLeadPolicy.EnemyLeadsThisRound(7, CombatInitiator.Enemy, enemiesAlwaysLead: true));
+        }
+
+        [Test]
+        public void DefaultRule_PreservesTheD2Behaviour()
+        {
+            // Heat 0 zero-diff: the default argument answers exactly as before Track Y.
+            Assert.AreEqual(
+                RoundLeadPolicy.EnemyLeadsThisRound(1, CombatInitiator.Enemy),
+                RoundLeadPolicy.EnemyLeadsThisRound(1, CombatInitiator.Enemy, enemiesAlwaysLead: false));
+            Assert.IsFalse(RoundLeadPolicy.EnemyLeadsThisRound(2, CombatInitiator.Enemy, enemiesAlwaysLead: false));
+        }
     }
 }

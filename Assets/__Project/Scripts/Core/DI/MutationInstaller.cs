@@ -66,12 +66,22 @@ namespace Core.DI
         private void InstallSocketedBlanks(MutationConfig config)
         {
             // The blank catalog serves both the Core port (socket counts, slots) and the
-            // data-layer icon lookup from one instance.
+            // data-layer icon lookup from one instance. The Core port is wrapped in the run's
+            // socket-cut decorator (Track Y "thinner medallions") so EVERY consumer — socketing,
+            // the gem ring, variants, quest pools — sees one adjusted count; without a bound
+            // MutationRuleModifiers (Hub/Arena/menu) the decorator is a pure passthrough.
             var blanks = LoadBlankDefinitions();
-            Container.Bind(typeof(IPartBlankCatalog), typeof(IPartBlankDataSource))
+            Container.Bind<IPartBlankCatalog>()
                 .To<PartBlankCatalog>()
                 .AsSingle()
                 .WithArguments(blanks as IReadOnlyList<PartBlankDefinition>);
+            Container.Bind<IPartBlankDataSource>()
+                .FromMethod(ctx => new SocketAdjustedBlankSource(
+                    (IPartBlankDataSource)ctx.Container.Resolve<IPartBlankCatalog>(),
+                    ctx.Container.HasBinding<MutationRuleModifiers>()
+                        ? ctx.Container.Resolve<MutationRuleModifiers>()
+                        : null))
+                .AsSingle();
 
             // The rack cap IS the multi-track incubation tension - authored, not magic.
             Container.Bind<IBlankRack>()

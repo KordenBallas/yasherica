@@ -22,5 +22,11 @@ namespace Combat.Data.Factories
         /// <param name="durationOverride">Custom duration to use instead of the definition's default.</param>
         /// <returns>A runtime status effect instance.</returns>
         IStatusEffect CreateStatusEffect(StatusEffectDefinition definition, int durationOverride);
+
+        /// <summary>
+        /// Creates a runtime IStatusEffect at an explicit duration AND stack count — the arena
+        /// state-transfer path, where a mid-life effect is rebuilt from its snapshot triple.
+        /// </summary>
+        IStatusEffect CreateStatusEffect(StatusEffectDefinition definition, int durationOverride, int stackCount);
     }
 }

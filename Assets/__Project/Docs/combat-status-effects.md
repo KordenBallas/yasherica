@@ -26,8 +26,8 @@
   **Stat-modifier** (a flat signed magnitude against one stat target). Heal-over-time (regen) is a
   fourth authored kind reusing the same tick.
 - **R3 (deterministic tick)** All statuses resolve at **one fixed point: the round-end bookkeeping
-  pass** (`RoundLifecycleProcessor.ApplyRoundEndEffects`), which PvE and Arena controllers call from
-  the identical `EndRound()` seam. Per unit: `TurnEnd` triggers fire (DoT damage / HoT heal), then
+  pass** (`RoundLifecycleProcessor.ApplyRoundEndEffects`), which since **A1** both controllers call
+  from the single shared `CombatRoundEngine.EndRound()` seam (PvE = Arena, now literally one method). Per unit: `TurnEnd` triggers fire (DoT damage / HoT heal), then
   durations count down, then expired effects are removed. Owner decision 2026-07-07: in this
   phase-based round model "end of the afflicted unit's turn" ≡ end of round for all units.
 - **R4** Expiry is visible: the effect drops off the unit's status list (and therefore its on-unit

@@ -37,3 +37,15 @@ MonoBehaviour:
   _deathReturn:
   - You again. The junkyard does love a returning customer.
   - Reassembled. The parts were cheap — keep the next set longer.
+  _heatDare:
+  - Care to make it interesting? Harder rules, richer forms. I only open the good shelves for the daring.
+  - The pot has terms. Accept a little pain and I'll stir the deep stock for you.
+  - Bored already? Sign here. The fine print bites, but so does everything worth eating.
+  _heatSealed:
+  - Sealed. Oh, this will be delicious — mostly for me.
+  - A bargain! Try not to die before it pays out. Or do; the record keeps either way.
+  - Good taste at last. The deep shelves are watching you now.
+  _heatDeclined:
+  - Prudence. How very... digestible of you.
+  - No pact, then. The mild broth it is.
+  - Suit yourself. The exotic cuts stay behind the counter.

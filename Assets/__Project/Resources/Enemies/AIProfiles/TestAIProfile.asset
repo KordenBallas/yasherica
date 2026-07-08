@@ -12,13 +12,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ecab9c45464477247af444e5c32a1f6c, type: 3}
   m_Name: TestAIProfile
   m_EditorClassIdentifier: Yasherica::Combat.Data.Definitions.AIProfileDefinition
-  _basePersonality: 0
+  _basePersonality: 1
   _movementRange: 3
   _damageWeight: 2
   _healWeight: 1.5
   _killBonus: 50
-  _killThresholdPercent: 0.3
   _statusEffectBonus: 30
+  _focusWoundedWeight: 25
+  _friendlyFirePenaltyWeight: 2
+  _aggressionWeight: 1
+  _selfPreservationWeight: 1
+  _scoreNoise: 0
+  _pickFromTopN: 1
+  _mistakeChance: 0
   _defensiveHpThreshold: 0.5
   _closeRangeBonus: 20
   _surroundPenalty: 15

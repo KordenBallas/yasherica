@@ -125,5 +125,137 @@ namespace Tests.EditMode
             Assert.AreEqual(0UL, decoded.Roster[0].ClientId);
             Assert.AreEqual(2, decoded.Roster[1].PlayerId);
         }
+
+        // ---- X1 reconnect / resync / migration ----
+
+        [Test]
+        public void RoundBundle_RoundTrips_AutoPassedPlayers()
+        {
+            var bundle = new ArenaRoundBundle(5,
+                new List<ArenaCommit> { new ArenaCommit(1, 1, HexDirection.E, new List<EnemyIntent>()) },
+                new List<int> { 4 },
+                new List<int> { 2, 3 });
+
+            var decoded = ArenaWireCodec.FromWire(ArenaWireCodec.ToWire(bundle), Resolve);
+
+            Assert.AreEqual(new[] { 2, 3 }, decoded.AutoPassedPlayerIds.ToArray());
+            Assert.AreEqual(new[] { 4 }, decoded.DepartedPlayerIds.ToArray());
+        }
+
+        private static ArenaStateSnapshot SampleSnapshot()
+        {
+            return new ArenaStateSnapshot(ArenaStateSnapshot.CurrentVersion, 6, 0xFEEDF00DUL,
+                new List<ArenaUnitSnapshot>
+                {
+                    new ArenaUnitSnapshot(1, 1, 2, -1, 17, 30, (int)HexDirection.W,
+                        new List<ArenaAbilityCooldownSnapshot>
+                        {
+                            new ArenaAbilityCooldownSnapshot(100, 2),
+                            new ArenaAbilityCooldownSnapshot(101, 0)
+                        },
+                        new List<ArenaStatusSnapshot> { new ArenaStatusSnapshot(2, 3, 2) }),
+                    new ArenaUnitSnapshot(2, 2, 4, 0, 0, 30, (int)HexDirection.E,
+                        new List<ArenaAbilityCooldownSnapshot>(),
+                        new List<ArenaStatusSnapshot>())
+                });
+        }
+
+        [Test]
+        public void StateSnapshot_RoundTrips_UnitsCooldownsAndStatuses()
+        {
+            var decoded = ArenaWireCodec.FromWire(ArenaWireCodec.ToWire(SampleSnapshot()));
+
+            Assert.AreEqual(ArenaStateSnapshot.CurrentVersion, decoded.Version);
+            Assert.AreEqual(6, decoded.RoundNumber);
+            Assert.AreEqual(0xFEEDF00DUL, decoded.LastRoundHash);
+            Assert.AreEqual(2, decoded.Units.Count);
+
+            var unit1 = decoded.Units[0];
+            Assert.AreEqual(1, unit1.UnitId);
+            Assert.AreEqual(2, unit1.Q);
+            Assert.AreEqual(-1, unit1.R);
+            Assert.AreEqual(17, unit1.CurrentHP);
+            Assert.AreEqual((int)HexDirection.W, unit1.Facing);
+            Assert.AreEqual(2, unit1.Abilities.Count);
+            Assert.AreEqual(2, unit1.Abilities[0].CurrentCooldown);
+            Assert.AreEqual(1, unit1.Statuses.Count);
+            Assert.AreEqual(2, unit1.Statuses[0].EffectId);
+            Assert.AreEqual(3, unit1.Statuses[0].Duration);
+            Assert.AreEqual(2, unit1.Statuses[0].StackCount);
+
+            Assert.AreEqual(0, decoded.Units[1].CurrentHP, "a dead unit stays dead on the wire");
+        }
+
+        [Test]
+        public void RejoinPackage_RoundTrips_WithLoadoutsAndReplayedBundle()
+        {
+            var setup = new ArenaMatchSetup(777, new List<ArenaRosterSlot>
+            {
+                new ArenaRosterSlot(0UL, 1, 1),
+                new ArenaRosterSlot(9UL, 2, 2)
+            });
+            var loadouts = new Dictionary<int, IReadOnlyDictionary<string, string>>
+            {
+                [1] = new Dictionary<string, string> { ["arm-left"] = "part.claw", ["tail"] = "part.stinger" },
+                [2] = new Dictionary<string, string> { ["arm-left"] = "part.hammer" }
+            };
+            var bundle = new ArenaRoundBundle(6,
+                new List<ArenaCommit> { new ArenaCommit(1, 1, HexDirection.E, new List<EnemyIntent> { MoveIntent(_player) }) },
+                autoPassedPlayerIds: new List<int> { 2 });
+            var package = new ArenaRejoinPackage(2, setup, loadouts, SampleSnapshot(), new List<int> { 3 }, bundle);
+
+            var decoded = ArenaWireCodec.FromWire(ArenaWireCodec.ToWire(package), Resolve);
+
+            Assert.AreEqual(2, decoded.TargetPlayerId);
+            Assert.AreEqual(777, decoded.Setup.MatchSeed);
+            Assert.AreEqual("part.stinger", decoded.LoadoutByPlayerId[1]["tail"]);
+            Assert.AreEqual("part.hammer", decoded.LoadoutByPlayerId[2]["arm-left"]);
+            Assert.AreEqual(6, decoded.Snapshot.RoundNumber);
+            Assert.AreEqual(new[] { 3 }, decoded.DepartedPlayerIds.ToArray());
+            Assert.IsNotNull(decoded.CurrentRoundBundleOrNull);
+            Assert.AreEqual(6, decoded.CurrentRoundBundleOrNull.RoundNumber);
+            Assert.AreEqual(new[] { 2 }, decoded.CurrentRoundBundleOrNull.AutoPassedPlayerIds.ToArray());
+        }
+
+        [Test]
+        public void RejoinPackage_WithoutBundle_RoundTripsNull()
+        {
+            var setup = new ArenaMatchSetup(777, new List<ArenaRosterSlot> { new ArenaRosterSlot(0UL, 1, 1) });
+            var package = new ArenaRejoinPackage(
+                1, setup, null, SampleSnapshot(), null, currentRoundBundleOrNull: null);
+
+            var decoded = ArenaWireCodec.FromWire(ArenaWireCodec.ToWire(package), Resolve);
+
+            Assert.IsNull(decoded.CurrentRoundBundleOrNull);
+        }
+
+        [Test]
+        public void ResyncCommandAndAck_RoundTrip()
+        {
+            var command = ArenaWireCodec.FromWire(
+                ArenaWireCodec.ToWire(new ArenaResyncCommand(3, SampleSnapshot())));
+            Assert.AreEqual(3, command.TargetPlayerId);
+            Assert.AreEqual(6, command.Snapshot.RoundNumber);
+
+            var ack = ArenaWireCodec.FromWire(ArenaWireCodec.ToWire(new ArenaResyncAck(3, 6)));
+            Assert.AreEqual(3, ack.PlayerId);
+            Assert.AreEqual(6, ack.RoundNumber);
+        }
+
+        [Test]
+        public void AddressBook_RoundTrips_Endpoints()
+        {
+            var book = new ArenaAddressBook(new List<ArenaEndpoint>
+            {
+                new ArenaEndpoint(1, "192.168.1.10:7777"),
+                new ArenaEndpoint(2, "192.168.1.20")
+            });
+
+            var decoded = ArenaWireCodec.FromWire(ArenaWireCodec.ToWire(book));
+
+            Assert.AreEqual(2, decoded.Endpoints.Count);
+            Assert.AreEqual("192.168.1.10:7777", decoded.Endpoints[0].Address);
+            Assert.AreEqual(2, decoded.Endpoints[1].PlayerId);
+        }
     }
 }

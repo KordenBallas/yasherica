@@ -17,11 +17,14 @@ namespace Combat.Player
     {
         private readonly ICombatController _combatController;
         private readonly ITurnOrderStripView _view;
+        private readonly CombatRuleModifiers _rules;
 
-        public TurnOrderStripPresenter(ICombatController combatController, ITurnOrderStripView view)
+        public TurnOrderStripPresenter(ICombatController combatController, ITurnOrderStripView view,
+            CombatRuleModifiers rules = null)
         {
             _combatController = combatController ?? throw new ArgumentNullException(nameof(combatController));
             _view = view ?? throw new ArgumentNullException(nameof(view));
+            _rules = rules ?? CombatRuleModifiers.Neutral;
 
             _combatController.OnStateChanged += HandleStateChanged;
             _combatController.OnRoundPhaseChanged += HandleRoundPhaseChanged;
@@ -58,7 +61,9 @@ namespace Combat.Player
                 return;
             }
 
-            bool enemyLeads = RoundLeadPolicy.EnemyLeadsThisRound(state.TurnNumber, _combatController.OpeningInitiator);
+            // Must consult the same rule the flow does (Track Y), or the strip lies about initiative.
+            bool enemyLeads = RoundLeadPolicy.EnemyLeadsThisRound(
+                state.TurnNumber, _combatController.OpeningInitiator, _rules.EnemiesAlwaysLead);
             ResolveSideStatus(state.RoundPhase, enemyLeads,
                 out bool playerCurrent, out bool enemyCurrent, out bool playerActed, out bool enemyActed);
 

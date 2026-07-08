@@ -162,6 +162,45 @@ namespace Tests.EditMode
         }
 
         [Test]
+        public void ComputeForFacing_OriginEqualToCasterPosition_MatchesDefaultOverload()
+        {
+            var ability = PushAbility();
+            var caster = Caster(ability);
+            var near = Victim(VictimId, new HexCoordinates(1, 0));
+            var far = Victim(SecondVictimId, new HexCoordinates(2, 0));
+            var state = StateWith(caster, near, far);
+
+            var fromCurrent = _calculator.ComputeForFacing(state, caster, ability.Ability, HexDirection.E);
+            var fromOrigin = _calculator.ComputeForFacing(
+                state, caster, ability.Ability, HexDirection.E, caster.Position);
+
+            CollectionAssert.AreEqual(
+                fromCurrent.AffectedCells.ToList(), fromOrigin.AffectedCells.ToList());
+            CollectionAssert.AreEqual(
+                fromCurrent.Units.Select(u => (u.UnitId, u.Damage, u.To)).ToList(),
+                fromOrigin.Units.Select(u => (u.UnitId, u.Damage, u.To)).ToList());
+        }
+
+        [Test]
+        public void ComputeForFacing_HypotheticalOrigin_ComputesCellsFromThatOrigin()
+        {
+            var ability = PushAbility();
+            var caster = Caster(ability);
+            var victim = Victim(VictimId, new HexCoordinates(3, 0));
+            var state = StateWith(caster, victim);
+
+            // From (0,0) the length-2 east line covers (1,0),(2,0) — misses the victim.
+            var fromCurrent = _calculator.ComputeForFacing(state, caster, ability.Ability, HexDirection.E);
+            // From the hypothetical origin (2,0) it covers (3,0),(4,0) — hits the victim.
+            var fromOrigin = _calculator.ComputeForFacing(
+                state, caster, ability.Ability, HexDirection.E, new HexCoordinates(2, 0));
+
+            Assert.IsEmpty(fromCurrent.Units, "no unit in the line from the current position");
+            Assert.AreEqual(VictimId, fromOrigin.Units.Single().UnitId);
+            CollectionAssert.Contains(fromOrigin.AffectedCells.ToList(), new HexCoordinates(3, 0));
+        }
+
+        [Test]
         public void ComputeCommitted_NonAbilityIntent_YieldsEmptyOutcome()
         {
             var enemyAiOwner = new AIPlayer(100, "Enemy", null);

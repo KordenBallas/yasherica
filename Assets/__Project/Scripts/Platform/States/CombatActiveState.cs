@@ -46,6 +46,7 @@ namespace Platform
         private readonly Combat.Execution.IAbilityFiredSink _abilityFiredSink;
         private readonly Combat.Config.HexDirectionConfig _hexDirectionConfig;
         private readonly IGameLogger _logger;
+        private readonly CombatRuleModifiers _combatRules;
 
         private IPlatform _platform;
         private ICombatController _controller;
@@ -83,7 +84,8 @@ namespace Platform
             Combat.Execution.IAbilityOutcomeCalculator outcomeCalculator,
             Combat.Execution.IAbilityFiredSink abilityFiredSink,
             Combat.Config.HexDirectionConfig hexDirectionConfig,
-            IGameLogger logger)
+            IGameLogger logger,
+            [InjectOptional] CombatRuleModifiers combatRules = null)
         {
             _controllerFactory = controllerFactory;
             _cameraService = cameraService;
@@ -105,6 +107,7 @@ namespace Platform
             _abilityFiredSink = abilityFiredSink;
             _hexDirectionConfig = hexDirectionConfig;
             _logger = logger;
+            _combatRules = combatRules;
         }
 
         public override void OnEnter(IPlatform platform)
@@ -197,7 +200,7 @@ namespace Platform
                 // code-built like the other combat overlays, subscribed before the round loop starts.
                 var turnOrderGo = new GameObject("TurnOrderStripView");
                 _turnOrderStripView = turnOrderGo.AddComponent<Combat.View.TurnOrderStripView>();
-                _turnOrderStripPresenter = new TurnOrderStripPresenter(_controller, _turnOrderStripView);
+                _turnOrderStripPresenter = new TurnOrderStripPresenter(_controller, _turnOrderStripView, _combatRules);
 
                 // Live ability animation (D3): plays the opaque cell-sweep whenever an ability fires
                 // (player queue + enemy resolve share the executor's fired-cue sink).

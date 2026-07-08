@@ -11,8 +11,9 @@ namespace Combat.TurnManagement
     /// <summary>
     /// Plan phase: asks every enemy unit's AI for its action up front and snapshots the
     /// committed intent (facing + exact cells) so it can be revealed, telegraphed, and
-    /// later resolved verbatim. The AI scoring itself is untouched — only decide-timing
-    /// (round start) and commitment (lock + reveal) live here.
+    /// later resolved verbatim. The AI scoring lives in the decision makers (see
+    /// Combat.Player.AI) — only decide-timing (round start) and commitment (lock + reveal)
+    /// live here.
     /// Deterministic given deterministic decision makers: units are planned in UnitId order.
     /// </summary>
     public class EnemyIntentPlanner

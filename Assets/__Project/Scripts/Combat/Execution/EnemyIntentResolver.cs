@@ -13,27 +13,35 @@ namespace Combat.Execution
     {
         private readonly IAbilityExecutor _abilityExecutor;
         private readonly IGameLogger _logger;
+        private readonly IIntentEligibility _eligibility;
 
-        public EnemyIntentResolver(IAbilityExecutor abilityExecutor, IGameLogger logger)
+        // The optional eligibility policy defaults to null — every existing construction site
+        // keeps the PvE skip-dead/skip-stunned rule byte-identical (P4-3b's batching is the one
+        // injector).
+        public EnemyIntentResolver(
+            IAbilityExecutor abilityExecutor, IGameLogger logger, IIntentEligibility eligibility = null)
         {
             _abilityExecutor = abilityExecutor;
             _logger = logger;
+            _eligibility = eligibility;
         }
 
         public ICombatState Resolve(ICombatState state, EnemyIntent intent)
         {
             var caster = state.GetUnit(intent.UnitId);
-            if (caster == null || !caster.IsAlive)
+            if (caster == null)
             {
                 _logger.Info(LogCategory.Combat,
                     $"[EnemyIntentResolver] Unit {intent.UnitId} is gone — intent skipped");
                 return state;
             }
 
-            if (caster.ActionState == UnitActionState.Stunned)
+            bool canAct = _eligibility?.CanAct(caster)
+                ?? (caster.IsAlive && caster.ActionState != UnitActionState.Stunned);
+            if (!canAct)
             {
                 _logger.Info(LogCategory.Combat,
-                    $"[EnemyIntentResolver] Unit {intent.UnitId} is stunned — intent skipped");
+                    $"[EnemyIntentResolver] Unit {intent.UnitId} is dead/stunned for this step — intent skipped");
                 return state;
             }
 

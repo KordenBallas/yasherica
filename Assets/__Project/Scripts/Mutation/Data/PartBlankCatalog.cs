@@ -59,7 +59,8 @@ namespace Mutation.Data
                     definition.Slot != null ? definition.Slot.Id : null,
                     definition.SpeciesArchetypeId,
                     definition.SocketCount,
-                    definition.RaceId);
+                    definition.RaceId,
+                    definition.MetaGating.ToCore());
 
                 _all.Add(blank);
                 _byId.Add(definition.Id, blank);

@@ -21,6 +21,11 @@ namespace Combat.Arena.Core
         public event Action<ArenaDraftPick> DraftPickRequested;
         public event Action<ArenaDraftPickApplied> DraftPickApplied;
         public event Action<int> PlayerDeparted;
+        public event Action<ArenaRejoinPackage> RejoinPackageReceived;
+        public event Action<ArenaResyncCommand> ResyncReceived;
+        public event Action<ArenaResyncAck> ResyncAckReceived;
+        public event Action<ArenaAddressBook> AddressBookReceived;
+        public event Action<ulong, ArenaEndpoint> EndpointReported;
 
         /// <summary>In-process departures only happen when a test (or tool) injects one.</summary>
         public void SimulateDeparture(int playerId)
@@ -61,6 +66,40 @@ namespace Combat.Arena.Core
         public void BroadcastDraftPick(ArenaDraftPickApplied applied)
         {
             DraftPickApplied?.Invoke(applied);
+        }
+
+        // ---- X1 reconnect / resync / migration: the loopback bus is a dumb broadcaster — the
+        // targeted messages fire for every subscriber, which filters by TargetPlayerId exactly
+        // like a real client ignoring another seat's point-to-point payload would never see it.
+
+        public void SendRejoinPackage(ulong clientId, ArenaRejoinPackage package)
+        {
+            RejoinPackageReceived?.Invoke(package);
+        }
+
+        public void SendResync(ulong clientId, ArenaResyncCommand command)
+        {
+            ResyncReceived?.Invoke(command);
+        }
+
+        public void SubmitResyncAck(ArenaResyncAck ack)
+        {
+            ResyncAckReceived?.Invoke(ack);
+        }
+
+        public void SubmitEndpoint(ArenaEndpoint endpoint)
+        {
+            EndpointReported?.Invoke(LocalClientId, endpoint);
+        }
+
+        public void BroadcastAddressBook(ArenaAddressBook book)
+        {
+            AddressBookReceived?.Invoke(book);
+        }
+
+        public void RemapClient(int playerId, ulong newClientId)
+        {
+            // In-process play has one connection; there is nothing to remap.
         }
     }
 }

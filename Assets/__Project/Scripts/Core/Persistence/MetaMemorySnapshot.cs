@@ -11,10 +11,13 @@ namespace Core.Persistence
     [Serializable]
     public class MetaMemorySnapshot : IVersionedSnapshot
     {
+        // Stays 1: JsonSaveFile quarantines on version mismatch, so additive fields (Ledger)
+        // must not bump it — an old file simply deserializes them to their defaults.
         public const int CurrentVersion = 1;
 
         public int Version;
         public FactStoreSnapshot Facts = new FactStoreSnapshot();
+        public MetaRunLedgerSnapshot Ledger = new MetaRunLedgerSnapshot();
 
         int IVersionedSnapshot.Version => Version;
     }

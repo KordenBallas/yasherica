@@ -16,3 +16,20 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7f80912a3b4c5d6e7f80912a3b4c5d6f, type: 2}
   - {fileID: 11400000, guid: 61988621db1049a491dcee1777c48fc6, type: 2}
   _output: {fileID: 11400000, guid: 912a3b4c5d6e7f80912a3b4c5d6e7f81, type: 2}
+  _metaGating:
+    _mark: 1
+    _deed:
+    - _namespace: 0
+      _subjectToken: part.legs.spider
+      _key: arena_tasted
+      _op: 0
+      _value:
+        _valueType: 0
+        _boolValue: 1
+        _intValue: 0
+        _floatValue: 0
+        _stringValue: 
+    _unlockTier: 1
+    _drawWeight: 1
+    _minHeat: 2
+    _heatKey: 0

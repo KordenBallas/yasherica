@@ -22,6 +22,7 @@ namespace Mutation.Core
 
         public event Action<int> OnSocketsChanged;
         public event Action<int> OnBlankReady;
+        public event Action<IReadOnlyList<ArtifactInstance>> OnSocketsConsumed;
 
         public SocketingModel(IInventoryModel inventory, IBlankRack rack, IPartBlankDataSource blankData)
         {
@@ -114,6 +115,7 @@ namespace Mutation.Core
             sockets.Clear();
             _socketsByBlank.Remove(blankInstanceId);
             OnSocketsChanged?.Invoke(blankInstanceId);
+            OnSocketsConsumed?.Invoke(consumed);
             return consumed;
         }
 

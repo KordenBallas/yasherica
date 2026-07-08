@@ -5,11 +5,12 @@
 > the world's Cinemachine camera, the world's movement and locomotion, the world's platform
 > pipeline — indistinguishable from a run platform except in style and content) where the hero
 > walks up to the **junk-keeper NPC** (F → the starting-part cards drawn from the tasted-forms
-> catalog) and to one of three **labelled portals** (F → launch into that homeland), with the
+> catalog), to the **cauldron** (F → the Heat pact dare, Track Y — see `heat-ascension.md`), and
+> to one of three **labelled portals** (F → launch into that homeland), with the
 > cauldron's commentary throughout; **death returns here** (the Hades reform point — no game-over
 > screen). Realizes the MVP of the canonical "direction + floor, not a vending machine" dig
 > (`design/narrative/hub-junkyard.md`).
-> Status: current as of 2026-07-06 (hub-as-a-normal-platform corrective rework, same day).
+> Status: current as of 2026-07-08 (Track Y added the cauldron F-spot + pact staging).
 >
 > This document describes the system **as implemented**. If code and this document disagree, this
 > document is outdated and must be fixed. Planned behavior lives only in §6.
@@ -73,6 +74,14 @@
 - **R10** **Death returns the player to the Hub**: after the shipped meta-flush + run consume,
   `RunLifecycleService` marks `hub-arrival.json` and loads the Hub; the voice greets the return.
   No game-over screen.
+- **R11** *(Track Y)* A **cauldron F-spot** mirrors the keeper on screen-right (an ember-tinted pot
+  prop with `[F] Dare`; skipped entirely when no Heat menu is authored). It opens the **Heat pact**
+  on the same shared card panel — one card per modifier (rank = the rarity glow) plus a seal card —
+  under a **panel arbiter** (`HubPanelArbiter`) so the part offer and the pact never read each
+  other's clicks. A **pact change re-deals the dig** deterministically from the same seed (the
+  heat-aware vocabulary re-answers min-Heat gates and relieved floors; the lifted dials re-bias
+  the draw; the current pick resets to bare). The sealed pact rides `run-setup.json` at launch.
+  The voice covers three new moments (dare / sealed / declined). Full model: `heat-ascension.md`.
 
 ### 1.2 Non-functional requirements
 

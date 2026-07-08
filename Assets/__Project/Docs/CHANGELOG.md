@@ -8,7 +8,166 @@ Every functional change appends an entry **in the same change as the code** (CLA
 
 ## [Unreleased]
 
+### Fixed
+- **Heat — a soft-cap refusal is never silent** [heat-ascension R3; owner playtest 2026-07-08]:
+  taking all four demo modifiers hit the pact's soft cap (9 < the menu's 11) and the last step
+  ("Thinner Medallions") was refused with **zero feedback** — the card didn't change and the run
+  launched without the most visible effect the owner then looked for. Now the capped card's hover
+  reads "next step over the cap (M) — lower another pain first" (`HubHeatModel.NextStepIsCapped`)
+  and the seal card shows "Heat N / cap M" while a cap is active. **Owner call:** the demo
+  `_softCapTotalHeat` is lifted to 0 (uncapped) so the whole demonstrator menu is takeable during
+  playtests; re-cap by data when the menu grows. Diagnosis note: the heat=9 run's other effects
+  DID apply (tier lift + high-water record in the log); the pact is per-run and resets at the Hub.
+  Tests: `HubHeatModelTests` (capped-marker cases) · `HeatConfigMapperTests` updated.
+
 ### Added
+- **Heat / Ascension — player-chosen difficulty as the cauldron's dare (Track Y)**
+  [heat-ascension R1–R15; consumed brief `heat-ascension-difficulty.md`]: the reiterability engine —
+  an optional **pact of independent rules-modifiers** (each 1–N rank steps with authored Heat
+  values; total = the sum) taken at a new **cauldron F-spot on the Hub** (ember pot mirroring the
+  keeper; skipped when unauthored), presented on the shared mutation card panel with **zero view
+  changes** (rank = the rarity glow, pips + Heat in the name, the rank's rule text as a
+  passive-ability hover, a closing "Seal the pact" card) under a new `HubPanelArbiter` (fixes the
+  shared-panel cross-talk with the part offer); locked for the run at the portal commit.
+  **Rules, not stats** — four code seams consumed via per-system neutral records (no system
+  references `Heat.*`): `EnemiesActFirst` (`RoundLeadPolicy` + `PveCombatFlow` + the turn-order
+  strip — the strip consults the same rule as the flow), `RaisedCreatureFloor` (the D19 tier lifted
+  at `BiomeStretchDirector`'s one fact-write site — planner tier-bands + monster pools follow for
+  free), `StingyCauldron` (unseal variant options cut, floor 1), `FewerSockets` (a
+  `SocketAdjustedBlankSource` decorator on `IPartBlankDataSource` — socketing, the medallion gem
+  ring, and quest pools all see one reduced count, floor 1). **Reward entirely through Track R:**
+  per-token **min-Heat gates** (`MetaGatingAuthoring._minHeat`/`_heatKey`, keyed to the current
+  pact or the persisted record) + tier run-floor **relief** + a **dig bias lift** riding
+  `HeatDialAdjuster` — the never-guarantee ceiling untouched by construction; R exposes only the
+  narrow `IHeatLens` seam (dependency points Heat → MetaProgression). A pact change at the hub
+  **re-deals the dig deterministically** from the same seed. **Persistence:** the pact rides
+  `run-setup.json` and `run.json` as additive fields at **unchanged snapshot versions** (old saves
+  = Heat 0, never quarantined) and degrades gracefully against a re-authored menu; the **hottest
+  clear** persists as the Meta fact `world.heat_high_water` (new `ISavepointObserver` seam on
+  `AutosaveService` → `HeatHighWaterRecorder`, written before the meta flush; MVP "cleared" =
+  a savepoint at window ≥ the configured floor). **Voice:** three new authored cauldron moments
+  (dare / sealed / declined). **Data:** one `HeatConfig` asset (the embedded modifier menu + the
+  R-mapping dials + soft cap + clear floor + ember tint) with a four-modifier demonstrator set;
+  min-Heat demonstrator on `Recipe_NeedleBacteria_Stinger` (taste + Heat ≥ 2); Heat 0 reproduces
+  today's game and the **Arena is untouched** (never installed there). New system doc
+  `heat-ascension.md`. Tests: `HeatPactTests` · `HeatRulesTests` · `HeatDialAdjusterTests` ·
+  `HeatConfigMapperTests` · `MetaVocabularyHeatTests` · `HubHeatModelTests` ·
+  `SocketAdjustedBlankSourceTests` · `HeatHighWaterRecorderTests` · `HeatPactPersistenceTests` ·
+  extended `RoundLeadPolicyTests` / `BiomeStretchDirectorTests` / `MutationVariantPresenterTests` /
+  `MetaGatingDemonstratorTests`.
+- **Meta-progression spine — unlock the vocabulary, never the power (Track R core)**
+  [meta-progression R1–R14; consumed brief `meta-progression-spine.md`]: the cross-run Isaac-model
+  layer. **Gating:** every gateable content SO (`PartDefinition` / `ArtifactDefinition` /
+  `RecipeDefinition` / `PartBlankDefinition`) carries a `MetaGatingAuthoring` block (mark / deed /
+  unlock tier / draw weight; unmarked = base, FR15); deeds reuse the authored fact-predicate
+  grammar (`$self` = the token id) over Meta-horizon facts — the two MVP channels are tasting a
+  form (`world.<partId>.arena_tasted`) and reveal-spine milestones (`spine_seen`, `run_count`); a
+  deed satisfied unlocks immediately, paced by per-tier run floors (owner forks 2026-07-07).
+  **Vocabulary:** `MetaVocabulary` (pure, frozen per scene from `meta.json` + the effective run
+  count) answers `IsUnlocked`; consulted by all five draw surfaces — the hub dig pool (now
+  **Tasted ∩ Eligible**, run-1 bare launch unchanged), biome loot tables (new `MetaGateLootFilter`
+  in the existing `ILootEntryFilter` chain), quest-reward pools (extracted
+  `QuestRewardPoolsBuilder`), the recipe book (a locked recipe simply doesn't exist; token id =
+  output artifact id), and mutation variant candidates. **Direction bias:** a per-run ledger
+  (`MetaRunLedgerSnapshot` — an additive `MetaMemorySnapshot` field, version stays 1 so old files
+  never quarantine) records installed part ids (`PartsChanged`) and consumed reagent ids (new
+  `ISocketingModel.OnSocketsConsumed` at the unseal commit); `DirectionTally` reads its sliding
+  window on the two data axes (race marker / substance+property traits) into a `DirectionProfile`
+  that weights the dig's tie-break — `pow(drawWeight·(1+strength·score), dilution)` with every
+  weight clamped below the **never-guarantee ceiling < 100%** (uniform weights = the legacy pick,
+  byte-identical). **Tuning:** one `MetaProgressionConfig` asset (floors, window, axis weights,
+  bias + ceiling, dig shape incl. offer size — the old `OfferSize = 3` const retired — dilution,
+  retention) slides generous↔minimal without a rebuild. **Demonstrator set (FR16):**
+  `Part_LegsSpider` (run ≥ 3), `Part_SpineSerpent` (spine milestone), `Recipe_FireWater_Snake` /
+  `Recipe_NeedleBacteria_Stinger` (taste-the-form deeds). New system doc `meta-progression.md`;
+  in-run currency stays the separate companion brief. Tests: `MetaVocabularyTests` ·
+  `SnapshotPredicateEvaluatorTests` · `MetaProgressionConfigMapperTests` · `RunLedgerTests` ·
+  `MetaMemorySnapshotCompatTests` · `DirectionTallyTests` · `StartingPartSelectorBiasTests` ·
+  `MetaGatingSurfaceTests` · `MetaGatingDemonstratorTests`.
+- **Arena anti-cheat + P4-3 resolution/damage alternatives (Track X · X2)** [arena-mode §2.7 /
+  §2.11]: the host no longer trusts relayed commits. **Host-side commit validation:**
+  `ArenaCommitValidator` (pure) re-checks every accepted commit against the host's canonical
+  round-start state (`IArenaCanonicalStateSource` = the controller over the flow's retained anchor)
+  — ownership/seat, alive+not-stunned, defined facing, shape (one move XOR a volley within the
+  queue-size cap **and** the seat's banked scheduling rounds via `ArenaQueueCreditLedger`), move
+  legality (origin/range/on-platform), ability legality (known + off cooldown), and the
+  load-bearing **cell re-derivation** through the shared `ArenaCommitBuilder.RebuildAbilityIntent`
+  (extracted public — one source, no drift) with exact equality: tampered cells cannot enter the
+  bundle. An invalid commit is **replaced with a pass** (reusing X1's `MarkPassed`) + loud
+  `CommitRejected` — no kick (safe under a false positive); gated by `_validateCommits` (on by
+  default), the host's own commit self-checks. **P4-3a `SeededShuffleResolutionOrder`:** a
+  config-selected per-round Fisher–Yates (`LootSeed.Derive(seed, "arena-resolve:{round}")`) behind
+  the existing `IArenaResolutionOrder` seam — unpredictable but lockstep-identical; default stays
+  `RotatingInitiative`. **P4-3b per-step damage batching** (config-gated, default off): a new
+  `ICombatRoundFlow.OnIntentResolved` hook + optional `IIntentEligibility` on `EnemyIntentResolver`
+  (null everywhere = PvE byte-identical) + `ArenaStepBatcher` / `ArenaBatchEligibility` +
+  `LastHeroStandingWinCondition.Suspend/Resume` let the round resolve step-major with the win check
+  gated to batch boundaries — a mutual lethal exchange kills **both** (a real draw) instead of the
+  sequential skip-dead survivor. New config fields on `ArenaMatchConfig`
+  (`_resolutionOrderMode` / `_validateCommits` / `_simultaneousDamageBatching`). Tests:
+  `SeededShuffleResolutionOrderTests` · `ArenaCommitValidatorTests` ·
+  `ArenaCommitValidationFlowTests` (forged envelope → pass, hashes converge) ·
+  `ArenaDamageBatchingTests` (mutual-kill draw vs sequential survivor) — **1761/1761 EditMode green**
+  (clone-project batch run) with the shipped defaults (rotation + sequential + validation on).
+- **Arena online robustness — reconnect + disconnect grace + desync recovery + host migration
+  (Track X · X1)** [arena-mode R15–R18 · §2.10]: a dropped or diverged peer no longer ends (or
+  silently corrupts) a networked match. **Grace/auto-pass (R15):** `ArenaSeatLedger` (Connected /
+  Gracing / Resyncing / Departed) — a vanished connection is auto-passed by the host for
+  `_disconnectGraceRounds` round-opens (its unit stays alive in place; the pass is a bundle-level
+  fact `AutoPassedPlayerIds`, normalization unchanged) and only then departs. **Rejoin (R16):**
+  derived `ArenaRejoinToken` (off the match seed — no storage, any authority validates) claims the
+  gracing seat at connection approval (`ArenaConnectPayload` in NGO ConnectionData →
+  `IArenaRejoinGate`); the host ships an `ArenaRejoinPackage` (setup + draft loadouts +
+  **round-start `ArenaStateSnapshot`** — the exact hash field set; queues/acted/intents excluded
+  by design — + the round's bundle if already broadcast); `ArenaSnapshotRestorer` restores by
+  overlay (statuses rebuilt by id via `IArenaStatusReconstructor` → status catalog + factory;
+  any mismatch fails the whole restore), the flow adopts it (`AdoptState`), and the collector
+  reinstates the seat into the still-open round. **Desync heal (R17):** `DesyncDetected` now
+  pushes a targeted resync snapshot instead of only warning; the diverged client adopts, re-plans,
+  and reports the host's hash from then on. **Host migration (R18, best-effort):** one client-side
+  drop machine (`ArenaReconnectClient`, tick-driven, pure) retries the known host, then every
+  survivor elects deterministically (`ArenaHostElection` = lowest connected PlayerId over the
+  bundle-fed `ArenaSeatStatusMirror`); the winner re-hosts (`MatchStarted` kept, fresh seat book
+  with all others in grace — the dead host may return as a rejoiner), rolls the round back to its
+  planning anchor (`ReopenCurrentRound`; in-flight commits died with the old host), and losers
+  dial it off the self-reported address book (`LanEndpointSource`; LAN best-effort until X3).
+  Five new named messages (`yash.arena.rejoin/resync/resyncack/endpoint/addrbook`), four config
+  dials on `ArenaMatchConfig`, HUD reconnect overlays + seat notices (drop is terminal only on
+  `ReconnectFailed` or pre-combat), engine additions kept surgical (`CombatState.WithTurnNumber`,
+  resolve-cursor reset in `EnterEnemyResolveWithIntents`, additive
+  `IStatusEffectFactory.CreateStatusEffect(def, duration, stacks)` — PvE byte-identical). Tests:
+  `ArenaSeatLedgerTests` · `ArenaSnapshotTests` (capture→restore→hash invariant) ·
+  `ArenaReconnectFlowTests` (auto-pass/expiry/rejoin-before-and-after-broadcast/desync-heal, all
+  hash-converging) · `ArenaHostMigrationTests` (election, promote-self to victory, terminal
+  fallbacks) + wire-codec round-trips — green as part of the **1761/1761 EditMode** suite (with X2).
+  ⚠ Awaiting the owner's two-machine LAN checklist (arena-mode §5) for play verification.
+- **Smarter ability-using enemy AI + configurable difficulty (P2-4 · Track K)** [new
+  `combat-enemy-ai.md` · combat-round-and-telegraph R7 · arena-mode §2.6]: enemies now decide by
+  **simulating candidates against the real board** instead of flat payload scoring. New pure-C#
+  pipeline `Scripts/Combat/Player/AI/`: `AICandidateEnumerator` (ability × facing, (Q,R)-sorted
+  move cells capped at 64, end turn — fixed order), `AIActionScorer` (folds
+  `IAbilityOutcomeCalculator` outcomes: damage/kill on hostiles up, friendly fire down, heals worth
+  only missing HP, statuses only against targets not already carrying them; moves earn a
+  positioning gradient + **lookahead improvement** — the best next-round shot from the destination
+  minus from here, discounted — so units that can hit attack and units that can't walk toward the
+  shot), `AIDecisionQualityFilter` (mistake roll → per-candidate noise → top-N pick; the pipeline's
+  only RNG, argmax at perfect dials), `SimulationTacticalAI` (`IAIDecisionMaker` orchestrator).
+  **Difficulty is configuration on two layers**: `AIProfileDefinition` gains decision-quality dials
+  (`_scoreNoise`/`_pickFromTopN`/`_mistakeChance`) + priority weights (`_focusWoundedWeight`,
+  `_friendlyFirePenaltyWeight`, `_aggressionWeight`, `_selfPreservationWeight`) with back-compat
+  defaults (legacy assets = sharp pre-P2-4 behavior), and the new **`DifficultyDefinition`** SO
+  (`Create → Combat → AI → Difficulty`) modulates every enemy at once — quality dials add,
+  priority scales multiply; Easy/Normal/Hard presets authored under `Resources/Combat/Difficulty/`,
+  bound via installer field → `NormalDifficulty` Resources fallback → Neutral, behind the
+  `IAIDifficultySource` seam (a future settings screen swaps the source). Hostility became an
+  injected `IHostilityPolicy`: `TeamHostilityPolicy` (PvE) / `FreeForAllHostilityPolicy` (Arena);
+  one `AIDecisionMakerFactory` builds the same brain for PvE enemies and Arena offline dummies.
+  `IAbilityOutcomeCalculator` gains a hypothetical-origin `ComputeForFacing` overload (telegraph
+  callers untouched). Determinism preserved: same seed + state → same pick even with noise/top-N.
+  Tests: `SimulationTacticalAITests` (aiming/kill-securing/friendly-fire/heal/lookahead/
+  determinism/difficulty-monotonicity), `AIDecisionQualityFilterTests`, `AITuningTests`,
+  `AIDefinitionMapperTests`, outcome-origin parity — 81/81 combat closure green, full game +
+  all-test compile clean.
 - **Cross-Device Input Foundation** [new `input-foundation.md` · npc-proximity-interaction R3 ·
   dev-tools R6 · inventory R4] (brief `cross-device-input-foundation.md`): the game is now played
   through a fixed **named-action vocabulary** (Move / Interact / Confirm / Cancel / Navigate / Aim /
@@ -58,6 +217,40 @@ Every functional change appends an entry **in the same change as the code** (CLA
   run.** ⚠ Awaiting owner gameplay pass (on-screen feel).
 
 ### Changed
+- **Enemy decision-maker creation path (Combat · Arena)** [combat-enemy-ai]:
+  `EnemyCombatIntegrator.CreateDecisionMaker` builds Tactical enemies through the injected
+  `AIDecisionMakerFactory` (profile mapped via `AIProfileMapper`, no-profile enemies get the sharp
+  `AIBehaviorProfile.Default`); `ArenaSceneEntrypoint.SeatOfflinePlayers` seats dummies with the
+  same factory. `SimpleRandomAI` unchanged. `Resources/Enemies/AIProfiles/TestAIProfile.asset`
+  body updated (drops `_killThresholdPercent`, adds the seven new dials at default values,
+  **`_basePersonality` SimpleRandom → Tactical** — the profile's personality routes an enemy into
+  the simulation AI, so the old value left every test enemy on random actions; GUID/meta
+  untouched). `AreaInstaller`/`ArenaInstaller` gain a `_difficulty` inspector field.
+
+- **A1 · Combat core reconvergence — one shared round engine** [Combat · Arena ·
+  `combat-round-and-telegraph.md` §2.1/§2.3/§2.5/§5 · `arena-mode.md` §2.3/§5 ·
+  `combat-status-effects.md` R3] (W2 audit F1 P0 / `audits/W6.md` Theme R1): `ArenaCombatController`
+  was a near-verbatim copy of the PvE `CombatController` (35 consumers of `ICombatController`) — every
+  combat-core change had to be written and unit-tested twice or the Arena silently diverged. Extracted
+  the shared round/state core into one pure-C# **`CombatRoundEngine`** (unit-list mutation, battlefield
+  lifecycle, phase sequencing, the resolve loop, the end-of-round lifecycle, and the win check), with
+  the three divergence axes behind an injected **`ICombatRoundFlow`**: **`PveCombatFlow`** (initiator
+  lead + player/enemy interleave, local `EnemyIntentPlanner` intents, execute-locally actions,
+  eliminate-all-enemies win) and **`ArenaCombatFlow`** (host gather + hidden planning, the
+  execute-or-intercept-into-`ArenaCommit` action path, the bundle→`IArenaResolutionOrder` resolution
+  source, the end-of-round `ArenaStateHash` publish, last-hero-standing win). Both controllers are now
+  thin `ICombatController` adapters that internally compose the engine + their flow; **constructor
+  signatures, DI bindings (`AreaInstaller`/`ArenaInstaller`/`CombatControllerFactory`), and the
+  Arena-only surface (`SetHostRole`/`ArmWinCondition`/`LastRoundHash`) are unchanged**, so no consumer,
+  installer, or existing test moved. The shared win-check now guards against a second `OnGameEnded`
+  firing once the game is over (previously only Arena did). Behaviour otherwise preserved — round order,
+  phase sequencing, win semantics, and the Arena lockstep hash are byte-for-byte identical.
+  Gates **Track X** (online robustness sits on this seam) and **Track K / P2-4** (combat depth).
+  New `CombatRoundEngineTests` covers the extracted core directly (closing the gap that the PvE
+  controller had no unit test — play-mode-only). **1674/1674 EditMode green** via the clone-project
+  batch run (incl. `ArenaLockstepTests`/`ArenaRoundFlowTests`/`ArenaEdgeCaseTests` determinism as the
+  safety net). `CombatActiveState` bootstrap split (F5) + unit-spawn unification (D6) stay separate.
+
 - **`PCInputController` → `CombatInputController` (Combat)** [input-foundation R3]: the combat
   gesture state machine is preserved tap/hold-identical, but the device seam now polls the shared
   actions (so every gesture works on gamepad out of the box) and aim direction moved behind
@@ -68,6 +261,22 @@ Every functional change appends an entry **in the same change as the code** (CLA
   polling the shared Interact action instead of a MonoBehaviour reading `Keyboard.current.fKey`.
 
 ### Removed
+- **`TacticalAI` and `ConfigurableTacticalAI` (Combat)**: the flat-scoring tactical AIs are
+  deleted — `SimulationTacticalAI` with the default profile subsumes both (three near-duplicate
+  tactical brains violated KISS). `AIProfileDefinition._killThresholdPercent` removed (dead field —
+  never read; kill detection is simulation-driven now).
+
+### Fixed
+- **PvE enemies no longer treat each other as targets (Combat)** [combat-enemy-ai R7]: each enemy
+  owns a separate `AIPlayer` (distinct `Owner.Id`), so the old `Owner.Id != unit.Owner.Id`
+  hostility check scored fellow enemies as victims. Hostility is now the injected
+  `TeamHostilityPolicy` (AI side vs everyone else) in PvE, `FreeForAllHostilityPolicy` in the
+  Arena (where everyone-vs-everyone is correct).
+- **Enemies no longer fire blanks or default to the first facing (Combat)** [combat-enemy-ai R1]:
+  ability candidates that hit no one now score below ending the turn, and facing selection is
+  outcome-driven — the pre-existing "all six facings score equally, ties break toward the first
+  direction" limitation is gone.
+
 - **`JoystickInputController` and `MobileInputController` (Combat)**: the never-bound gamepad
   controller and the stubbed mobile controller are deleted — their intent is absorbed by the merged
   binding model (all devices live on one controller) and the touch overlay; the installers' hardcoded

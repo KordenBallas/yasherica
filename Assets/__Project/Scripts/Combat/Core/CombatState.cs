@@ -100,6 +100,15 @@ namespace Combat.Core
         }
 
         /// <summary>
+        /// Creates a new game state at an explicit turn number (arena state transfer: a rejoiner
+        /// adopts the authoritative round mid-match).
+        /// </summary>
+        public CombatState WithTurnNumber(int turnNumber)
+        {
+            return new CombatState(Units, Players, CurrentPlayer, turnNumber, Phase, _battlefield, RoundPhase, EnemyIntents);
+        }
+
+        /// <summary>
         /// Creates a new game state with updated phase.
         /// </summary>
         public CombatState WithPhase(CombatPhase newPhase)

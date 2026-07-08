@@ -96,6 +96,8 @@ namespace Core.Persistence
                 // The Hub's window-0 override must ride every savepoint (O1): the biome journey
                 // replays from the seed on resume, so this is the only carrier of the chosen entry.
                 StartingBiome = _startConditions?.StartingBiomeName ?? string.Empty,
+                // The sealed pact is locked for the run (heat-ascension FR2) and rides the same way.
+                Heat = CapturePact(),
                 Narrative = narrative,
                 World = _world?.Capture() ?? new WorldStateSnapshot(),
                 Body = _heroBody?.Capture() ?? new HeroBodySnapshot(),
@@ -129,6 +131,22 @@ namespace Core.Persistence
 
             // 6. Hero body (applied when the rig assembles).
             _heroBody?.Restore(snapshot.Body);
+        }
+
+        private List<HeatPactEntryDto> CapturePact()
+        {
+            var pact = new List<HeatPactEntryDto>();
+            if (_startConditions?.HeatPact == null)
+            {
+                return pact;
+            }
+
+            foreach (var entry in _startConditions.HeatPact)
+            {
+                pact.Add(new HeatPactEntryDto { ModifierId = entry.ModifierId, Rank = entry.Rank });
+            }
+
+            return pact;
         }
 
         private PlayerStuffSnapshot CaptureStuff()

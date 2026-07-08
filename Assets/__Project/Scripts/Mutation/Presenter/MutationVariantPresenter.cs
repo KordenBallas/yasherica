@@ -45,6 +45,7 @@ namespace Mutation.Presenter
         private readonly Narrative.Barks.Core.ICauldronBarkService _barks;
         private readonly CharacterSystem.Data.IPartCatalog _partDefinitions;
         private readonly Narrative.Facts.Core.IFactStore _facts;
+        private readonly MutationRuleModifiers _rules;
 
         private readonly List<MutationOption> _offered = new List<MutationOption>();
         private int _shownBlankInstanceId = -1;
@@ -67,11 +68,13 @@ namespace Mutation.Presenter
             IGameLogger logger,
             Narrative.Barks.Core.ICauldronBarkService barks = null,
             CharacterSystem.Data.IPartCatalog partDefinitions = null,
-            Narrative.Facts.Core.IFactStore facts = null)
+            Narrative.Facts.Core.IFactStore facts = null,
+            MutationRuleModifiers rules = null)
         {
             _barks = barks;
             _partDefinitions = partDefinitions;
             _facts = facts;
+            _rules = rules ?? MutationRuleModifiers.Neutral;
             _socketing = socketing;
             _rack = rack;
             _blankData = blankData;
@@ -132,12 +135,15 @@ namespace Mutation.Presenter
                 return false;
             }
 
+            // The stingy-cauldron pact (Track Y) narrows the offer but never empties it: floor 1 —
+            // a single take-it-or-leave-it form is the pain, not a broken unseal.
+            int maxOptions = Math.Max(1, _config.MaxVariantOptions - _rules.VariantOptionCut);
             var options = _builder.Build(
                 blank,
                 CollectSocketedProfiles(blankInstanceId),
                 _partCatalog.AllCandidates,
                 CollectExcludedParts(blank.SlotId),
-                _config.MaxVariantOptions,
+                maxOptions,
                 new VariantScoringParameters(_config.RarityWeight, _config.TierUnlockPerRarityTier));
             if (options.Count == 0)
             {

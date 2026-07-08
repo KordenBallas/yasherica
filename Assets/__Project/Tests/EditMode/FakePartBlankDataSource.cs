@@ -17,9 +17,13 @@ namespace Tests.EditMode
         public FakePartBlankDataSource Add(
             string definitionId, string slotId, string speciesArchetypeId, int socketCount)
         {
-            var blank = new PartBlankData(definitionId, definitionId, slotId, speciesArchetypeId, socketCount);
+            return Add(new PartBlankData(definitionId, definitionId, slotId, speciesArchetypeId, socketCount));
+        }
+
+        public FakePartBlankDataSource Add(PartBlankData blank)
+        {
             _all.Add(blank);
-            _byId[definitionId] = blank;
+            _byId[blank.DefinitionId] = blank;
             return this;
         }
 

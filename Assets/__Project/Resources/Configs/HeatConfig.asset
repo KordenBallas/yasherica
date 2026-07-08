@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ddb489844e8a29a908299c23b541f98, type: 3}
+  m_Name: HeatConfig
+  m_EditorClassIdentifier:
+  _modifiers:
+  - _id: enemies-first
+    _displayName: They Strike First
+    _kind: 0
+    _ranks:
+    - _heatValue: 2
+      _magnitude: 1
+      _description: Enemies act before you every round, not only when they start the
+        fight.
+  - _id: raised-floor
+    _displayName: Older Things Wake
+    _kind: 1
+    _ranks:
+    - _heatValue: 2
+      _magnitude: 1
+      _description: The creature floor rises one escalation tier - tougher things prowl
+        from the first platform.
+    - _heatValue: 2
+      _magnitude: 1
+      _description: The creature floor rises a second tier - the deep-run bestiary
+        greets you at the door.
+  - _id: stingy-cauldron
+    _displayName: The Cauldron Skimps
+    _kind: 2
+    _ranks:
+    - _heatValue: 1
+      _magnitude: 1
+      _description: Every unseal offers one fewer form to choose from.
+    - _heatValue: 2
+      _magnitude: 1
+      _description: Every unseal offers yet another form fewer - take what the pot
+        deigns to give.
+  - _id: fewer-sockets
+    _displayName: Thinner Medallions
+    _kind: 3
+    _ranks:
+    - _heatValue: 2
+      _magnitude: 1
+      _description: Every medallion carries one fewer reagent socket (never below
+        one).
+  _floorReliefRunsPerHeat: 0.5
+  _biasStrengthLiftPerHeat: 0.15
+  _reserveDirectionSlotMinHeat: 4
+  _softCapTotalHeat: 0
+  _clearWindowFloor: 2
+  _pactCardTint: {r: 0.85, g: 0.45, b: 0.2, a: 1}

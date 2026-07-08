@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Combat.Arena.Core;
 using Combat.Arena.Networking;
 using Combat.Arena.View;
 using Combat.Core;
@@ -13,8 +14,11 @@ namespace Combat.Arena
     /// <summary>
     /// The in-match HUD flow: round/status line ("plan your actions" → "locked in — waiting"),
     /// defeat → spectate (input off, label on — the match keeps resolving in front of the player),
-    /// the winner/draw banner with Leave → main menu, lost-connection handling on joined clients,
-    /// and the R10 desync warning on the host.
+    /// the winner/draw banner with Leave → main menu, and the R10 desync warning on the host.
+    /// A lost connection is no longer terminal (X1): the reconnect machine drives the status line
+    /// while it retries/migrates, input freezes for the duration, and only
+    /// <see cref="ArenaReconnectClient.ReconnectFailed"/> lands on the old "connection lost" end
+    /// state. Seat notices surface other players' drops off the bundle stream.
     /// </summary>
     public class ArenaMatchHudPresenter : IInitializable, IDisposable
     {
@@ -22,6 +26,8 @@ namespace Combat.Arena
         private readonly ArenaCombatController _controller;
         private readonly ArenaMatchHost _matchHost;
         private readonly ArenaSessionService _session;
+        private readonly ArenaReconnectClient _reconnectClient;
+        private readonly IArenaTransport _transport;
         private readonly IPlayerRegistry _playerRegistry;
         private readonly IInputController _inputController;
         private readonly ISceneLoader _sceneLoader;
@@ -29,12 +35,15 @@ namespace Combat.Arena
 
         private bool _spectating;
         private bool _matchOver;
+        private bool _reconnecting;
 
         public ArenaMatchHudPresenter(
             IArenaMatchHudView view,
             ArenaCombatController controller,
             ArenaMatchHost matchHost,
             ArenaSessionService session,
+            ArenaReconnectClient reconnectClient,
+            IArenaTransport transport,
             IPlayerRegistry playerRegistry,
             IInputController inputController,
             ISceneLoader sceneLoader,
@@ -44,6 +53,8 @@ namespace Combat.Arena
             _controller = controller;
             _matchHost = matchHost;
             _session = session;
+            _reconnectClient = reconnectClient;
+            _transport = transport;
             _playerRegistry = playerRegistry;
             _inputController = inputController;
             _sceneLoader = sceneLoader;
@@ -54,11 +65,17 @@ namespace Combat.Arena
         {
             _view.SetSpectatingVisible(false);
             _view.SetLeaveVisible(false);
+            _view.SetSeatNotice(null);
 
             _view.LeaveClicked += HandleLeaveClicked;
             _controller.OnStateChanged += HandleStateChanged;
             _controller.OnGameEnded += HandleGameEnded;
             _matchHost.DesyncDetected += HandleDesyncDetected;
+            _matchHost.CommitRejected += HandleCommitRejected;
+            _reconnectClient.PhaseChanged += HandleReconnectPhaseChanged;
+            _reconnectClient.Reconnected += HandleReconnected;
+            _reconnectClient.ReconnectFailed += HandleReconnectFailed;
+            _transport.BundleReceived += HandleBundleReceived;
             _session.ClientDisconnected += HandleClientDisconnected;
         }
 
@@ -68,12 +85,17 @@ namespace Combat.Arena
             _controller.OnStateChanged -= HandleStateChanged;
             _controller.OnGameEnded -= HandleGameEnded;
             _matchHost.DesyncDetected -= HandleDesyncDetected;
+            _matchHost.CommitRejected -= HandleCommitRejected;
+            _reconnectClient.PhaseChanged -= HandleReconnectPhaseChanged;
+            _reconnectClient.Reconnected -= HandleReconnected;
+            _reconnectClient.ReconnectFailed -= HandleReconnectFailed;
+            _transport.BundleReceived -= HandleBundleReceived;
             _session.ClientDisconnected -= HandleClientDisconnected;
         }
 
         private void HandleStateChanged(ICombatState state)
         {
-            if (_matchOver || state == null || state.Phase != CombatPhase.Combat)
+            if (_matchOver || _reconnecting || state == null || state.Phase != CombatPhase.Combat)
                 return;
 
             UpdateSpectateState(state);
@@ -136,14 +158,83 @@ namespace Combat.Arena
                     : $"{winner.Name} is the last hero standing";
 
             _view.SetSpectatingVisible(false);
+            _view.SetSeatNotice(null);
             _view.SetStatus(banner);
             _view.SetLeaveVisible(true);
         }
 
+        // ---- X1: the reconnect machine drives the line while the connection is down ----
+
+        private void HandleReconnectPhaseChanged(ArenaReconnectPhase phase, string status)
+        {
+            if (_matchOver)
+                return;
+
+            switch (phase)
+            {
+                case ArenaReconnectPhase.RetryingHost:
+                case ArenaReconnectPhase.ConnectingToCandidate:
+                    _reconnecting = true;
+                    _inputController.Disable();
+                    _view.SetStatus(status);
+                    break;
+
+                case ArenaReconnectPhase.InMatch when _reconnecting:
+                    // Handled by Reconnected (also covers the promoted-host copy).
+                    _view.SetStatus(status);
+                    break;
+            }
+        }
+
+        private void HandleReconnected()
+        {
+            if (_matchOver)
+                return;
+
+            _reconnecting = false;
+            if (!_spectating)
+            {
+                _inputController.Enable();
+            }
+
+            _logger.Info(LogCategory.Combat, "[ArenaMatchHud] Back in the match");
+        }
+
+        private void HandleReconnectFailed()
+        {
+            if (_matchOver)
+                return;
+
+            _matchOver = true;
+            _inputController.Disable();
+            _view.SetStatus("Connection to the match was lost");
+            _view.SetLeaveVisible(true);
+            _logger.Warning(LogCategory.Combat, "[ArenaMatchHud] Reconnect failed — match over");
+        }
+
+        private void HandleBundleReceived(ArenaRoundBundle bundle)
+        {
+            if (_matchOver)
+                return;
+
+            if (bundle.AutoPassedPlayerIds.Count > 0)
+            {
+                var names = string.Join(", ", bundle.AutoPassedPlayerIds.Select(id => $"Player {id}"));
+                _view.SetSeatNotice($"{names} disconnected — auto-passing");
+            }
+            else
+            {
+                _view.SetSeatNotice(null);
+            }
+        }
+
         private void HandleClientDisconnected(ulong clientId)
         {
-            // On a joined client, losing the server surfaces as our own clientId disconnecting.
+            // Pre-combat drops (the reconnect machine is armed only once combat begins) keep the
+            // MVP terminal behavior: a host lost during connect/draft ends the session.
             if (_matchOver || _session.IsHost || clientId != _session.LocalClientId)
+                return;
+            if (_reconnectClient.Phase != ArenaReconnectPhase.Idle)
                 return;
 
             _matchOver = true;
@@ -156,6 +247,13 @@ namespace Combat.Arena
         private void HandleDesyncDetected(int playerId)
         {
             _view.ShowDesyncWarning();
+        }
+
+        private void HandleCommitRejected(int playerId, string reason)
+        {
+            // Host-side only (the event lives on the assembler): the substituted pass itself
+            // rides the bundle for everyone.
+            _view.SetSeatNotice($"Player {playerId}'s action was rejected — passed this round");
         }
 
         private void HandleLeaveClicked()

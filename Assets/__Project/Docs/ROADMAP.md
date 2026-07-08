@@ -173,8 +173,11 @@ Renamed from the report's `R1–R8` to avoid colliding with **Track R** / **Trac
 Fable-lane track; the rest are opportunistic and fold into N/L/P6. Priority view + models + sources = the
 **Audit Refactors** section in `ROADMAP-prioritized.md`.
 
-- [ ] `[arch]` **A1 — Combat core reconvergence** — shared round/state engine under the `CombatController`
-  / `ArenaCombatController` verbatim-copy pair. **Fix-first — before Track X & Track K.** Opus (Fable opt.).
+- [x] `[arch]` **A1 — Combat core reconvergence** ✅ **shipped 2026-07-07** (Opus) — shared pure-C#
+  `CombatRoundEngine` under both controllers; the three axes behind `ICombatRoundFlow`
+  (`PveCombatFlow` / `ArenaCombatFlow`); thin `ICombatController` adapters with constructors, DI, and the
+  Arena-only surface unchanged; new `CombatRoundEngineTests`; 1674/1674 EditMode green. The Fable lane is
+  now clear to start Track X on the single combat engine. `CombatActiveState` split stays F5/D6. (CHANGELOG)
 - [ ] `[arch]` **A2 — Biome-as-data** — `BiomeDefinition` SO replaces the `LevelTheme` enum (the one P0
   extensibility gap); before the Mtn/Desert content wave. Opus.
 - [ ] `[arch]` **A3 — One platform seam** — `PlatformRegistry`→DI, kill `GameObject.Find` in
@@ -198,11 +201,24 @@ Owner call 2026-07-07: **Arena is a shippable feature for the broad public.** Th
 layer it deliberately skipped** (`arena-mode.md` §6). The netcode-correctness core is **Fable**, the
 SDK/plumbing/UX half **Opus/Sonnet**. Priority view + full split = Track X in `ROADMAP-prioritized.md`.
 
-- [ ] `[arch]` **X1 — Reconnect + desync recovery + host migration.** A dropped/diverged peer rejoins
-  and re-syncs; host-drop no longer ends the match. Today a hash-mismatch is only detected, never
-  recovered. **Fable — highest correctness risk.** *(arena-mode.md §6)*
-- [ ] `[arch]` **X2 — Anti-cheat: host-side commit validation** (was P4-2). Re-validate relayed commits
-  against canonical state; folds in P4-3 (seeded-shuffle resolution alt + per-step damage batching). **Fable.**
+- [x] `[arch]` ~~**X1 — Reconnect + desync recovery + host migration.**~~ ✅ shipped 2026-07-07
+  (`arena-mode.md` R15–R18/§2.10): disconnect grace + auto-pass (seat ledger, bundle-level fact),
+  derived-token rejoin with round-start snapshot transfer + overlay restore, targeted desync heal,
+  best-effort host migration (deterministic election over the bundle-fed mirror, promote-self with
+  round rollback, address-book redial); green in the 1761/1761 EditMode suite (with X2). ⚠ awaiting the owner's LAN
+  checklist (arena-mode §5). Follow-ups filed below (rejoin ticket · draft grace · LAN-only reach).
+- [ ] `[debt]` **X1·a — Cross-process rejoin ticket.** The reconnect machine lives in the running
+  scene; closing the app forfeits the seat. Persist `{seed, playerId, hostAddress, addressBook}`
+  on the `JsonSaveFile` pattern + a "Rejoin last match" button on the connect panel. Sonnet.
+- [ ] `[debt]` **X1·b — Draft-phase disconnect grace.** X1 arms at `BeginCombat`; a connect/draft
+  drop stays terminal (MVP auto-draft). Extend the grace machinery to the draft if playtests want
+  it. Opus.
+- [x] `[arch]` ~~**X2 — Anti-cheat: host-side commit validation** (was P4-2). Folds in P4-3.~~ ✅ shipped
+  2026-07-07 (`arena-mode.md` §2.7/§2.11): `ArenaCommitValidator` re-derives cells + checks
+  ownership/range/cooldown/budget against canonical state, invalid → pass + loud log (no kick,
+  `_validateCommits` default on); **P4-3a** `SeededShuffleResolutionOrder` and **P4-3b** per-step
+  damage batching both land behind config flags (defaults unchanged: rotation + sequential
+  skip-dead). Closes **P4-2** + **P4-3**. PvE byte-identical.
 - [ ] `[arch]` **X3 — Online services:** relay / NAT-punchthrough / lobby / matchmaking / friend-invites
   (replace direct `ip:port`). Opus — biggest volume, integration not ambiguity.
 - [ ] `[arch]` **X4 — In-match human turn-timer + AFK handling.** The round has no human timeout today. Opus.
@@ -219,9 +235,12 @@ SDK/plumbing/UX half **Opus/Sonnet**. Priority view + full split = Track X in `R
 Large genre-characteristic systems the plan hadn't scoped, beyond the Q–V pillar survey. Priority view +
 the Fable lane live in `ROADMAP-prioritized.md`.
 
-- [ ] `[arch]` **Difficulty / Ascension («Heat») modifiers (Track Y).** Player-chosen challenge layers
-  gating rewards; the reiterability engine, distinct from within-run escalation (D19) and meta-unlocks.
-  **Fable; needs the economy/meta spine (R) first.**
+- [x] `[arch]` **Difficulty / Ascension («Heat») modifiers (Track Y).** ✅ shipped 2026-07-08
+  (`heat-ascension.md`; consumed brief `heat-ascension-difficulty.md`): the cauldron's-dare rules-pact
+  at a hub cauldron F-spot, four rule seams (enemies-first / raised creature floor / stingy cauldron /
+  fewer sockets), reward entirely through R (min-Heat gates + floor relief + dig-bias lift under the
+  ceiling), persisted hottest clear, Heat 0 zero-diff, Arena untouched; ⚠ awaiting owner gameplay
+  test. Residues below (§Heat / Ascension).
 - [ ] `[arch]` **Boss / set-piece & run apex (Track Z).** Multi-phase bosses + the run climax (Order's
   Seat) as real combat-content tech; today only the bandit-camp boss + a `design/roadmap.md` thread.
 - [ ] `[arch]` **Persistent relationship / recurring cast.** Affinity with named NPCs across runs (Hades
@@ -232,6 +251,56 @@ the Fable lane live in `ROADMAP-prioritized.md`.
   which content appears — the runtime data the static `/balance-ledger` can't give. Cross-cutting infra.
 - [ ] `[content]` **Post-run summary + meta-goals / prophecies.** A death-recap screen + long replay
   goals; ties collection (T) + meta (R).
+
+---
+
+## Heat / Ascension (Track Y — shipped 2026-07-08; residues)
+
+Mirrors `heat-ascension.md` §6.
+
+- [ ] `[arch]` **Rebase "cleared" on the real run apex.** The high-water record's MVP criterion is
+  a savepoint at window ≥ `_clearWindowFloor` (no run-completion event exists); redefine it on the
+  Track Z apex/victory when that lands.
+- [ ] `[ux]` **Rank-step UX polish.** Cycling a modifier costs the shared panel's two-step confirm
+  per step; a dedicated rank affordance (± steppers or per-rank pips as targets) once the pact menu
+  earns its own presentation pass.
+- [ ] `[ux]` **In-run HUD pact readout.** A "Heat: N" (+ active-rule icons) label in the Area HUD —
+  deferred to avoid scene surgery; today the pact is visible only at the hub.
+- [ ] `[art]` **Per-modifier icons + pact card art.** The pact cards are text + ember tint + rarity
+  glow; the cauldron prop is a primitive pot. Rides the render-look pass (Track M).
+- [ ] `[content]` **Balance the demonstrator values in playtest.** Heat costs, magnitudes, the
+  relief/lift dials, the soft cap, and the clear floor are placeholders; check lifted tiers against
+  authored monster/story coverage with `/balance-ledger` when raising the creature floor.
+
+---
+
+## Meta-Progression Spine (Track R — meta half shipped 2026-07-07; residues)
+
+The Isaac-model cross-run vocabulary (`meta-progression.md`; consumed brief
+`product-requirements/meta-progression-spine.md`). Shipped: per-token gating marks + deed grammar,
+the frozen per-scene vocabulary over `meta.json`, eligibility on all five draw surfaces, the
+direction ledger + dig bias with the never-guarantee ceiling, the master tuning SO, the FR16
+demonstrator set. Residues:
+
+- [x] `[arch]` ~~Meta vocabulary + deed-driven unlocks + dig bias + tuning config (Track R core)~~
+  ✅ shipped 2026-07-07 — see CHANGELOG / `meta-progression.md`.
+- [ ] `[content]` **The in-run currency economy (Track R's other half).** Coins, shops, the P1-12
+  reward sinks, the camp dark-currency — the separate companion brief (not yet written); this spine
+  deliberately introduces no spendable currency.
+- [ ] `[arch]` **Progress-meter pacing alternative.** MVP pacing = deed authoring + per-tier run
+  floors; the brief's "deed→progress contribution weights" meter was dropped (owner call
+  2026-07-07). Revisit if playtest wants a smoother global pace.
+- [ ] `[content]` **Bias beyond the dig.** World-loot / quest draws consult eligibility but not the
+  direction bias (the dig is the MVP bias home per the brief); biased world draws = downstream
+  tuning.
+- [ ] `[arch]` **Arena draft vs the vocabulary.** The arena board is the tasted-catalog union; a
+  tasted-but-gated form can appear there. Owner call whether Arena consults the vocabulary.
+- [ ] `[design]` **"Newly unlocked" readout.** The vocabulary is frozen per scene; surfacing a
+  fresh unlock (toast / bestiary badge) belongs to the Track T Tasted-Forms codex (diff two
+  snapshots).
+- [ ] `[debt]` **`ArenaTastedCatalogReader` relocation** — now three cross-system consumers
+  (Arena, Hub, meta spine); move to a shared tasted-catalog home *(pre-existing debt, weight
+  raised)*.
 
 ---
 
@@ -1101,8 +1170,10 @@ row / card badge / popover feel). Open residues:
   `Resources/Combat/StatusEffects/Glyphs/`). Designer swap = overwrite the PNG bodies; GUIDs stable.
 - [ ] `[art]` **Status VFX / tick animation** — application flash, per-tick cue, expiry puff
   (render-look / VFX-language pass; ties P5-10).
-- [ ] `[feature]` **AI does not reason about statuses** (avoiding a DoT, valuing a stun) — Track K
-  smarter-AI scope (P2-4).
+- [ ] `[feature]` **AI does not reason about status *avoidance*** (dodging a telegraphed DoT,
+  dispelling, valuing statuses on itself). *Applying* statuses is target-aware since P2-4
+  (`combat-enemy-ai.md` R1: only hostiles not already carrying the effect score) — the avoidance
+  half stays open.
 - [ ] `[design]` **S4 status interactions / combos** (wet→fire…) — parked by the brief; statuses
   stay flat.
 - [ ] `[design]` **S5 elemental damage-type system** — parked planning placeholder (owner
@@ -1141,9 +1212,21 @@ see the new system doc **`combat-round-and-telegraph.md`** + CHANGELOG.
   execution and preview; the cell highlight stays as the "where" layer. Caster ghost is a static
   clone — `AnimationTrigger` playback is the tech-art follow-up below. See CHANGELOG;
   `combat-round-and-telegraph.md` R10–R14.)*
-- [ ] `[arch]` **M4 — Smarter ability-using enemy AI.** Improve `TacticalAI` to choose and aim
-  abilities well (target selection, area value, direction), beyond the current scoring — today it
-  scores all six facings equally, so committed facings break ties toward the first direction.
+- [x] `[arch]` **M4 — Smarter ability-using enemy AI (P2-4).** *(Done 2026-07-07 — new
+  `combat-enemy-ai.md` system. `SimulationTacticalAI` scores candidates by their actually-affected
+  cells via `IAbilityOutcomeCalculator` (aim at clusters, kill-securing, friendly-fire avoidance,
+  heal-by-missing-HP, move-with-lookahead); difficulty is configuration on two layers —
+  `AIProfileDefinition` decision-quality/priority dials per enemy × one global
+  `DifficultyDefinition` preset (Easy/Normal/Hard assets under `Resources/Combat/Difficulty/`)
+  behind the `IAIDifficultySource` seam; hostility is an injected policy (PvE team-based — fixes
+  fellow-enemy targeting; Arena FFA); `TacticalAI`/`ConfigurableTacticalAI` retired. See
+  CHANGELOG.)*
+- [ ] `[feature]` **Difficulty selection UI + persisted choice.** The global preset is whatever
+  the installer binds today; a settings screen writing a persisted selection behind
+  `IAIDifficultySource` is the follow-up. *(combat-enemy-ai §6)*
+- [ ] `[arch]` **AI volley planning.** Humans can queue several abilities per round; the AI
+  commits exactly one action (`EnemyIntentPlanner` requests a single `IAction`). Multi-ability
+  enemy plans need planner + intent-model support. *(combat-enemy-ai §6)*
 
 Follow-ups from Track C (doc §6):
 - [ ] `[arch]` **More displacement kinds: pull / dash / hook.** Push (away from caster, Line only)
@@ -1309,14 +1392,13 @@ Deferred implementation follow-ups (2026-07-03 implementation plan):
 - [ ] `[debt]` **Rename `EnemyIntent` → `CommittedIntent` (+ `RoundPhase` members → Plan/Act/Resolve).**
   The committed-intent machinery is player-agnostic and Arena reuses it for every unit; the names are
   PvE-shaped. Wide mechanical rename deferred (no compiler in env). *(combat)*
-- [ ] `[arch]` **Seeded-shuffle resolution-order alternative.** Arena ships rotating initiative behind
-  `IArenaResolutionOrder`; a per-round seeded-shuffle strategy is the drop-in alternative if rotation
-  feels exploitable. *(combat)*
-- [ ] `[arch]` **Per-step simultaneous damage batching.** Mutual blows resolve sequentially (a lethal
-  earlier blow prevents the return — the PvE skip-dead semantic); true simultaneous damage application
-  is a deliberate MVP non-goal. *(combat)*
-- [ ] `[arch]` **Host-side commit validation (anti-cheat).** MVP trusts peers: commits are relayed, not
-  re-validated against the canonical state. *(networking)*
+- [x] `[arch]` ~~**Seeded-shuffle resolution-order alternative.**~~ ✅ shipped 2026-07-07 as **X2/P4-3a**
+  (`SeededShuffleResolutionOrder` behind `IArenaResolutionOrder`, config-selected; default rotation). *(combat)*
+- [x] `[arch]` ~~**Per-step simultaneous damage batching.**~~ ✅ shipped 2026-07-07 as **X2/P4-3b**
+  (`ArenaStepBatcher` + batch-scoped eligibility + suspended win check; config flag, default off —
+  mutual lethal → draw when on). *(combat)*
+- [x] `[arch]` ~~**Host-side commit validation (anti-cheat).**~~ ✅ shipped 2026-07-07 as **X2**
+  (`ArenaCommitValidator` re-validates every relayed commit against canonical state; invalid → pass). *(networking)*
 - [ ] `[arch]` **Arena camera pass.** Fixed combat camera in the Arena scene; framing/feel at arena
   scale pending. *(camera)*
 

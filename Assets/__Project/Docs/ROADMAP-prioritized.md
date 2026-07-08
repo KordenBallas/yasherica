@@ -13,8 +13,9 @@ long pole where correctness on a hard, cross-system change outweighs its premium
 poles** (body-plans · save/load · director-threads) **all shipped 2026-07-05**, so the Fable lane is now
 **Track I — Director Depth II** (owner call 2026-07-05): its core P3-1 (spine reveal lane) + P3-3
 (cross-run meta-consumers) — **both shipped 2026-07-06**. The next Fable assignments are now scoped as
-an **ordered priority queue** — see **The Fable 5 lane** section below (owner call 2026-07-07), led by
-the public-ship **Multiplayer Online Robustness** core (Track X). **Sonnet 5 / Haiku** carry scoped and
+an **ordered priority queue** — see **The Fable 5 lane** section below (owner call 2026-07-07). The queue has since burned down —
+X1+X2, Track R's meta half, P2-4 (all 2026-07-07) and **Track Y (Heat, 2026-07-08)** are shipped —
+so the lane's next Fable item is **Track Z** (Boss / Run Apex). **Sonnet 5 / Haiku** carry scoped and
 mechanical work so the budget isn't burned. (`art` = the model just wires the seam; the asset itself is
 authored by the designer.)
 
@@ -50,16 +51,16 @@ spine, escalation).
 | **M** | Production art / M5 look — palette · production meshes · shader spike · VFX · locomotion polish | Designer+art | parkable | Track E covers demo look |
 | **N** | Debt & tooling — remove branching UI · Core.Hex · dead code · dev-tools · arena hardening (P4-2/3/4) | Haiku/Sonnet | background | P6-2 ready to execute |
 | **Q** | Audio — music · SFX · cauldron-voice audio (the missing sound pillar) | Opus+audio | new | design thread open; no brief |
-| **R** | Meta-progression & economy — currency · cross-run unlocks · hub-meta (reiterability; unblocks P1-12) | Opus | new | design thread open; no brief |
+| **R** | Meta-progression & economy — currency · cross-run unlocks · hub-meta (reiterability; unblocks P1-12) | **Fable**+Opus | **meta half shipped** | **meta half SHIPPED 2026-07-07** (Fable; new `meta-progression.md`, consumed brief `meta-progression-spine.md`): gating marks + fact-predicate deeds on the 4 content SO types · frozen vocabulary over `meta.json` on all 5 draw surfaces (dig = **Tasted ∩ Eligible**) · direction ledger + capped dig-bias (never-guarantee ceiling) · master tuning SO · FR16 demonstrator set; ⚠ awaiting owner gameplay test; residues in `ROADMAP.md` §Meta-Progression. The **in-run currency economy** = companion `in-run-currency-and-shops.md` (**Verified**; Opus/Sonnet, not Fable — now unblocked); **Track T** readout = Opus/Sonnet companion |
 | ~~**S**~~ | Combat status effects — apply/tick/expire · legibility · reconcile passives (P3-13) | Opus | **shipped (code)** | **S1+S2+S3 all shipped 2026-07-07** (new `combat-status-effects.md`); ⚠ awaiting owner gameplay test; S4 combos + S5 elemental types stay parked |
 | **T** | Collection / bestiary — browsable "Tasted Forms" codex over the persisted taste catalog | Sonnet | new | data exists; UI + design |
 | **U** | Game shell & reach — options/pause/remap · accessibility (colour-blind belonging) · localization | Sonnet/Opus | new | foundational; belonging-redundancy = design call |
 | **V** | Onboarding / FTUE — teach socketing · passport · hex combat | Opus | new | design pass pending |
 | **W** | **Architecture & extensibility audit** — read-only whole-project review (SO/data extensibility · coupling & duplication · dead-code · perf hypotheses · docs-drift · synthesis) | **Fable** | new | **brief-ready** — `product-requirements/architecture-and-extensibility-audit.md`; owner call to launch |
-| **X** | **Multiplayer online robustness & services** — the public-ship layer over the shipped Arena MVP: reconnect/desync-recovery/host-migration + anti-cheat (**Fable**) · relay/lobby/matchmaking/turn-timer/UX (**Opus/Sonnet**) | **Fable**+Opus | new | **owner priority #1** (public MP); Arena MVP done, this is the prod layer (`arena-mode.md` §6) |
-| **Y** | **Difficulty / Ascension («Heat»)** — player-chosen challenge modifiers gating rewards; the reiterability engine | **Fable** | new | net-new (survey 2026-07-07); needs R first |
-| **Z** | **Boss / set-piece & run apex** (Order's Seat) — multi-phase bosses + the run climax as real combat-content tech | Fable/Opus | new | build track over the `design/roadmap.md` run-apex thread |
-| **Audit Refactors (A1–A8)** | Track W's W6 output — combat-core reconvergence (A1, fix-first) · biome-as-data · platform seam · dead-code purge · hero-movement path · layering · cleanups · doc patches | Opus/Sonnet/Haiku | new | mostly cleanup; only **A1** gates a Fable track; folds into N/L/P6 |
+| **X** | **Multiplayer online robustness & services** — the public-ship layer over the shipped Arena MVP: ~~reconnect/desync-recovery/host-migration~~ ✅ **X1** · ~~anti-cheat + P4-3~~ ✅ **X2** (both **Fable**, 2026-07-07) · relay/lobby/matchmaking/turn-timer/UX = **X3–X6** (**Opus/Sonnet**, open) | **Fable**+Opus | active | **owner priority #1** (public MP); **the Fable core (X1+X2) is done** — services half remains (`arena-mode.md` §2.10/§2.11) |
+| ~~**Y**~~ | **Difficulty / Ascension («Heat»)** — player-chosen challenge modifiers gating rewards; the reiterability engine | **Fable** | **shipped (code)** | ✅ **shipped 2026-07-08** (Fable; new `heat-ascension.md`, consumed brief `heat-ascension-difficulty.md`): cauldron-F-spot rules-pact on the shared card panel (ranks = rarity glow, seal card, panel arbiter) · four rule seams via per-system neutral records (enemies-first initiative · D19 tier lift at the one write site · variant cut · socket cut, floors 1) · reward wholly through R (per-token min-Heat gates keyed current/best + tier-floor relief + dig-bias lift, ceiling untouchable) · deterministic dig re-deal per pact · pact rides both save carriers additively (versions unchanged) · `world.heat_high_water` hottest-clear record (savepoint-observer seam) · 4-modifier demonstrator + Stinger min-Heat gate; ⚠ awaiting owner gameplay test; residues in `ROADMAP.md` §Heat |
+| **Z** | **Boss / set-piece & run apex** (Order's Seat) — multi-phase bosses + the run climax as real combat-content tech | Fable/Opus | new | **brief-ready** — `product-requirements/boss-run-apex.md` (2026-07-08): apex Site family + three-tier meta ladder (Vice solo → Lieutenant → Tyrant) · Vice decomposition (HP-threshold Vice spawns, final bare-nobody form) · unified Vice pool with `min_heat` gating · Alliance Summon (racial quest chain → blank → body-part ability, slot-costed) · meta-deeds (`vices_defeated_count` / `lieutenant_defeated`) · Heat high-water seam; demo set: Gluttony + Paranoia + Carnage (Heat) |
+| **Audit Refactors (A1–A8)** | Track W's W6 output — ~~combat-core reconvergence (A1, fix-first)~~ ✅ **shipped 2026-07-07** · biome-as-data · platform seam · dead-code purge · hero-movement path · layering · cleanups · doc patches | Opus/Sonnet/Haiku | active | **A1 done** (Fable lane now clear to Track X); rest = cleanup folding into N/L/P6 |
 
 *(Tracks **Q–V** are the net-new **pillar tracks** surveyed 2026-07-07 — the "systems a game like this
 usually has that our plan didn't". They sit alongside the D–N remainder; see the section at the end of
@@ -141,7 +142,7 @@ Design decisions and content/art authoring. Several **unblock** the coding model
 | ~~**P2-1**~~ | ~~Independent body-plans + skeleton-swap runtime~~ ✅ shipped 2026-07-04 (`character-system.md` R19–R24): machinery + serpent/spider placeholder frames + confirm-and-shed + part stash; follow-ups filed in `ROADMAP.md` (re-install flow · dormant UX · per-frame host fit) | **Fable** | Code | superseded character-system R10/R3; consumed brief `body-plan-skeleton-swap.md`; production frame meshes = P5-6 |
 | ~~**P2-2**~~ | ~~Save/load — file IO (R14) + window/horizon state + run-state~~ ✅ shipped 2026-07-05 (`save-persistence.md`): platform-entry autosave + MainMenu Continue · permadeath (Defeat flushes meta then consumes `run.json`) · whole-run image (recorded windows + cursors, hero body, inventory/rack/socketing, quests, facts/threads/actors, seed + RNG) · deterministic resume · always-on `meta.json` + demo fact `world.barn_bounty_honored` · fail-safe versioned/atomic independent files; follow-ups filed in `ROADMAP.md` (W3-1 option-b · currency model · PlatformEvents→signals) | **Fable** | Code | consumed brief `save-continue-run.md`; **unblocks P3-3** (meta consumers) |
 | ~~**P2-3**~~ | ~~Director depth — R8 first-class threads + cross-window continuity + run/meta fact boundary~~ ✅ shipped 2026-07-05 (`narrative-procedural.md` §2.6/§3): Thread entity + ephemeral/arc + conflict-fail (incl. arc) + expiry + concurrency cap + no-stale-re-placement ledgers + run/meta `_horizon` partition for **P2-2**; follow-ups filed in `ROADMAP.md` (OR-resolution → P3-5 · thread readout → P1-11 · meta store → P2-2) | **Fable** | Code | consumed brief `director-threads-and-continuity.md`; D7/D19/D20-consumers stay P3 |
-| **P2-4** | Smarter ability-using enemy AI | Opus *(Fable opt.)* | Code | combat depth |
+| ~~**P2-4**~~ | ~~Smarter ability-using enemy AI~~ ✅ shipped 2026-07-07 (new `combat-enemy-ai.md`): simulation-based scoring + two-layer difficulty config (profile dials × Easy/Normal/Hard presets); ⚠ gameplay-untested | **Fable** | Code | combat depth |
 
 ## P3 — Systems depth & correctness
 *Opus by default, Sonnet where scoped. Reconcile the stale narrative-gen doc (P6-1) before P3-8.*
@@ -416,7 +417,7 @@ smarter AI + new displacements read clearly under the animation/arrow/turn-order
 
 | ID | Task | Model | Owner | Note / dep |
 |---|---|---|---|---|
-| **P2-4** | **Smarter ability-using enemy AI** (target/area/direction selection beyond flat scoring) | Opus *(Fable opt.)* | Code | the "fast chess" quality (Pillar 4); reads best after D3's enemy-action animation |
+| ~~**P2-4**~~ | ~~**Smarter ability-using enemy AI** (target/area/direction selection beyond flat scoring)~~ ✅ shipped 2026-07-07 (new `combat-enemy-ai.md`): `SimulationTacticalAI` scores candidates over actually-affected cells (aiming/kill-securing/friendly-fire/move-lookahead); difficulty = `AIProfileDefinition` dials × global `DifficultyDefinition` presets behind `IAIDifficultySource`; PvE + Arena dummies share one factory; ⚠ gameplay-untested | **Fable** | Code | the "fast chess" quality (Pillar 4) |
 | **P3-11** | More **displacement kinds** — pull / dash / hook (push-only today) | Opus | Code | own data semantics + executor/preview |
 | **P3-12** | Ring push + queue-**simulation** preview + **speed-based initiative** | Opus | Code | the *speed* half Track D's D2 defers — **D2 shipped initiator-first** (2026-07-05), so this is the speed-based + multi-round-policy remainder |
 | ~~**P3-13**~~ | ~~**Passive modifiers beyond outgoing damage**~~ ✅ shipped 2026-07-07 with **Track S · S3** (stat-target dimension: outgoing/incoming; regen = a HoT passive) | Opus | Code | the **Ability reward sink** half stays deferred with P1-12 |
@@ -589,8 +590,8 @@ UX is **Opus/Sonnet**. Depends on nothing in the campaign; can start immediately
 
 | ID | Task | Model | Owner | Note / dep |
 |---|---|---|---|---|
-| **X1** | **Reconnect + desync recovery + host migration** — a dropped/diverged peer rejoins and re-syncs (state transfer or agreed rollback); host-drop no longer ends the match. Today a hash-mismatch is only *detected* (`ArenaStateHash`), never recovered; host-drop = "connection lost"; reconnect is excluded | **Fable** | Code | **the make-or-break for public MP**; lockstep rejoin is the highest correctness risk (`arena-mode.md` §6) |
-| **X2** | **Anti-cheat — host-side commit validation** — the host re-validates every relayed commit against the canonical state instead of trusting peers | **Fable** | Code | **is P4-2**; required for PvP with strangers; folds in **P4-3** (seeded-shuffle resolution alt + per-step damage batching) |
+| ~~**X1**~~ | ~~**Reconnect + desync recovery + host migration**~~ ✅ shipped 2026-07-07 (`arena-mode.md` R15–R18/§2.10): disconnect grace/auto-pass (seat ledger; the pass is a bundle-level fact) · derived-token rejoin + round-start snapshot transfer (overlay restore, capture→restore→hash invariant) · targeted desync heal · best-effort host migration (deterministic election over the bundle-fed mirror → promote-self + round rollback → address-book redial); green in the 1761/1761 EditMode suite (with X2); ⚠ awaiting the owner's LAN checklist (§5); follow-ups in `ROADMAP.md` (X1·a cross-process rejoin ticket · X1·b draft-phase grace) | **Fable** | Code | **the make-or-break for public MP** — shipped; reach is LAN/best-effort until X3 |
+| ~~**X2**~~ | ~~**Anti-cheat — host-side commit validation**~~ ✅ shipped 2026-07-07 (`arena-mode.md` §2.7/§2.11): `ArenaCommitValidator` re-derives committed cells + checks ownership/range/cooldown/volley-budget against the canonical round-start state, invalid → pass + loud log (no kick; `_validateCommits` default on); **folds in P4-3** — `SeededShuffleResolutionOrder` (P4-3a) + per-step damage batching (P4-3b) both land behind config flags, defaults unchanged. **Closes P4-2 + P4-3.** | **Fable** | Code | required for PvP with strangers; PvE byte-identical |
 | **X3** | **Online services** — relay / NAT-punchthrough / lobby / matchmaking / friend-invites; replace direct `ip:port` connect with a real online stack (Unity Relay+Lobby or equiv.) | Opus | Code | SDK integration, not high-ambiguity once X1 is robust; the **biggest volume** of work |
 | **X4** | **In-match human turn-timer + AFK handling** — the round waits for all to lock in with no human timeout (only the draft has one); add a per-round timer + AFK/auto-lock | Opus | Code | prevents a stalled/AFK player hanging the match |
 | **X5** | **Build version handshake + hardened disconnect UX** — reject mismatched builds at approval (they silently desync today); polish drop/rejoin messaging | Sonnet | Code | connection-approval already exists as the hook |
@@ -611,24 +612,32 @@ clear" note at the top of the doc.*
    X→R→AI→Heat→Boss→Relationship order otherwise unchanged (codebase "healthier than a violations-list
    suggests"). Refactor themes filed as **Audit Refactors (A1–A8)** below; triage was
    *fix-first · backlog · won't-fix* per the brief.
-1. **A1 · Combat core reconvergence** *(audit fix-first — **Opus**, gates the combat-touching Fable
-   work)* — `ArenaCombatController` is a **verbatim copy** of the PvE controller; extract the shared
-   round/state engine (lead policy · resolution order · commit source as strategies) **before** Track X,
-   because X's reconnect/anti-cheat sit on that exact seam (and it unblocks P2-4 + Track K). Opus suffices
-   (round-hash is the safety net); keep premium Fable for X itself. See `audits/W6.md` Theme R1.
-2. **Track X · Online Robustness Core** *(X1 reconnect/desync/host-migration → X2 anti-cheat)* —
-   **owner priority #1** (public MP ship). Starts on the now-single combat engine. *(X3–X6 = the
-   Opus/Sonnet half.)*
-3. **Track R · Economy & Meta foundation** — the currency + cross-run-unlock spine; **unblocks** P1-12
-   reward sinks, in-run shops, and Track Y (Heat) rewards. *Design fork locked with the owner first.*
-   **Parallelisable on Fable with #4.**
-4. **P2-4 · Smarter ability-using enemy AI** (Track K) — ROADMAP-flagged "Fable opt."; the "fast chess"
-   quality of the shipped combat pillar; **independent of R → run the two in parallel** (both benefit
-   from A1 landing first).
-5. **Track Y · Difficulty / Ascension (Heat)** — the reiterability engine; **after R** (needs the
-   reward/meta spine).
-6. **Track Z · Boss / Set-Piece & Run Apex** — the run climax; after escalation matures; **may downgrade
-   to Opus** once the apex design is locked.
+1. ~~**A1 · Combat core reconvergence**~~ ✅ **shipped 2026-07-07** (Opus) — the shared pure-C#
+   `CombatRoundEngine` now sits under both controllers, with lead policy / resolution order / commit
+   source behind `ICombatRoundFlow` (`PveCombatFlow` / `ArenaCombatFlow`); constructors, DI, and the
+   Arena-only surface unchanged; 1674/1674 EditMode green (round-hash was the safety net). The Fable lane
+   is now clear to start at **Track X** on the single combat engine. See CHANGELOG / `audits/W6.md` R1.
+2. ~~**Track X · Online Robustness Core**~~ *(~~X1 reconnect/desync/host-migration~~ ✅ →
+   ~~X2 anti-cheat + P4-3~~ ✅, both 2026-07-07)* — **the Fable-lane core of owner priority #1 is
+   DONE.** X1 (grace/rejoin/heal/migration) + X2 (commit validation + P4-3a/b behind config) both
+   shipped on the single combat engine; ⚠ the X1 LAN checklist is the remaining play-verification
+   gate. The Fable lane is now clear to **Track R** (#3). *(X3–X6 = the Opus/Sonnet services half.)*
+3. ~~**Track R · Economy & Meta foundation (the meta half)**~~ ✅ **shipped 2026-07-07** (Fable) —
+   the cross-run-unlock spine: gating/deed grammar + frozen vocabulary + direction-biased dig +
+   tuning SO + FR16 demonstrator set (`meta-progression.md`); ⚠ awaiting owner gameplay test.
+   **The in-run currency half** (`in-run-currency-and-shops.md`, Verified) = **Opus/Sonnet, not
+   Fable** — it, P1-12 sinks, shops, and **Track Y (Heat)** are now unblocked.
+4. ~~**P2-4 · Smarter ability-using enemy AI** (Track K)~~ ✅ **shipped 2026-07-07** (Fable) — see
+   the Track K table / `combat-enemy-ai.md`; follow-ups (difficulty selection UI · volley planning)
+   filed in `ROADMAP.md`.
+5. ~~**Track Y · Difficulty / Ascension (Heat)**~~ ✅ **shipped 2026-07-08** (Fable) — the
+   reiterability engine: the cauldron's-dare rules-pact + the R-only reward mapping
+   (`heat-ascension.md`); ⚠ awaiting owner gameplay test; residues in `ROADMAP.md` §Heat. The
+   Fable lane is now clear to **Track Z** (#6).
+6. **Track Z · Boss / Set-Piece & Run Apex** — the run climax; **brief-ready 2026-07-08**
+   (`product-requirements/boss-run-apex.md`); **may downgrade to Opus** once the owner confirms
+   the Vice decomposition + Alliance summon seams. *(Also re-bases Heat's `world.heat_high_water`
+   on a real apex — seam already wired from Track Y.)*
 7. **Relationship / recurring-cast (narrative-meta)** — persistent affinity across the meta horizon (the
    class of work Fable did for the director); lowest Fable slot.
 
@@ -651,7 +660,7 @@ row cites its `audits/` source; strike here as they ship.*
 
 | ID | Theme | Model | Sequence / home | Source |
 |---|---|---|---|---|
-| **A1** | **Combat core reconvergence** — shared round/state engine under `CombatController`/`ArenaCombatController` (lead policy · resolution order · commit source = strategies); `CombatActiveState` bootstrap split (spawn half **is D6**) | Opus *(Fable opt.)* | **fix-first — before Track X & Track K** (Fable lane #1) | W2 F1+F5 |
+| ~~**A1**~~ | ~~**Combat core reconvergence**~~ ✅ **shipped 2026-07-07** — shared pure-C# `CombatRoundEngine` under both controllers; the three axes behind `ICombatRoundFlow` (`PveCombatFlow` / `ArenaCombatFlow`); thin `ICombatController` adapters, constructors + DI + Arena-only surface unchanged; new `CombatRoundEngineTests`; **1674/1674 EditMode green**. `CombatActiveState` bootstrap split stays **F5/D6**. See CHANGELOG. | Opus | **done** (was Fable lane #1) | W2 F1+F5 |
 | **A2** | **Biome-as-data** — `BiomeDefinition` SO replaces the `LevelTheme` **enum** as biome identity; migrate the 4 enum-keyed SO fields; extract the enum out of `ScenarioData.cs` first | Opus | before the Mtn/Desert content wave *(the one **P0** extensibility gap)* | W1 F1 + W3 erratum |
 | **A3** | **One platform seam** — `PlatformRegistry` static singleton → DI `IPlatformRegistry`; add `GetView()` + delete `ContentSpawner`'s `GameObject.Find`/`FindObjectsByType`; drop `PlatformVisual.GameObject`; `ArenaPlatformBuilder`→`PlatformView` (+URP magenta-fallback fix) | Opus | small (~8–10 files); unlocks the `PlatformEvents`→signals row | W2 F2/F8/F13/F4 |
 | **A4** | **Dead-code purge** — execute W3's delete order (waves 1–2 + `IAbilityDataProvider` lane; **executes P6-4**); wave-3 owner-gated decisions listed in W3 | Sonnet *(Haiku wave 1)* + compiler | anytime; wave-2-D after A2 starts | W3 waves 1–2 + W1 F7 |
@@ -660,5 +669,5 @@ row cites its `audits/` source; strike here as they ship.*
 | **A7** | **Small-cleanups tail** — narrow `DialogueRunner` interface, one `EventSystem` bootstrap (3 copies), delete 3 stray `Scripts/Combat/*.md` relics, guard the `LoadAll`-override trap, create the missing `RunPacingConfig` asset; **bundle with P6-5** | Sonnet/Haiku | opportunistic | W2 F9/F10/F12 + W1 F3/F8 |
 | **A8** | **Doc patches** — document `AIProfileDefinition` (the 1-of-57 miss), state the ability-kind factory seam + bark-slot boundary, note the 8 ink-less dialogue assets as the known lockstep workflow | Haiku | **fold into the W5 pass** | W1 F2/F5/F6 |
 
-**Top-5 do-first (W6 §4):** A1 · A2 · A3 · A4 (waves 1–2) · A5 (step 1). A5-step-1 and A4-wave-1 are
+**Top-5 do-first (W6 §4):** ~~A1~~ ✅ · A2 · A3 · A4 (waves 1–2) · A5 (step 1). A5-step-1 and A4-wave-1 are
 Haiku quick wins that run **off the Fable critical path**, anytime.

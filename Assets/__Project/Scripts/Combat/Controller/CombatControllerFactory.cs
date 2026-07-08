@@ -26,6 +26,7 @@ namespace Combat.Controller
         private readonly HexDirectionConfig _hexConfig;
         private readonly IGameLogger _logger;
         private readonly ICombatOutcomeRelay _outcomeRelay;
+        private readonly CombatRuleModifiers _rules;
 
         [Inject]
         public CombatControllerFactory(
@@ -38,7 +39,8 @@ namespace Combat.Controller
             BattlefieldFactory battlefieldFactory,
             HexDirectionConfig hexConfig,
             IGameLogger logger,
-            [InjectOptional] ICombatOutcomeRelay outcomeRelay = null)
+            [InjectOptional] ICombatOutcomeRelay outcomeRelay = null,
+            [InjectOptional] CombatRuleModifiers rules = null)
         {
             _actionValidator = actionValidator;
             _actionExecutor = actionExecutor;
@@ -50,6 +52,7 @@ namespace Combat.Controller
             _hexConfig = hexConfig;
             _logger = logger;
             _outcomeRelay = outcomeRelay;
+            _rules = rules;
         }
 
         public ICombatController Create()
@@ -63,7 +66,8 @@ namespace Combat.Controller
                 _intentResolver,
                 _battlefieldFactory,
                 _hexConfig,
-                _logger);
+                _logger,
+                _rules);
 
             if (_outcomeRelay != null)
             {

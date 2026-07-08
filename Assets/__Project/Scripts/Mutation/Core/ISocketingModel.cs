@@ -40,6 +40,13 @@ namespace Mutation.Core
         bool TryUnsocket(int blankInstanceId, int artifactInstanceId);
 
         /// <summary>
+        /// Raised when an unseal confirm consumes a blank's socketed reagents — the crafting
+        /// commit point. The meta-progression ledger records the consumed definition ids here
+        /// (the artifact half of the cross-run direction tally).
+        /// </summary>
+        event Action<IReadOnlyList<ArtifactInstance>> OnSocketsConsumed;
+
+        /// <summary>
         /// Consumes the blank's socketed artifacts (they are destroyed, not
         /// returned) and clears its socket state. Called when the player picks
         /// an unseal variant. Returns the consumed artifacts.

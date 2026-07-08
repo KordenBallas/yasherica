@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Combat.Arena.Core;
 using Combat.Arena.Data;
 using Core.Logging;
 using Unity.Netcode;
@@ -10,16 +11,18 @@ namespace Combat.Arena.Networking
 {
     /// <summary>
     /// Thin session wrapper over the scene's <see cref="NetworkManager"/>: host / join by direct
-    /// address (brief R5 — no lobby, no matchmaking, no reconnect), connection approval capping
-    /// players and rejecting joins once the match started, and shutdown. Infrastructure only —
+    /// address (brief R5 — no lobby, no matchmaking), connection approval capping players and
+    /// rejecting fresh joins once the match started — a mid-match connection is approved ONLY
+    /// when its payload claims a gracing seat through the rejoin gate (X1). Infrastructure only —
     /// the round flow never touches NGO directly.
     /// </summary>
-    public class ArenaSessionService : IDisposable
+    public class ArenaSessionService : IArenaSessionControl, IDisposable
     {
         private readonly NetworkManager _networkManager;
         private readonly ArenaMatchConfig _config;
         private readonly IGameLogger _logger;
 
+        private IArenaRejoinGate _rejoinGate;
         private bool _callbacksHooked;
 
         /// <summary>Set when the host starts the match; late joins are rejected from then on.</summary>
@@ -63,11 +66,14 @@ namespace Combat.Arena.Networking
             return true;
         }
 
-        public bool StartClient(string address)
+        public bool StartClient(string address, byte[] connectPayload = null)
         {
             var (ip, port) = ParseAddress(address);
             var transport = _networkManager.GetComponent<UnityTransport>();
             transport.SetConnectionData(ip, port);
+
+            // The approval payload: empty = fresh join, a rejoin claim otherwise (X1).
+            _networkManager.NetworkConfig.ConnectionData = connectPayload ?? Array.Empty<byte>();
 
             HookCallbacks();
 
@@ -88,6 +94,15 @@ namespace Combat.Arena.Networking
             {
                 _networkManager.Shutdown();
             }
+        }
+
+        /// <summary>
+        /// Installs the host-side rejoin validator. A setter, not a constructor dependency —
+        /// the gate's implementer (the reconnect host) itself depends on this service.
+        /// </summary>
+        public void SetRejoinGate(IArenaRejoinGate gate)
+        {
+            _rejoinGate = gate;
         }
 
         public void Dispose()
@@ -131,6 +146,19 @@ namespace Combat.Arena.Networking
 
             if (MatchStarted)
             {
+                // The one mid-match door: a payload claiming a gracing seat with the right
+                // derived token (X1 rejoin). Anything else stays rejected as before.
+                if (_rejoinGate != null
+                    && ArenaConnectPayload.TryDecodeRejoin(
+                        request.Payload, out var playerId, out var token)
+                    && _rejoinGate.TryApproveRejoin(playerId, token, request.ClientNetworkId))
+                {
+                    _logger.Info(LogCategory.Combat,
+                        $"[ArenaSessionService] Rejoin approved: player {playerId} on client {request.ClientNetworkId}");
+                    response.Approved = true;
+                    return;
+                }
+
                 response.Approved = false;
                 response.Reason = "Match already started";
                 return;

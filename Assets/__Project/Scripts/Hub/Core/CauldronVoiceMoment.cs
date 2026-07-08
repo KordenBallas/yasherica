@@ -17,6 +17,15 @@ namespace Hub.Core
         Launch = 2,
 
         /// <summary>The player just returned from a death (the junkyard reformed him).</summary>
-        DeathReturn = 3
+        DeathReturn = 3,
+
+        /// <summary>The Heat pact panel opened — the cauldron dares (Track Y).</summary>
+        HeatDare = 4,
+
+        /// <summary>The pact closed hot (total &gt; 0) — the bargain is struck (Track Y).</summary>
+        HeatSealed = 5,
+
+        /// <summary>The pact closed cold (total 0) — prudishness noted (Track Y).</summary>
+        HeatDeclined = 6
     }
 }

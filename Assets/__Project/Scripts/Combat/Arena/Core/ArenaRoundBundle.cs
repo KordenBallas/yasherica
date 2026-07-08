@@ -13,14 +13,23 @@ namespace Combat.Arena.Core
         public IReadOnlyList<ArenaCommit> Commits { get; }
         public IReadOnlyList<int> DepartedPlayerIds { get; }
 
+        /// <summary>
+        /// Players whose round the authority passed for them (disconnect grace / substituted
+        /// commit). Their units did nothing but stay alive — presentation only; normalization
+        /// already treats "absent from <see cref="Commits"/>" as a no-op.
+        /// </summary>
+        public IReadOnlyList<int> AutoPassedPlayerIds { get; }
+
         public ArenaRoundBundle(
             int roundNumber,
             IReadOnlyList<ArenaCommit> commits,
-            IReadOnlyList<int> departedPlayerIds = null)
+            IReadOnlyList<int> departedPlayerIds = null,
+            IReadOnlyList<int> autoPassedPlayerIds = null)
         {
             RoundNumber = roundNumber;
             Commits = commits ?? new List<ArenaCommit>();
             DepartedPlayerIds = departedPlayerIds ?? new List<int>();
+            AutoPassedPlayerIds = autoPassedPlayerIds ?? new List<int>();
         }
     }
 }

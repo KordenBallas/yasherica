@@ -51,3 +51,18 @@ MonoBehaviour:
   _governsBodyPlan: 1
   _bodyPlanPriority: 10
   _raceId: 
+  _metaGating:
+    _mark: 1
+    _deed:
+    - _namespace: 0
+      _subjectToken: 
+      _key: run_count
+      _op: 3
+      _value:
+        _valueType: 1
+        _boolValue: 0
+        _intValue: 3
+        _floatValue: 0
+        _stringValue: 
+    _unlockTier: 1
+    _drawWeight: 1

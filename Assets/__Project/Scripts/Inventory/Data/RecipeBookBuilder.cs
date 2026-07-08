@@ -8,15 +8,20 @@ namespace Inventory.Data
     /// <summary>
     /// Converts authored RecipeDefinition assets into the pure-C# RecipeBook.
     /// Malformed recipes (missing output, empty/invalid inputs) are skipped with a
-    /// warning instead of breaking startup.
+    /// warning instead of breaking startup. A meta-gated recipe whose deed is unmet
+    /// (Track R, FR3) is skipped silently — it simply does not exist in this run's
+    /// book, so no "locked recipe" UI state is needed. The recipe's token id is its
+    /// output artifact's id.
     /// </summary>
     public class RecipeBookBuilder
     {
         private readonly IGameLogger _logger;
+        private readonly MetaProgression.Core.IMetaVocabulary _vocabulary;
 
-        public RecipeBookBuilder(IGameLogger logger)
+        public RecipeBookBuilder(IGameLogger logger, MetaProgression.Core.IMetaVocabulary vocabulary = null)
         {
             _logger = logger ?? throw new System.ArgumentNullException(nameof(logger));
+            _vocabulary = vocabulary;
         }
 
         public RecipeBook Build(IReadOnlyList<RecipeDefinition> definitions)
@@ -49,6 +54,12 @@ namespace Inventory.Data
             if (definition.Output == null || string.IsNullOrEmpty(definition.Output.Id))
             {
                 _logger.Warning(LogCategory.Inventory,$"[RecipeBookBuilder] Recipe '{definition.name}' skipped: missing output artifact.");
+                return false;
+            }
+
+            if (_vocabulary != null
+                && !_vocabulary.IsUnlocked(definition.Output.Id, definition.MetaGating.ToCore()))
+            {
                 return false;
             }
 

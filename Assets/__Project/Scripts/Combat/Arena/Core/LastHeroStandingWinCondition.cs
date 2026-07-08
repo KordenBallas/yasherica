@@ -11,6 +11,7 @@ namespace Combat.Arena.Core
     public class LastHeroStandingWinCondition : IWinCondition
     {
         private bool _armed;
+        private bool _suspended;
 
         public WinConditionType Type => WinConditionType.LastHeroStanding;
 
@@ -20,10 +21,24 @@ namespace Combat.Arena.Core
             _armed = true;
         }
 
+        /// <summary>
+        /// P4-3b batch mode: the check sleeps inside a batch so a mutual lethal exchange finishes
+        /// before anyone is declared dead-and-done; it resumes at every batch boundary.
+        /// </summary>
+        public void Suspend()
+        {
+            _suspended = true;
+        }
+
+        public void Resume()
+        {
+            _suspended = false;
+        }
+
         public bool Check(ICombatState gameState, out IPlayer winningPlayer)
         {
             winningPlayer = null;
-            if (!_armed)
+            if (!_armed || _suspended)
                 return false;
 
             var playersWithAliveUnits = gameState.Players

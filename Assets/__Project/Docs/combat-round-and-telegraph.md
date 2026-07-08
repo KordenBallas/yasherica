@@ -53,8 +53,8 @@
 - **R7** **Determinism**: enemy planning is deterministic per run seed. Each enemy's decision
   maker is seeded `LootSeed.Derive(runSeed, "combat-ai:{enemyId}")`; units are planned in
   ascending UnitId order; same seed + same state → identical committed plans. The AI *scoring*
-  (`TacticalAI` / `ConfigurableTacticalAI`) is untouched — only decide-timing (round start) and
-  commitment (lock + reveal) changed.
+  lives in its own system (`SimulationTacticalAI`, `combat-enemy-ai.md`) — only decide-timing
+  (round start) and commitment (lock + reveal) live here.
 
 **Initiative & turn-order strip** (brief `combat-initiative-and-turn-queue.md`, D2)
 
@@ -146,8 +146,11 @@ Scripts/Combat/
   TurnManagement/  EnemyIntentPlanner (pure), TurnManager (round counter, acting player)
   Execution/       EnemyIntentResolver, AbilityExecutor.ExecuteAbilityAtCells (emits AbilityFiredCue),
                    AbilityOutcomeCalculator (pure), IAbilityFiredSink/AbilityFiredSink (D3 relay)
-  Controller/      CombatController — the round orchestrator (StartRound / CheckTurnEnd /
-                   ResolveNextEnemyIntent / EndRound)
+  Controller/      CombatRoundEngine — the shared round/state core (AddUnit / StartRound /
+                   ResolveNextEnemyIntent / EndRound / win-check), used by both PvE and Arena (A1);
+                   ICombatRoundFlow + PveCombatFlow — the PvE round shape (lead / interleave /
+                   local intent planning) driven by the engine;
+                   CombatController — thin ICombatController adapter composing engine + PveCombatFlow
   Player/          EnemyRoundController (paced resolve coroutine),
                    UnitPlanIconsPresenter, GhostPlaybackPresenter,
                    GhostPlaybackPlan(+Builder), PlanIconModel,
@@ -175,8 +178,12 @@ Scripts/Combat/
 
 ### 2.3 Runtime flow — one round
 
+The round mechanics live in the shared **`CombatRoundEngine`** (A1 reconvergence — the PvE and Arena
+controllers were verbatim copies); the PvE round shape below is supplied by **`PveCombatFlow`**, which
+the engine drives at each divergence point (round start, action processing, resolve-finished).
+
 ```
-StartRound (CombatController)
+StartRound (CombatRoundEngine → PveCombatFlow.OnRoundStart)
   RoundPhase = EnemyPlan
   EnemyIntentPlanner.Plan(state)        every enemy decides, in UnitId order
   state = state.WithEnemyIntents(...)   locked
@@ -255,7 +262,9 @@ first Plan phase commits intents against the **full** board.
 `IAbilityDefinitionCatalog`, `ICombatUnitViewRegistry`, `EnemyRoundController`, and the D3
 `IAbilityFiredSink` (`AbilityFiredSink`) — all `AsSingle`. The sink is `[InjectOptional]` on
 `AbilityExecutor`, so headless/tests and the Arena (which does not bind it) stay null-safe.
-`CombatControllerFactory` threads the planner/resolver into each `CombatController` it creates.
+`CombatControllerFactory` threads the planner/resolver into each `CombatController` it creates
+(unchanged by A1 — the controller now composes a `CombatRoundEngine` + `PveCombatFlow` internally,
+building its own `RoundLifecycleProcessor` as before, so the factory and installer bindings are the same).
 `TurnManager` still implements `ITurnManager` but is degenerate: `CurrentPlayer` is pinned to the
 human player (every `IsPlayerTurn` consumer keeps working) and `NextTurn()` only advances the
 round counter.
@@ -322,6 +331,10 @@ Roslyn workaround when the editor holds the project lock):
 - `EnemyIntentResolverTests` — whiff after dodge, bait (hits whoever stands there now), fires from
   committed cells even if the caster was displaced, move fizzle, dead-caster skip, cooldown start.
 - `CombatStateRoundTests` — `RoundPhase`/`EnemyIntents` threading through every `With*` copy.
+- `CombatRoundEngineTests` (A1) — the shared `CombatRoundEngine` directly: AddUnit guards
+  (null / duplicate id), the resolve-loop control flow (wrong-phase no-op, no-intents-left hands the
+  finish decision to the flow), and the win-check firing exactly once with the shared no-double-fire
+  guard. Closes the gap that the PvE controller core had no direct test before (play-mode-only).
 - `DisplacementResolverTests`, `AbilityExecutorPushTests` — push geometry and executor push
   (farthest-first, corpse-stays, committed path parity).
 - `AbilityOutcomeCalculatorTests` — the ghost-honesty property: predicted outcome equals actual
@@ -340,8 +353,9 @@ Roslyn workaround when the editor holds the project lock):
 - `GhostPlaybackPlanTests` (D3, extended) — the plan carries the affected-cell world positions +
   sweep origin, line vs ring.
 
-Verified manually in play mode (thin adapters): `CombatController` round orchestration (incl. the
-D2 initiator-led phase reorder), `EnemyRoundController` pacing, the D2 aim/fire input
+Verified manually in play mode (thin adapters): the `CombatController` → `CombatRoundEngine` +
+`PveCombatFlow` round orchestration (incl. the D2 initiator-led phase reorder), `EnemyRoundController`
+pacing, the D2 aim/fire input
 (`PCInputController` Enter hold-to-aim/release-to-execute, `AbilityInputHandler` volley routing), the
 D3 ability animation (`AbilityCellFlash`/`AbilityAreaSweep`, `LiveAbilityAnimationView`, the animated
 ghost) + enemy telegraph (`EnemyIntentTelegraphView` arrow/pose, the restless-icon jitter/pulse),
@@ -358,9 +372,6 @@ ghost) + enemy telegraph (`EnemyIntentTelegraphView` arrow/pose, the restless-ic
 - **Initiator-led opening round only (D2).** The opening round leads with the fight's initiator;
   rounds 2+ are player-then-enemies. **Speed/stat-based** initiative (a fast unit leaping ahead) and
   the **multi-round lead policy** (alternate/persist/re-roll) stay deferred. *(ROADMAP — Track K)*
-- **TacticalAI aims blindly**: it scores an ability equally for all six facings, so ties break
-  deterministically toward the first direction — pre-existing; the smarter-AI item covers it.
-  *(ROADMAP)*
 - **Ability animation + enemy pose are code-authored placeholders (D3).** Abilities play a
   shape-driven **cell-sweep** and armed enemies a **transform wind-up pose**; production clips/VFX
   and consuming `AbilityDefinition._animationTrigger` (a real skeletal animation per ability) are a

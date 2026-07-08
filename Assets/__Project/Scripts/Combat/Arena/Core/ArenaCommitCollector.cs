@@ -11,6 +11,7 @@ namespace Combat.Arena.Core
     public class ArenaCommitCollector
     {
         private readonly HashSet<int> _requiredPlayerIds = new HashSet<int>();
+        private readonly HashSet<int> _passedPlayerIds = new HashSet<int>();
         private readonly Dictionary<int, ArenaCommit> _commits = new Dictionary<int, ArenaCommit>();
         private int _roundNumber;
 
@@ -22,6 +23,7 @@ namespace Combat.Arena.Core
         {
             _roundNumber = roundNumber;
             _requiredPlayerIds.Clear();
+            _passedPlayerIds.Clear();
             _commits.Clear();
             foreach (var id in requiredPlayerIds)
             {
@@ -54,6 +56,38 @@ namespace Combat.Arena.Core
         {
             _requiredPlayerIds.Remove(playerId);
             _commits.Remove(playerId);
+        }
+
+        /// <summary>
+        /// The authority passes a player's round for it (disconnect grace, X2 substitution): the
+        /// seat stops owing a commit but — unlike a departure — stays alive and rides the bundle's
+        /// auto-passed list so every client can present it. An already-accepted commit is dropped.
+        /// </summary>
+        public void MarkPassed(int playerId)
+        {
+            if (!_requiredPlayerIds.Remove(playerId))
+                return;
+
+            _commits.Remove(playerId);
+            _passedPlayerIds.Add(playerId);
+        }
+
+        /// <summary>
+        /// A rejoiner returned while its round is still open: it owes a commit again (the
+        /// auto-pass is undone).
+        /// </summary>
+        public void Reinstate(int playerId)
+        {
+            if (!_passedPlayerIds.Remove(playerId))
+                return;
+
+            _requiredPlayerIds.Add(playerId);
+        }
+
+        /// <summary>Players the authority passed this round, canonical (ascending) order.</summary>
+        public IReadOnlyList<int> PassedPlayerIds()
+        {
+            return _passedPlayerIds.OrderBy(id => id).ToList();
         }
 
         /// <summary>Commits in canonical order (ascending PlayerId) — the bundle's wire order.</summary>

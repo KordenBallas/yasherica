@@ -1,3 +1,4 @@
+using Combat.Battlefield;
 using Combat.Config;
 using Combat.Core;
 
@@ -5,7 +6,8 @@ namespace Combat.Execution
 {
     /// <summary>
     /// Computes an ability's predicted outcome against the current board without applying
-    /// it — the data source for the ghost telegraph (submit ghost + hover replay).
+    /// it — the data source for the ghost telegraph (submit ghost + hover replay) and for
+    /// enemy-AI candidate scoring, so both predictions match execution by construction.
     /// </summary>
     public interface IAbilityOutcomeCalculator
     {
@@ -14,6 +16,13 @@ namespace Combat.Execution
         /// (ignored for ring shapes), from its current position.
         /// </summary>
         AbilityOutcome ComputeForFacing(ICombatState state, IUnit caster, IAbility ability, HexDirection facing);
+
+        /// <summary>
+        /// Predicted outcome of the caster firing the ability from a hypothetical origin
+        /// (e.g. a move destination the AI is evaluating). The caster is NOT relocated in
+        /// the state — callers reasoning about the caster itself must account for that.
+        /// </summary>
+        AbilityOutcome ComputeForFacing(ICombatState state, IUnit caster, IAbility ability, HexDirection facing, HexCoordinates origin);
 
         /// <summary>
         /// Predicted outcome of a committed enemy intent, over its snapshotted cells.

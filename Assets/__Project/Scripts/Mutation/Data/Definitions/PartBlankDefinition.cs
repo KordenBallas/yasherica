@@ -38,6 +38,9 @@ namespace Mutation.Data.Definitions
         [Header("Visual")]
         [SerializeField] private Sprite _icon;
 
+        [Header("Meta gating (Track R)")]
+        [SerializeField] private MetaProgression.Data.MetaGatingAuthoring _metaGating = new MetaProgression.Data.MetaGatingAuthoring();
+
         public string Id => _id;
         public string DisplayName => _displayName;
         public string Description => _description;
@@ -49,5 +52,9 @@ namespace Mutation.Data.Definitions
         public string RaceId => _raceId;
         public int SocketCount => _socketCount;
         public Sprite Icon => _icon;
+
+        /// <summary>Meta-progression gate (Track R): base vs meta-gated + deed. Unmarked = base.</summary>
+        public MetaProgression.Data.MetaGatingAuthoring MetaGating =>
+            _metaGating ?? (_metaGating = new MetaProgression.Data.MetaGatingAuthoring());
     }
 }

@@ -47,10 +47,18 @@ namespace Combat.Arena.View
         [Inject] private IAbilityDefinitionCatalog _abilityCatalog;
         [Inject] private IStatusEffectDefinitionCatalog _statusCatalog;
         [Inject] private IAbilityOutcomeCalculator _outcomeCalculator;
+        [Inject] private Player.AI.AIDecisionMakerFactory _decisionMakerFactory;
         [Inject] private HexDirectionConfig _hexDirectionConfig;
         [Inject] private ArenaDraftFlow _draftFlow;
         [Inject] private ArenaDraftHost _draftHost;
         [Inject] private ArenaTastedCatalogSender _catalogSender;
+        [Inject] private ArenaMatchContext _matchContext;
+        [Inject] private ArenaReconnectHost _reconnectHost;
+        [Inject] private ArenaReconnectClient _reconnectClient;
+        [Inject] private ArenaCommitValidator _commitValidator;
+        [Inject] private ArenaQueueCreditLedger _queueCredits;
+        [Inject] private ArenaBatchEligibility _batchEligibility;
+        [Inject] private CombatConfig _combatConfig;
         [Inject] private IGameLogger _logger;
 
         private UnitOverheadIconsView _planIconsView;
@@ -78,6 +86,8 @@ namespace Combat.Arena.View
 
         public void Dispose()
         {
+            _reconnectClient?.Disarm();
+            _reconnectHost?.Deactivate();
             _transport.MatchSetupReceived -= HandleMatchSetupReceived;
             _draftFlow.ReadyForCombat -= HandleDraftReady;
             _aiCommitSource?.Dispose();
@@ -105,6 +115,7 @@ namespace Combat.Arena.View
             var roster = players
                 .Select(p => new ArenaRosterSlot(0, p.Id, p.Id))
                 .ToList();
+            _matchContext.SetSetup(matchSeed, roster);
             _draftHost.StartDraft(
                 matchSeed, roster, players.Where(p => p is AIPlayer).Select(p => p.Id).ToList());
         }
@@ -121,7 +132,8 @@ namespace Combat.Arena.View
                 // Seat index == unit id in the MVP (one hero per player), so the AI seed context
                 // matches the unit the way PvE's per-enemy seeds do.
                 var aiSeed = LootSeed.Derive(matchSeed, $"arena-ai:{playerId}");
-                players.Add(new AIPlayer(playerId, $"Dummy {playerId}", new TacticalAI(aiSeed, _logger)));
+                players.Add(new AIPlayer(playerId, $"Dummy {playerId}",
+                    _decisionMakerFactory.Create(Player.AI.AIBehaviorProfile.Default, aiSeed)));
             }
 
             return players;
@@ -139,6 +151,7 @@ namespace Combat.Arena.View
                 $"{(_session.IsHost ? "hosting" : "joined")}");
 
             var players = SeatNetworkedPlayers(setup);
+            _matchContext.SetSetup(setup.MatchSeed, setup.Roster);
             _controller.SetHostRole(_session.IsHost);
             BeginDraft(setup.MatchSeed, players);
         }
@@ -177,12 +190,14 @@ namespace Combat.Arena.View
             var localPlayer = players.First(p => p.Type == PlayerType.Human);
             _playerRegistry.RegisterLocalPlayer(localPlayer);
             _playerDirectory.Set(players);
+            _matchContext.SetLocalPlayerId(localPlayer.Id);
 
             _draftFlow.PrepareForDraft(players);
         }
 
         private void HandleDraftReady(ArenaDraftResult result)
         {
+            _matchContext.SetLoadouts(result.LoadoutByPlayerId);
             BeginCombat(_matchSeed, _players, result);
         }
 
@@ -216,11 +231,41 @@ namespace Combat.Arena.View
             // the host folds them into round 1's departures so everyone kills them off the bundle.
             if (_session.IsHost || _config.OfflineMode)
             {
+                _matchHost.SeedSeats(
+                    matchSeed, _matchContext.Roster, _config.DisconnectGraceRounds);
                 _matchHost.SeedDeparted(draftResult.DepartedPlayerIds);
             }
 
             // Every seat is on the board — the last-standing check may go live.
             _controller.ArmWinCondition();
+
+            // X2 anti-cheat: armed on EVERY client (it only runs on whichever machine is the
+            // active host — including one promoted by migration).
+            if (_config.ValidateCommits)
+            {
+                _matchHost.EnableValidation(
+                    _commitValidator, _queueCredits, _controller, _combatConfig.MaxAbilityQueueSize);
+            }
+
+            // P4-3b: per-step simultaneous damage — a rules change, so strictly config-gated
+            // (default off keeps the shipped sequential skip-dead resolution).
+            if (_config.SimultaneousDamageBatching)
+            {
+                _controller.EnableStepBatching(_batchEligibility);
+            }
+
+            // X1: the reconnect machinery watches the live match (networked play only — the
+            // offline loopback has no session to lose).
+            if (!_config.OfflineMode)
+            {
+                if (_session.IsHost)
+                {
+                    _reconnectHost.Activate();
+                }
+
+                _reconnectClient.ArmForMatch();
+            }
+
             _controller.BeginRounds();
             _inputController.Enable();
         }

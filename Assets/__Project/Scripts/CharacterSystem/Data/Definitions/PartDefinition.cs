@@ -70,6 +70,9 @@ namespace CharacterSystem.Data.Definitions
         [RaceId]
         [SerializeField] private string _raceId;
 
+        [Header("Meta gating (Track R)")]
+        [SerializeField] private MetaProgression.Data.MetaGatingAuthoring _metaGating = new MetaProgression.Data.MetaGatingAuthoring();
+
         public string Id => _id;
         public string DisplayName => _displayName;
         public SlotDefinition Slot => _slot;
@@ -94,5 +97,9 @@ namespace CharacterSystem.Data.Definitions
         /// rather than a RaceDefinition reference, mirroring the M2 id-string decoupling; the
         /// [RaceId] attribute only drives the inspector drop-down.</summary>
         public string RaceId => _raceId;
+
+        /// <summary>Meta-progression gate (Track R): base vs meta-gated + deed. Unmarked = base.</summary>
+        public MetaProgression.Data.MetaGatingAuthoring MetaGating =>
+            _metaGating ?? (_metaGating = new MetaProgression.Data.MetaGatingAuthoring());
     }
 }

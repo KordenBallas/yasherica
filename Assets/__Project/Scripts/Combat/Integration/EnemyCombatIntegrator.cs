@@ -29,6 +29,7 @@ namespace Combat.Integration
         private readonly HexDirectionConfig _hexDirectionConfig;
         private readonly Loot.Core.IRunSeedProvider _runSeedProvider;
         private readonly View.ICombatUnitViewRegistry _unitViewRegistry;
+        private readonly Player.AI.AIDecisionMakerFactory _decisionMakerFactory;
         private readonly DiContainer _container;
         private readonly IGameLogger _logger;
 
@@ -44,6 +45,7 @@ namespace Combat.Integration
             HexDirectionConfig hexDirectionConfig,
             Loot.Core.IRunSeedProvider runSeedProvider,
             View.ICombatUnitViewRegistry unitViewRegistry,
+            Player.AI.AIDecisionMakerFactory decisionMakerFactory,
             DiContainer container,
             IGameLogger logger)
         {
@@ -53,13 +55,14 @@ namespace Combat.Integration
             _hexDirectionConfig = hexDirectionConfig;
             _runSeedProvider = runSeedProvider;
             _unitViewRegistry = unitViewRegistry;
+            _decisionMakerFactory = decisionMakerFactory;
             _container = container;
             _logger = logger;
         }
 
         /// <summary>
         /// Creates AIPlayer for enemy with appropriate decision maker based on AI personality.
-        /// Uses ConfigurableTacticalAI when AIProfileDefinition is available.
+        /// Tactical enemies get the simulation AI tuned by their AIProfileDefinition.
         /// </summary>
         public IPlayer CreateEnemyPlayer(int enemyId, EnemyData enemyData)
         {
@@ -91,22 +94,17 @@ namespace Combat.Integration
         /// Creates the appropriate AI decision maker based on personality and profile.
         /// Each decision maker is seeded from the run seed so enemy plans are reproducible
         /// (same seed → same committed intents, the intent-phase determinism guarantee).
+        /// Tactical enemies get the simulation AI, tuned by their profile (or the sharp
+        /// default when none is assigned) under the globally bound difficulty.
         /// </summary>
         private IAIDecisionMaker CreateDecisionMaker(int enemyId, AIPersonality personality, AIProfileDefinition profile)
         {
             int seed = Loot.Core.LootSeed.Derive(_runSeedProvider.RunSeed, $"{AiSeedContext}:{enemyId}");
 
-            // If we have an AI profile, use ConfigurableTacticalAI for Tactical personality
-            if (profile != null && personality == AIPersonality.Tactical)
-            {
-                return new ConfigurableTacticalAI(profile, seed, _logger);
-            }
-
-            // Fallback to standard AI implementations
             return personality switch
             {
                 AIPersonality.SimpleRandom => new SimpleRandomAI(seed, _logger),
-                AIPersonality.Tactical => new TacticalAI(seed, _logger),
+                AIPersonality.Tactical => _decisionMakerFactory.Create(AIProfileMapper.ToProfile(profile), seed),
                 _ => new SimpleRandomAI(seed, _logger)
             };
         }

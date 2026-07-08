@@ -15,3 +15,18 @@ MonoBehaviour:
   - {fileID: 11400000, guid: d1830ad55165404c96284e81fffcad5a, type: 2}
   - {fileID: 11400000, guid: 8484a611a6954e0e8eba84283067abdf, type: 2}
   _output: {fileID: 11400000, guid: 0c7cbd763469453992b9f609b38e040f, type: 2}
+  _metaGating:
+    _mark: 1
+    _deed:
+    - _namespace: 0
+      _subjectToken: part.spine.serpent
+      _key: arena_tasted
+      _op: 0
+      _value:
+        _valueType: 0
+        _boolValue: 1
+        _intValue: 0
+        _floatValue: 0
+        _stringValue: 
+    _unlockTier: 1
+    _drawWeight: 1

@@ -109,7 +109,8 @@ namespace Narrative.Runtime.Snapshots
             };
         }
 
-        private static FactValue ToValue(FactEntryDto entry)
+        /// <summary>Public so other snapshot readers (e.g. the meta vocabulary) share one decoding.</summary>
+        public static FactValue ToValue(FactEntryDto entry)
         {
             switch (entry.Type)
             {

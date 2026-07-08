@@ -17,25 +17,32 @@ namespace Combat.Data.Factories
 
         public IStatusEffect CreateStatusEffect(StatusEffectDefinition definition, int durationOverride)
         {
+            // A freshly applied effect always starts at one stack; stacking happens on re-apply.
+            return CreateStatusEffect(definition, durationOverride, stackCount: 1);
+        }
+
+        public IStatusEffect CreateStatusEffect(
+            StatusEffectDefinition definition, int durationOverride, int stackCount)
+        {
             return definition.Type switch
             {
-                StatusEffectType.DamageOverTime => CreateDamageOverTimeEffect(definition, durationOverride),
-                StatusEffectType.HealOverTime => CreateHealOverTimeEffect(definition, durationOverride),
-                StatusEffectType.Control => CreateControlEffect(definition, durationOverride),
-                StatusEffectType.Buff => CreateModifierEffect(definition, durationOverride, StatusEffectType.Buff),
-                StatusEffectType.Debuff => CreateModifierEffect(definition, durationOverride, StatusEffectType.Debuff),
-                _ => CreateBaseEffect(definition, durationOverride)
+                StatusEffectType.DamageOverTime => CreateDamageOverTimeEffect(definition, durationOverride, stackCount),
+                StatusEffectType.HealOverTime => CreateHealOverTimeEffect(definition, durationOverride, stackCount),
+                StatusEffectType.Control => CreateControlEffect(definition, durationOverride, stackCount),
+                StatusEffectType.Buff => CreateModifierEffect(definition, durationOverride, StatusEffectType.Buff, stackCount),
+                StatusEffectType.Debuff => CreateModifierEffect(definition, durationOverride, StatusEffectType.Debuff, stackCount),
+                _ => CreateBaseEffect(definition, durationOverride, stackCount)
             };
         }
 
-        private IStatusEffect CreateBaseEffect(StatusEffectDefinition def, int duration)
+        private IStatusEffect CreateBaseEffect(StatusEffectDefinition def, int duration, int stackCount)
         {
             return new DataDrivenStatusEffect(
                 def.Id,
                 def.Name,
                 def.Type,
                 duration,
-                1,
+                stackCount,
                 def.StackRule,
                 def.MaxStacks,
                 def.TriggerType,
@@ -47,13 +54,13 @@ namespace Combat.Data.Factories
                 def.ThresholdDirection);
         }
 
-        private IStatusEffect CreateDamageOverTimeEffect(StatusEffectDefinition def, int duration)
+        private IStatusEffect CreateDamageOverTimeEffect(StatusEffectDefinition def, int duration, int stackCount)
         {
             return new DataDrivenDamageOverTimeEffect(
                 def.Id,
                 def.Name,
                 duration,
-                1,
+                stackCount,
                 def.StackRule,
                 def.MaxStacks,
                 def.TriggerType,
@@ -61,13 +68,13 @@ namespace Combat.Data.Factories
                 def.DamagePerStack);
         }
 
-        private IStatusEffect CreateHealOverTimeEffect(StatusEffectDefinition def, int duration)
+        private IStatusEffect CreateHealOverTimeEffect(StatusEffectDefinition def, int duration, int stackCount)
         {
             return new DataDrivenHealOverTimeEffect(
                 def.Id,
                 def.Name,
                 duration,
-                1,
+                stackCount,
                 def.StackRule,
                 def.MaxStacks,
                 def.TriggerType,
@@ -75,7 +82,7 @@ namespace Combat.Data.Factories
                 def.HealPerStack);
         }
 
-        private IStatusEffect CreateControlEffect(StatusEffectDefinition def, int duration)
+        private IStatusEffect CreateControlEffect(StatusEffectDefinition def, int duration, int stackCount)
         {
             return new DataDrivenControlEffect(
                 def.Id,
@@ -84,12 +91,13 @@ namespace Combat.Data.Factories
                 def.ControlKind,
                 def.MovementPenalty,
                 def.TriggerType,
-                stackCount: 1,
+                stackCount: stackCount,
                 stackRule: def.StackRule,
                 maxStacks: def.MaxStacks);
         }
 
-        private IStatusEffect CreateModifierEffect(StatusEffectDefinition def, int duration, StatusEffectType type)
+        private IStatusEffect CreateModifierEffect(
+            StatusEffectDefinition def, int duration, StatusEffectType type, int stackCount)
         {
             // The magnitude is authored SIGNED (Weakened = -5 outgoing, Hardened = -5 incoming):
             // Buff/Debuff stays an informational classification, never a sign flip.
@@ -98,7 +106,7 @@ namespace Combat.Data.Factories
                 def.Name,
                 type,
                 duration,
-                1,
+                stackCount,
                 def.StackRule,
                 def.Magnitude,
                 def.StatTarget,

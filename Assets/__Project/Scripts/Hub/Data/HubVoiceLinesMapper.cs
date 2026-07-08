@@ -49,7 +49,10 @@ namespace Hub.Data
                 Clean(config.PartPickedGeneric),
                 Clean(config.NoPartAvailable),
                 Clean(config.Launch),
-                Clean(config.DeathReturn));
+                Clean(config.DeathReturn),
+                Clean(config.HeatDare),
+                Clean(config.HeatSealed),
+                Clean(config.HeatDeclined));
         }
 
         private static List<string> Clean(IReadOnlyList<string> lines)

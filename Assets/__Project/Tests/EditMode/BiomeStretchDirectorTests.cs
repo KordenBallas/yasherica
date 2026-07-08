@@ -99,5 +99,31 @@ namespace Tests.EditMode
             });
             Assert.AreEqual(LevelTheme.Desert, _themeProvider.CurrentTheme);
         }
+
+        [Test]
+        public void HeatTierLift_RaisesTheEffectiveTier_AtTheOneWriteSite()
+        {
+            // Track Y "raised creature floor": authored tier + lift, published once so every
+            // consumer (story tier-bands, monster pools, the restore replay) reads one number.
+            var director = new BiomeStretchDirector(new StubJourney(), _themeProvider, _facts,
+                _observer, logger: null, rules: new JourneyRuleModifiers(2));
+
+            director.ApplyForWindow(0);
+            Assert.AreEqual(3, _facts.GetInt(WorldFacts.RunEscalationTier)); // authored 1 + lift 2
+
+            director.ApplyForWindow(3);
+            Assert.AreEqual(4, _facts.GetInt(WorldFacts.RunEscalationTier)); // authored 2 + lift 2
+        }
+
+        [Test]
+        public void NeutralRules_AreAZeroDiff()
+        {
+            var director = new BiomeStretchDirector(new StubJourney(), _themeProvider, _facts,
+                _observer, logger: null, rules: JourneyRuleModifiers.Neutral);
+
+            director.ApplyForWindow(0);
+
+            Assert.AreEqual(1, _facts.GetInt(WorldFacts.RunEscalationTier));
+        }
     }
 }

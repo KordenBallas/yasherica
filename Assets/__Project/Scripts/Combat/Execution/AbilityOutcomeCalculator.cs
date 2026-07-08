@@ -29,12 +29,17 @@ namespace Combat.Execution
 
         public AbilityOutcome ComputeForFacing(ICombatState state, IUnit caster, IAbility ability, HexDirection facing)
         {
+            return ComputeForFacing(state, caster, ability, facing, caster.Position);
+        }
+
+        public AbilityOutcome ComputeForFacing(ICombatState state, IUnit caster, IAbility ability, HexDirection facing, HexCoordinates origin)
+        {
             var direction = ability.Shape.Type == AbilityShapeType.Line
                 ? facing
                 : (HexDirection?)null;
 
             var cells = _shapeCalculator.GetAffectedCells(
-                ability.Shape, caster.Position, direction, state.IsPositionValid);
+                ability.Shape, origin, direction, state.IsPositionValid);
 
             return Compute(state, caster, ability, cells, direction);
         }

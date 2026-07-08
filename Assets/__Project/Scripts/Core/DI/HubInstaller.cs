@@ -63,6 +63,31 @@ namespace Core.DI
         {
             LoggingInstaller.Install(Container);
             PersistenceInstaller.Install(Container);
+
+            // Heat (Track Y): the pact being staged at the cauldron. The lens is LIVE over the hub
+            // model, so cranking a rank immediately changes what the vocabulary below answers for
+            // the dig and the min-Heat gates. Bound BEFORE MetaProgressionInstaller so its binding
+            // probe finds the lens.
+            HeatInstaller.InstallSettings(Container);
+            Container.Bind<Hub.Core.HubHeatModel>().AsSingle();
+            Container.Bind<Hub.Core.HubPanelArbiter>().AsSingle();
+            Container.Bind<Heat.Core.IHeatLevels>()
+                .FromMethod(ctx => new Hub.Core.HubHeatLevels(
+                    ctx.Container.Resolve<Hub.Core.HubHeatModel>(),
+                    Heat.Core.HeatFactReader.ExtractHighWater(
+                        ctx.Container.Resolve<Core.Persistence.IMetaMemoryStore>().LoadOrEmpty()?.Facts)))
+                .AsSingle();
+            Container.Bind<MetaProgression.Core.IHeatLens>()
+                .FromMethod(ctx => new Heat.Core.MetaHeatLens(
+                    ctx.Container.Resolve<Heat.Core.HeatSettings>(),
+                    ctx.Container.Resolve<Heat.Core.IHeatLevels>()))
+                .AsSingle();
+
+            // Meta-progression spine (Track R): the Hub serves the UPCOMING run, so the frozen
+            // vocabulary is built with the stored run count + 1 (no restore context here). The dig
+            // pool and card catalog consult it; the ledger is read-only in this scene.
+            MetaProgressionInstaller.Install(Container);
+
             Container.Bind<Core.SceneFlow.ISceneLoader>().To<Core.SceneFlow.SceneLoader>().AsSingle();
 
             // Cross-device input foundation: shared actions, active-source tracking, prompt cues,
@@ -89,6 +114,16 @@ namespace Core.DI
             Container.BindInterfacesAndSelfTo<HubStagingPresenter>().AsSingle().NonLazy();
             Container.BindExecutionOrder<HubStagingPresenter>(StagingPresenterExecutionOrder);
             Container.BindInterfacesTo<CauldronVoicePresenter>().AsSingle().NonLazy();
+
+            // The Heat pact presenter (Track Y): drives the same shared panel under the arbiter;
+            // the entrypoint raises its cauldron F-spot only when a menu is authored. The card
+            // style maps the config's ember tint (no magic colour in the presenter).
+            var heatConfig = Resources.Load<Heat.Data.HeatConfig>("Configs/HeatConfig");
+            Container.Bind<Hub.Data.HeatPactCardStyle>()
+                .FromInstance(new Hub.Data.HeatPactCardStyle(
+                    heatConfig != null ? heatConfig.PactCardTint : Color.white))
+                .AsSingle();
+            Container.BindInterfacesAndSelfTo<HeatPactPresenter>().AsSingle().NonLazy();
         }
 
         private void InstallWorld()
@@ -240,6 +275,24 @@ namespace Core.DI
             Container.Bind<IStartingPartPoolSource>().To<HubStartingPoolSource>().AsSingle();
             Container.Bind<StartingPartSelector>().AsSingle();
             Container.Bind<HubMetaReader>().AsSingle();
+
+            // The pursued direction (Track R FR8): tallied from the persisted run ledger over the
+            // two content axes. The artifact catalog is loaded here because the Hub has no
+            // InventoryInstaller — same auto-load path, read-only.
+            Container.Bind<Inventory.Data.IArtifactCatalog>()
+                .FromMethod(_ => new Inventory.Data.ArtifactCatalog(
+                    UnityEngine.Resources.LoadAll<Inventory.Data.Definitions.ArtifactDefinition>(
+                        "Artifacts/Definitions")))
+                .AsSingle();
+            Container.Bind<MetaProgression.Core.DirectionProfile>()
+                .FromMethod(ctx => MetaProgression.Core.DirectionTally.Compute(
+                    ctx.Container.Resolve<Core.Persistence.IMetaMemoryStore>().LoadOrEmpty().Ledger,
+                    ctx.Container.Resolve<MetaProgression.Core.MetaProgressionSettings>(),
+                    MetaProgression.Integration.DirectionAxisProjection.RaceByPartId(
+                        ctx.Container.Resolve<CharacterSystem.Data.IPartCatalog>()),
+                    MetaProgression.Integration.DirectionAxisProjection.TraitsByArtifactId(
+                        ctx.Container.Resolve<Inventory.Data.IArtifactCatalog>())))
+                .AsSingle();
 
             var races = _raceDefinitions;
             if (races == null || races.Count == 0)

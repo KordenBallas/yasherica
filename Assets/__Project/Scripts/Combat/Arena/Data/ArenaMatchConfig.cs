@@ -1,3 +1,4 @@
+using Combat.Arena.Core;
 using UnityEngine;
 
 namespace Combat.Arena.Data
@@ -28,6 +29,31 @@ namespace Combat.Arena.Data
         [Tooltip("Match seed for offline mode; 0 rolls a fresh seed each launch (logged).")]
         [SerializeField] private int _offlineMatchSeed;
 
+        [Header("Reconnect & migration (X1)")]
+        [Tooltip("Rounds a disconnected seat is auto-passed (unit stays alive) before it departs for good.")]
+        [Range(0, 10)]
+        [SerializeField] private int _disconnectGraceRounds = 3;
+
+        [Tooltip("How long a dropped client keeps retrying the known host before electing a new one.")]
+        [SerializeField] private float _reconnectAttemptSeconds = 10f;
+
+        [Tooltip("Delay between reconnect attempts to the same address.")]
+        [SerializeField] private float _reconnectRetryIntervalSeconds = 2f;
+
+        [Tooltip("How long a client tries to reach the elected migration host before giving up.")]
+        [SerializeField] private float _migrationConnectTimeoutSeconds = 12f;
+
+        [Header("Rules & anti-cheat (X2)")]
+        [Tooltip("Resolution-order strategy: rotating initiative (default) or a per-round seeded shuffle (P4-3a).")]
+        [SerializeField] private ArenaResolutionOrderMode _resolutionOrderMode =
+            ArenaResolutionOrderMode.RotatingInitiative;
+
+        [Tooltip("Host re-validates every relayed commit against its canonical state; an invalid commit is replaced with a pass.")]
+        [SerializeField] private bool _validateCommits = true;
+
+        [Tooltip("Per-step simultaneous damage batching (P4-3b): a mutual lethal exchange kills both (possible draw). OFF keeps the shipped sequential skip-dead rule.")]
+        [SerializeField] private bool _simultaneousDamageBatching;
+
         [Header("Visuals")]
         [Tooltip("Material for the arena platform mesh; falls back to a plain lit material when empty.")]
         [SerializeField] private Material _platformMaterial;
@@ -37,6 +63,13 @@ namespace Combat.Arena.Data
         public bool OfflineMode => _offlineMode;
         public int OfflineDummyCount => _offlineDummyCount;
         public int OfflineMatchSeed => _offlineMatchSeed;
+        public int DisconnectGraceRounds => _disconnectGraceRounds;
+        public float ReconnectAttemptSeconds => _reconnectAttemptSeconds;
+        public float ReconnectRetryIntervalSeconds => _reconnectRetryIntervalSeconds;
+        public float MigrationConnectTimeoutSeconds => _migrationConnectTimeoutSeconds;
+        public ArenaResolutionOrderMode ResolutionOrderMode => _resolutionOrderMode;
+        public bool ValidateCommits => _validateCommits;
+        public bool SimultaneousDamageBatching => _simultaneousDamageBatching;
         public Material PlatformMaterial => _platformMaterial;
     }
 }

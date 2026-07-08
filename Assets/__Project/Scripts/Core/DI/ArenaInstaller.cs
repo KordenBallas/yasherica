@@ -38,6 +38,7 @@ namespace Core.DI
         private const string DraftConfigResourcePath = "Arena/ArenaDraftConfig";
         private const string DraftPanelResourcePath = "Prefabs/UI/ArenaDraftPanel";
         private const string PartInfoPopoverResourcePath = "Prefabs/UI/ArenaPartInfoPopover";
+        private const string DifficultyResourcePath = "Combat/Difficulty/NormalDifficulty";
 
         [Header("Configuration ScriptableObjects (auto-loaded from Resources when empty)")]
         [SerializeField] private CombatMovementConfig _movementConfig;
@@ -47,6 +48,9 @@ namespace Core.DI
         [SerializeField] private HeroDefinition _heroDefinition;
         [SerializeField] private ArenaMatchConfig _matchConfig;
         [SerializeField] private ArenaDraftConfig _draftConfig;
+        [Tooltip("Global AI-dummy difficulty preset; auto-loads " +
+                 "Resources/Combat/Difficulty/NormalDifficulty when unset. Missing = neutral (sharp AI)")]
+        [SerializeField] private DifficultyDefinition _difficulty;
 
         public override void InstallBindings()
         {
@@ -152,6 +156,27 @@ namespace Core.DI
 
             // Telegraph presentation support.
             Container.Bind<IAbilityOutcomeCalculator>().To<AbilityOutcomeCalculator>().AsSingle();
+
+            // Enemy AI (P2-4): the arena is free-for-all — every other unit is a target; the
+            // global difficulty preset tunes the offline dummies' decision quality. Missing
+            // asset degrades softly to neutral (sharp) instead of failing the install.
+            Container.Bind<Combat.Player.AI.IHostilityPolicy>()
+                .To<Combat.Player.AI.FreeForAllHostilityPolicy>().AsSingle();
+            if (_difficulty == null)
+            {
+                _difficulty = Resources.Load<DifficultyDefinition>(DifficultyResourcePath);
+                if (_difficulty == null)
+                {
+                    Debug.LogWarning("[ArenaInstaller] DifficultyDefinition not assigned and not found at " +
+                                     $"Resources/{DifficultyResourcePath} — AI dummies run at neutral (sharp) difficulty.");
+                }
+            }
+            var difficulty = _difficulty;
+            Container.Bind<Combat.Player.AI.IAIDifficultySource>()
+                .FromMethod(_ => new Combat.Player.AI.StaticAIDifficultySource(
+                    DifficultyDefinitionMapper.ToSettings(difficulty)))
+                .AsSingle();
+            Container.Bind<Combat.Player.AI.AIDecisionMakerFactory>().AsSingle();
             Container.Bind<Combat.Data.Providers.IAbilityDefinitionCatalog>()
                 .To<Combat.Data.Providers.AbilityDefinitionCatalog>().AsSingle();
             Container.Bind<Combat.Data.Providers.IStatusEffectDefinitionCatalog>()
@@ -167,9 +192,34 @@ namespace Core.DI
 
         private void InstallArenaBindings()
         {
+            Container.Bind<ArenaMatchContext>().AsSingle();
+            Container.Bind<ArenaSeatLedger>().AsSingle();
+            Container.Bind<IArenaStatusReconstructor>().To<CatalogStatusReconstructor>().AsSingle();
+            Container.Bind<ArenaSnapshotRestorer>().AsSingle();
+            Container.Bind<ArenaSeatStatusMirror>().AsSingle();
+
+            // X2 anti-cheat: validator + volley-credit book; the entrypoint arms the match host
+            // when the config gate is on (the canonical state source is the controller itself).
+            Container.Bind<ArenaCommitValidator>().AsSingle();
+            Container.Bind<ArenaQueueCreditLedger>().AsSingle();
+            Container.Bind<IArenaCanonicalStateSource>().To<ArenaCombatController>().FromResolve();
+
+            // P4-3b: the batch eligibility doubles as the resolver's optional policy — inert
+            // outside batch mode (it then mirrors the default skip-dead rule), armed by the
+            // entrypoint when the config gate is on.
+            Container.BindInterfacesAndSelfTo<ArenaBatchEligibility>().AsSingle();
             Container.Bind<ArenaCommitBuilder>().AsSingle();
             Container.Bind<ArenaCommitCollector>().AsSingle();
-            Container.Bind<IArenaResolutionOrder>().To<RotatingInitiativeOrder>().AsSingle();
+
+            // The resolution-order strategy is a config pick (P4-3a); rotation stays the default.
+            if (_matchConfig.ResolutionOrderMode == ArenaResolutionOrderMode.SeededShuffle)
+            {
+                Container.Bind<IArenaResolutionOrder>().To<SeededShuffleResolutionOrder>().AsSingle();
+            }
+            else
+            {
+                Container.Bind<IArenaResolutionOrder>().To<RotatingInitiativeOrder>().AsSingle();
+            }
             Container.Bind<LastHeroStandingWinCondition>().AsSingle();
             Container.Bind<ArenaSpawnPlanner>().AsSingle();
             Container.Bind<ArenaPlayerDirectory>().AsSingle();
@@ -283,6 +333,14 @@ namespace Core.DI
                 .FromComponentInHierarchy()
                 .AsSingle();
             Container.BindInterfacesTo<ArenaMatchHudPresenter>().AsSingle().NonLazy();
+
+            // X1 reconnect / desync-recovery / host-migration coordinators. Constructed in every
+            // mode (cheap, inert until armed); the entrypoint arms them on the networked path only.
+            Container.Bind<IArenaReconnectClock>().To<UnityArenaReconnectClock>().AsSingle();
+            Container.Bind<IArenaLocalEndpointSource>().To<LanEndpointSource>().AsSingle();
+            Container.Bind<ArenaReconnectHost>().AsSingle();
+            Container.Bind<ArenaReconnectClient>().AsSingle();
+            Container.BindInterfacesTo<ArenaReconnectTicker>().AsSingle();
         }
 
         private TConfig LoadIfNull<TConfig>(TConfig current, string resourcePath)

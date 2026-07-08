@@ -136,7 +136,14 @@ namespace Tests.EditMode
         {
             EnemyIntent PlanOnce()
             {
-                var seededAi = new TacticalAI(seed: 1234);
+                var seededAi = new Combat.Player.AI.SimulationTacticalAI(
+                    Combat.Player.AI.AITuning.Compose(
+                        Combat.Player.AI.AIBehaviorProfile.Default,
+                        Combat.Player.AI.AIDifficultySettings.Neutral),
+                    new Combat.Execution.AbilityOutcomeCalculator(
+                        new AbilityShapeCalculator(_config), new Combat.Execution.DamageSystem(), _config),
+                    new Combat.Player.AI.TeamHostilityPolicy(),
+                    seed: 1234);
                 var owner = new AIPlayer(100, "Enemy", seededAi);
                 var state = StateWith(
                     EnemyUnit(10, owner, new HexCoordinates(2, 0)),

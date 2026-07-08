@@ -17,7 +17,15 @@ namespace Inventory.Data.Definitions
         [Tooltip("Artifact produced when the inputs are combined")]
         [SerializeField] private ArtifactDefinition _output;
 
+        [Header("Meta gating (Track R)")]
+        [Tooltip("Gates the recipe itself (a locked recipe never enters the recipe book). The recipe's token id is its OUTPUT artifact's id ($self in the deed).")]
+        [SerializeField] private MetaProgression.Data.MetaGatingAuthoring _metaGating = new MetaProgression.Data.MetaGatingAuthoring();
+
         public IReadOnlyList<ArtifactDefinition> Inputs => _inputs;
         public ArtifactDefinition Output => _output;
+
+        /// <summary>Meta-progression gate (Track R): base vs meta-gated + deed. Unmarked = base.</summary>
+        public MetaProgression.Data.MetaGatingAuthoring MetaGating =>
+            _metaGating ?? (_metaGating = new MetaProgression.Data.MetaGatingAuthoring());
     }
 }

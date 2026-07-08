@@ -41,3 +41,18 @@ MonoBehaviour:
   _governsBodyPlan: 1
   _bodyPlanPriority: 20
   _raceId: 
+  _metaGating:
+    _mark: 1
+    _deed:
+    - _namespace: 0
+      _subjectToken: story_spine_cauldron_hint
+      _key: spine_seen
+      _op: 0
+      _value:
+        _valueType: 0
+        _boolValue: 1
+        _intValue: 0
+        _floatValue: 0
+        _stringValue: 
+    _unlockTier: 1
+    _drawWeight: 1

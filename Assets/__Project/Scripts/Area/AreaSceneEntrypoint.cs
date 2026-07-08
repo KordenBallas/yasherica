@@ -103,6 +103,8 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable, I
     private IEnvironmentDressingSpawner _dressingSpawner;
     [Inject]
     private IBackdropScatterSpawner _backdropScatterSpawner;
+    [Inject(Optional = true)]
+    private LevelGeneration.Journey.JourneyRuleModifiers _journeyRules;
 
     private IPlayer _localPlayer;
 
@@ -158,7 +160,7 @@ public class AreaSceneEntrypoint : MonoBehaviour, IInitializable, IDisposable, I
         // The stretch director owns all theme/tier-fact writes; this entrypoint observes stretch
         // crossings to swap the landmark dressing and rebuild the backdrop.
         var biomeDirector = new BiomeStretchDirector(
-            _biomeJourney, _currentThemeProvider, _factStore, observer: this, _logger);
+            _biomeJourney, _currentThemeProvider, _factStore, observer: this, _logger, _journeyRules);
 
         coordinator = new RunStreamingCoordinator(
             _windowPlanner, _archetypeCatalog, _modularFactory, _factStore, _castingFactory,

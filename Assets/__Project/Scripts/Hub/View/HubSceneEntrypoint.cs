@@ -24,6 +24,8 @@ namespace Hub.View
     {
         private const string NpcAssemblyResourcePath = "CharacterSystem/Assemblies/PlaceholderAssembly_A";
         private const string TalkPromptVerb = "Talk";
+        private const string CauldronDisplayName = "The Cauldron";
+        private const string DarePromptVerb = "Dare";
 
         // The world camera (Cinemachine isometric vcam, euler 30/45/0) maps the screen axes onto
         // the world diagonals: screen-left = (−X, +Z), screen-up/far = (+X, +Z). All placement is
@@ -32,6 +34,11 @@ namespace Hub.View
 
         /// <summary>The keeper stands just left of centre on screen.</summary>
         private const float KeeperScreenLeftDistance = 1.8f;
+
+        /// <summary>The cauldron mirrors the keeper on screen-right — the dare faces the deal.</summary>
+        private const float CauldronScreenRightDistance = 1.8f;
+
+        private static readonly Vector3 CauldronScale = new Vector3(1.1f, 0.45f, 1.1f);
 
         private const float OverheadLabelHeight = 2.2f;
         /// <summary>Portals straddle the far (screen-up) arc: in the (sin a, 0, cos a) ring
@@ -56,6 +63,8 @@ namespace Hub.View
         private readonly HubProximityPresenter _proximity;
         private readonly IPromptCueProvider _cues;
         private readonly IGameLogger _logger;
+        private readonly HeatPactPresenter _heatPact;
+        private readonly Data.HeatPactCardStyle _heatStyle;
 
         /// <summary>Every overhead label with a device-dependent prompt and its verb ("Talk", portal
         /// name), so a device switch re-renders them all at once.</summary>
@@ -69,7 +78,9 @@ namespace Hub.View
             HubStagingPresenter staging,
             HubProximityPresenter proximity,
             IPromptCueProvider cues,
-            IGameLogger logger)
+            IGameLogger logger,
+            HeatPactPresenter heatPact = null,
+            Data.HeatPactCardStyle heatStyle = null)
         {
             _platformAssembler = platformAssembler;
             _config = config;
@@ -78,6 +89,8 @@ namespace Hub.View
             _proximity = proximity;
             _cues = cues;
             _logger = logger;
+            _heatPact = heatPact;
+            _heatStyle = heatStyle;
         }
 
         public void Initialize()
@@ -88,6 +101,7 @@ namespace Hub.View
             float extent = PlanarExtent(platform, center);
 
             PlaceKeeper(platform, center);
+            PlaceCauldron(platform, center);
             PlacePortals(platform, center, extent);
 
             _cues.CuesChanged += RefreshPrompts;
@@ -129,6 +143,50 @@ namespace Hub.View
                 new HubInteractionSpot("keeper", root.transform.position.x, root.transform.position.z,
                     _config.NpcInteractRadius),
                 _staging.ShowOffer,
+                label);
+        }
+
+        /// <summary>
+        /// The Heat pact spot (Track Y): a squat ember-tinted pot mirroring the keeper on
+        /// screen-right — the dare comes from the cauldron itself, not the junk-keeper. Skipped
+        /// entirely when no pact can be offered (no menu authored / no shared panel): a hub
+        /// without Heat looks exactly as before.
+        /// </summary>
+        private void PlaceCauldron(HubPlatform platform, Vector3 center)
+        {
+            if (_heatPact == null || !_heatPact.HasMenu)
+            {
+                return;
+            }
+
+            var pot = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pot.name = "HubCauldron";
+            pot.transform.SetParent(platform.GameObject.transform);
+            var position = SnapToFreeCell(platform,
+                center - ScreenLeft * CauldronScreenRightDistance);
+            pot.transform.position = position + Vector3.up * CauldronScale.y;
+            pot.transform.localScale = CauldronScale;
+
+            // Interaction is distance-based; the primitive's collider would only trip the hero.
+            var collider = pot.GetComponent<Collider>();
+            if (collider != null)
+            {
+                UnityEngine.Object.Destroy(collider);
+            }
+
+            var renderer = pot.GetComponent<MeshRenderer>();
+            if (renderer != null && _heatStyle != null)
+            {
+                renderer.material.color = _heatStyle.PactCardTint;
+            }
+
+            // Parented to the UNscaled platform root (the portal-label precedent).
+            var label = CreateOverhead(platform.GameObject.transform,
+                position + Vector3.up * OverheadLabelHeight,
+                CauldronDisplayName, DarePromptVerb);
+            _proximity.Register(
+                new HubInteractionSpot("cauldron", position.x, position.z, _config.NpcInteractRadius),
+                _heatPact.ShowPact,
                 label);
         }
 

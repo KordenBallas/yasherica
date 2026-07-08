@@ -274,13 +274,13 @@ Validation, scheduling, queueing, cooldowns, input, and highlighting need **no c
 
 1. Add the value to `AbilityShapeType` and a factory/fields on `AbilityShapeData`.
 2. Add the computation branch in `AbilityShapeCalculator.GetAffectedCells` — this single change covers both preview and execution (R13).
-3. Decide whether the shape is directional: if yes, mirror the Line branches in `AbilityExecutor` (facing → direction), `CombatAbilityPresenter` (`SelectAbility`/`UpdateAimDirection`), and the AI facing enumeration (`SimpleRandomAI`, `TacticalAI`, `ConfigurableTacticalAI` — `GetFacingsForAbility`); if no, mirror the Ring branches.
+3. Decide whether the shape is directional: if yes, mirror the Line branches in `AbilityExecutor` (facing → direction), `CombatAbilityPresenter` (`SelectAbility`/`UpdateAimDirection`), and the AI facing enumeration (`AIFacings.For` for the simulation AI, `SimpleRandomAI.GetFacingsForAbility`); if no, mirror the Ring branches.
 4. Add shape fields to `AbilityDefinition` + `AbilityFactory.BuildShape`.
 5. Add edit-mode tests in `AbilityShapeCalculatorTests`.
 
 ### 4.3 AI
 
-AI decision makers emit the same `ScheduleAbilityAction`, with `FacingToSet` carrying the chosen facing (Line → one candidate per hex direction (6), Ring → `null`). Under the phase round the AI **decides at round start** — its decision becomes a committed, revealed `EnemyIntent` that resolves verbatim (see `combat-round-and-telegraph.md`); the scoring itself is unchanged and payload-based (damage/heal amounts), not area-simulation-based. Decision makers are seeded per enemy from the run seed (`LootSeed.Derive(runSeed, "combat-ai:{enemyId}")`), so same seed → same plans.
+AI decision makers emit the same `ScheduleAbilityAction`, with `FacingToSet` carrying the chosen facing (Line → one candidate per hex direction (6), Ring → `null`). Under the phase round the AI **decides at round start** — its decision becomes a committed, revealed `EnemyIntent` that resolves verbatim (see `combat-round-and-telegraph.md`). Since P2-4 the tactical scoring is **area-simulation-based**: candidates are evaluated through `IAbilityOutcomeCalculator` against the units actually standing in the affected cells (see `combat-enemy-ai.md`). Decision makers are seeded per enemy from the run seed (`LootSeed.Derive(runSeed, "combat-ai:{enemyId}")`), so same seed → same plans.
 
 ---
 

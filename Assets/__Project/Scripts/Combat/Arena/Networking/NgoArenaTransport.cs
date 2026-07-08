@@ -25,6 +25,11 @@ namespace Combat.Arena.Networking
         private const string DraftStartMessage = "yash.arena.draftstart";
         private const string DraftPickMessage = "yash.arena.draftpick";
         private const string DraftAppliedMessage = "yash.arena.draftapplied";
+        private const string RejoinMessage = "yash.arena.rejoin";
+        private const string ResyncMessage = "yash.arena.resync";
+        private const string ResyncAckMessage = "yash.arena.resyncack";
+        private const string AddressBookMessage = "yash.arena.addrbook";
+        private const string EndpointMessage = "yash.arena.endpoint";
         private const int InitialBufferBytes = 1024;
         private const int MaxBufferBytes = 64 * 1024;
 
@@ -44,6 +49,11 @@ namespace Combat.Arena.Networking
         public event Action<ArenaDraftPick> DraftPickRequested;
         public event Action<ArenaDraftPickApplied> DraftPickApplied;
         public event Action<int> PlayerDeparted;
+        public event Action<ArenaRejoinPackage> RejoinPackageReceived;
+        public event Action<ArenaResyncCommand> ResyncReceived;
+        public event Action<ArenaResyncAck> ResyncAckReceived;
+        public event Action<ArenaAddressBook> AddressBookReceived;
+        public event Action<ulong, ArenaEndpoint> EndpointReported;
 
         public NgoArenaTransport(
             NetworkManager networkManager,
@@ -148,6 +158,79 @@ namespace Combat.Arena.Networking
             DraftPickApplied?.Invoke(applied);
         }
 
+        // ---- X1 reconnect / resync / migration ----
+
+        public void SendRejoinPackage(ulong clientId, ArenaRejoinPackage package)
+        {
+            Send(RejoinMessage, clientId, ArenaWireCodec.ToWire(package));
+        }
+
+        public void SendResync(ulong clientId, ArenaResyncCommand command)
+        {
+            if (clientId == _networkManager.LocalClientId)
+            {
+                ResyncReceived?.Invoke(command);
+                return;
+            }
+
+            Send(ResyncMessage, clientId, ArenaWireCodec.ToWire(command));
+        }
+
+        public void SubmitResyncAck(ArenaResyncAck ack)
+        {
+            if (_session.IsHost)
+            {
+                ResyncAckReceived?.Invoke(ack);
+                return;
+            }
+
+            Send(ResyncAckMessage, NetworkManager.ServerClientId, ArenaWireCodec.ToWire(ack));
+        }
+
+        public void SubmitEndpoint(ArenaEndpoint endpoint)
+        {
+            if (_session.IsHost)
+            {
+                EndpointReported?.Invoke(_session.LocalClientId, endpoint);
+                return;
+            }
+
+            Send(EndpointMessage, NetworkManager.ServerClientId, ArenaWireCodec.ToWire(endpoint));
+        }
+
+        public void BroadcastAddressBook(ArenaAddressBook book)
+        {
+            var wire = ArenaWireCodec.ToWire(book);
+            foreach (var clientId in RemoteClientIds())
+            {
+                Send(AddressBookMessage, clientId, wire);
+            }
+
+            AddressBookReceived?.Invoke(book);
+        }
+
+        public void RemapClient(int playerId, ulong newClientId)
+        {
+            // Drop the seat's dead connection entry (if any), then bind the new one — future
+            // disconnects of the new connection must translate back to this seat.
+            ulong? staleClientId = null;
+            foreach (var pair in _playerIdByClientId)
+            {
+                if (pair.Value == playerId)
+                {
+                    staleClientId = pair.Key;
+                    break;
+                }
+            }
+
+            if (staleClientId.HasValue)
+            {
+                _playerIdByClientId.Remove(staleClientId.Value);
+            }
+
+            _playerIdByClientId[newClientId] = playerId;
+        }
+
         private void RegisterHandlers()
         {
             if (_handlersRegistered || _networkManager.CustomMessagingManager == null)
@@ -160,6 +243,11 @@ namespace Combat.Arena.Networking
             _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(DraftStartMessage, HandleDraftStartMessage);
             _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(DraftPickMessage, HandleDraftPickMessage);
             _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(DraftAppliedMessage, HandleDraftAppliedMessage);
+            _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(RejoinMessage, HandleRejoinMessage);
+            _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(ResyncMessage, HandleResyncMessage);
+            _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(ResyncAckMessage, HandleResyncAckMessage);
+            _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(AddressBookMessage, HandleAddressBookMessage);
+            _networkManager.CustomMessagingManager.RegisterNamedMessageHandler(EndpointMessage, HandleEndpointMessage);
             _handlersRegistered = true;
         }
 
@@ -175,6 +263,11 @@ namespace Combat.Arena.Networking
             _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(DraftStartMessage);
             _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(DraftPickMessage);
             _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(DraftAppliedMessage);
+            _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(RejoinMessage);
+            _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(ResyncMessage);
+            _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(ResyncAckMessage);
+            _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(AddressBookMessage);
+            _networkManager.CustomMessagingManager.UnregisterNamedMessageHandler(EndpointMessage);
             _handlersRegistered = false;
         }
 
@@ -220,6 +313,36 @@ namespace Combat.Arena.Networking
         {
             reader.ReadNetworkSerializable(out DraftPickAppliedData data);
             DraftPickApplied?.Invoke(ArenaWireCodec.FromWire(data));
+        }
+
+        private void HandleRejoinMessage(ulong senderClientId, FastBufferReader reader)
+        {
+            reader.ReadNetworkSerializable(out RejoinPackageData data);
+            RejoinPackageReceived?.Invoke(ArenaWireCodec.FromWire(data, ResolvePlayer));
+        }
+
+        private void HandleResyncMessage(ulong senderClientId, FastBufferReader reader)
+        {
+            reader.ReadNetworkSerializable(out ResyncCommandData data);
+            ResyncReceived?.Invoke(ArenaWireCodec.FromWire(data));
+        }
+
+        private void HandleResyncAckMessage(ulong senderClientId, FastBufferReader reader)
+        {
+            reader.ReadNetworkSerializable(out ResyncAckData data);
+            ResyncAckReceived?.Invoke(ArenaWireCodec.FromWire(data));
+        }
+
+        private void HandleAddressBookMessage(ulong senderClientId, FastBufferReader reader)
+        {
+            reader.ReadNetworkSerializable(out AddressBookData data);
+            AddressBookReceived?.Invoke(ArenaWireCodec.FromWire(data));
+        }
+
+        private void HandleEndpointMessage(ulong senderClientId, FastBufferReader reader)
+        {
+            reader.ReadNetworkSerializable(out EndpointData data);
+            EndpointReported?.Invoke(senderClientId, ArenaWireCodec.FromWire(data));
         }
 
         private void HandleClientDisconnected(ulong clientId)

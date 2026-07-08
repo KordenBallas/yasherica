@@ -14,5 +14,8 @@ namespace Combat.Arena.View
         void SetSpectatingVisible(bool visible);
         void SetLeaveVisible(bool visible);
         void ShowDesyncWarning();
+
+        /// <summary>Transient seat-liveness line ("Player 3 disconnected — auto-passing"); null/empty hides it.</summary>
+        void SetSeatNotice(string message);
     }
 }

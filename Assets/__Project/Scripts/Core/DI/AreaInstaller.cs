@@ -10,7 +10,6 @@ using Combat.Core.StatusEffects;
 using Combat.Data.Definitions;
 using Combat.Data.Factories;
 using Combat.Data.Providers;
-using Combat.Core;
 using Combat.Execution;
 using Combat.Integration;
 using Combat.TurnManagement;
@@ -40,6 +39,7 @@ namespace Core.DI
         private const string BiomeAppearanceResourcePath = "World/Biomes";
         private const string BiomeProgressionResourcePath = "World/Biomes/BiomeProgressionConfig";
         private const string RacesResourcePath = "World/Races";
+        private const string DifficultyResourcePath = "Combat/Difficulty/NormalDifficulty";
         /// <summary>Kit assets load recursively from here, so Demo/ (the quarantine) rides in.</summary>
         private const string DressingKitsResourcePath = "World/Dressing";
         /// <summary>Seed-context for the journey's own random stream (kept apart from the narrative-slice stream).</summary>
@@ -75,6 +75,10 @@ namespace Core.DI
 
         [Tooltip("Hero definition for the player character")]
         [SerializeField] private HeroDefinition _heroDefinition;
+
+        [Tooltip("Global enemy-difficulty preset (AI decision quality + priorities); auto-loads " +
+                 "Resources/Combat/Difficulty/NormalDifficulty when unset. Missing = neutral (sharp AI)")]
+        [SerializeField] private DifficultyDefinition _difficulty;
 
         public override void InstallBindings()
         {
@@ -152,6 +156,57 @@ namespace Core.DI
             // as HeroBodyRestorer, hence Area-bound.
             Container.BindInterfacesAndSelfTo<CharacterSystem.Integration.TastedFormsRecorder>().AsSingle();
 
+            // Heat (Track Y): the sealed run pact resolved from the start conditions, composed into
+            // the one HeatRules lens, projected onto the per-system rule records, and exposed to the
+            // vocabulary as R's IHeatLens. Bound BEFORE MetaProgressionInstaller so the vocabulary's
+            // binding probe finds the lens. Deliberately absent from the Arena installer (FR14).
+            HeatInstaller.InstallSettings(Container);
+            Container.Bind<Heat.Core.HeatPact>()
+                .FromMethod(ctx => Heat.Integration.HeatPactDtoMapper.ToPact(
+                    ctx.Container.Resolve<Heat.Core.HeatSettings>(),
+                    ctx.Container.Resolve<Core.Persistence.RunStartConditions>().HeatPact))
+                .AsSingle();
+            Container.Bind<Heat.Core.HeatRules>()
+                .FromMethod(ctx => Heat.Core.HeatRules.From(
+                    ctx.Container.Resolve<Heat.Core.HeatSettings>(),
+                    ctx.Container.Resolve<Heat.Core.HeatPact>()))
+                .AsSingle();
+            Container.Bind<Heat.Core.IHeatLevels>()
+                .FromMethod(ctx => new Heat.Core.AreaHeatLevels(
+                    ctx.Container.Resolve<Heat.Core.HeatPact>().TotalHeat,
+                    Heat.Core.HeatFactReader.ExtractHighWater(
+                        ctx.Container.Resolve<Core.Persistence.IMetaMemoryStore>().LoadOrEmpty()?.Facts)))
+                .AsSingle();
+            Container.Bind<MetaProgression.Core.IHeatLens>()
+                .FromMethod(ctx => new Heat.Core.MetaHeatLens(
+                    ctx.Container.Resolve<Heat.Core.HeatSettings>(),
+                    ctx.Container.Resolve<Heat.Core.IHeatLevels>()))
+                .AsSingle();
+            Container.Bind<Core.Persistence.ISavepointObserver>()
+                .To<Heat.Integration.HeatHighWaterRecorder>()
+                .AsSingle();
+            // The four modifier seams read these neutral-by-default records, never Heat itself.
+            Container.Bind<Combat.Core.CombatRuleModifiers>()
+                .FromMethod(ctx => Heat.Integration.HeatRulesProjection.ToCombat(
+                    ctx.Container.Resolve<Heat.Core.HeatRules>()))
+                .AsSingle();
+            Container.Bind<LevelGeneration.Journey.JourneyRuleModifiers>()
+                .FromMethod(ctx => Heat.Integration.HeatRulesProjection.ToJourney(
+                    ctx.Container.Resolve<Heat.Core.HeatRules>()))
+                .AsSingle();
+            Container.Bind<Mutation.Core.MutationRuleModifiers>()
+                .FromMethod(ctx => Heat.Integration.HeatRulesProjection.ToMutation(
+                    ctx.Container.Resolve<Heat.Core.HeatRules>()))
+                .AsSingle();
+
+            // Meta-progression spine (Track R): settings + the frozen unlocked vocabulary + the
+            // cross-run direction ledger, then the ledger's two writers (installed parts on body
+            // changes; consumed reagents at the unseal commit). The meta flush service picks the
+            // ledger up by type and persists it alongside the Meta facts.
+            MetaProgressionInstaller.Install(Container);
+            Container.BindInterfacesAndSelfTo<MetaProgression.Integration.InstalledPartsLedgerRecorder>().AsSingle();
+            Container.BindInterfacesAndSelfTo<MetaProgression.Integration.SocketedArtifactsLedgerRecorder>().AsSingle();
+
             // The Hub's starting-part install (O1): fresh runs only, applied once the rig assembles.
             // Same eager-hero-visual constraint as HeroBodyRestorer, hence Area-bound.
             Container.BindInterfacesAndSelfTo<CharacterSystem.Integration.StartingPartApplier>().AsSingle();
@@ -168,7 +223,8 @@ namespace Core.DI
                         ctx.Container.Resolve<Core.Persistence.IRunSaveStore>(),
                         ctx.Container.Resolve<Core.Persistence.IMetaMemoryFlush>(),
                         () => runner.State,
-                        ctx.Container.Resolve<Core.Logging.IGameLogger>());
+                        ctx.Container.Resolve<Core.Logging.IGameLogger>(),
+                        ctx.Container.Resolve<Core.Persistence.ISavepointObserver>());
                 })
                 .AsSingle();
             Container.BindInterfacesTo<Core.Persistence.RunLifecycleService>().AsSingle();
@@ -617,6 +673,26 @@ namespace Core.DI
             // (icon source), and the unit-visual registry presentation reads.
             Container.Bind<Combat.Execution.IAbilityOutcomeCalculator>()
                 .To<Combat.Execution.AbilityOutcomeCalculator>().AsSingle();
+
+            // Enemy AI (P2-4): PvE is team-based (the AI side vs the hero's side); the global
+            // difficulty preset modulates every enemy profile at once.
+            Container.Bind<Combat.Player.AI.IHostilityPolicy>()
+                .To<Combat.Player.AI.TeamHostilityPolicy>().AsSingle();
+            if (_difficulty == null)
+            {
+                _difficulty = Resources.Load<DifficultyDefinition>(DifficultyResourcePath);
+                if (_difficulty == null)
+                {
+                    Debug.LogWarning("[AreaInstaller] DifficultyDefinition not assigned and not found at " +
+                                     $"Resources/{DifficultyResourcePath} — enemy AI runs at neutral (sharp) difficulty.");
+                }
+            }
+            var difficulty = _difficulty;
+            Container.Bind<Combat.Player.AI.IAIDifficultySource>()
+                .FromMethod(_ => new Combat.Player.AI.StaticAIDifficultySource(
+                    DifficultyDefinitionMapper.ToSettings(difficulty)))
+                .AsSingle();
+            Container.Bind<Combat.Player.AI.AIDecisionMakerFactory>().AsSingle();
             Container.Bind<Combat.Data.Providers.IAbilityDefinitionCatalog>()
                 .To<Combat.Data.Providers.AbilityDefinitionCatalog>().AsSingle();
             Container.Bind<Combat.Data.Providers.IStatusEffectDefinitionCatalog>()

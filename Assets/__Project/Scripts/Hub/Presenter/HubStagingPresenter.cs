@@ -28,9 +28,6 @@ namespace Hub.Presenter
     /// </summary>
     public sealed class HubStagingPresenter : IInitializable, IDisposable
     {
-        /// <summary>The offer size (the canonical 1-of-3 dig, hub-junkyard.md).</summary>
-        private const int OfferSize = 3;
-
         private const string BareLaunchLabel = "—";
 
         private readonly HubStagingModel _model;
@@ -46,6 +43,11 @@ namespace Hub.Presenter
         private readonly ISceneLoader _sceneLoader;
         private readonly IGameLogger _logger;
         private readonly IMutationChoiceView _choiceView;
+        private readonly MetaProgression.Core.MetaProgressionSettings _settings;
+        private readonly MetaProgression.Core.DirectionProfile _direction;
+        private readonly HubPanelArbiter _panelArbiter;
+        private readonly HubHeatModel _heatModel;
+        private readonly Heat.Core.HeatSettings _heatSettings;
 
         private readonly List<HubHomeland> _homelands = new List<HubHomeland>();
         private readonly List<MutationChoiceViewData> _cards = new List<MutationChoiceViewData>();
@@ -65,7 +67,12 @@ namespace Hub.Presenter
             IRunSaveStore runSaveStore,
             ISceneLoader sceneLoader,
             IGameLogger logger,
-            IMutationChoiceView choiceView = null)
+            IMutationChoiceView choiceView = null,
+            MetaProgression.Core.MetaProgressionSettings settings = null,
+            MetaProgression.Core.DirectionProfile direction = null,
+            HubPanelArbiter panelArbiter = null,
+            HubHeatModel heatModel = null,
+            Heat.Core.HeatSettings heatSettings = null)
         {
             _model = model;
             _view = view;
@@ -80,6 +87,11 @@ namespace Hub.Presenter
             _sceneLoader = sceneLoader;
             _logger = logger;
             _choiceView = choiceView;
+            _settings = settings ?? MetaProgression.Core.MetaProgressionSettings.Defaults;
+            _direction = direction ?? MetaProgression.Core.DirectionProfile.Neutral;
+            _panelArbiter = panelArbiter;
+            _heatModel = heatModel;
+            _heatSettings = heatSettings;
         }
 
         /// <summary>The enterable homelands, portal-per-entry (built at initialize).</summary>
@@ -96,6 +108,11 @@ namespace Hub.Presenter
                 _choiceView.SetVisible(false);
             }
 
+            if (_heatModel != null)
+            {
+                _heatModel.PactChanged += HandlePactChanged;
+            }
+
             _view.SetChosenPartLabel(BareLaunchLabel);
         }
 
@@ -104,6 +121,11 @@ namespace Hub.Presenter
             if (_choiceView != null)
             {
                 _choiceView.OnChoiceSelected -= HandlePartPicked;
+            }
+
+            if (_heatModel != null)
+            {
+                _heatModel.PactChanged -= HandlePactChanged;
             }
         }
 
@@ -119,6 +141,7 @@ namespace Hub.Presenter
                 return;
             }
 
+            _panelArbiter?.Claim(this);
             _choiceView.ShowChoices(_cards);
             _choiceView.SetVisible(true);
         }
@@ -137,15 +160,18 @@ namespace Hub.Presenter
 
             _launched = true;
             _model.ChooseBiome(homeland);
+            var pact = _heatModel?.BuildPact() ?? Heat.Core.HeatPact.None;
             _setupStore.Save(new RunSetupSnapshot
             {
                 StartingPartId = _model.ChosenPartId,
-                StartingBiome = homeland.ToString()
+                StartingBiome = homeland.ToString(),
+                Heat = Heat.Integration.HeatPactDtoMapper.ToDtos(pact)
             });
             _runSaveStore.Delete();
             _logger.Info(LogCategory.Core,
                 $"[HubStagingPresenter] Launching: part='{_model.ChosenPartId}' " +
-                $"biome={homeland} (bare={string.IsNullOrEmpty(_model.ChosenPartId)}).");
+                $"biome={homeland} heat={pact.TotalHeat} " +
+                $"(bare={string.IsNullOrEmpty(_model.ChosenPartId)}).");
             _model.NotifyLaunching();
             _sceneLoader.Load(SceneNames.Area);
         }
@@ -183,7 +209,13 @@ namespace Hub.Presenter
         private void BuildOffer()
         {
             int upcomingRunIndex = _meta.ReadRunCount() + 1;
-            var offer = _selector.Draw(_poolSource.BuildPool(), OfferSize, upcomingRunIndex);
+            // Heat lifts the dig dials (bias strength / reserve slot) but never the ceiling — the
+            // settings constructor re-clamps, so the never-guarantee holds at any heat (FR6).
+            var effective = Heat.Core.HeatDialAdjuster.Apply(
+                _settings, _heatSettings, _heatModel?.TotalHeat ?? 0);
+            var offer = _selector.Draw(
+                _poolSource.BuildPool(), effective.DigOfferSize, upcomingRunIndex,
+                _direction, effective);
             _model.SetOffer(offer);
 
             _cards.Clear();
@@ -191,6 +223,25 @@ namespace Hub.Presenter
             {
                 _cards.Add(ToCard(candidate));
             }
+        }
+
+        /// <summary>
+        /// A pact change re-deals the dig (heat-ascension FR6): the heat-aware vocabulary re-answers
+        /// min-Heat gates and relieved floors in the pool, and the lifted dials re-bias the draw —
+        /// deterministically per (pact, seed), same seed as the original deal. The current pick is
+        /// dropped (its card may no longer be offered); the visible re-deal is the feature — danger
+        /// buys becoming, immediately legible at the cauldron.
+        /// </summary>
+        private void HandlePactChanged()
+        {
+            if (_launched)
+            {
+                return;
+            }
+
+            _model.ClearChosenPart();
+            _view.SetChosenPartLabel(BareLaunchLabel);
+            BuildOffer();
         }
 
         private MutationChoiceViewData ToCard(StartingPartCandidate candidate)
@@ -231,6 +282,12 @@ namespace Hub.Presenter
 
         private void HandlePartPicked(int index)
         {
+            // The panel is shared with the Heat pact — a selection while the pact owns it is theirs.
+            if (_panelArbiter != null && !_panelArbiter.IsOwner(this))
+            {
+                return;
+            }
+
             if (!_model.ChoosePart(index))
             {
                 _logger.Warning(LogCategory.Core,

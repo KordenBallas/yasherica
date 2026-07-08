@@ -21,13 +21,19 @@ namespace Hub.Core
         private readonly IReadOnlyList<string> _noPartAvailable;
         private readonly IReadOnlyList<string> _launch;
         private readonly IReadOnlyList<string> _deathReturn;
+        private readonly IReadOnlyList<string> _heatDare;
+        private readonly IReadOnlyList<string> _heatSealed;
+        private readonly IReadOnlyList<string> _heatDeclined;
 
         public CauldronVoiceLines(
             IReadOnlyDictionary<string, IReadOnlyList<string>> partPickedByRace,
             IReadOnlyList<string> partPickedGeneric,
             IReadOnlyList<string> noPartAvailable,
             IReadOnlyList<string> launch,
-            IReadOnlyList<string> deathReturn)
+            IReadOnlyList<string> deathReturn,
+            IReadOnlyList<string> heatDare = null,
+            IReadOnlyList<string> heatSealed = null,
+            IReadOnlyList<string> heatDeclined = null)
         {
             _partPickedByRace = partPickedByRace
                                 ?? new Dictionary<string, IReadOnlyList<string>>(0);
@@ -35,6 +41,9 @@ namespace Hub.Core
             _noPartAvailable = noPartAvailable ?? NoLines;
             _launch = launch ?? NoLines;
             _deathReturn = deathReturn ?? NoLines;
+            _heatDare = heatDare ?? NoLines;
+            _heatSealed = heatSealed ?? NoLines;
+            _heatDeclined = heatDeclined ?? NoLines;
         }
 
         /// <summary>The pool for a moment; a part pick prefers the race's pool, falling back to
@@ -58,6 +67,12 @@ namespace Hub.Core
                     return _launch;
                 case CauldronVoiceMoment.DeathReturn:
                     return _deathReturn;
+                case CauldronVoiceMoment.HeatDare:
+                    return _heatDare;
+                case CauldronVoiceMoment.HeatSealed:
+                    return _heatSealed;
+                case CauldronVoiceMoment.HeatDeclined:
+                    return _heatDeclined;
                 default:
                     return NoLines;
             }

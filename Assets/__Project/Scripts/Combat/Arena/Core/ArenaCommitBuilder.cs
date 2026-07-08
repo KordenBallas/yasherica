@@ -60,7 +60,7 @@ namespace Combat.Arena.Core
                 var abilityInstance = unit.GetAbility(schedule.AbilityId);
                 if (abilityInstance != null)
                 {
-                    var step = BuildAbilityIntent(state, unit, abilityInstance, finalFacing);
+                    var step = RebuildAbilityIntent(state, unit, abilityInstance, finalFacing);
                     return new ArenaCommit(unit.Owner.Id, unit.Id, finalFacing, new List<EnemyIntent> { step });
                 }
 
@@ -82,13 +82,18 @@ namespace Combat.Arena.Core
             var steps = new List<EnemyIntent>();
             foreach (var scheduled in unit.AbilityQueue.OrderBy(a => a.ExecutionOrder))
             {
-                steps.Add(BuildAbilityIntent(state, unit, scheduled.Ability, unit.FacingDirection));
+                steps.Add(RebuildAbilityIntent(state, unit, scheduled.Ability, unit.FacingDirection));
             }
 
             return steps;
         }
 
-        private EnemyIntent BuildAbilityIntent(
+        /// <summary>
+        /// Computes one ability step's committed snapshot from a position + facing — the ONE
+        /// cell-derivation everybody shares: lock-time building here, and the host's X2 commit
+        /// validation re-derives through the same method so the check can never drift from the rule.
+        /// </summary>
+        public EnemyIntent RebuildAbilityIntent(
             ICombatState state, IUnit unit, IAbilityInstance abilityInstance, HexDirection finalFacing)
         {
             var shape = abilityInstance.Ability.Shape;

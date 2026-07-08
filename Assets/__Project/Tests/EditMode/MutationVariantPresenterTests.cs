@@ -540,5 +540,33 @@ namespace Tests.EditMode
             Assert.AreEqual(0, card.Front.Abilities.Count);
             Assert.AreEqual(0, card.RarityTier);
         }
+
+        [Test]
+        public void StingyCauldronCut_NarrowsTheOffer_FlooredAtOne()
+        {
+            // Track Y "the cauldron skimps": the cut narrows the variant menu but can never
+            // empty it — an absurd cut still leaves one take-it-or-leave-it form.
+            _presenter.Dispose();
+            var blanks = new FakePartBlankDataSource().Add("blank.skull", "slot.head", "reptile", 2);
+            _presenter = new MutationVariantPresenter(
+                _socketing, _rack, blanks, _traits,
+                new BlankVariantBuilder(
+                    new EmergentFusionCalculator(),
+                    TraitFusionRuleSet.Empty,
+                    new FusionSettings(1, 1f, 0.25f, 0.5f)),
+                _partCatalog, new FakeArchetypeCatalog(), _character, _config, _view, _rackView,
+                new SilentLogger(),
+                rules: new MutationRuleModifiers(variantOptionCut: 99, socketCut: 0));
+            _presenter.Initialize();
+
+            _partCatalog.Add("slot.head", "part.head.fang", ("sharp", 0.7f));
+            _partCatalog.Add("slot.head", "part.head.club", ("heavy", 0.9f));
+            _partCatalog.Add("slot.head", "part.head.horn", ("stone", 0.5f));
+
+            SocketBothAndUnseal();
+
+            Assert.AreEqual(1, _view.ShowChoicesCalls);
+            Assert.AreEqual(1, _view.LastShown.Count, "floor 1: narrowed, never empty");
+        }
     }
 }

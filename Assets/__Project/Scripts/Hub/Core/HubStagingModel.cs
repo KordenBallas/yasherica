@@ -46,6 +46,14 @@ namespace Hub.Core
             return true;
         }
 
+        /// <summary>Drops the pick back to the bare launch — used when a pact change re-deals the
+        /// offer (the chosen candidate may no longer be in it). Silent: no PartChosen fires for a
+        /// clear, the presenter resets the label itself.</summary>
+        public void ClearChosenPart()
+        {
+            ChosenPart = null;
+        }
+
         public void ChooseBiome(LevelTheme biome)
         {
             ChosenBiome = biome;

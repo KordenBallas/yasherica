@@ -12,10 +12,19 @@ namespace Narrative.Facts.Core
         public static readonly FactKeyRef GrainRecovered = new FactKeyRef(FactNamespace.World, FactScope.Global, "grain_recovered", FactValueType.Bool);
 
         /// <summary>
-        /// Authored escalation tier of the run's active biome stretch. Published by the biome journey
-        /// (<c>BiomeStretchDirector</c>); a seam for D19 — nothing consumes it for difficulty/tone yet.
+        /// Effective escalation tier of the run's active biome stretch (D19): the authored stretch
+        /// tier plus any Heat lift (Track Y). Published by the biome journey
+        /// (<c>BiomeStretchDirector</c>); consumed by the window planner's story tier-bands and the
+        /// ambient/site monster pool draw (<c>RunWindowPlanner</c>).
         /// </summary>
         public static readonly FactKeyRef RunEscalationTier = new FactKeyRef(FactNamespace.World, FactScope.Global, "run_escalation_tier", FactValueType.Int);
+
+        /// <summary>
+        /// Meta-horizon hottest cleared total Heat (Track Y FR4) — the mastery record min-Heat gates
+        /// may key off. Written only by <c>HeatHighWaterRecorder</c> when a hot run survives to the
+        /// clear-window savepoint; never lowered.
+        /// </summary>
+        public static readonly FactKeyRef HeatHighWater = new FactKeyRef(FactNamespace.World, FactScope.Global, "heat_high_water", FactValueType.Int);
 
         /// <summary>
         /// Meta-horizon counter of runs started (1 on the first run; a continue is not a new run).
@@ -89,6 +98,7 @@ namespace Narrative.Facts.Core
             yield return WorldFacts.BarnRaided;
             yield return WorldFacts.GrainRecovered;
             yield return WorldFacts.RunEscalationTier;
+            yield return WorldFacts.HeatHighWater;
             yield return WorldFacts.RunCount;
             yield return WorldFacts.SpineSeen;
             yield return WorldFacts.ArenaTasted;

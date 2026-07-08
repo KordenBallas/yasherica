@@ -35,6 +35,9 @@ namespace Inventory.Data.Definitions
         [Tooltip("Coarse function family for the quest-reward economy (e.g. 'power' vs 'utility'); must match a RewardFamilyDefinition id. Empty = never rolled by a family-constrained quest reward.")]
         [SerializeField] private string _rewardFamilyId = string.Empty;
 
+        [Header("Meta gating (Track R)")]
+        [SerializeField] private MetaProgression.Data.MetaGatingAuthoring _metaGating = new MetaProgression.Data.MetaGatingAuthoring();
+
         public string Id => _id;
         public string DisplayName => _displayName;
         public string Description => _description;
@@ -47,5 +50,9 @@ namespace Inventory.Data.Definitions
         /// <summary>Reward-family id (belonging) this artifact rolls under in the quest-reward
         /// economy; the family also supplies the offer card's belonging colour (P0-3·b).</summary>
         public string RewardFamilyId => _rewardFamilyId;
+
+        /// <summary>Meta-progression gate (Track R): base vs meta-gated + deed. Unmarked = base.</summary>
+        public MetaProgression.Data.MetaGatingAuthoring MetaGating =>
+            _metaGating ?? (_metaGating = new MetaProgression.Data.MetaGatingAuthoring());
     }
 }

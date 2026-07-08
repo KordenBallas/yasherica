@@ -136,12 +136,24 @@ junkyard reforms the player, still no game-over screen.
 
 **Menu / Hub (O1):** `MainMenuPresenter` shows Continue iff `IRunSaveStore.Exists()`; Continue
 loads Area (the file is the carrier); Journey loads the **Hub** without touching the save; the
-Hub's launch writes `run-setup.json` (chosen part + biome), deletes run.json (R8's commit point),
-and loads Area. On the Area boot `RunStartConditions.Resolve` consumes the setup one-shot (a
-restore wins and deletes a stale setup); the chosen biome then rides `RunSaveSnapshot.StartingBiome`
-(**snapshot version 2**) on every savepoint, because the biome journey replays from the seed and
-persists no cursor. The chosen part needs no extra field — once installed it is part of the body
-snapshot. Arena touches nothing. See `hub-staging.md`.
+Hub's launch writes `run-setup.json` (chosen part + biome + the Track Y Heat pact), deletes
+run.json (R8's commit point), and loads Area. On the Area boot `RunStartConditions.Resolve`
+consumes the setup one-shot (a restore wins and deletes a stale setup); the chosen biome then
+rides `RunSaveSnapshot.StartingBiome` (**snapshot version 2**) on every savepoint, because the
+biome journey replays from the seed and persists no cursor. The chosen part needs no extra
+field — once installed it is part of the body snapshot. Arena touches nothing. See
+`hub-staging.md`.
+
+**Heat (Track Y):** the pact rides both carriers as **additive fields at unchanged versions**
+(`RunSetupSnapshot.Heat` at v1, `RunSaveSnapshot.Heat` at v2 — a version bump would consume every
+player's save, the `MetaMemorySnapshot` additive-field rule): a pre-Heat file deserializes to an
+empty pact = Heat 0. `RunStateService.TryCaptureAll` stamps the pact on every savepoint (the
+StartingBiome precedent); the total is never persisted — always recomputed from the authored menu
+on load, so a re-authored menu can never leave a stale total. The **hottest cleared** total
+persists as the Meta-horizon fact `world.heat_high_water`, written by `HeatHighWaterRecorder` — an
+`ISavepointObserver` `AutosaveService` notifies after the run write and **before** the meta flush,
+so the record rides that very flush and survives the death that consumes the pact. See
+`heat-ascension.md`.
 
 ### 2.4 DI wiring
 

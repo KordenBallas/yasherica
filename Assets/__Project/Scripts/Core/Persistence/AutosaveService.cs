@@ -23,15 +23,18 @@ namespace Core.Persistence
         private readonly IMetaMemoryFlush _metaFlush;
         private readonly Func<DialogueRunnerState> _dialogueState;
         private readonly IGameLogger _logger;
+        private readonly ISavepointObserver _observer;
 
         public AutosaveService(IRunStateService runState, IRunSaveStore runStore,
-            IMetaMemoryFlush metaFlush, Func<DialogueRunnerState> dialogueState, IGameLogger logger = null)
+            IMetaMemoryFlush metaFlush, Func<DialogueRunnerState> dialogueState, IGameLogger logger = null,
+            ISavepointObserver observer = null)
         {
             _runState = runState;
             _runStore = runStore;
             _metaFlush = metaFlush;
             _dialogueState = dialogueState;
             _logger = logger;
+            _observer = observer;
         }
 
         public void Initialize()
@@ -80,6 +83,9 @@ namespace Core.Persistence
             }
 
             _runStore.Save(snapshot);
+            // Observers run between the run write and the meta flush, so a meta fact they record
+            // (e.g. the Heat high-water mark) is persisted by this very flush.
+            _observer?.OnSavepointCaptured(snapshot);
             _metaFlush.Flush();
         }
     }

@@ -28,7 +28,10 @@ namespace Mutation.Data
 
         public IReadOnlyList<MutationCandidatePart> AllCandidates => _candidates;
 
-        public MutationPartCatalog(IPartCatalog partCatalog, IPartAbilityResolver abilityResolver)
+        public MutationPartCatalog(
+            IPartCatalog partCatalog,
+            IPartAbilityResolver abilityResolver,
+            MetaProgression.Core.IMetaVocabulary vocabulary = null)
         {
             if (partCatalog == null)
             {
@@ -48,6 +51,13 @@ namespace Mutation.Data
             foreach (var part in parts)
             {
                 if (part == null || string.IsNullOrEmpty(part.Id))
+                {
+                    continue;
+                }
+
+                // Meta gate (Track R, FR3): a locked part is never a mutation candidate and gets
+                // no card face — it does not exist in this run's possibility space.
+                if (vocabulary != null && !vocabulary.IsUnlocked(part.Id, part.MetaGating.ToCore()))
                 {
                     continue;
                 }

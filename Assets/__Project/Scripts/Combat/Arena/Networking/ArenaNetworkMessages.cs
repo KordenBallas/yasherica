@@ -98,17 +98,19 @@ namespace Combat.Arena.Networking
         }
     }
 
-    /// <summary>Host → all: the assembled round (commits in canonical PlayerId order + departures).</summary>
+    /// <summary>Host → all: the assembled round (commits in canonical PlayerId order + departures + auto-passes).</summary>
     public struct RoundBundleData : INetworkSerializable
     {
         public int RoundNumber;
         public int[] DepartedPlayerIds;
+        public int[] AutoPassedPlayerIds;
         public PlayerCommitData[] Commits;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
             serializer.SerializeValue(ref RoundNumber);
             SerializationHelpers.SerializeIntArray(serializer, ref DepartedPlayerIds);
+            SerializationHelpers.SerializeIntArray(serializer, ref AutoPassedPlayerIds);
             SerializationHelpers.SerializeArray(serializer, ref Commits);
         }
     }
@@ -185,6 +187,171 @@ namespace Combat.Arena.Networking
         {
             serializer.SerializeValue(ref Pick);
             SerializationHelpers.SerializeIntArray(serializer, ref DepartedPlayerIds);
+        }
+    }
+
+    // ---- X1 reconnect / resync / migration ----
+
+    /// <summary>One status effect's snapshot triple on the wire.</summary>
+    public struct StatusSnapshotData : INetworkSerializable
+    {
+        public int EffectId;
+        public int Duration;
+        public int StackCount;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref EffectId);
+            serializer.SerializeValue(ref Duration);
+            serializer.SerializeValue(ref StackCount);
+        }
+    }
+
+    /// <summary>One ability's cooldown on the wire.</summary>
+    public struct AbilityCooldownData : INetworkSerializable
+    {
+        public int AbilityId;
+        public int CurrentCooldown;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref AbilityId);
+            serializer.SerializeValue(ref CurrentCooldown);
+        }
+    }
+
+    /// <summary>One unit's sim-relevant fields on the wire.</summary>
+    public struct UnitSnapshotData : INetworkSerializable
+    {
+        public int UnitId;
+        public int OwnerPlayerId;
+        public int Q;
+        public int R;
+        public int CurrentHP;
+        public int MaxHP;
+        public int Facing;
+        public AbilityCooldownData[] Abilities;
+        public StatusSnapshotData[] Statuses;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref UnitId);
+            serializer.SerializeValue(ref OwnerPlayerId);
+            serializer.SerializeValue(ref Q);
+            serializer.SerializeValue(ref R);
+            serializer.SerializeValue(ref CurrentHP);
+            serializer.SerializeValue(ref MaxHP);
+            serializer.SerializeValue(ref Facing);
+            SerializationHelpers.SerializeArray(serializer, ref Abilities);
+            SerializationHelpers.SerializeArray(serializer, ref Statuses);
+        }
+    }
+
+    /// <summary>The authoritative round-start state on the wire.</summary>
+    public struct StateSnapshotData : INetworkSerializable
+    {
+        public int Version;
+        public int RoundNumber;
+        public ulong LastRoundHash;
+        public UnitSnapshotData[] Units;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref Version);
+            serializer.SerializeValue(ref RoundNumber);
+            serializer.SerializeValue(ref LastRoundHash);
+            SerializationHelpers.SerializeArray(serializer, ref Units);
+        }
+    }
+
+    /// <summary>One seat's drafted loadout on the wire (slot→part pairs as parallel arrays).</summary>
+    public struct LoadoutEntryData : INetworkSerializable
+    {
+        public int PlayerId;
+        public string[] SlotIds;
+        public string[] PartIds;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref PlayerId);
+            SerializationHelpers.SerializeStringArray(serializer, ref SlotIds);
+            SerializationHelpers.SerializeStringArray(serializer, ref PartIds);
+        }
+    }
+
+    /// <summary>Host → one rejoiner: the full mid-match stand-up.</summary>
+    public struct RejoinPackageData : INetworkSerializable
+    {
+        public int TargetPlayerId;
+        public MatchSetupData Setup;
+        public LoadoutEntryData[] Loadouts;
+        public StateSnapshotData Snapshot;
+        public int[] DepartedPlayerIds;
+        public bool HasBundle;
+        public RoundBundleData Bundle;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref TargetPlayerId);
+            serializer.SerializeValue(ref Setup);
+            SerializationHelpers.SerializeArray(serializer, ref Loadouts);
+            serializer.SerializeValue(ref Snapshot);
+            SerializationHelpers.SerializeIntArray(serializer, ref DepartedPlayerIds);
+            serializer.SerializeValue(ref HasBundle);
+            if (HasBundle)
+            {
+                serializer.SerializeValue(ref Bundle);
+            }
+        }
+    }
+
+    /// <summary>Host → one diverged client: adopt this snapshot (R10 heal).</summary>
+    public struct ResyncCommandData : INetworkSerializable
+    {
+        public int TargetPlayerId;
+        public StateSnapshotData Snapshot;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref TargetPlayerId);
+            serializer.SerializeValue(ref Snapshot);
+        }
+    }
+
+    /// <summary>Client → host: the state transfer landed.</summary>
+    public struct ResyncAckData : INetworkSerializable
+    {
+        public int PlayerId;
+        public int RoundNumber;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref PlayerId);
+            serializer.SerializeValue(ref RoundNumber);
+        }
+    }
+
+    /// <summary>One peer's self-reported reachable address.</summary>
+    public struct EndpointData : INetworkSerializable
+    {
+        public int PlayerId;
+        public string Address;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref PlayerId);
+            serializer.SerializeValue(ref Address);
+        }
+    }
+
+    /// <summary>Host → all: the migration address book.</summary>
+    public struct AddressBookData : INetworkSerializable
+    {
+        public EndpointData[] Endpoints;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            SerializationHelpers.SerializeArray(serializer, ref Endpoints);
         }
     }
 

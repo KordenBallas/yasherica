@@ -21,17 +21,20 @@ namespace Hub.Presenter
         private readonly CauldronVoiceLines _lines;
         private readonly IHubArrivalStore _arrival;
         private readonly HubMetaReader _meta;
+        private readonly HubHeatModel _heatModel;
 
         private int _salt;
 
         public CauldronVoicePresenter(HubStagingModel model, IHubVoiceView view,
-            CauldronVoiceLines lines, IHubArrivalStore arrival, HubMetaReader meta)
+            CauldronVoiceLines lines, IHubArrivalStore arrival, HubMetaReader meta,
+            HubHeatModel heatModel = null)
         {
             _model = model;
             _view = view;
             _lines = lines;
             _arrival = arrival;
             _meta = meta;
+            _heatModel = heatModel;
         }
 
         public void Initialize()
@@ -39,6 +42,11 @@ namespace Hub.Presenter
             _salt = _meta.ReadRunCount() + 1;
             _model.PartChosen += HandlePartChosen;
             _model.Launching += HandleLaunching;
+            if (_heatModel != null)
+            {
+                _heatModel.Opened += HandlePactOpened;
+                _heatModel.PactSealed += HandlePactSealed;
+            }
 
             if (_arrival.TryConsumeDeathReturn())
             {
@@ -54,6 +62,11 @@ namespace Hub.Presenter
         {
             _model.PartChosen -= HandlePartChosen;
             _model.Launching -= HandleLaunching;
+            if (_heatModel != null)
+            {
+                _heatModel.Opened -= HandlePactOpened;
+                _heatModel.PactSealed -= HandlePactSealed;
+            }
         }
 
         private void HandlePartChosen(StartingPartCandidate candidate)
@@ -64,6 +77,16 @@ namespace Hub.Presenter
         private void HandleLaunching()
         {
             Speak(CauldronVoiceMoment.Launch, null);
+        }
+
+        private void HandlePactOpened()
+        {
+            Speak(CauldronVoiceMoment.HeatDare, null);
+        }
+
+        private void HandlePactSealed(int totalHeat)
+        {
+            Speak(totalHeat > 0 ? CauldronVoiceMoment.HeatSealed : CauldronVoiceMoment.HeatDeclined, null);
         }
 
         private void Speak(CauldronVoiceMoment moment, string raceId)

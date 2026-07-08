@@ -45,10 +45,23 @@ namespace Hub.Data
         [Tooltip("Spoken when the player returns from a death (the junkyard reforms him).")]
         [SerializeField] private List<string> _deathReturn = new List<string>();
 
+        [Header("The Heat pact (Track Y)")]
+        [Tooltip("Spoken when the pact panel opens — the cauldron's dare, in the tempter register.")]
+        [SerializeField] private List<string> _heatDare = new List<string>();
+
+        [Tooltip("Spoken when the pact closes hot (total Heat > 0) — accepting reads as a bargain.")]
+        [SerializeField] private List<string> _heatSealed = new List<string>();
+
+        [Tooltip("Spoken when the pact closes cold (total Heat 0) — declining reads as prudishness.")]
+        [SerializeField] private List<string> _heatDeclined = new List<string>();
+
         public IReadOnlyList<RaceLinePool> PartPickedByRace => _partPickedByRace;
         public IReadOnlyList<string> PartPickedGeneric => _partPickedGeneric;
         public IReadOnlyList<string> NoPartAvailable => _noPartAvailable;
         public IReadOnlyList<string> Launch => _launch;
         public IReadOnlyList<string> DeathReturn => _deathReturn;
+        public IReadOnlyList<string> HeatDare => _heatDare;
+        public IReadOnlyList<string> HeatSealed => _heatSealed;
+        public IReadOnlyList<string> HeatDeclined => _heatDeclined;
     }
 }

@@ -7,8 +7,9 @@ namespace LevelGeneration.Journey
     /// <summary>
     /// Applies the biome journey to the run: on each window, resolves the covering stretch and — when
     /// it changed — switches the live theme provider (monster pools and loot rolls follow it), publishes
-    /// the authored escalation tier as the world fact <c>run_escalation_tier</c> (a seam for D19;
-    /// nothing consumes it yet), and notifies the appearance observer. Owns ALL theme/fact writes so
+    /// the EFFECTIVE escalation tier (the authored stretch tier plus any Heat lift, Track Y) as the
+    /// world fact <c>run_escalation_tier</c> — consumed by the window planner's story tier-bands and
+    /// monster pool draws (D19) — and notifies the appearance observer. Owns ALL theme/fact writes so
     /// there is exactly one source of truth; idempotent across repeat windows of the same stretch.
     /// Must run before the window is planned — the planner's allocators read the theme live.
     /// </summary>
@@ -19,6 +20,7 @@ namespace LevelGeneration.Journey
         private readonly IFactStore _facts;
         private readonly IBiomeStretchObserver _observer;
         private readonly IGameLogger _logger;
+        private readonly JourneyRuleModifiers _rules;
 
         private int _appliedStretchIndex = -1;
 
@@ -27,13 +29,15 @@ namespace LevelGeneration.Journey
             ICurrentThemeProvider themeProvider,
             IFactStore facts,
             IBiomeStretchObserver observer = null,
-            IGameLogger logger = null)
+            IGameLogger logger = null,
+            JourneyRuleModifiers rules = null)
         {
             _journey = journey;
             _themeProvider = themeProvider;
             _facts = facts;
             _observer = observer;
             _logger = logger;
+            _rules = rules ?? JourneyRuleModifiers.Neutral;
         }
 
         /// <summary>Ensures theme + tier fact + observers reflect the stretch covering this window.</summary>
@@ -47,10 +51,12 @@ namespace LevelGeneration.Journey
 
             _appliedStretchIndex = stretch.StretchIndex;
             _themeProvider.SetTheme(stretch.Theme);
-            _facts?.SetInt(WorldFacts.RunEscalationTier, stretch.EscalationTier);
+            int effectiveTier = stretch.EscalationTier + _rules.EscalationTierLift;
+            _facts?.SetInt(WorldFacts.RunEscalationTier, effectiveTier);
             _observer?.OnBiomeStretchChanged(stretch);
             _logger?.Info(LogCategory.LevelGeneration,
-                $"[BiomeStretchDirector] Stretch {stretch.StretchIndex}: {stretch.Theme} (tier {stretch.EscalationTier}) " +
+                $"[BiomeStretchDirector] Stretch {stretch.StretchIndex}: {stretch.Theme} (tier {effectiveTier}" +
+                $"{(_rules.EscalationTierLift > 0 ? $" = {stretch.EscalationTier} + heat {_rules.EscalationTierLift}" : string.Empty)}) " +
                 $"for windows {stretch.FirstWindow}..{stretch.EndWindowExclusive - 1}.");
         }
     }

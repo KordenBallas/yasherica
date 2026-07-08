@@ -2632,10 +2632,15 @@ MonoBehaviour:
   _movementConfig: {fileID: 11400000, guid: ffb36cd1de407a84ab5bffad826176eb, type: 2}
   _inputConfig: {fileID: 11400000, guid: 7f9c3d4e5e8f4c54ba1d8f4c7e6b9d2a, type: 2}
   _hexDirectionConfig: {fileID: 11400000, guid: 8e1f6d7f9f0a5e64ca2e9f5d8e7c0f3b, type: 2}
+  _platformShapeConfig: {fileID: 0}
+  _biomeAppearances: []
+  _biomeProgressionConfig: {fileID: 0}
+  _raceDefinitions: []
   _abilityDefinitions: []
   _enemyDefinitions:
   - {fileID: 11400000, guid: b04656b47004689479713b702921616f, type: 2}
   _heroDefinition: {fileID: 11400000, guid: fde99a6f581664846bac6ba99b215e25, type: 2}
+  _difficulty: {fileID: 11400000, guid: bb5982a307507181d10de053cc899958, type: 2}
 --- !u!4 &584990439
 Transform:
   m_ObjectHideFlags: 0
@@ -3030,18 +3035,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   platformCount: 15
-  gapBetweenPlatforms: 4
-  heightDeviation: 1.5
   seed: 123456
-  platformSizeMin: {x: 16, y: 16}
-  platformSizeMax: {x: 20, y: 20}
-  edgeVertexCount: 14
-  edgeJitter: 0.25
-  platformThickness: 1
   platformMaterial: {fileID: 2100000, guid: 760dae6e007ee1246a4958fd4cf5a643, type: 2}
   colorVariation: 0
-  noiseScale: 0.1
-  noiseOctaves: 4
   characterTransform: {fileID: 1009419568}
 --- !u!4 &749762320
 Transform:
@@ -3658,6 +3654,8 @@ MonoBehaviour:
   _config: {fileID: 11400000, guid: f18144a8aec24a719f0c494b3f4a51a3, type: 2}
   _artifactDefinitions: []
   _recipeDefinitions: []
+  _traitDefinitions: []
+  _fusionRuleDefinitions: []
   _hudView: {fileID: 0}
   _hudViewPrefab: {fileID: 105, guid: 59cfce0d8b26437f9fe7ce66b1ec2aef, type: 3}
 --- !u!4 &900100022
@@ -4035,6 +4033,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _config: {fileID: 0}
   _archetypeDefinitions: []
+  _blankDefinitions: []
   _choicePanelPrefab: {fileID: 0}
 --- !u!1 &959172903
 GameObject:
@@ -7744,7 +7743,11 @@ MonoBehaviour:
   _quests: []
   _enemies: []
   _storyTemplates: []
+  _threadDefinitions: []
   _runPacingConfig: {fileID: 0}
+  _worldContentDensityConfig: {fileID: 0}
+  _biomeMonsterPools: []
+  _siteDefinitions: []
 --- !u!4 &7711000012
 Transform:
   m_ObjectHideFlags: 0

@@ -23,6 +23,7 @@ namespace Combat.Arena
         private readonly ArenaMatchLauncher _launcher;
         private readonly IArenaTransport _transport;
         private readonly ArenaMatchConfig _config;
+        private readonly ArenaMatchContext _matchContext;
         private readonly IGameLogger _logger;
 
         private bool _hosting;
@@ -33,6 +34,7 @@ namespace Combat.Arena
             ArenaMatchLauncher launcher,
             IArenaTransport transport,
             ArenaMatchConfig config,
+            ArenaMatchContext matchContext,
             IGameLogger logger)
         {
             _view = view;
@@ -40,6 +42,7 @@ namespace Combat.Arena
             _launcher = launcher;
             _transport = transport;
             _config = config;
+            _matchContext = matchContext;
             _logger = logger;
         }
 
@@ -94,6 +97,8 @@ namespace Combat.Arena
                 return;
             }
 
+            // The dialed address is the X1 reconnect retry target.
+            _matchContext.SetHostAddress(address);
             _view.SetConnectControlsInteractable(false);
             _view.SetStatus("Connecting… the host starts the match");
         }

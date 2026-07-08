@@ -1,3 +1,5 @@
+using MetaProgression.Core;
+
 namespace Mutation.Core
 {
     /// <summary>
@@ -19,13 +21,18 @@ namespace Mutation.Core
         /// species archetype until the species-vs-race reconcile (Track J) lands.</summary>
         public string RaceId { get; }
 
+        /// <summary>Meta-progression gate (Track R); rides the pure record so draw-time consumers
+        /// (quest-reward pools) can consult the vocabulary without touching the SO. Never null.</summary>
+        public MetaGate Gate { get; }
+
         public PartBlankData(
             string definitionId,
             string displayName,
             string slotId,
             string speciesArchetypeId,
             int socketCount,
-            string raceId = "")
+            string raceId = "",
+            MetaGate gate = null)
         {
             DefinitionId = definitionId;
             DisplayName = displayName;
@@ -33,6 +40,7 @@ namespace Mutation.Core
             SpeciesArchetypeId = speciesArchetypeId;
             SocketCount = socketCount < 1 ? 1 : socketCount;
             RaceId = raceId ?? string.Empty;
+            Gate = gate ?? MetaGate.Base;
         }
     }
 }

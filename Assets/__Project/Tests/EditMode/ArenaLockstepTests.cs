@@ -91,7 +91,7 @@ namespace Tests.EditMode
                 new RotatingInitiativeOrder(),
                 new LastHeroStandingWinCondition(),
                 transport,
-                new ArenaMatchHost(new ArenaCommitCollector(), transport, logger),
+                new ArenaMatchHost(new ArenaCommitCollector(), new ArenaSeatLedger(), transport, logger),
                 null,
                 _config,
                 logger);
